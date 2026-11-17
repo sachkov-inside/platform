@@ -81,7 +81,11 @@ export function ProfileAvatarEditor({
   readonly profile: PrivateAccountProfile;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const pointerRef = useRef<{ x: number; y: number } | null>(null);
+  const pointerRef = useRef<{
+    pointerId: number;
+    x: number;
+    y: number;
+  } | null>(null);
   const imageReader = useRef<ReturnType<typeof createAvatarImageReader> | null>(
     null,
   );
@@ -143,6 +147,19 @@ export function ProfileAvatarEditor({
     },
     [image],
   );
+  const attachCrop = useCallback(
+    (element: HTMLDivElement | null) => {
+      if (element === null || image === null) return;
+      return () => {
+        const pointer = pointerRef.current;
+        pointerRef.current = null;
+        if (pointer !== null && element.hasPointerCapture(pointer.pointerId)) {
+          element.releasePointerCapture(pointer.pointerId);
+        }
+      };
+    },
+    [image],
+  );
 
   const chooseFile = (file: File | undefined) => {
     if (file === undefined || avatarMutation.isPending) return;
@@ -151,6 +168,7 @@ export function ProfileAvatarEditor({
       file.size === 0 ||
       file.size > MAX_PROFILE_AVATAR_FILE_BYTES
     ) {
+      imageReader.current?.cancel();
       avatarMutation.reset();
       setClientError("Выберите JPEG, PNG или WebP размером до 10 МБ.");
       return;
@@ -353,15 +371,26 @@ export function ProfileAvatarEditor({
             <>
               <div className="mt-6 grid place-items-center rounded-2xl bg-muted p-4 sm:p-8">
                 <div
+                  ref={attachCrop}
                   aria-label="Область кадрирования. Перетаскивайте изображение указателем."
                   className="relative aspect-square w-full max-w-72 touch-none overflow-hidden rounded-full bg-background shadow-lg outline outline-1 outline-foreground/15"
                   onPointerDown={(event: PointerEvent<HTMLDivElement>) => {
-                    pointerRef.current = { x: event.clientX, y: event.clientY };
+                    if (pointerRef.current !== null) return;
+                    pointerRef.current = {
+                      pointerId: event.pointerId,
+                      x: event.clientX,
+                      y: event.clientY,
+                    };
                     event.currentTarget.setPointerCapture(event.pointerId);
                   }}
                   onPointerMove={(event: PointerEvent<HTMLDivElement>) => {
                     const previous = pointerRef.current;
-                    if (previous === null || bounds === null) return;
+                    if (
+                      previous === null ||
+                      previous.pointerId !== event.pointerId ||
+                      bounds === null
+                    )
+                      return;
                     const rect = event.currentTarget.getBoundingClientRect();
                     const minSide = Math.min(image.width, image.height);
                     const renderedWidth =
@@ -383,10 +412,28 @@ export function ProfileAvatarEditor({
                         bounds.maxY,
                       ),
                     }));
-                    pointerRef.current = { x: event.clientX, y: event.clientY };
+                    pointerRef.current = {
+                      pointerId: event.pointerId,
+                      x: event.clientX,
+                      y: event.clientY,
+                    };
                   }}
-                  onPointerUp={() => {
+                  onPointerUp={(event) => {
+                    if (pointerRef.current?.pointerId !== event.pointerId)
+                      return;
                     pointerRef.current = null;
+                    if (event.currentTarget.hasPointerCapture(event.pointerId))
+                      event.currentTarget.releasePointerCapture(
+                        event.pointerId,
+                      );
+                  }}
+                  onPointerCancel={(event) => {
+                    if (pointerRef.current?.pointerId === event.pointerId)
+                      pointerRef.current = null;
+                  }}
+                  onLostPointerCapture={(event) => {
+                    if (pointerRef.current?.pointerId === event.pointerId)
+                      pointerRef.current = null;
                   }}
                   role="group"
                 >

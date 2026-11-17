@@ -193,15 +193,44 @@ for (const engine of ["chromium", "webkit"]) {
       if (bounds === null) throw new Error("Missing crop geometry");
       const x = bounds.x + bounds.width / 2;
       const y = bounds.y + bounds.height / 2;
+      const captured = await crop.evaluateHandle((element) => {
+        if (!(element instanceof HTMLDivElement))
+          throw new Error("Missing native crop element");
+        const receipt: { pointerId: number | null } = { pointerId: null };
+        element.addEventListener(
+          "pointerdown",
+          (event) => {
+            receipt.pointerId = event.pointerId;
+          },
+          { once: true },
+        );
+        return receipt;
+      });
+      const cropHandle = await crop.elementHandle();
       await page.mouse.move(x, y);
       await page.mouse.down();
       await page.mouse.move(x + 20, y);
+      const pointerId = await captured.evaluate((receipt) => receipt.pointerId);
+      if (pointerId === null)
+        throw new Error("Native pointer was not acquired");
+      ui(
+        await cropHandle.evaluate(
+          (element, id) => element.hasPointerCapture(id),
+          pointerId,
+        ),
+      ).toBe(true);
       await inspect(page);
       const horizontal = dialog.getByRole("slider", { name: "По горизонтали" });
       const before = await horizontal.inputValue();
       await page.locator("#hide").evaluate((button: HTMLButtonElement) => {
         button.click();
       });
+      ui(
+        await cropHandle.evaluate(
+          (element, id) => element.hasPointerCapture(id),
+          pointerId,
+        ),
+      ).toBe(false);
       await page.locator("#show").evaluate((button: HTMLButtonElement) => {
         button.click();
       });
@@ -209,6 +238,11 @@ for (const engine of ["chromium", "webkit"]) {
       await page.mouse.move(x + 40, y);
       await inspect(page);
       await ui(horizontal).toHaveValue(before);
+      await page.mouse.up();
+      await page.mouse.down();
+      await page.mouse.move(x + 60, y);
+      await inspect(page);
+      ui(await horizontal.inputValue()).not.toBe(before);
     } finally {
       await page.mouse.up();
       await page.close();

@@ -56,6 +56,9 @@ export function createAvatarImageReader({
       };
       probe.src = url;
     },
+    cancel() {
+      discardPending();
+    },
     dispose() {
       active = false;
       discardPending();
