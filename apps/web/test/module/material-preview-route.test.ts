@@ -1,12 +1,13 @@
 import type { Route } from "next";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   getMaterialPreviewRoute,
   getMaterialPreviewVideo,
 } from "@/_pages/material-authoring/api/get-material-preview-context";
 import { buildMaterialPreviewRoute } from "@/_pages/material-authoring/model/preview-route";
-import { BackendConnectionError } from "@/shared/api/backend/index.server";
+import { configureWebRuntime } from "../support/web-runtime";
+import { interceptBackendHttp } from "../support/backend-http";
 import { authoringMaterialPreviewHref } from "@/shared/routing/authoring";
 
 const productId = "95000000-0000-4000-8000-000000000001";
@@ -36,6 +37,57 @@ const order = {
   name: "Inside AI Engineering",
 };
 
+interface BackendReply {
+  readonly path: string;
+  readonly response: Response | Error;
+}
+let replies: BackendReply[];
+const backend = vi.fn<(request: Request) => Promise<Response>>();
+beforeEach(() => {
+  configureWebRuntime();
+  replies = [];
+  backend.mockReset();
+  backend.mockImplementation(() => {
+    const response = replies[backend.mock.calls.length - 1]?.response;
+    return response === undefined
+      ? Promise.reject(new Error("Unexpected backend request"))
+      : response instanceof Error
+        ? Promise.reject(response)
+        : Promise.resolve(response);
+  });
+  interceptBackendHttp(backend);
+});
+afterEach(() => {
+  expect(backend).toHaveBeenCalledTimes(replies.length);
+  replies.forEach((reply, index) => {
+    const request = backend.mock.calls[index]?.[0];
+    if (request === undefined)
+      throw new Error("Expected external backend request");
+    expect(request.method).toBe("GET");
+    expect(request.url).toBe(`https://platform-api.example.test${reply.path}`);
+    expect(request.headers.get("authorization")).toBe("Bearer access-token");
+    expect(request.body).toBeNull();
+  });
+});
+function previewRouteFromBackend(
+  input: Parameters<typeof getMaterialPreviewRoute>[0],
+  reply: Response | Error,
+) {
+  replies.push({
+    path: `/authoring/products/${productId}/order`,
+    response: reply,
+  });
+  return getMaterialPreviewRoute(input);
+}
+function previewVideoFromBackend(
+  materialId: string,
+  token: string,
+  reply: Response | Error,
+) {
+  replies.push({ path: `/authoring/materials/${materialId}`, response: reply });
+  return getMaterialPreviewVideo(materialId, token);
+}
+
 describe("Material preview route", () => {
   it("walks chapters in declared order and then materials outside chapters", () => {
     const route = buildMaterialPreviewRoute({
@@ -54,9 +106,15 @@ describe("Material preview route", () => {
     // Пустая глава остаётся видимой.
     expect(route?.sections[2]?.items).toEqual([]);
     expect(route).toMatchObject({
-      next: { href: hrefOf(glossary), publicationState: "draft" },
+      next: {
+        href: `/authoring/materials/${glossary}/preview?from=%2Fauthoring%2Fmaterials%3Fstate%3Ddraft&product=${productId}`,
+        publicationState: "draft",
+      },
       position: 3,
-      previous: { href: hrefOf(setup), title: "Подготовка окружения" },
+      previous: {
+        href: `/authoring/materials/${setup}/preview?from=%2Fauthoring%2Fmaterials%3Fstate%3Ddraft&product=${productId}`,
+        title: "Подготовка окружения",
+      },
       total: 4,
     });
     expect(
@@ -110,8 +168,8 @@ describe("Material preview route", () => {
   });
 
   it("keeps the selected product and the return address in every transition", async () => {
-    const request = successfulOrder();
-    const route = await getMaterialPreviewRoute(
+    const reply = successfulOrder();
+    const route = await previewRouteFromBackend(
       {
         accessToken: "access-token",
         productId,
@@ -122,10 +180,10 @@ describe("Material preview route", () => {
         materialId: setup,
         returnHref,
       },
-      request,
+      reply,
     );
 
-    expect(request).toHaveBeenCalledWith(productId, "access-token");
+    expect(backend).toHaveBeenCalledOnce();
     expect(route).toMatchObject({
       productName: "Inside AI Engineering",
       kind: "ready",
@@ -134,7 +192,7 @@ describe("Material preview route", () => {
       },
       otherProducts: [
         {
-          href: authoringMaterialPreviewHref(setup, returnHref, otherProductId),
+          href: `/authoring/materials/${setup}/preview?from=%2Fauthoring%2Fmaterials%3Fstate%3Ddraft&product=${otherProductId}`,
           name: "Другое руководство",
         },
       ],
@@ -142,8 +200,8 @@ describe("Material preview route", () => {
   });
 
   it("falls back to the first product when the address names a foreign one", async () => {
-    const request = successfulOrder();
-    await getMaterialPreviewRoute(
+    const reply = successfulOrder();
+    await previewRouteFromBackend(
       {
         accessToken: "access-token",
         productId: otherProductId,
@@ -151,27 +209,22 @@ describe("Material preview route", () => {
         materialId: setup,
         returnHref,
       },
-      request,
+      reply,
     );
 
-    expect(request).toHaveBeenCalledWith(productId, "access-token");
+    expect(backend).toHaveBeenCalledOnce();
   });
 
   it("reads no product for a material outside every product", async () => {
-    const request = successfulOrder();
-
     await expect(
-      getMaterialPreviewRoute(
-        {
-          accessToken: "access-token",
-          products: [],
-          materialId: setup,
-          returnHref,
-        },
-        request,
-      ),
+      getMaterialPreviewRoute({
+        accessToken: "access-token",
+        products: [],
+        materialId: setup,
+        returnHref,
+      }),
     ).resolves.toBeNull();
-    expect(request).not.toHaveBeenCalled();
+    expect(backend).not.toHaveBeenCalled();
   });
 
   it("names a failed product read instead of hiding the material", async () => {
@@ -183,20 +236,13 @@ describe("Material preview route", () => {
     };
 
     await expect(
-      getMaterialPreviewRoute(
-        input,
-        vi
-          .fn()
-          .mockRejectedValue(
-            new BackendConnectionError("unavailable", "Backend is unavailable"),
-          ),
-      ),
+      previewRouteFromBackend(input, new Error("External backend unavailable")),
     ).resolves.toEqual({ kind: "unavailable", reference: "unavailable" });
     await expect(
-      getMaterialPreviewRoute(input, response({}, 404)),
+      previewRouteFromBackend(input, response({}, 404)),
     ).resolves.toEqual({ kind: "unavailable", reference: "product-not-found" });
     await expect(
-      getMaterialPreviewRoute(
+      previewRouteFromBackend(
         { ...input, materialId: "95000000-0000-4000-8000-000000000099" },
         successfulOrder(),
       ),
@@ -208,7 +254,7 @@ describe("Material preview route", () => {
 
   it("does not hide a permission denial behind the material", async () => {
     await expect(
-      getMaterialPreviewRoute(
+      previewRouteFromBackend(
         {
           accessToken: "access-token",
           products: [{ id: productId, name: "Inside AI Engineering" }],
@@ -224,7 +270,7 @@ describe("Material preview route", () => {
 describe("Material preview video", () => {
   it("hands the player the attached video and says whether it is ready", async () => {
     await expect(
-      getMaterialPreviewVideo(setup, "access-token", current("ready")),
+      previewVideoFromBackend(setup, "access-token", current("ready")),
     ).resolves.toEqual({
       durationSeconds: 754,
       kind: "attached",
@@ -237,7 +283,7 @@ describe("Material preview video", () => {
       videoId: "95000000-0000-4000-8000-000000000030",
     });
     await expect(
-      getMaterialPreviewVideo(setup, "access-token", current("processing")),
+      previewVideoFromBackend(setup, "access-token", current("processing")),
     ).resolves.toEqual({
       durationSeconds: 754,
       kind: "attached",
@@ -253,7 +299,7 @@ describe("Material preview video", () => {
 
   it("says plainly that no video is attached", async () => {
     await expect(
-      getMaterialPreviewVideo(
+      previewVideoFromBackend(
         setup,
         "access-token",
         response({ primaryVideo: null }, 200),
@@ -263,20 +309,16 @@ describe("Material preview video", () => {
 
   it("does not invent a video state when the read fails", async () => {
     await expect(
-      getMaterialPreviewVideo(setup, "access-token", response({}, 503)),
+      previewVideoFromBackend(setup, "access-token", response({}, 503)),
     ).resolves.toEqual({ kind: "unavailable" });
     await expect(
-      getMaterialPreviewVideo(setup, "access-token", response({}, 200)),
+      previewVideoFromBackend(setup, "access-token", response({}, 200)),
     ).resolves.toEqual({ kind: "unavailable" });
     await expect(
-      getMaterialPreviewVideo(
+      previewVideoFromBackend(
         setup,
         "access-token",
-        vi
-          .fn()
-          .mockRejectedValue(
-            new BackendConnectionError("unavailable", "Backend is unavailable"),
-          ),
+        new Error("External backend unavailable"),
       ),
     ).resolves.toEqual({ kind: "unavailable" });
   });
@@ -295,14 +337,8 @@ function hrefOf(materialId: string): Route {
   return authoringMaterialPreviewHref(materialId, returnHref, productId);
 }
 
-function response(body: unknown, status: number) {
-  return vi
-    .fn()
-    .mockResolvedValue(
-      status === 200
-        ? { body, ok: true, response: Response.json({}) }
-        : { ok: false, problem: {}, response: Response.json({}, { status }) },
-    );
+function response(body: unknown, status: number): Response {
+  return Response.json(body, { status });
 }
 
 function successfulOrder() {
