@@ -1,4 +1,6 @@
 // @ts-check
+import { overviewScenario } from "../../../../scenarios/overview.mjs";
+import { peopleScenario } from "../../../../scenarios/people.mjs";
 
 /**
  * Обзор админки в навигационном наборе (#1719): изолированный HTTP-стенд в форме контракта Nest
@@ -17,20 +19,20 @@
 export const overviewFixture = Object.freeze({
   product: {
     id: "79000000-0000-4000-8000-000000000301",
-    name: "AI Engineering: агенты в работе",
+    name: peopleScenario.products[0].name,
   },
   secondProduct: {
     id: "79000000-0000-4000-8000-000000000302",
-    name: "Архитектура приложения",
+    name: peopleScenario.products[1].name,
   },
   person: {
     accountId: "d1210000-0000-4000-8000-000000000001",
-    name: "Анна Петрова",
-    username: "anna_petrova",
+    name: peopleScenario.anna.displayName,
+    username: peopleScenario.anna.username,
   },
 });
 
-const lastDay = Date.UTC(2026, 9, 24);
+const lastDay = Date.parse(overviewScenario.reportingDay);
 const dayMs = 86_400_000;
 
 /** @param {number} ms */
@@ -49,7 +51,7 @@ function period(days) {
   const previousFirst = currentFirst - days * dayMs;
   return {
     days,
-    timeZone: "Europe/Moscow",
+    timeZone: overviewScenario.timeZone,
     current: {
       from: moscowStart(currentFirst),
       to: moscowStart(lastDay + dayMs),
@@ -95,7 +97,7 @@ function events() {
       occurredAt: "2026-10-24T09:00:00.000Z",
       person,
       purchaseRef: "79000000-0000-4000-8000-000000000b01",
-      amountKopecks: 1_249_000,
+      amountKopecks: overviewScenario.purchaseAmountKopecks,
       product,
     },
     {
@@ -111,8 +113,7 @@ function events() {
       person: {
         ...person,
         accountId: "d1210000-0000-4000-8000-000000000002",
-        name: null,
-        username: "dmitry_k",
+        ...overviewScenario.anonymousSubmitter,
       },
       submissionId: "79000000-0000-4000-8000-000000000c01",
       commented: false,
@@ -136,8 +137,18 @@ function ownerOverview(days) {
       state: "ready",
       revenue: {
         state: "ready",
-        current: series(days, 3, 1_249_000, "current"),
-        previous: series(days, 5, 1_249_000, "previous"),
+        current: series(
+          days,
+          3,
+          overviewScenario.purchaseAmountKopecks,
+          "current",
+        ),
+        previous: series(
+          days,
+          5,
+          overviewScenario.purchaseAmountKopecks,
+          "previous",
+        ),
       },
       sales: metric(days, 3, 1, 5),
       newAccess: {
@@ -181,9 +192,9 @@ function ownerOverview(days) {
         {
           productId: overviewFixture.product.id,
           name: overviewFixture.product.name,
-          holders: 148,
-          started: 121,
-          averageProgress: 0.46,
+          holders: overviewScenario.agentsLearning.holders,
+          started: overviewScenario.agentsLearning.started,
+          averageProgress: overviewScenario.agentsLearning.averageProgress,
         },
         {
           productId: overviewFixture.secondProduct.id,
@@ -232,21 +243,31 @@ function productOverview(days) {
     period: period(days),
     holders: {
       state: "ready",
-      active: 148,
-      byOrigin: { purchase: 121, course_activation: 19, manual: 6, other: 2 },
+      active: overviewScenario.agentsLearning.holders,
+      byOrigin: { ...overviewScenario.agentsHoldersByOrigin },
     },
     revenue: {
       state: "ready",
-      current: series(days, 3, 1_249_000, "current"),
-      previous: series(days, 5, 1_249_000, "previous"),
+      current: series(
+        days,
+        3,
+        overviewScenario.purchaseAmountKopecks,
+        "current",
+      ),
+      previous: series(
+        days,
+        5,
+        overviewScenario.purchaseAmountKopecks,
+        "previous",
+      ),
     },
     sales: metric(days, 3, 1, 5),
     waitlist: { state: "ready", intake: null },
     learning: {
       state: "ready",
-      holders: 148,
-      started: 121,
-      averageProgress: 0.46,
+      holders: overviewScenario.agentsLearning.holders,
+      started: overviewScenario.agentsLearning.started,
+      averageProgress: overviewScenario.agentsLearning.averageProgress,
     },
     events: {
       state: "ready",
