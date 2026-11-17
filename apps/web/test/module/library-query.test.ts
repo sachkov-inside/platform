@@ -1,6 +1,9 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { QueryClient } from "@tanstack/react-query";
+import { realBffSession } from "../support/real-bff-session";
+import { routeBrowserMutations } from "../support/mutation-operation-route";
+import { useProductionRuntimeImage } from "../support/web-runtime";
 
 import { GET } from "../../app/api/library/materials/route";
 import { GET as GET_HOME_MATERIALS } from "../../app/api/home/materials/route";
@@ -24,6 +27,12 @@ const readyCatalog = {
   kind: "ready",
   items: [
     {
+      materialId: "72000000-0000-4000-8000-000000000020",
+      publishedAt: "2026-08-25T05:00:00.000Z",
+      cover: null,
+      difficulty: null,
+      outcomes: [],
+      formatSlug: "guide",
       access: "free",
       availability: "available",
       format: "Гайд",
@@ -47,22 +56,123 @@ const defaultQuery = {
   topicSlug: null,
 } as const;
 
+const catalogItem = {
+  materialId: "72000000-0000-4000-8000-000000000020",
+  contentVersion: 3,
+  slug: "inside-platform-overview",
+  title: "Как устроен Inside Platform",
+  summary: "Один реальный published Material.",
+  access: "free",
+  availability: "available",
+  difficulty: null,
+  outcomes: [],
+  cover: null,
+  publishedAt: "2026-08-25T05:00:00.000Z",
+  primaryVideoId: null,
+  topic: {
+    id: "72000000-0000-4000-8000-000000000002",
+    name: "Platform",
+    slug: "platform",
+  },
+  format: {
+    id: "72000000-0000-4000-8000-000000000003",
+    name: "Гайд",
+    slug: "guide",
+  },
+  tags: [{ id: "72000000-0000-4000-8000-000000000004", name: "Architecture" }],
+  productMemberships: [],
+} as const;
+const backendCatalog = {
+  facets: { formats: [], products: [], topics: [] },
+  items: [catalogItem],
+  nextCursor: null,
+  totalCount: 1,
+} as const;
+let scope: Awaited<ReturnType<typeof realBffSession>>;
+let cleanupImage: () => void;
+let backendRequests: Request[];
+let unexpectedRequests: string[];
+let clients: QueryClient[];
+
+function queryClient() {
+  const client = new QueryClient();
+  clients.push(client);
+  return client;
+}
+
+function connectCatalog(respond: (request: Request) => Promise<Response>) {
+  return routeBrowserMutations(
+    {
+      "/api/library/materials": { GET },
+      "/api/home/materials": { GET: GET_HOME_MATERIALS },
+      "/api/library/topics/platform/materials": {
+        GET: (request) =>
+          GET_TOPIC_MATERIALS(request, {
+            params: Promise.resolve({ topicSlug: "platform" }),
+          }),
+      },
+    },
+    "https://inside.example.test",
+    {
+      run: (handler) => scope(handler),
+      externalFetch: (request) => {
+        backendRequests.push(request.clone());
+        const url = new URL(request.url);
+        if (
+          request.method !== "GET" ||
+          url.origin !== "https://platform-api.example.test" ||
+          url.pathname !== "/library/materials"
+        ) {
+          unexpectedRequests.push(`${request.method} ${request.url}`);
+          return Promise.reject(
+            new Error("Unexpected external catalog request"),
+          );
+        }
+        return respond(request);
+      },
+    },
+  );
+}
+
+function browserCalls(fetch: ReturnType<typeof connectCatalog>["fetch"]) {
+  return fetch.mock.calls.filter(
+    ([input]) => typeof input === "string" && input.startsWith("/api/"),
+  );
+}
+
 describe("Library TanStack Query interface", () => {
+  beforeEach(async () => {
+    cleanupImage = useProductionRuntimeImage();
+    scope = await realBffSession(null);
+    backendRequests = [];
+    unexpectedRequests = [];
+    clients = [];
+  });
   afterEach(() => {
+    for (const client of clients) client.clear();
+    cleanupImage();
+    expect(unexpectedRequests).toEqual([]);
+    for (const request of backendRequests) {
+      expect(request.method).toBe("GET");
+      expect(new URL(request.url).origin).toBe(
+        "https://platform-api.example.test",
+      );
+      expect(new URL(request.url).pathname).toBe("/library/materials");
+      expect(request.headers.get("authorization")).toBeNull();
+    }
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
   });
 
   it("keeps home feed pages out of the full catalog cache", async () => {
-    const fetchMock = vi
-      .fn<typeof fetch>()
-      .mockResolvedValue(Response.json(readyCatalog));
-    vi.stubGlobal("fetch", fetchMock);
-    const client = new QueryClient();
+    const { fetch: fetchMock } = connectCatalog(
+      vi.fn().mockResolvedValue(Response.json(backendCatalog)),
+    );
+    const client = queryClient();
     const feed = homeFeedQueryOptions(defaultQuery);
     expect(feed.queryKey).not.toEqual(libraryCatalogQueryKey(defaultQuery));
     await client.infiniteQuery(feed);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/home/materials");
+    expect(browserCalls(fetchMock)[0]?.[0]).toBe("/api/home/materials");
     expect(
       client.getQueryData(libraryCatalogQueryKey(defaultQuery)),
     ).toBeUndefined();
@@ -70,20 +180,21 @@ describe("Library TanStack Query interface", () => {
 
   it("searches the full catalog from home and preserves locked paid results", async () => {
     const paid = {
-      ...readyCatalog.items[0],
+      ...catalogItem,
       access: "closed",
       availability: "locked",
       slug: "developer-pipeline",
       title: "Developer Pipeline",
     };
-    const fetchMock = vi
-      .fn<typeof fetch>()
-      .mockResolvedValue(Response.json({ ...readyCatalog, items: [paid] }));
-    vi.stubGlobal("fetch", fetchMock);
-    const client = new QueryClient();
+    const { fetch: fetchMock } = connectCatalog(
+      vi
+        .fn()
+        .mockResolvedValue(Response.json({ ...backendCatalog, items: [paid] })),
+    );
+    const client = queryClient();
     const query = { ...defaultQuery, q: "Developer Pipeline" };
     const page = await client.infiniteQuery(homeFeedQueryOptions(query));
-    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+    expect(browserCalls(fetchMock)[0]?.[0]).toBe(
       "/api/library/materials?q=Developer+Pipeline&sort=newest",
     );
     expect(page.pages[0]).toMatchObject({
@@ -206,54 +317,56 @@ describe("Library TanStack Query interface", () => {
   });
 
   it("stores cursor continuations as pages of one infinite query", async () => {
-    const fetchMock = vi
-      .fn<typeof fetch>()
-      .mockResolvedValueOnce(
-        Response.json({ ...readyCatalog, nextCursor: "next_cursor" }),
-      )
-      .mockResolvedValueOnce(Response.json(readyCatalog));
-    vi.stubGlobal("fetch", fetchMock);
-    const queryClient = new QueryClient();
+    const { fetch: fetchMock } = connectCatalog(
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          Response.json({ ...backendCatalog, nextCursor: "next_cursor" }),
+        )
+        .mockResolvedValueOnce(Response.json(backendCatalog)),
+    );
+    const catalogClient = queryClient();
 
-    const data = await queryClient.infiniteQuery({
+    const data = await catalogClient.infiniteQuery({
       ...libraryCatalogQueryOptions(defaultQuery),
       pages: 2,
     });
 
     expect(data.pageParams).toEqual([undefined, "next_cursor"]);
     expect(data.pages).toHaveLength(2);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/library/materials");
-    expect(fetchMock.mock.calls[0]?.[1]?.signal).toBeInstanceOf(AbortSignal);
-    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+    expect(browserCalls(fetchMock)[0]?.[0]).toBe("/api/library/materials");
+    expect(browserCalls(fetchMock)[0]?.[1]?.signal).toBeInstanceOf(AbortSignal);
+    expect(browserCalls(fetchMock)[1]?.[0]).toBe(
       "/api/library/materials?after=next_cursor",
     );
-    expect(fetchMock.mock.calls[1]?.[1]?.signal).toBeInstanceOf(AbortSignal);
+    expect(browserCalls(fetchMock)[1]?.[1]?.signal).toBeInstanceOf(AbortSignal);
     expect(
-      queryClient.getQueryData(libraryCatalogQueryKey(defaultQuery)),
+      catalogClient.getQueryData(libraryCatalogQueryKey(defaultQuery)),
     ).toEqual(data);
   });
 
   it("keeps the Topic scope while loading results beyond the first page", async () => {
-    const fetchMock = vi
-      .fn<typeof fetch>()
-      .mockResolvedValueOnce(
-        Response.json({ ...readyCatalog, nextCursor: "topic_next_cursor" }),
-      )
-      .mockResolvedValueOnce(
-        Response.json({
-          ...readyCatalog,
-          items: [
-            {
-              ...readyCatalog.items[0],
-              slug: "topic-second-page",
-              title: "Материал со второй страницы темы",
-            },
-          ],
-        }),
-      );
-    vi.stubGlobal("fetch", fetchMock);
+    const { fetch: fetchMock } = connectCatalog(
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          Response.json({ ...backendCatalog, nextCursor: "topic_next_cursor" }),
+        )
+        .mockResolvedValueOnce(
+          Response.json({
+            ...backendCatalog,
+            items: [
+              {
+                ...catalogItem,
+                slug: "topic-second-page",
+                title: "Материал со второй страницы темы",
+              },
+            ],
+          }),
+        ),
+    );
     const topicQuery = defaultQuery;
-    const data = await new QueryClient().infiniteQuery({
+    const data = await queryClient().infiniteQuery({
       ...topicLibraryCatalogQueryOptions("platform", topicQuery),
       pages: 2,
     });
@@ -263,10 +376,10 @@ describe("Library TanStack Query interface", () => {
       kind: "ready",
       items: [expect.objectContaining({ slug: "topic-second-page" })],
     });
-    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+    expect(browserCalls(fetchMock)[0]?.[0]).toBe(
       "/api/library/topics/platform/materials",
     );
-    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+    expect(browserCalls(fetchMock)[1]?.[0]).toBe(
       "/api/library/topics/platform/materials?after=topic_next_cursor",
     );
   });
@@ -304,15 +417,14 @@ describe("Library TanStack Query interface", () => {
 
   it("loads and validates the browser presentation contract", async () => {
     const signal = AbortSignal.timeout(1_000);
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(Response.json(readyCatalog)),
+    const { fetch: fetchMock } = connectCatalog(
+      vi.fn().mockResolvedValue(Response.json(backendCatalog)),
     );
 
     await expect(
       requestLibraryCatalogPage(defaultQuery, "next_cursor", signal),
     ).resolves.toEqual(readyCatalog);
-    expect(fetch).toHaveBeenCalledWith(
+    expect(fetchMock).toHaveBeenCalledWith(
       "/api/library/materials?after=next_cursor",
       {
         headers: { Accept: "application/json" },
@@ -321,16 +433,37 @@ describe("Library TanStack Query interface", () => {
     );
   });
 
-  it("rejects a browser response outside the presentation contract", async () => {
+  it("rejects a browser response outside the presentation contract under named wire corruption", async () => {
+    const bridge = connectCatalog(
+      vi.fn().mockResolvedValue(Response.json(backendCatalog)),
+    );
+    const receipts: { status: number; bodyUsed: boolean }[] = [];
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          Response.json({ ...readyCatalog, items: [{ title: "Incomplete" }] }),
-        ),
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = new Request(
+          input instanceof Request
+            ? input
+            : new URL(input, "https://inside.example.test"),
+          init,
+        );
+        // deterministic-test-allow unit-io: #2292, audit2 worker 7e1496b5; the in-process bridge invokes the real handler before this exact named wire fault.
+        const response = await bridge.fetch(input, init);
+        if (new URL(request.url).origin !== "https://inside.example.test")
+          return response;
+        expect(request.method).toBe("GET");
+        expect(request.url).toBe(
+          "https://inside.example.test/api/library/materials",
+        );
+        expect(response.status).toBe(200);
+        expect(await response.json()).toEqual(readyCatalog);
+        receipts.push({ status: response.status, bodyUsed: response.bodyUsed });
+        return Response.json(
+          { ...readyCatalog, items: [{ title: "Incomplete" }] },
+          { status: response.status, headers: response.headers },
+        );
+      },
     );
-
     await expect(
       requestLibraryCatalogPage(
         defaultQuery,
@@ -342,6 +475,27 @@ describe("Library TanStack Query interface", () => {
       message:
         "Library query response does not match the presentation contract",
     });
+    expect(receipts).toEqual([{ status: 200, bodyUsed: true }]);
+    expect(backendRequests).toHaveLength(1);
+  });
+
+  it("keeps the real handler rejection of malformed backend data separate from wire corruption", async () => {
+    connectCatalog(
+      vi.fn().mockResolvedValue(
+        Response.json({
+          ...backendCatalog,
+          items: [{ title: "Incomplete" }],
+        }),
+      ),
+    );
+    await expect(
+      scope(() =>
+        GET(new Request("https://inside.example.test/api/library/materials")),
+      ),
+    ).rejects.toMatchObject({
+      code: "invalid-response",
+    });
+    expect(backendRequests).toHaveLength(1);
   });
 
   it("keeps the NestJS address behind the same-origin BFF route", async () => {
