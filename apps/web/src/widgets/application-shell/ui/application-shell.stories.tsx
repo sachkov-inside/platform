@@ -8,7 +8,11 @@ import {
   publicNavigationItems,
 } from "@/widgets/application-shell";
 
-function RetainedShell() {
+function RetainedShell({
+  withAlternative = false,
+}: {
+  readonly withAlternative?: boolean;
+}) {
   const [visible, setVisible] = useState(true);
   const [mounted, setMounted] = useState(true);
   return (
@@ -48,6 +52,17 @@ function RetainedShell() {
           </ApplicationShell>
         ) : null}
       </Activity>
+      {withAlternative ? (
+        <Activity mode={visible ? "hidden" : "visible"}>
+          <ApplicationShell
+            currentPath="/bookmarks"
+            mobileNavigationItems={publicMobileNavigationItems}
+            navigationItems={publicNavigationItems}
+          >
+            <div className="min-h-[3000px]">Содержимое другой оболочки</div>
+          </ApplicationShell>
+        </Activity>
+      ) : null}
     </div>
   );
 }
@@ -155,43 +170,57 @@ export const RetainedHeader: Story = {
   },
 };
 
-export const IndependentHeaders: Story = {
-  render: () => (
-    <>
-      <RetainedShell />
-      <ApplicationShell
-        currentPath="/bookmarks"
-        mobileNavigationItems={publicMobileNavigationItems}
-        navigationItems={publicNavigationItems}
-      >
-        <div className="min-h-[3000px]">Содержимое второй оболочки</div>
-      </ApplicationShell>
-    </>
-  ),
+export const RetainedShellOwnership: Story = {
+  render: () => <RetainedShell withAlternative />,
   play: async ({ canvasElement }) => {
-    const headers = [
-      ...canvasElement.querySelectorAll<HTMLElement>("[data-mobile-header]"),
-    ];
-    const first = headers[0];
-    const second = headers[1];
-    if (first === undefined || second === undefined)
-      throw new Error("Missing two public headers");
-    const offset = (header: HTMLElement) =>
-      Number.parseFloat(
-        getComputedStyle(header).translate.split(" ")[1] ?? "0",
-      );
+    const canvas = within(canvasElement);
+    const first = canvasElement.querySelector<HTMLElement>(
+      "[data-mobile-header]",
+    );
+    if (first === null) throw new Error("Missing initial public header");
     try {
       await scrollDocument(0);
       await scrollDocument(600);
+      await waitFor(() =>
+        expect(first.getBoundingClientRect().bottom).toBeLessThanOrEqual(0),
+      );
+      canvas.getByRole("button", { name: "Скрыть оболочку" }).click();
+      await waitFor(() => expect(first).not.toBeVisible());
+      await waitFor(() =>
+        expect(
+          canvasElement.querySelectorAll("[data-mobile-header]").length,
+        ).toBe(2),
+      );
+      const second = canvasElement.querySelectorAll<HTMLElement>(
+        "[data-mobile-header]",
+      )[1];
+      if (second === undefined)
+        throw new Error("Missing alternative public header");
+      await waitFor(() => expect(second).toBeVisible());
+      await scrollDocument(800);
+      await waitFor(() =>
+        expect(second.getBoundingClientRect().bottom).toBeLessThanOrEqual(0),
+      );
+      within(second)
+        .getByRole("link", { name: "sachkov.dev, Главная" })
+        .focus({ preventScroll: true });
+      await waitFor(() =>
+        expect(second.getBoundingClientRect().top).toBeGreaterThanOrEqual(0),
+      );
+      canvas.getByRole("button", { name: "Вернуть оболочку" }).click();
       await waitFor(() => {
-        expect(offset(first)).toBeLessThan(0);
-        expect(offset(second)).toBeLessThan(0);
+        expect(first).toBeVisible();
+        expect(second).not.toBeVisible();
       });
+      await waitFor(() =>
+        expect(first.getBoundingClientRect().bottom).toBeLessThanOrEqual(0),
+      );
       within(first)
         .getByRole("link", { name: "sachkov.dev, Главная" })
         .focus({ preventScroll: true });
-      await waitFor(() => expect(offset(first)).toBe(0));
-      await expect(offset(second)).toBeLessThan(0);
+      await waitFor(() =>
+        expect(first.getBoundingClientRect().top).toBeGreaterThanOrEqual(0),
+      );
     } finally {
       await scrollDocument(0);
     }
