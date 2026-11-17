@@ -1,3 +1,4 @@
+import { courseReferenceFacts } from "../../../../../../scenarios/course-references.mjs";
 import { legacyCatalogueScenario } from "../../../../../../scenarios/legacy-catalog.mjs";
 import { TaskSubmissionWorkspace } from "@/features/product-task-submission";
 import {
@@ -1908,8 +1909,7 @@ const supplementaryReturn = parseMaterialReaderReturnTarget(
 );
 const supplementaryMaterial = {
   ...material,
-  slug: "aie-product-brief",
-  title: "Бриф заказчика",
+  ...courseReferenceFacts.brief,
   productMemberships: [
     {
       ordinal: 1,
@@ -1925,7 +1925,7 @@ export const SupplementaryMaterial: Story = {
       returnTarget: supplementaryReturn,
     }),
     productContext: resolveProductReaderContext({
-      currentMaterialSlug: "aie-product-brief",
+      currentMaterialSlug: courseReferenceFacts.brief.slug,
       returnTarget: supplementaryReturn,
       product: {
         ...courseSource,
@@ -2012,7 +2012,11 @@ export const CourseLocked: Story = {
 
 export const CustomerBriefDownload: Story = {
   args: {
-    material: { ...material, slug: "aie-project", title: "Проект курса" },
+    material: {
+      ...material,
+      slug: courseReferenceFacts.project.slug,
+      title: "Проект курса",
+    },
     productContext: null,
     body: [
       {
@@ -2071,7 +2075,7 @@ export const SupplementaryFromTask: Story = {
   args: {
     ...SupplementaryMaterial.args,
     productContext: resolveProductReaderContext({
-      currentMaterialSlug: "aie-product-brief",
+      currentMaterialSlug: courseReferenceFacts.brief.slug,
       returnTarget: supplementaryReturn,
       product: {
         ...courseSource,
@@ -2177,7 +2181,7 @@ export const ProjectReferenceFromLesson: Story = {
   args: {
     ...SupplementaryMaterial.args,
     productContext: resolveProductReaderContext({
-      currentMaterialSlug: "aie-product-brief",
+      currentMaterialSlug: courseReferenceFacts.brief.slug,
       returnTarget: supplementaryReturn,
       product: {
         ...courseSource,
