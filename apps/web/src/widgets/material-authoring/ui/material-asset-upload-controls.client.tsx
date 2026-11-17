@@ -8,6 +8,7 @@ import {
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type ChangeEvent,
 } from "react";
 import { z } from "zod";
@@ -66,165 +67,213 @@ export function useMaterialAssetUploads(
   materialId: string | null,
   onImageReady?: (assetId: string, file: File) => void,
 ): MaterialAssetUploadController {
-  const [uploads, setUploads] = useState<readonly PendingUpload[]>([]);
-  usePendingUploadGuard(uploads.length > 0);
-  const positions = useRef(new Map<string, number>());
-  const requests = useRef(new Map<string, XMLHttpRequest>());
-  const cancelled = useRef(new Set<string>());
-
-  useEffect(
-    () => () => {
-      for (const request of requests.current.values()) request.abort();
-      requests.current.clear();
-    },
-    [],
+  const [session] = useState(createMaterialUploadSession);
+  const uploads = useSyncExternalStore(
+    session.subscribe,
+    session.snapshot,
+    session.snapshot,
   );
-
+  usePendingUploadGuard(uploads.some((upload) => upload.status !== "error"));
   useEffect(() => {
-    if (!editor) return;
-    const mapPositions = ({ transaction }: { transaction: Transaction }) => {
-      for (const [id, position] of positions.current)
-        positions.current.set(id, transaction.mapping.map(position));
-    };
-    editor.on("transaction", mapPositions);
-    return () => {
-      editor.off("transaction", mapPositions);
-    };
-  }, [editor]);
-  useEffect(() => {
-    if (uploads.length === 0) return;
-    const guard = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-    };
-    window.addEventListener("beforeunload", guard);
-    return () => {
-      window.removeEventListener("beforeunload", guard);
-    };
-  }, [uploads.length]);
+    if (editor === null || editor.isDestroyed) return;
+    return session.connect(editor, materialId);
+  }, [editor, materialId, session]);
+  const enqueue = useCallback<MaterialAssetUploadController["enqueue"]>(
+    (files, kind, insertAt) => {
+      session.enqueue(files, kind, insertAt, onImageReady);
+    },
+    [onImageReady, session],
+  );
+  const retry = useCallback(
+    (id: string) => {
+      session.retry(id, onImageReady);
+    },
+    [onImageReady, session],
+  );
+  return { cancel: session.cancel, enqueue, retry, uploads };
+}
 
-  const begin = useCallback(
-    async (upload: PendingUpload) => {
-      if (materialId === null) return;
-      cancelled.current.delete(upload.id);
-      setUploads((current) =>
-        patchUpload(current, upload.id, { status: "hashing", progress: 0 }),
-      );
-      try {
-        const checksum = await sha256(upload.file);
-        if (cancelled.current.has(upload.id)) return;
-        const result = await uploadFile({
-          checksum,
-          file: upload.file,
-          idempotencyKey: upload.idempotencyKey,
-          kind: upload.kind,
-          materialId,
-          onProgress(progress) {
-            setUploads((current) =>
-              patchUpload(current, upload.id, {
+/** One connected editor owns the queue, transaction positions and every asynchronous attempt. */
+function createMaterialUploadSession() {
+  let uploads: readonly PendingUpload[] = [];
+  const listeners = new Set<() => void>();
+  const positions = new Map<string, number>();
+  const attempts = new Map<string, { request: XMLHttpRequest | null }>();
+  let owner: { editor: Editor; materialId: string | null } | null = null;
+  let queueMaterialId: string | null = null;
+  const publish = (next: readonly PendingUpload[]) => {
+    uploads = next;
+    for (const listener of listeners) listener();
+  };
+  const invalidate = (id: string) => {
+    const attempt = attempts.get(id);
+    attempts.delete(id);
+    attempt?.request?.abort();
+  };
+  const begin = async (
+    upload: PendingUpload,
+    onImageReady?: (assetId: string, file: File) => void,
+  ) => {
+    const currentOwner = owner;
+    if (currentOwner === null) return;
+    if (currentOwner.materialId === null) return;
+    const { editor, materialId } = currentOwner;
+    const attempt: { request: XMLHttpRequest | null } = { request: null };
+    attempts.set(upload.id, attempt);
+    const currentAttempt = () =>
+      owner === currentOwner && attempts.get(upload.id) === attempt;
+    publish(
+      patchUpload(uploads, upload.id, { status: "hashing", progress: 0 }),
+    );
+    try {
+      const checksum = await sha256(upload.file);
+      if (!currentAttempt()) return;
+      const result = await uploadFile({
+        checksum,
+        file: upload.file,
+        idempotencyKey: upload.idempotencyKey,
+        kind: upload.kind,
+        materialId,
+        onProgress(progress) {
+          if (currentAttempt())
+            publish(
+              patchUpload(uploads, upload.id, {
                 progress,
                 status: "uploading",
               }),
             );
-          },
-          onRequest(request) {
-            requests.current.set(upload.id, request);
-          },
-          onUploaded() {
-            setUploads((current) =>
-              patchUpload(current, upload.id, {
+        },
+        onRequest(request) {
+          attempt.request = request;
+        },
+        onUploaded() {
+          if (currentAttempt())
+            publish(
+              patchUpload(uploads, upload.id, {
                 progress: 100,
                 status: "processing",
               }),
             );
-          },
-        });
-        requests.current.delete(upload.id);
-        if (
-          cancelled.current.has(upload.id) ||
-          editor === null ||
-          editor.isDestroyed
-        )
-          return;
-        if (upload.kind === "image")
-          onImageReady?.(result.assetId, upload.file);
-        const node =
-          upload.kind === "image"
-            ? {
-                type: "assetImage",
-                attrs: { assetId: result.assetId, alt: "", caption: null },
-              }
-            : {
-                type: "assetFile",
-                attrs: { assetId: result.assetId, label: result.filename },
-              };
-        const position = Math.min(
-          positions.current.get(upload.id) ?? upload.insertAt,
-          editor.state.doc.content.size,
-        );
-        editor
-          .chain()
-          .insertContentAt(position, [node, { type: "paragraph" }])
-          .run();
-        positions.current.delete(upload.id);
-        setUploads((current) =>
-          current.filter((candidate) => candidate.id !== upload.id),
-        );
-      } catch (error) {
-        requests.current.delete(upload.id);
-        if (error instanceof DOMException && error.name === "AbortError")
-          return;
-        const errorCode = uploadErrorCode(error);
-        setUploads((current) =>
-          patchUpload(current, upload.id, {
-            message: uploadErrorMessage(error),
-            retryWithNewIdempotencyKey:
-              errorCode !== "network" &&
-              errorCode !== "dependency_unavailable" &&
-              errorCode !== "upload_in_progress",
-            status: "error",
-          }),
-        );
+        },
+      });
+      if (!currentAttempt()) return;
+      if (editor.isDestroyed) {
+        attempts.delete(upload.id);
+        positions.delete(upload.id);
+        publish(uploads.filter((candidate) => candidate.id !== upload.id));
+        return;
       }
+      if (upload.kind === "image") onImageReady?.(result.assetId, upload.file);
+      const node =
+        upload.kind === "image"
+          ? {
+              type: "assetImage",
+              attrs: { assetId: result.assetId, alt: "", caption: null },
+            }
+          : {
+              type: "assetFile",
+              attrs: { assetId: result.assetId, label: result.filename },
+            };
+      const position = Math.min(
+        positions.get(upload.id) ?? upload.insertAt,
+        editor.state.doc.content.size,
+      );
+      editor
+        .chain()
+        .insertContentAt(position, [node, { type: "paragraph" }])
+        .run();
+      attempts.delete(upload.id);
+      positions.delete(upload.id);
+      publish(uploads.filter((candidate) => candidate.id !== upload.id));
+    } catch (error) {
+      if (!currentAttempt()) return;
+      attempts.delete(upload.id);
+      const errorCode = uploadErrorCode(error);
+      publish(
+        patchUpload(uploads, upload.id, {
+          message: uploadErrorMessage(error),
+          retryWithNewIdempotencyKey:
+            errorCode !== "network" &&
+            errorCode !== "dependency_unavailable" &&
+            errorCode !== "upload_in_progress",
+          status: "error",
+        }),
+      );
+    }
+  };
+  return {
+    snapshot: () => uploads,
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
     },
-    [editor, materialId, onImageReady],
-  );
-
-  const enqueue = useCallback<MaterialAssetUploadController["enqueue"]>(
-    (files, forcedKind, insertAt) => {
-      if (editor === null || materialId === null) return;
+    connect(editor: Editor, materialId: string | null) {
+      if (queueMaterialId !== materialId) {
+        positions.clear();
+        publish([]);
+      }
+      queueMaterialId = materialId;
+      owner = { editor, materialId };
+      const mapPositions = ({ transaction }: { transaction: Transaction }) => {
+        for (const [id, position] of positions)
+          positions.set(id, transaction.mapping.map(position));
+      };
+      editor.on("transaction", mapPositions);
+      return () => {
+        // Invalidating identity also stops late digest completion before it can acquire an XHR.
+        owner = null;
+        editor.off("transaction", mapPositions);
+        const active = [...attempts.values()];
+        attempts.clear();
+        for (const attempt of active) attempt.request?.abort();
+        // A completed failure remains retryable after retained hide. Its mapped position belongs
+        // to the same retained document; connecting another Material discards it above.
+        const failed = uploads.filter((upload) => upload.status === "error");
+        const retained = new Set(failed.map((upload) => upload.id));
+        for (const id of positions.keys())
+          if (!retained.has(id)) positions.delete(id);
+        publish(failed);
+      };
+    },
+    enqueue(
+      files: readonly File[],
+      forcedKind: AssetKind | undefined,
+      insertAt: number | undefined,
+      onImageReady: ((assetId: string, file: File) => void) | undefined,
+    ) {
+      if (owner === null) return;
+      if (owner.materialId === null || owner.editor.isDestroyed) return;
       for (const file of files) {
-        const kind =
-          forcedKind ?? (file.type.startsWith("image/") ? "image" : "file");
         const upload: PendingUpload = {
           file,
           id: crypto.randomUUID(),
           idempotencyKey: `web-asset-${crypto.randomUUID()}`,
-          insertAt: insertAt ?? editor.state.selection.from,
-          kind,
+          insertAt: insertAt ?? owner.editor.state.selection.from,
+          kind:
+            forcedKind ?? (file.type.startsWith("image/") ? "image" : "file"),
           progress: 0,
           retryWithNewIdempotencyKey: false,
           status: "hashing",
         };
-        positions.current.set(upload.id, upload.insertAt);
-        setUploads((current) => [...current, upload]);
-        void begin(upload);
+        positions.set(upload.id, upload.insertAt);
+        publish([...uploads, upload]);
+        void begin(upload, onImageReady);
       }
     },
-    [begin, editor, materialId],
-  );
-
-  const cancel = useCallback((id: string) => {
-    positions.current.delete(id);
-    cancelled.current.add(id);
-    requests.current.get(id)?.abort();
-    requests.current.delete(id);
-    setUploads((current) => current.filter((upload) => upload.id !== id));
-  }, []);
-
-  const retry = useCallback(
-    (id: string) => {
+    cancel: (id: string) => {
+      positions.delete(id);
+      invalidate(id);
+      publish(uploads.filter((upload) => upload.id !== id));
+    },
+    retry(
+      id: string,
+      onImageReady: ((assetId: string, file: File) => void) | undefined,
+    ) {
       const upload = uploads.find((candidate) => candidate.id === id);
       if (upload === undefined) return;
+      invalidate(id);
       const { message: _message, ...retained } = upload;
       const retried: PendingUpload = {
         ...retained,
@@ -236,20 +285,14 @@ export function useMaterialAssetUploads(
         retryWithNewIdempotencyKey: false,
         status: "hashing",
       };
-      positions.current.set(
-        retried.id,
-        positions.current.get(id) ?? upload.insertAt,
+      positions.set(retried.id, positions.get(id) ?? upload.insertAt);
+      positions.delete(id);
+      publish(
+        uploads.map((candidate) => (candidate.id === id ? retried : candidate)),
       );
-      positions.current.delete(id);
-      setUploads((current) =>
-        current.map((candidate) => (candidate.id === id ? retried : candidate)),
-      );
-      void begin(retried);
+      void begin(retried, onImageReady);
     },
-    [begin, uploads],
-  );
-
-  return { cancel, enqueue, retry, uploads };
+  };
 }
 
 export function MaterialAssetUploadButtons({

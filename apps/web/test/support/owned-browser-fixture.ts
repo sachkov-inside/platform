@@ -19,6 +19,7 @@ const fixtureName = z.enum([
   "cabinet-facts",
   "course-film",
   "material-video",
+  "material-authoring",
 ]);
 const budget = z.number().int().positive().max(30_000);
 const configuration = z.object({
