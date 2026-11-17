@@ -1,47 +1,71 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const fakes = vi.hoisted(() => ({
-  cookies: vi.fn(),
-  getAccessToken: vi.fn(),
-  getAccessTokenRSC: vi.fn(),
-}));
-
-vi.mock("@logto/next/server-actions", () => ({
-  getAccessToken: fakes.getAccessToken,
-  getAccessTokenRSC: fakes.getAccessTokenRSC,
-}));
-
-vi.mock("next/headers", () => ({ cookies: fakes.cookies }));
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { getOptionalPlatformAccessToken } from "@/shared/auth/index.server";
+import { realBffSession } from "../support/real-bff-session";
+
+const unexpectedRequests: string[] = [];
+afterEach(() => {
+  try {
+    expect(unexpectedRequests).toEqual([]);
+  } finally {
+    unexpectedRequests.length = 0;
+    vi.unstubAllGlobals();
+  }
+});
 
 describe("optional Platform access token", () => {
-  beforeEach(() => {
-    fakes.getAccessToken.mockReset();
-    fakes.getAccessTokenRSC.mockReset();
-    fakes.cookies.mockResolvedValue({
-      get: vi.fn(() => ({ value: "unfinished-logto-session" })),
-      getAll: vi.fn(() => [{ name: "logto_inside-web-local" }]),
+  it("reads the cached token through the real provider session", async () => {
+    const scope = await realBffSession();
+    vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = new Request(input, init);
+      unexpectedRequests.push(request.url);
+      return Promise.reject(
+        new Error(`Unexpected external request ${request.url}`),
+      );
     });
+    await expect(scope(() => getOptionalPlatformAccessToken())).resolves.toBe(
+      "trusted-token",
+    );
   });
 
   it("treats an unfinished Logto cookie as a guest session", async () => {
-    fakes.getAccessTokenRSC.mockRejectedValue(
-      Object.assign(new Error("Not authenticated."), {
-        code: "not_authenticated",
-        name: "LogtoClientError",
-      }),
-    );
-
-    await expect(getOptionalPlatformAccessToken()).resolves.toBeUndefined();
+    const scope = await realBffSession({ refreshToken: "" });
+    const requests: Request[] = [];
+    vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = new Request(input, init);
+      requests.push(request);
+      unexpectedRequests.push(request.url);
+      return Promise.reject(
+        new Error(`Unexpected external request ${request.url}`),
+      );
+    });
+    await expect(
+      scope(() => getOptionalPlatformAccessToken()),
+    ).resolves.toBeUndefined();
+    expect(requests).toEqual([]);
   });
 
   it("keeps provider failures visible", async () => {
+    const scope = await realBffSession({
+      refreshToken: "optional-provider-outage",
+    });
     const providerFailure = new Error("Logto dependency unavailable");
-    fakes.getAccessTokenRSC.mockRejectedValue(providerFailure);
-
-    await expect(getOptionalPlatformAccessToken()).rejects.toBe(
+    const requests: Request[] = [];
+    vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = new Request(input, init);
+      requests.push(request);
+      if (
+        request.url !==
+          "https://identity.example.test/oidc/.well-known/openid-configuration" ||
+        request.method !== "GET"
+      ) {
+        unexpectedRequests.push(`${request.method} ${request.url}`);
+      }
+      return Promise.reject(providerFailure);
+    });
+    await expect(scope(() => getOptionalPlatformAccessToken())).rejects.toBe(
       providerFailure,
     );
+    expect(requests).toHaveLength(1);
   });
 });
