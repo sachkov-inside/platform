@@ -10,9 +10,12 @@ import { createServer, type ViteDevServer } from "vite";
 import { afterAll, beforeAll, test } from "vitest";
 
 let server: ViteDevServer | undefined;
+let settingUp: Promise<void> | undefined;
+let shuttingDown = false;
+const isShuttingDown = () => shuttingDown;
 const browsers = new Map<string, Browser>();
 let url = "";
-beforeAll(async () => {
+async function setup() {
   server = await createServer({
     configFile: false,
     root: fileURLToPath(new URL("../../", import.meta.url)),
@@ -23,31 +26,37 @@ beforeAll(async () => {
     oxc: { jsx: { runtime: "automatic" } },
     server: { host: "127.0.0.1", port: 0 },
   });
-  try {
-    await server.listen();
-    const address = server.httpServer?.address();
-    if (
-      address === null ||
-      address === undefined ||
-      typeof address === "string"
-    )
-      throw new Error("Missing term deck listener");
-    url = `http://127.0.0.1:${String(address.port)}/test/support/term-deck.html`;
-    browsers.set("chromium", await chromium.launch());
-    browsers.set("webkit", await webkit.launch());
-  } catch (error) {
-    for (const browser of browsers.values()) await browser.close();
-    await server.close();
-    throw error;
-  }
+  if (isShuttingDown()) return;
+  await server.listen();
+  if (isShuttingDown()) return;
+  const address = server.httpServer?.address();
+  if (address === null || address === undefined || typeof address === "string")
+    throw new Error("Missing term deck listener");
+  url = `http://127.0.0.1:${String(address.port)}/test/support/term-deck.html`;
+  browsers.set("chromium", await chromium.launch());
+  if (isShuttingDown()) return;
+  browsers.set("webkit", await webkit.launch());
+}
+beforeAll(() => {
+  settingUp = setup();
+  return settingUp;
 }, 30_000);
 afterAll(async () => {
-  try {
-    for (const browser of browsers.values()) await browser.close();
-  } finally {
-    await server?.close();
+  // A setup deadline does not cancel an acquisition that settles later (BF-STD-01).
+  shuttingDown = true;
+  await settingUp?.catch(() => undefined);
+  const released = await Promise.allSettled([
+    ...[...browsers.values()].map((browser) => browser.close()),
+    ...(server === undefined ? [] : [server.close()]),
+  ]);
+  const failures: unknown[] = [];
+  for (const result of released) {
+    if (result.status === "rejected") failures.push(result.reason as unknown);
   }
-});
+  if (failures.length > 0)
+    throw new AggregateError(failures, "Could not close term deck fixture");
+}, 30_000);
+
 async function ready(page: Page) {
   await page.goto(url);
   await ui(page.locator("[data-lesson-term-track]")).toHaveAttribute(
