@@ -31,6 +31,7 @@ interface FailureContract {
   readonly names: readonly string[];
   readonly responses: Readonly<Record<401 | 403, unknown>>;
 }
+// Characterization criterion for this migration: https://github.com/sachkov-inside/platform/issues/2292#issuecomment-6939346220
 const failureContracts: readonly FailureContract[] = [
   {
     names: [
@@ -38,6 +39,7 @@ const failureContracts: readonly FailureContract[] = [
       "updateContentCollectionOperation",
       "setContentCollectionArchiveOperation",
       "createMaterialDraftOperation",
+      // Prior literal 401/403 assertions: https://github.com/sachkov-inside/platform/blob/b1ecdc8064c27271bdd630079b4a20f7c76aa1c0/apps/web/test/module/material-authoring-operations.test.ts#L202-L220
       "saveMaterialOperation",
       "beginTelegramLinkOperation",
       "confirmTelegramLinkOperation",
