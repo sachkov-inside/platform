@@ -78,11 +78,10 @@ export const SingleTable: Story = {
     const canvas = within(canvasElement);
     const region = canvas.getByRole("region", {
       name: "Таблица в материале",
-      exact: true,
     });
     await expect(region).toHaveAttribute("tabindex", "0");
     await expect(
-      canvas.getByRole("table", { name: "Таблица в материале", exact: true }),
+      canvas.getByRole("table", { name: "Таблица в материале" }),
     ).toBeVisible();
     region.focus();
     await expect(region).toHaveFocus();
@@ -152,15 +151,12 @@ export const ReorderedDocument: Story = {
     const canvas = within(canvasElement);
     const first = canvas.getByRole("region", {
       name: "Таблица 1 в материале",
-      exact: true,
     });
     const second = canvas.getByRole("region", {
       name: "Таблица 2 в материале",
-      exact: true,
     });
     const third = canvas.getByRole("region", {
       name: "Таблица 3 в материале",
-      exact: true,
     });
     await expect(canvas.getAllByRole("region")).toEqual([first, second, third]);
     await expect(within(first).getAllByRole("table")).toHaveLength(1);
@@ -199,11 +195,9 @@ export const UpdatedDocument: Story = {
     const canvas = within(canvasElement);
     const first = canvas.getByRole("region", {
       name: "Таблица в материале",
-      exact: true,
     });
     const firstTable = canvas.getByRole("table", {
       name: "Таблица в материале",
-      exact: true,
     });
     await document.fonts.ready;
     const geometry = first.getBoundingClientRect();
@@ -214,11 +208,10 @@ export const UpdatedDocument: Story = {
     await expect(
       canvas.getByRole("region", {
         name: "Таблица 1 в материале",
-        exact: true,
       }),
     ).toBe(first);
     await expect(
-      canvas.getByRole("table", { name: "Таблица 1 в материале", exact: true }),
+      canvas.getByRole("table", { name: "Таблица 1 в материале" }),
     ).toBe(firstTable);
     await expect(first.getBoundingClientRect().width).toBe(geometry.width);
     await expect(first.getBoundingClientRect().height).toBe(geometry.height);
@@ -229,10 +222,10 @@ export const UpdatedDocument: Story = {
     );
     await expect(canvas.getAllByRole("region")).toHaveLength(1);
     await expect(
-      canvas.getByRole("region", { name: "Таблица в материале", exact: true }),
+      canvas.getByRole("region", { name: "Таблица в материале" }),
     ).toBe(first);
     await expect(
-      canvas.getByRole("table", { name: "Таблица в материале", exact: true }),
+      canvas.getByRole("table", { name: "Таблица в материале" }),
     ).toBe(firstTable);
   },
 };
