@@ -1,25 +1,13 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+  type MockInstance,
+} from "vitest";
 import { z } from "zod";
-
-const fakes = vi.hoisted(() => ({
-  create: vi.fn(),
-  save: vi.fn(),
-  token: vi.fn(),
-  LogtoSessionUnavailableError: class extends Error {},
-}));
-
-vi.mock("@/shared/api/backend/index.server", async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
-  requestMaterialDraftCreation: fakes.create,
-  requestMaterialSave: fakes.save,
-}));
-vi.mock("@/shared/auth/session-adapter.server", () => ({
-  sessionAdapter: {
-    accessToken: fakes.token,
-    baseUrl: () => "https://inside.example.test",
-  },
-  LogtoSessionUnavailableError: fakes.LogtoSessionUnavailableError,
-}));
 
 import * as materialsRoute from "../../app/api/authoring/materials/route";
 
@@ -27,9 +15,10 @@ import { createMaterialDraftOperation } from "@/_pages/material-authoring/api/cr
 import { saveMaterialOperation } from "@/_pages/material-authoring/api/save-material.operation";
 import type { CreateMaterialDraftInput } from "@/_pages/material-authoring/model/create-material-draft";
 import type { SaveMaterialInput } from "@/_pages/material-authoring/model/save-material";
-import { BackendConnectionError } from "@/shared/api/backend/index.server";
+import { sessionAdapter } from "@/shared/auth/session-adapter.server";
+import { realBffSession } from "../support/real-bff-session";
 
-import { routeBrowserMutations } from "../support/mutation-operation-route";
+import { routeBrowserMutations as connectBrowserMutations } from "../support/mutation-operation-route";
 
 const materialId = "94000000-0000-4000-8000-000000000010";
 const submissionId = "94000000-0000-4000-8000-000000000011";
@@ -46,33 +35,85 @@ const document = {
   type: "doc",
 };
 
-beforeEach(() => {
-  vi.clearAllMocks();
-  fakes.token.mockResolvedValue("trusted-token");
-  fakes.save.mockResolvedValue({
-    body: {
-      contentVersion: 4,
-      materialId,
-      publicationState: "published",
-      publishedAt: "2026-08-30T08:00:00.000Z",
-    },
-    ok: true,
-    response: Response.json({}),
+interface BackendReply {
+  readonly method: string;
+  readonly path: string;
+  readonly response: Response | Error;
+}
+let scope: Awaited<ReturnType<typeof realBffSession>>;
+let sessionRead: MockInstance<typeof sessionAdapter.accessToken>;
+let replies: BackendReply[];
+const backend = vi.fn<(request: Request) => Promise<Response>>();
+const saved = {
+  contentVersion: 4,
+  materialId,
+  publicationState: "published",
+  publishedAt: "2026-08-30T08:00:00.000Z",
+};
+const created = {
+  contentVersion: 1,
+  materialId,
+  publicationState: "draft",
+  publishedAt: null,
+};
+function reply(
+  method: string,
+  path: string,
+  body: unknown,
+  status = 200,
+): void {
+  replies.push({ method, path, response: Response.json(body, { status }) });
+}
+function outgoing(index = 0): Request {
+  const request = backend.mock.calls[index]?.[0];
+  if (request === undefined)
+    throw new Error("Expected external backend request");
+  return request;
+}
+function routeBrowserMutations(
+  routes: Parameters<typeof connectBrowserMutations>[0],
+  origin = "https://inside.example.test",
+) {
+  return connectBrowserMutations(routes, origin, {
+    externalFetch: backend,
+    run: scope,
   });
-  fakes.create.mockResolvedValue({
-    body: {
-      contentVersion: 1,
-      materialId,
-      publicationState: "draft",
-      publishedAt: null,
-    },
-    ok: true,
-    response: Response.json({}, { status: 201 }),
+}
+beforeEach(async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2030-03-01T12:00:00Z"));
+  scope = await realBffSession();
+  sessionRead = vi.spyOn(sessionAdapter, "accessToken");
+  replies = [];
+  backend.mockReset();
+  backend.mockImplementation(() => {
+    const response = replies[backend.mock.calls.length - 1]?.response;
+    return response === undefined
+      ? Promise.reject(new Error("Unexpected backend request"))
+      : response instanceof Error
+        ? Promise.reject(response)
+        : Promise.resolve(response);
   });
+});
+afterEach(() => {
+  try {
+    expect(backend).toHaveBeenCalledTimes(replies.length);
+    replies.forEach((reply, index) => {
+      const request = outgoing(index);
+      expect(request.method).toBe(reply.method);
+      expect(request.url).toBe(
+        `https://platform-api.example.test${reply.path}`,
+      );
+      expect(request.headers.get("authorization")).toBe("Bearer trusted-token");
+    });
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 describe("Save Material through its browser adapter and Route Handler", () => {
-  it("sends the declared editor state as JSON and saves it in Nest", async () => {
+  it("sends the declared editor state through its real BFF and backend transport", async () => {
+    reply("PUT", `/authoring/materials/${materialId}`, saved);
     const { requests } = routeBrowserMutations({
       "/api/authoring/materials": materialsRoute,
     });
@@ -96,30 +137,30 @@ describe("Save Material through its browser adapter and Route Handler", () => {
         z.record(z.string(), z.unknown()).parse(await request?.json()),
       ),
     ).not.toContain("readOnly");
-    expect(fakes.token).toHaveBeenCalledWith("route");
-    expect(fakes.save).toHaveBeenCalledWith(
-      {
+    expect(sessionRead).toHaveBeenCalledWith("route");
+    expect(outgoing().headers.get("idempotency-key")).toBe(
+      `web-save-${submissionId}`,
+    );
+    expect(await outgoing().json()).toEqual({
+      body: { doc: document, schemaVersion: 1 },
+      deleteVideoId: null,
+      detachVideoIds: [],
+      expectedContentVersion: 3,
+      metadata: {
         access: "closed",
-        deleteVideoId: null,
-        detachVideoIds: [],
         difficulty: "basic",
-        document,
-        expectedContentVersion: 3,
         formatId: "guide",
-        idempotencyKey: `web-save-${submissionId}`,
-        materialId,
-        notifyTelegram: true,
         outcomes: ["Собрать один production path"],
-        primaryVideoId: null,
-        publicationState: "published",
         productIds: [productId],
         summary: null,
         tagIds: [tagId],
         title: "Saved Material",
         topicId: null,
       },
-      "trusted-token",
-    );
+      notifyTelegram: true,
+      primaryVideoId: null,
+      publicationState: "published",
+    });
   });
 
   it("answers an over-long title with the editor's message and no Nest call", async () => {
@@ -136,7 +177,7 @@ describe("Save Material through its browser adapter and Route Handler", () => {
       ],
       kind: "invalid_input",
     });
-    expect(fakes.save).not.toHaveBeenCalled();
+    expect(backend).not.toHaveBeenCalled();
   });
 
   it("asks for a malformed document again with the editor's structure message", async () => {
@@ -155,17 +196,17 @@ describe("Save Material through its browser adapter and Route Handler", () => {
       ],
       kind: "invalid_input",
     });
-    expect(fakes.save).not.toHaveBeenCalled();
+    expect(backend).not.toHaveBeenCalled();
   });
 
   it("treats a missing session as unauthorized before reading the body", async () => {
-    fakes.token.mockRejectedValue(new fakes.LogtoSessionUnavailableError());
+    scope = await realBffSession(null);
     routeBrowserMutations({ "/api/authoring/materials": materialsRoute });
 
     await expect(saveMaterialOperation.send(saveInput())).resolves.toEqual({
       kind: "unauthorized",
     });
-    expect(fakes.save).not.toHaveBeenCalled();
+    expect(backend).not.toHaveBeenCalled();
   });
 
   it("rejects another origin before authentication", async () => {
@@ -177,23 +218,23 @@ describe("Save Material through its browser adapter and Route Handler", () => {
     await expect(saveMaterialOperation.send(saveInput())).resolves.toEqual({
       kind: "unauthorized",
     });
-    expect(fakes.token).not.toHaveBeenCalled();
+    expect(sessionRead).not.toHaveBeenCalled();
   });
 
   it("keeps an unavailable Nest retryable and a lost answer as a numbered failure", async () => {
     routeBrowserMutations({ "/api/authoring/materials": materialsRoute });
-    fakes.save.mockRejectedValueOnce(
-      new BackendConnectionError("unavailable", "connection refused"),
-    );
+    replies.push({
+      method: "PUT",
+      path: `/authoring/materials/${materialId}`,
+      response: new Error("external backend offline"),
+    });
     await expect(saveMaterialOperation.send(saveInput())).resolves.toEqual({
       kind: "infrastructure_error",
       reference: "unavailable",
     });
 
     vi.spyOn(console, "error").mockImplementation(() => undefined);
-    fakes.save.mockRejectedValueOnce(
-      new BackendConnectionError("invalid-response", "Malformed response"),
-    );
+    reply("PUT", `/authoring/materials/${materialId}`, saved, 201);
     await expect(saveMaterialOperation.send(saveInput())).resolves.toEqual({
       kind: "infrastructure_error",
       reference: "save-material-bff-503",
@@ -203,6 +244,7 @@ describe("Save Material through its browser adapter and Route Handler", () => {
 
 describe("Create Material draft through its browser adapter and Route Handler", () => {
   it("creates one idempotent draft from the JSON editor state", async () => {
+    reply("POST", "/authoring/materials", created, 201);
     const { requests } = routeBrowserMutations({
       "/api/authoring/materials": materialsRoute,
     });
@@ -214,15 +256,13 @@ describe("Create Material draft through its browser adapter and Route Handler", 
       kind: "created",
     });
     expect(requests[0]?.method).toBe("POST");
-    expect(fakes.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        document,
-        idempotencyKey: `web-create-${submissionId}`,
-        productIds: [productId],
-        topicId,
-      }),
-      "trusted-token",
+    expect(outgoing().headers.get("idempotency-key")).toBe(
+      `web-create-${submissionId}`,
     );
+    expect(await outgoing().json()).toMatchObject({
+      body: { doc: document, schemaVersion: 1 },
+      metadata: { productIds: [productId], topicId },
+    });
   });
 
   it("asks for a title before creating a draft", async () => {
@@ -236,7 +276,7 @@ describe("Create Material draft through its browser adapter and Route Handler", 
       ],
       kind: "invalid_input",
     });
-    expect(fakes.create).not.toHaveBeenCalled();
+    expect(backend).not.toHaveBeenCalled();
   });
 });
 
