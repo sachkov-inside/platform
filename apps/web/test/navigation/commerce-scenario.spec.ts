@@ -46,7 +46,7 @@ test("the common unpaid learner appears in people and pending payments through r
     items: [
       {
         displayName: "Участник Тестов",
-        email: "light-learner@inside.test",
+        email: null,
         telegram: "linked",
         products: [],
       },
@@ -57,10 +57,11 @@ test("the common unpaid learner appears in people and pending payments through r
   ).toBeVisible();
   if (viewport !== null && viewport.width >= 640)
     await expect(
-      rows.getByText("@synthetic_learner · light-learner@inside.test", {
+      rows.getByText("@synthetic_learner", {
         exact: true,
       }),
     ).toBeVisible();
+  await expect(rows).not.toContainText("light-learner@inside.test");
   await page.goto("/authoring/sales/payments");
   const assertPayment = async () => {
     await expect(rows).toHaveCount(1);

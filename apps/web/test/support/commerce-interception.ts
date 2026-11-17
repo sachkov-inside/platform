@@ -78,7 +78,7 @@ export function commerceInterceptionPeople() {
         accountId: preview.buyerAccountId,
         displayName: facts.telegram.displayName,
         username: facts.telegram.username,
-        email: preview.buyerEmail,
+        email: preview.billingEmail,
         contactsState: "complete",
         telegram: "linked",
         registeredAt: preview.createdAt,

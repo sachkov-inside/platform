@@ -157,7 +157,7 @@ test("the unpaid learner has real linked contacts, explicit waitlist membership 
   const token = await identity.sign(scenarioRoles.learner.subject, {
     inside_verified_email: "light-learner@inside.test",
   });
-  await seedCommerceScenario({
+  const commerce = await seedCommerceScenario({
     api,
     databaseName: new URL(database.url).pathname.slice(1),
     ownerToken,
@@ -198,11 +198,25 @@ test("the unpaid learner has real linked contacts, explicit waitlist membership 
       {
         displayName: "Участник Тестов",
         username: "synthetic_learner",
+        email: null,
         contactsState: "complete",
         telegram: "linked",
       },
     ],
   });
+  const receipt = await fetch(
+    `${api}/billing/admin/payments/${commerce.purchaseRef}/order-email`,
+    {
+      headers: { authorization: `Bearer ${ownerToken}` },
+    },
+  );
+  expect(receipt.status).toBe(200);
+  expect(await receipt.json()).toEqual({ email: "light-learner@inside.test" });
+  const contact = await fetch(`${api}/accounts/current/billing/contact`, {
+    headers: { authorization: `Bearer ${token}` },
+  });
+  expect(contact.status).toBe(200);
+  expect(await contact.json()).toMatchObject({ ok: true, contact: null });
   const searched = await fetch(
     `${api}/authoring/people?query=%40synthetic_learner`,
     {

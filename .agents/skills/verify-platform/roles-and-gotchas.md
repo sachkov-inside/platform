@@ -40,7 +40,7 @@ no equivalent of `newcomer`. Purchase setup and order are in
 - The [light instance runbook](../../../docs/runbooks/local-stand.md#light-instance-per-agent)
   lists the current populated scenarios and their limits. Resolve persistence IDs through the
   running API or `V account <role>`; preview IDs and dates are separate projections.
-- The owner's lists name a person by Telegram or verified email, never by the profile name. Only
+- The owner's lists name a person by Telegram or verified Billing Contact email, never by the profile name. A private Sign-in Email qualifies a person for the list but is not its displayed email. Only
   the learner has a seeded Telegram profile. Search the list by `V account <role>` and wait until
   one row is left: a text wait returns before filtering finishes, and a click by name takes the
   first row.

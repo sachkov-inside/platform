@@ -66,7 +66,7 @@ export const commerceIdentity = {
   accountId: preview.buyerAccountId,
   displayName: facts.telegram.displayName,
   username: facts.telegram.username,
-  email: preview.buyerEmail,
+  email: preview.billingEmail,
   contactsState: "complete" as const,
 };
 export const commercePerson: PersonRow = {

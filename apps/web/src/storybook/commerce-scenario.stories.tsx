@@ -103,7 +103,7 @@ export const LinkedLearner: Story = {
     ).toBeVisible();
     await expect(
       within(within(canvasElement).getByRole("table")).getByText(
-        "@synthetic_learner · light-learner@inside.test",
+        "@synthetic_learner",
         {
           exact: true,
         },

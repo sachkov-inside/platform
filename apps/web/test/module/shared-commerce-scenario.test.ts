@@ -32,11 +32,15 @@ test("independent commerce adapters satisfy the actual frontend contracts and pr
     items: [
       {
         displayName: "Участник Тестов",
-        email: "light-learner@inside.test",
+        email: null,
         contactsState: "complete",
       },
     ],
   });
+  // PersonIdentity email is verified Billing Contact, not the private Sign-in Email.
+  expect(
+    JSON.stringify(peopleListResponseSchema.parse(commerceHttpPeople())),
+  ).not.toContain("light-learner@inside.test");
   const backend = paymentsOutcomeSchema.parse(commerceHttpPayments());
   const story = paymentViewSchema.parse(commercePayment);
   const intercepted = paymentsPageSchema.parse(
@@ -74,7 +78,7 @@ test("independent commerce adapters satisfy the actual frontend contracts and pr
         {
           displayName: "Участник Тестов",
           username: "synthetic_learner",
-          email: "light-learner@inside.test",
+          email: null,
           telegram: "linked",
           products: [],
         },

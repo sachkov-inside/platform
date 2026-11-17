@@ -25,7 +25,7 @@ export const commerceFixtureFacts: {
   readonly buyerAccountId: string;
   readonly purchaseRef: string;
   readonly createdAt: string;
-  readonly buyerEmail: string;
+  readonly billingEmail: null;
   readonly priceRevision: number;
   readonly supportMonths: 3;
   readonly communityPolicy: "explicit";

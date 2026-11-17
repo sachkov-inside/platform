@@ -34,7 +34,8 @@ export const commerceFixtureFacts = {
   buyerAccountId: "97000000-0000-4000-8000-000000000502",
   purchaseRef: "97000000-0000-4000-8000-000000000503",
   createdAt: learningScenario.fixtureDate,
-  buyerEmail: `${scenarioRoles.learner.subject}@inside.test`,
+  // The Sign-in Email may fund a receipt; People exposes only a verified Billing Contact.
+  billingEmail: null,
   priceRevision: 1,
   supportMonths: 3,
   communityPolicy: "explicit",
