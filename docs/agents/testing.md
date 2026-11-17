@@ -18,7 +18,7 @@ a new test from the sample of its kind.
 | Backend unit and adapter | Domain rules, `MaterialBody`, pure functions; transport and provider mapping in a focused adapter test | Own code in process | Time; external providers behind their port | [`billing-command-fingerprint.test.ts`](../../apps/backend/test/unit/billing-command-fingerprint.test.ts) | `pnpm --filter @inside/backend test` |
 | Backend integration | Application behaviour through capability interfaces: persistence, transactions, constraints, rollback, idempotency, concurrency; real Nest HTTP and MCP transport | PostgreSQL through Testcontainers, migrations, Prisma; RustFS and RabbitMQ in the files that own them | Time; other applications and providers through owned doubles such as `apps/backend/test/support/telegram-contacts-double.ts` | [`account-profiles.test.ts`](../../apps/backend/test/integration/account-profiles.test.ts) | `pnpm test:integration` |
 | Backend contract | Compiled entrypoints and processes: worker startup, SMTP, bank double over HTTP | Built entrypoints, subprocesses, owned loopback servers, temporary files | External providers as owned loopback responders | [`smtp-transport.test.ts`](../../apps/backend/test/contracts/smtp-transport.test.ts) | `pnpm --filter @inside/backend test:contracts` |
-| Web module | Presentation mapping, query behaviour, BFF route modules, mutation operations | Own modules and schemas in Node | Time; backend and identity through their public adapter, such as `sessionAdapter` | [`billing-subscription-presentation.test.ts`](../../apps/web/test/module/billing-subscription-presentation.test.ts) | `pnpm --filter @inside/web test:module` |
+| Web module | Presentation mapping, query behaviour, BFF route modules, mutation operations | Own modules, session, SDK, adapters and schemas in Node | Time; external backend and identity over HTTP | [`billing-subscription-presentation.test.ts`](../../apps/web/test/module/billing-subscription-presentation.test.ts) | `pnpm --filter @inside/web test:module` |
 | Web contract | Web tooling lifecycles, such as the run-scoped Vite cache | Subprocesses, temporary files | External services | [`run-scoped-vite-cache.test.ts`](../../apps/web/test/contracts/run-scoped-vite-cache.test.ts) | `pnpm --filter @inside/web test:contracts` |
 | Browser engine | Browser behaviour that a Node module test cannot see: caches between documents, history, SVG and sign-in in a real engine | Vite dev server or a fixture page, Chromium and, where a test asks for it, WebKit | Time; backend answers from the test | [`reader-history.test.ts`](../../apps/web/test/browser-engines/reader-history.test.ts) | `pnpm --filter @inside/web test:browser-engines` |
 | Storybook | A meaningful UI state renders from the production module in its production environment | Chromium through the Vitest browser project | Fetch mocks and fixtures in `apps/web/src/storybook` | [`public-shell.stories.tsx`](../../apps/web/src/_app/ui/public-shell.stories.tsx) | `pnpm test:storybook` |
@@ -130,10 +130,49 @@ diagnostic forwarding; the current BFF does not forward that header.
 
 [Waiting in tests](../../CODING_STANDARDS.md#waiting-in-tests) holds the rules for barriers.
 
-Known exception: Web module tests replace their own `@/shared` modules with `vi.mock`. On
-2026-11-16, 125 of the 166 `vi.mock(` calls in `apps/web` named an `@/shared` module (counted with
-`git grep`). The owner decided on 2026-11-16 to leave them for a later architecture audit. A new
-test does not add such a replacement; existing ones stay until that audit.
+Web tests exercise their own Route Handler/BFF, session, SDK and backend adapter. Replacing an
+own callable default, supplying a fake existing BFF to a browser adapter, or changing an own spy's
+implementation is the same substitution as a module mock. A required configuration callback is a
+port; a supplied callback that displaces an own default is a substitute. Observational spies,
+`spy: true`, and factories returning the exact actual module preserve its exports and results.
+Review and verification establish those semantic claims; the architecture checker rejects the
+concrete registration, alias, overwrite and callable-default forms with negative fixtures.
+
+The [accepted #2292 platform decision](https://github.com/sachkov-inside/platform/issues/2292#issuecomment-6943695123)
+permits only these existing Node/tooling environment seams. The current owner is #2292,
+dispatch `ctx_6da5a858c6db`; there is no exception for an own module or an entire vendor package.
+Paths below are relative to `apps/web`.
+
+| API and owning fixture | What the seam proves and misses |
+|---|---|
+| `next/server.connection`, `test/support/request-scope.ts` | Supplies an already connected Node-test scope, retaining the other actual exports. It does not prove prerender or prefetch interruption. |
+| `next/cache.cacheLife`, `cacheTag`, `revalidateTag`, `test/module/authoring-write-expires-catalog.test.ts` and `test/module/mutation-operation.test.ts`; the environment alias `test/support/next-cache.ts` | Observes requested lifetime, tags and invalidation, not compiled cache retention. Own cache policy and adapters run. |
+| `next/server.after`, `test/module/client-report-limits.test.ts` and `test/module/client-telemetry-bff.test.ts` | Drops deferred work only for immediate protocol, rate and log assertions. These fixtures prove no deferred write or lifecycle outcome. |
+| `next/server.after`, `test/module/web-telemetry-forwarding.test.ts` | Retains and executes the actual callback and backend HTTP. Returns-before-persistence, no identity forwarding and errors remain asserted. It does not prove the Next scheduler. |
+| `server-only`, `test/module/logto-sdk-callback.test.ts`; the environment alias `test/support/server-only.ts` in the module and smoke Vitest configs | Supplies the conditional import marker in Node. Production browser import restrictions remain enforced. |
+| `@storybook/addon-vitest/vitest-plugin.storybookTest`, `test/contracts/run-scoped-vite-cache.test.ts` | Suppresses only vendor import-time side effects while the actual Vite/cache contract runs. It proves no addon, UI, preset or Storybook lifecycle behaviour. |
+
+A new coordinator supplement on 2026-11-17 (`msg_c1b30d246cd4`, under #2292) accepts four
+existing external Next alias entries to three adapters in two fixture contexts. These were not in
+the earlier table. Keep their inventory separate from `vi.mock` registrations.
+
+| Exact alias context | Accepted framework input and limit |
+|---|---|
+| `.storybook/main.ts`: `next/link` → `.storybook/mocks/next-link.tsx`, `next/navigation` → `.storybook/mocks/next-navigation.ts` | The anchor retains href/children/anchor props/ref, drops prefetch/scroll/onNavigate, and reports pending:false. Stories configure pathname/params/query and router callback receipts while actual own UI/hooks render. |
+| `test/browser-engines/course-reading-handoff.test.ts`: `next/link` → the same anchor, `next/navigation` → `test/support/course-reading-router.ts` | Own UI runs with actual window/popstate and a controlled ready promise as its framework input. |
+
+These ports do not prove actual Next navigation, history delivery, PPR, prefetch, pending state or
+framework lifecycle. Keep the real production Next/Navigation scenarios. The checker fixes exact
+alias targets, resolved adapter paths and owning contexts, and checks their known exports/body AST
+without comments or source positions. Adding API or behaviour requires updating the owning decision
+and negative fixtures; these are five explicit framework adapters, including the Node cache/marker,
+not an own-module baseline. The handoff shim stays out of production and module contexts. Review
+and independent verification still assess the semantic limits; the checker does not infer them.
+
+Any test claiming deferred execution, persistence or framework lifecycle needs the actual callback
+or framework context. A no-op in the forwarding fixture or outside the two immediate fixtures is
+rejected. Structural checks cover the known API/factory forms, not arbitrary JavaScript evaluation
+or the truth of prose in a test name. Historical mock counts are evidence, never an allowlist.
 
 ## Flaky tests
 

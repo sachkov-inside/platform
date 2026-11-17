@@ -1,7 +1,14 @@
 // @ts-check
+import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import process from "node:process";
 import { fileURLToPath, URL } from "node:url";
+import { z } from "zod";
+
+import { testSubstituteViolations } from "./test-substitutes.mts";
 
 const webRoot = fileURLToPath(new URL("..", import.meta.url));
 const fixtures = [
@@ -269,3 +276,76 @@ for (const fixture of [
       `Web lint fixture ${fixture.file} did not enforce its contract\n${output}`,
     );
 }
+
+// Code-as-data keeps deliberately forbidden calls outside runnable tests and their inventory.
+const substituteFixtures = z
+  .object({
+    rejected: z.array(
+      z.object({
+        name: z.string(),
+        file: z.string(),
+        source: z.string(),
+        diagnostic: z.string(),
+      }),
+    ),
+    accepted: z.array(
+      z.object({ name: z.string(), file: z.string(), source: z.string() }),
+    ),
+  })
+  .parse(
+    JSON.parse(
+      readFileSync(
+        new URL(
+          "../test/guardrails/fixtures/test-substitutes.json",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    ),
+  );
+const substituteFailures = [];
+for (const fixture of substituteFixtures.rejected) {
+  const diagnostics = testSubstituteViolations(fixture.file, fixture.source);
+  if (
+    !diagnostics.some((diagnostic) => diagnostic.includes(fixture.diagnostic))
+  )
+    substituteFailures.push(
+      `Accepted forbidden ${fixture.name}: ${diagnostics.join("\n")}`,
+    );
+}
+for (const fixture of substituteFixtures.accepted) {
+  const diagnostics = testSubstituteViolations(fixture.file, fixture.source);
+  if (diagnostics.length)
+    substituteFailures.push(
+      `Rejected allowed ${fixture.name}: ${diagnostics.join("\n")}`,
+    );
+}
+assert.deepEqual(substituteFailures, [], "Web test substitute fixtures");
+
+// Also prove that the actual command invokes the policy, rather than only testing a helper.
+const substituteDirectory = mkdtempSync(
+  path.join(tmpdir(), "platform-test-substitutes-"),
+);
+try {
+  const fixture = substituteFixtures.rejected[0];
+  assert.ok(fixture);
+  const file = path.join(substituteDirectory, "substitution.test.ts");
+  writeFileSync(file, fixture.source);
+  const result = spawnSync(
+    "node",
+    ["scripts/check-web-architecture.mjs", file],
+    { cwd: webRoot, encoding: "utf8" },
+  );
+  if (result.error) throw result.error;
+  assert.notEqual(
+    result.status,
+    0,
+    "Architecture command must reject an own-module substitution",
+  );
+  assert.ok(`${result.stdout}${result.stderr}`.includes(fixture.diagnostic));
+} finally {
+  rmSync(substituteDirectory, { recursive: true, force: true });
+}
+process.stdout.write(
+  `Web test substitute guardrails passed (${substituteFixtures.rejected.length} rejected, ${substituteFixtures.accepted.length} accepted).\n`,
+);
