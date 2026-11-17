@@ -21,10 +21,24 @@ export const readerHistoryRestoreEvent = "inside-reader-history-restore";
 let pending:
   { target: string; origin?: Origin; restoreFrom?: string } | undefined;
 let activeEntryId: string | undefined;
+let cancelPendingRestoration: () => void = () => undefined;
+let pendingRailRestoration:
+  | { readonly root: ParentNode; reveal(chapters: readonly string[]): void }
+  | undefined;
 let preservationInstalled = false;
 export function resetReaderHistoryActivation() {
+  cancelPendingRestoration();
   activeEntryId = undefined;
 }
+/** A mounted rail can receive the request before its selected chapter commits (#2330). */
+export function readerHistoryRailReady(
+  root: ParentNode,
+  availableChapters: readonly string[],
+) {
+  if (pendingRailRestoration?.root === root)
+    pendingRailRestoration.reveal(availableChapters);
+}
+
 const key = (id: string) => `inside-reader-entry:${id}`;
 
 function entry() {
@@ -114,6 +128,7 @@ export function enterReaderHistory(
   root: ParentNode = document,
 ) {
   preserveReaderHistoryEntry();
+  cancelPendingRestoration();
   let current = entry();
   if (current?.href !== window.location.href) current = undefined;
   const restoreFrom =
@@ -150,23 +165,72 @@ export function enterReaderHistory(
     (restoreFrom === undefined && view.href !== window.location.href)
   )
     return;
-  requestAnimationFrame(() =>
-    requestAnimationFrame(() => {
-      if (entry()?.id !== current.id || window.location.href !== current.href)
-        return;
+  let waitingForView = true;
+  let requiredChapter = view.chapter;
+  const stop = () => {
+    release();
+    if (!waitingForView) return;
+    waitingForView = false;
+    if (activeEntryId === current.id) activeEntryId = undefined;
+  };
+  const restore = () => {
+    if (!waitingForView) return;
+    if (entry()?.id !== current.id || window.location.href !== current.href) {
+      stop();
+      return;
+    }
+    const chapter = root.querySelector<HTMLElement>("[data-course-chapter]");
+    if (
+      requiredChapter !== undefined &&
+      chapter !== null &&
+      chapter.dataset["courseChapter"] !== requiredChapter
+    )
+      return;
+    const visible = chapter ?? (root instanceof Element ? root : null);
+    if (visible?.getClientRects().length === 0) return;
+    scrollShellRootsTo(view, root);
+    root
+      .querySelector("[data-course-rail-scroll]")
+      ?.scrollTo({ top: view.railY, behavior: "instant" });
+    waitingForView = false;
+    release();
+  };
+  const observer = new MutationObserver(restore);
+  if (root instanceof Node)
+    observer.observe(root, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ["data-course-chapter", "hidden", "style"],
+    });
+  const readiness = {
+    root,
+    reveal: (availableChapters: readonly string[]) => {
+      if (
+        requiredChapter !== undefined &&
+        !availableChapters.includes(requiredChapter)
+      )
+        requiredChapter = undefined;
       window.dispatchEvent(
-        new CustomEvent(readerHistoryRestoreEvent, { detail: view.chapter }),
+        new CustomEvent(readerHistoryRestoreEvent, { detail: requiredChapter }),
       );
-      requestAnimationFrame(() => {
-        if (entry()?.id !== current.id || window.location.href !== current.href)
-          return;
-        scrollShellRootsTo(view, root);
-        root
-          .querySelector("[data-course-rail-scroll]")
-          ?.scrollTo({ top: view.railY, behavior: "instant" });
-      });
-    }),
+      restore();
+    },
+  };
+  const release = () => {
+    observer.disconnect();
+    if (pendingRailRestoration === readiness)
+      pendingRailRestoration = undefined;
+    if (cancelPendingRestoration === stop)
+      cancelPendingRestoration = () => undefined;
+  };
+  pendingRailRestoration = readiness;
+  cancelPendingRestoration = stop;
+  window.dispatchEvent(
+    new CustomEvent(readerHistoryRestoreEvent, { detail: view.chapter }),
   );
+  restore();
+  return stop;
 }
 
 /** Capture ordinary in-tab supplementary and same-document fragment transitions. */

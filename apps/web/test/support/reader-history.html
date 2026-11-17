@@ -6,6 +6,7 @@
   </head>
   <body>
     <script type="module">
+      import * as historyLifecycle from "/src/shared/lib/reader-history.ts";
       import {
         readerHistoryRoot,
         enterReaderHistory,
@@ -17,15 +18,21 @@
       const source = "/products/course/tasks/start";
       const context =
         "?from=%2Fproducts%2Fcourse%2Fprogramme&anchor=task%3Astart";
+      let deferredChapter = false;
+      let listenerReady = true;
+      let requestedChapter;
+      let stopTracking;
       function render() {
+        stopTracking?.();
+        stopTracking = undefined;
         const supplementary = location.pathname.startsWith("/materials/");
-        document.body.innerHTML = `<section hidden><aside data-course-chapter="stale"><div data-course-rail-scroll></div></aside></section><div data-reader-history-root data-course-reading-host><h1>${location.pathname}</h1><aside data-course-chapter="second"><div data-course-rail-scroll style="height:80px;overflow:auto"><div style="height:600px">Rail</div></div></aside><main data-material-id="current" data-application-content style="height:400px;overflow:auto"><div style="height:1600px"><a id="project" href="/materials/project${context}">Project</a> <a id="brief" href="/materials/brief${context}">Brief</a> <a id="return" href="${readerOriginHref(source) ?? source}">Return</a><p>Document body</p></div></main></div>`;
+        document.body.innerHTML = `<section hidden><aside data-course-chapter="stale"><div data-course-rail-scroll></div></aside></section><div data-reader-history-root data-course-reading-host><h1>${location.pathname}</h1><aside data-course-chapter="${!supplementary && deferredChapter ? "first" : "second"}"><div data-course-rail-scroll style="height:80px;overflow:auto"><div style="height:${!supplementary && deferredChapter ? "60" : "600"}px">Rail</div></div></aside><main data-material-id="current" data-application-content style="height:400px;overflow:auto"><div style="height:1600px"><a id="project" href="/materials/project${context}">Project</a> <a id="brief" href="/materials/brief${context}">Brief</a> <a id="return" href="${readerOriginHref(source) ?? source}">Return</a><p>Document body</p><button id="defer-chapter">Wait for the next chapter</button><button id="ready-chapter">Commit the requested chapter</button><button id="defer-listener">Wait for the chapter subscription</button><button id="connect-listener">Connect the chapter subscription</button><button id="disconnect-tracker">Disconnect the reader</button><button id="forget-chapter">Use remaining chapters</button></div></main></div>`;
         // Model a streamed intermediate document whose links arrive before its Tracker.
         if (!(
           location.pathname === "/materials/project" &&
           location.search.includes("deferHistory=1")
         ))
-          enterReaderHistory(
+          stopTracking = enterReaderHistory(
             supplementary ? source : undefined,
             readerHistoryRoot(document.querySelector("#project")),
           );
@@ -42,6 +49,46 @@
           );
       }
       document.addEventListener("click", (event) => {
+        if (event.target.closest("#disconnect-tracker")) {
+          stopTracking?.();
+          stopTracking = undefined;
+          return;
+        }
+        if (event.target.closest("#forget-chapter")) {
+          historyLifecycle.readerHistoryRailReady?.(
+            document.querySelector("[data-reader-history-root]"),
+            ["first"],
+          );
+          return;
+        }
+        if (event.target.closest("#defer-listener")) {
+          listenerReady = false;
+          deferredChapter = true;
+          return;
+        }
+        if (event.target.closest("#connect-listener")) {
+          listenerReady = true;
+          deferredChapter = false;
+          // Feature detection keeps this public consumer usable for immutable-base regression runs.
+          historyLifecycle.readerHistoryRailReady?.(
+            document.querySelector("[data-reader-history-root]"),
+            ["first", "second"],
+          );
+          return;
+        }
+        if (event.target.closest("#defer-chapter")) {
+          deferredChapter = true;
+          return;
+        }
+        if (event.target.closest("#ready-chapter")) {
+          deferredChapter = false;
+          const root = document.querySelector("[data-reader-history-root]");
+          root.querySelector("[data-course-chapter]").dataset.courseChapter =
+            requestedChapter ?? "second";
+          root.querySelector("[data-course-rail-scroll] > div").style.height =
+            "600px";
+          return;
+        }
         prepareReaderHistory(
           event,
           location.pathname.startsWith("/materials/") ? source : undefined,
@@ -68,6 +115,15 @@
       window.addEventListener("popstate", render);
       // The rail selects the restored chapter; record it where the test can read it.
       window.addEventListener("inside-reader-history-restore", (event) => {
+        if (!listenerReady || typeof event.detail !== "string") return;
+        requestedChapter = event.detail;
+        if (!deferredChapter) {
+          const root = document.querySelector("[data-reader-history-root]");
+          root.querySelector("[data-course-chapter]").dataset.courseChapter =
+            event.detail;
+          root.querySelector("[data-course-rail-scroll] > div").style.height =
+            "600px";
+        }
         document.documentElement.dataset.restoredChapter = event.detail;
       });
       window.addEventListener("pagehide", () =>
