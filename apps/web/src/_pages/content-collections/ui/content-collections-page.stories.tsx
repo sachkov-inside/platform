@@ -271,6 +271,73 @@ export const ArchiveFromRowMenu: Story = {
   },
 };
 
+/** A retained draft reads the server version accepted by the list's separate archive command. */
+export const DraftAfterRowArchive: Story = {
+  globals: desktop.globals,
+  play: async ({ canvasElement }) => {
+    const page = await openFirstTopic(canvasElement, "Product engineering");
+    await userEvent.click(page.getByRole("button", { name: "Все темы" }));
+    const originalFetch = window.fetch;
+    const inputs: unknown[] = [];
+    const write = spyOn(window, "fetch").mockImplementation(
+      async (input, init) => {
+        if (init?.method !== "PUT") return originalFetch(input, init);
+        if (typeof init.body !== "string")
+          throw new Error("Expected a JSON collection mutation");
+        const body: unknown = JSON.parse(init.body);
+        inputs.push(body);
+        return Response.json({
+          kind: "saved",
+          collection: {
+            ...topic,
+            archived: true,
+            version: inputs.length === 1 ? 4 : 5,
+          },
+        });
+      },
+    );
+    try {
+      await userEvent.click(
+        page.getByRole("button", { name: "Действия с «Product engineering»" }),
+      );
+      await userEvent.click(
+        within(canvasElement.ownerDocument.body).getByRole("menuitem", {
+          name: "В архив",
+        }),
+      );
+      await expect(await page.findByText("Изменения сохранены.")).toBeVisible();
+      await userEvent.click(
+        page.getByRole("link", { name: "Product engineering" }),
+      );
+      await userEvent.type(
+        page.getByRole("textbox", { name: "Краткое описание" }),
+        " Обновлено.",
+      );
+      await expect(await flushPendingEdits()).toBe(true);
+      await expect(inputs).toEqual([
+        {
+          archived: true,
+          collectionId: topic.id,
+          expectedVersion: 3,
+          kind: "topic",
+        },
+        {
+          collectionId: topic.id,
+          expectedVersion: 4,
+          kind: "topic",
+          name: topic.name,
+          summary: `${topic.summary} Обновлено.`,
+        },
+      ]);
+      await expect(
+        page.getByRole("button", { name: "Вернуть из архива" }),
+      ).toBeVisible();
+    } finally {
+      write.mockRestore();
+    }
+  },
+};
+
 export const NoResults: Story = {
   globals: mobile.globals,
   play: async ({ canvasElement }) => {
