@@ -1,5 +1,10 @@
 import { fileURLToPath } from "node:url";
-import { expect as ui, type Browser, type Page } from "@playwright/test";
+import {
+  expect as ui,
+  type Browser,
+  type Page,
+  type Route,
+} from "@playwright/test";
 import { afterAll, beforeAll, test } from "vitest";
 import { z } from "zod";
 
@@ -206,6 +211,63 @@ for (const engine of ["chromium", "webkit"]) {
       await ui(page.getByLabel("Harness error")).toHaveText("");
     } finally {
       await page.close();
+    }
+  }, 30_000);
+
+  test(`${engine}: committing the current crop keeps upload pending despite a later native image read`, async () => {
+    const page = await openPage();
+    const pending: { route?: Route; body?: string | null } = {};
+    try {
+      const { dialog } = await chooseAvatar(page);
+      await page.route("**/account/avatar", (route) => {
+        pending.body = route.request().postData();
+        pending.route = route;
+      });
+      await page.locator("#upload").evaluate((button: HTMLButtonElement) => {
+        button.click();
+      });
+      await ui.poll(() => pending.route !== undefined).toBe(true);
+      ui(pending.route?.request().method()).toBe("PUT");
+      ui(pending.body).toContain('filename="sachkov-dev-avatar.webp"');
+      await ui
+        .poll(
+          async () =>
+            (await inspect(page)).find(
+              (entry) => entry.fileName === "pending.webp",
+            )?.released,
+        )
+        .toBe(true);
+      await ui(
+        dialog.getByRole("button", { name: "Закрыть кадрирование" }),
+      ).toBeDisabled();
+      await dialog.press("Escape");
+      await ui(dialog).toBeVisible();
+      const route = pending.route;
+      if (route === undefined) throw new Error("Missing real avatar request");
+      delete pending.route;
+      await route.fulfill({
+        status: 200,
+        json: {
+          avatar: { avatarId: "00000000-0000-4000-8000-000000000239" },
+          bio: null,
+          createdAt: "2026-11-16T12:00:00.000Z",
+          displayName: "Проверка аватара",
+          status: "active",
+          updatedAt: "2026-11-16T12:00:00.000Z",
+          version: 2,
+        },
+      });
+      await ui(dialog).toBeHidden();
+      await ui(
+        page.getByRole("status").filter({ hasText: "Аватар сохранён." }),
+      ).toHaveText("Аватар сохранён.");
+      ui((await inspect(page)).every((entry) => entry.released)).toBe(true);
+    } finally {
+      try {
+        if (pending.route !== undefined) await pending.route.abort();
+      } finally {
+        await page.close();
+      }
     }
   }, 30_000);
 

@@ -51,7 +51,7 @@ function App() {
   const [failure, setFailure] = useState("");
 
   async function selectBeforeDecode(
-    mode: "leave" | "latest" | "invalid" | "cancel",
+    mode: "leave" | "latest" | "invalid" | "cancel" | "upload",
   ) {
     const response = await fetch("/images/sachkov-dev-avatar.webp");
     if (!response.ok) throw new Error("Missing real image fixture");
@@ -68,7 +68,7 @@ function App() {
         fileInput.dispatchEvent(new Event("change", { bubbles: true }));
       });
     }
-    if (mode === "cancel") {
+    if (mode === "cancel" || mode === "upload") {
       const dialog = document.querySelector("dialog");
       if (!(dialog instanceof HTMLDialogElement) || !dialog.open)
         throw new Error("Missing open crop before image paste");
@@ -84,12 +84,14 @@ function App() {
           }),
         );
       });
-      const cancel = [...dialog.querySelectorAll("button")].find(
-        (button) => button.textContent === "Отмена",
+      const action = [...dialog.querySelectorAll("button")].find(
+        (button) =>
+          button.textContent ===
+          (mode === "cancel" ? "Отмена" : "Сохранить аватар"),
       );
-      if (cancel === undefined) throw new Error("Missing public crop cancel");
+      if (action === undefined) throw new Error("Missing public crop action");
       flushSync(() => {
-        cancel.click();
+        action.click();
       });
     } else {
       select(new File([bytes], "first.webp", { type: "image/webp" }));
@@ -151,20 +153,22 @@ function App() {
       >
         Уйти со страницы
       </button>
-      {(["leave", "latest", "invalid", "cancel"] as const).map((mode) => (
-        <button
-          key={mode}
-          type="button"
-          id={mode}
-          onClick={() => {
-            void selectBeforeDecode(mode).catch((error: unknown) => {
-              setFailure(error instanceof Error ? error.message : "Failed");
-            });
-          }}
-        >
-          {mode}
-        </button>
-      ))}
+      {(["leave", "latest", "invalid", "cancel", "upload"] as const).map(
+        (mode) => (
+          <button
+            key={mode}
+            type="button"
+            id={mode}
+            onClick={() => {
+              void selectBeforeDecode(mode).catch((error: unknown) => {
+                setFailure(error instanceof Error ? error.message : "Failed");
+              });
+            }}
+          >
+            {mode}
+          </button>
+        ),
+      )}
       <button
         id="inspect"
         type="button"
