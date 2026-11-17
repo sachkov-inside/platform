@@ -1,3 +1,5 @@
+import "next/dist/server/node-environment";
+
 import { vi } from "vitest";
 
 /**
