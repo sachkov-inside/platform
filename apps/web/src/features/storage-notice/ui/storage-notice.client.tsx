@@ -39,11 +39,29 @@ function remember(edition: number): void {
   } catch {
     // Хранилище запрещено: уведомление скроется до перезагрузки страницы.
   }
-  hiddenWithoutStorage = true;
+  acknowledgedEdition = edition;
   for (const listener of listeners) listener();
 }
 
-let hiddenWithoutStorage = false;
+let acknowledgedEdition: number | null = null;
+interface NoticeSnapshot {
+  readonly stored: string | null;
+  readonly acknowledgedEdition: number | null;
+}
+let currentSnapshot: NoticeSnapshot = {
+  stored: null,
+  acknowledgedEdition: null,
+};
+function readSnapshot(): NoticeSnapshot {
+  const stored = readStored();
+  if (
+    currentSnapshot.stored !== stored ||
+    currentSnapshot.acknowledgedEdition !== acknowledgedEdition
+  ) {
+    currentSnapshot = { stored, acknowledgedEdition };
+  }
+  return currentSnapshot;
+}
 
 const storageNoticeSpace = "--storage-notice-space";
 
@@ -60,12 +78,15 @@ export function StorageNotice({
   readonly edition: number;
   readonly policyHref: Route;
 }) {
-  const stored = useSyncExternalStore(subscribe, readStored, () =>
-    String(edition),
+  const snapshot = useSyncExternalStore<NoticeSnapshot | null>(
+    subscribe,
+    readSnapshot,
+    () => null,
   );
   const visible =
-    storageNoticeVisible(stored, edition) &&
-    !(hiddenWithoutStorage && stored === null);
+    snapshot !== null &&
+    storageNoticeVisible(snapshot.stored, edition) &&
+    snapshot.acknowledgedEdition !== edition;
   const notice = useRef<HTMLElement>(null);
   useEffect(() => {
     const element = notice.current;
