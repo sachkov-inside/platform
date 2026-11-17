@@ -313,6 +313,59 @@ describe("Material Authoring action workflow", () => {
     expect(backend).toHaveBeenCalledTimes(2);
   });
 
+  it.each([{ commit: "1234567890abcdef1234567890abcdef12345678" }, {}])(
+    "loads a source-owned Material with source metadata %j",
+    async (sourceCommit) => {
+      respond("GET", `/authoring/materials/${materialId}`, {
+        body: { doc: { type: "doc", content: [] }, schemaVersion: 1 },
+        contentVersion: 1,
+        cover: null,
+        firstPublishedAt: null,
+        materialId,
+        metadata: {
+          access: "free",
+          difficulty: null,
+          formatId: null,
+          outcomes: [],
+          productMemberships: [],
+          slug: null,
+          summary: null,
+          tagIds: [],
+          title: "Source Material",
+          topicId: null,
+        },
+        source: {
+          id: "course/lesson",
+          path: "lessons/lesson.md",
+          revision: "a".repeat(64),
+          version: 2,
+          ...sourceCommit,
+        },
+        publicationState: "draft",
+        inFeed: false,
+        latestVideoDeletion: null,
+        primaryVideo: null,
+        primaryVideoId: null,
+        publishedAt: null,
+        unselectedVideoUpload: null,
+      });
+      references();
+
+      await expect(
+        getCurrentMaterial(materialId, "access-token"),
+      ).resolves.toMatchObject({
+        kind: "ready",
+        draft: {
+          materialId,
+          title: "Source Material",
+          sourcePath: "lessons/lesson.md",
+          readOnly: true,
+          canDelete: false,
+        },
+      });
+    },
+  );
+
   it("rejects malformed Current Material document and Product payloads at the adapter boundary", async () => {
     respond(
       "GET",

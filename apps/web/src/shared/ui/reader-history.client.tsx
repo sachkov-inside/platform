@@ -34,13 +34,16 @@ function Tracker({
     const save = () => {
       if (matchesDocument()) saveReaderHistoryView(root);
     };
-    enterReaderHistory(originHref, root);
+    let stopRestoring = enterReaderHistory(originHref, root);
     const click = (event: MouseEvent) => {
       if (matchesDocument()) prepareReaderHistory(event, originHref, root);
     };
     const pop = () => {
       resetReaderHistoryActivation();
-      if (matchesDocument()) enterReaderHistory(originHref, root);
+      if (matchesDocument()) {
+        stopRestoring?.();
+        stopRestoring = enterReaderHistory(originHref, root);
+      }
     };
     let frame: number | undefined;
     const scroll = () => {
@@ -55,6 +58,7 @@ function Tracker({
     window.addEventListener("pagehide", save);
     window.addEventListener("popstate", pop);
     return () => {
+      stopRestoring?.();
       if (frame !== undefined) cancelAnimationFrame(frame);
       document.removeEventListener("scroll", scroll, true);
       document.removeEventListener("click", click, true);

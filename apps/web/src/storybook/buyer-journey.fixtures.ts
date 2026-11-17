@@ -1,3 +1,4 @@
+import { legacyCatalogueScenario } from "../../../../scenarios/legacy-catalog.mjs";
 import {
   productIdFromCapability,
   productCapability,
@@ -8,7 +9,7 @@ import { productJourneyCorpus } from "./product-journey-corpus.fixtures";
 export const buyerProductId =
   productIdFromCapability(productOnlyOffer.offer.benefits[0] ?? "materials") ??
   "";
-export const buyerProductName = "Создание Platform Inside";
+export const buyerProductName = legacyCatalogueScenario.product.name;
 export function buyerProgrammeFixture(name: string) {
   const corpus = productJourneyCorpus();
   const titles = [
@@ -30,7 +31,7 @@ export function buyerProgrammeFixture(name: string) {
       ...corpus.reference,
       id: buyerProductId,
       name,
-      slug: "platform-inside",
+      slug: legacyCatalogueScenario.product.slug,
     },
     items,
     chapters: [
@@ -62,7 +63,7 @@ export const buyerProductContent = {
   id: buyerProductId,
   kind: "product" as const,
   title: buyerProductName,
-  slug: "platform-inside",
+  slug: legacyCatalogueScenario.product.slug,
   available: true,
 };
 export const buyerGrounds: readonly AccessGround[] = [

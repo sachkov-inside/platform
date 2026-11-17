@@ -1,3 +1,4 @@
+import { courseReferenceFacts } from "../../../../scenarios/course-references.mjs";
 import {
   courseReadingContext,
   type CourseReadingContext,
@@ -12,8 +13,7 @@ export const courseSource = {
   items: [
     {
       materialId: "00000000-0000-4000-8000-0000000000a1",
-      slug: "aie-project",
-      title: "Описание проекта",
+      ...courseReferenceFacts.project,
       availability: "available" as const,
     },
     {
@@ -36,8 +36,7 @@ export const courseSource = {
     },
     {
       materialId: "00000000-0000-4000-8000-0000000000a5",
-      slug: "aie-product-brief",
-      title: "Бриф заказчика",
+      ...courseReferenceFacts.brief,
       availability: "available" as const,
     },
   ],

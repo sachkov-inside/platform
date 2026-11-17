@@ -1,5 +1,6 @@
 // @ts-check
 import { z } from "zod";
+import { readingProduct } from "../../../../scenarios/reading.mjs";
 
 export const metricsProductId = "11111111-1111-4111-8111-111111111115";
 export const metricsMaterialId = "33333333-3333-4333-8333-333333339901";
@@ -322,7 +323,7 @@ export async function dataLoadingMetricsRoute(request, url, readBody, owners) {
               ...value.pinnedProduct,
               id: metricsProductId,
               slug: "performance-course",
-              name: "Курс на 120 материалов",
+              name: readingProduct.name,
             },
           },
         };

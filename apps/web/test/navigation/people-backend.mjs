@@ -1,6 +1,11 @@
 // @ts-check
 import { z } from "zod";
-import { peopleScenario } from "../../../../scenarios/people.mjs";
+import {
+  peopleScenario,
+  peopleDirectoryScenario,
+  peopleHistoryScenario,
+  peopleCardScenario,
+} from "../../../../scenarios/people.mjs";
 import { scenarioRoles } from "../../../../scenarios/roles.mjs";
 
 // Command bodies the web BFF sends; a malformed body fails the request.
@@ -74,12 +79,14 @@ const directory = [
   telegram: person.username === null ? "not_linked" : "linked",
   // deterministic-test-allow wall-clock: fixed instants derived from a literal epoch, not the clock.
   registeredAt: new Date(
-    Date.UTC(2026, 9, 20, 9) - index * 86_400_000,
+    Date.parse(peopleDirectoryScenario.registeredEpoch) - index * 86_400_000,
   ).toISOString(),
   lastActivityAt:
     index % 4 === 3
       ? null
-      : new Date(Date.UTC(2026, 9, 26, 15) - index * 3_600_000).toISOString(),
+      : new Date(
+          Date.parse(peopleDirectoryScenario.activityEpoch) - index * 3_600_000,
+        ).toISOString(),
 }));
 
 /** @typedef {{access: "active"|"revoked", revision: number, origin: string, firstIssuedAt: string, history: object[]}} AccessRecord */
@@ -88,8 +95,14 @@ const directory = [
 function initialAccess() {
   /** @type {Map<string, AccessRecord>} */
   const records = new Map();
-  /** @param {string} accountId @param {string} productId @param {"active"|"revoked"} state @param {string} origin */
-  const put = (accountId, productId, state, origin) => {
+  /** @param {string} accountId @param {string} productId @param {"active"|"revoked"} state @param {string} origin @param {number} [revision] */
+  const put = (
+    accountId,
+    productId,
+    state,
+    origin,
+    revision = state === "active" ? 1 : 2,
+  ) => {
     const issued = {
       kind:
         origin === "paid"
@@ -97,13 +110,13 @@ function initialAccess() {
           : origin === "course_activation"
             ? "activation"
             : "manual_issue",
-      at: "2026-09-02T08:15:00.000Z",
+      at: peopleHistoryScenario.issuedAt,
       actor: origin === "manual" ? ownerActor : { kind: "system" },
       reason: origin === "manual" ? "Подарок" : null,
     };
     records.set(`${accountId}:${productId}`, {
       access: state,
-      revision: state === "active" ? 1 : 2,
+      revision,
       origin,
       firstIssuedAt: issued.at,
       history:
@@ -112,16 +125,22 @@ function initialAccess() {
           : [
               {
                 kind: "revoke",
-                at: "2026-10-01T12:40:00.000Z",
+                at: peopleHistoryScenario.revoke.at,
                 actor: ownerActor,
-                reason: "Возврат оплаты",
+                reason: peopleHistoryScenario.revoke.reason,
               },
               issued,
             ],
     });
   };
   const [anna, konstantin] = people;
-  put(anna?.accountId ?? "", aiProduct?.productId ?? "", "active", "paid");
+  put(
+    anna?.accountId ?? "",
+    aiProduct?.productId ?? "",
+    peopleCardScenario.paidAccess.access,
+    peopleCardScenario.paidAccess.origin,
+    peopleCardScenario.paidAccess.revision,
+  );
   put(
     anna?.accountId ?? "",
     architectureProduct?.productId ?? "",
@@ -287,18 +306,18 @@ function card(person) {
               paymentId: "e1210000-0000-4000-8000-000000000001",
               productId: aiProduct?.productId ?? null,
               productName: aiProduct?.name ?? null,
-              amountKopecks: 1_499_000,
-              state: "confirmed",
-              createdAt: "2026-09-02T08:14:00.000Z",
+              amountKopecks: peopleCardScenario.payments[0].amountKopecks,
+              state: peopleCardScenario.payments[0].state,
+              createdAt: peopleCardScenario.payments[0].createdAt,
               paymentLinkId: "f1210000-0000-4000-8000-000000000001",
             },
             {
               paymentId: "e1210000-0000-4000-8000-000000000002",
               productId: architectureProduct?.productId ?? null,
               productName: architectureProduct?.name ?? null,
-              amountKopecks: 990_000,
-              state: "failed",
-              createdAt: "2026-08-28T19:02:00.000Z",
+              amountKopecks: peopleCardScenario.payments[1].amountKopecks,
+              state: peopleCardScenario.payments[1].state,
+              createdAt: peopleCardScenario.payments[1].createdAt,
               paymentLinkId: null,
             },
           ]
@@ -311,12 +330,12 @@ function card(person) {
             {
               productId: aiProduct?.productId ?? "",
               name: aiProduct?.name ?? "",
-              startedAt: "2026-09-03T10:00:00.000Z",
+              startedAt: peopleCardScenario.learning.startedAt,
               progress: {
                 state: "measured",
-                read: 12,
-                total: 40,
-                lastActivityAt: "2026-10-26T18:20:00.000Z",
+                read: peopleCardScenario.learning.read,
+                total: peopleCardScenario.learning.total,
+                lastActivityAt: peopleCardScenario.lastActivityAt,
               },
             },
           ]
@@ -328,9 +347,9 @@ function card(person) {
         ? [
             {
               productId: aiProduct?.productId ?? "",
-              count: 3,
-              lastSubmittedAt: "2026-10-25T11:05:00.000Z",
-              lastTaskCode: "agent-review",
+              count: peopleCardScenario.submissions.count,
+              lastSubmittedAt: peopleCardScenario.submissions.lastSubmittedAt,
+              lastTaskCode: peopleCardScenario.submissions.lastTaskCode,
             },
           ]
         : [],
@@ -338,12 +357,12 @@ function card(person) {
     telegram: {
       state: "ready",
       link: person.telegram,
-      membership: rich ? "member" : "unknown",
-      restriction: rich ? "none" : "unknown",
-      marketing: rich ? "stopped" : "unknown",
-      observedAt: rich ? "2026-10-26T09:00:00.000Z" : null,
+      membership: rich ? peopleCardScenario.telegram.membership : "unknown",
+      restriction: rich ? peopleCardScenario.telegram.restriction : "unknown",
+      marketing: rich ? peopleCardScenario.telegram.marketing : "unknown",
+      observedAt: rich ? peopleCardScenario.telegram.observedAt : null,
       joinReminders: rich
-        ? { sent: 3, lastAt: "2026-10-24T09:00:00.000Z" }
+        ? { ...peopleCardScenario.telegram.joinReminders }
         : null,
     },
     waitlists: {
@@ -353,9 +372,7 @@ function card(person) {
             {
               productId: practiceProduct?.productId ?? "",
               productName: practiceProduct?.name ?? null,
-              intakeName: "Поток весна 2027",
-              active: true,
-              joinedAt: "2026-10-10T07:30:00.000Z",
+              ...peopleCardScenario.practiceWaitlist,
             },
           ]
         : [],

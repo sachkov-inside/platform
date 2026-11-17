@@ -99,6 +99,12 @@ function mouse(type: string, target: HTMLElement, clientX: number) {
   );
 }
 
+function mouseClick(target: HTMLElement) {
+  target.dispatchEvent(
+    new MouseEvent("click", { bubbles: true, cancelable: true, detail: 1 }),
+  );
+}
+
 /**
  * The carousel stands open under a quiet heading: only cards, no marks, counters, completion or
  * links. A click turns a card; the next card peeks out at the right edge.
@@ -210,7 +216,7 @@ export const MouseDrag: Story = {
     await expect(rail.scrollLeft).toBeGreaterThan(100);
     mouse("pointerup", first, 250);
     // The browser clicks where the drag ended; that click must not turn the card.
-    first.click();
+    mouseClick(first);
     await expect(rail).not.toHaveAttribute("data-dragging");
     // The drag settles on the next card; by then a turn of the first card would have shown.
     await waitFor(() =>
@@ -223,7 +229,7 @@ export const MouseDrag: Story = {
     mouse("pointerdown", second, 300);
     mouse("pointermove", second, 302);
     mouse("pointerup", second, 302);
-    second.click();
+    mouseClick(second);
     await waitFor(() =>
       expect(second).toHaveAttribute("data-lesson-term-side", "back"),
     );

@@ -23,6 +23,7 @@ import { bootstrapOwnerAccount } from "../../src/modules/accounts/index.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { seedLearningScenario } from "../../../../scenarios/seed-learning.mjs";
+import { seedReadingFeedScenario } from "../../../../scenarios/seed-reading-feed.mjs";
 import { scenarioRoles } from "../../../../scenarios/roles.mjs";
 import { seedLegacyMaterialAssets } from "../../../../scenarios/seed-legacy-assets.mjs";
 import { seedLocalDevelopment } from "../../src/development/seed-local-development.js";
@@ -145,12 +146,85 @@ beforeAll(async () => {
     method: "POST",
     headers: { authorization: `Bearer ${holderToken}` },
   });
+  await seedReadingFeedScenario({
+    api,
+    databaseName: new URL(database.url).pathname.slice(1),
+    ownerToken,
+  });
   seeded = await seedLearningScenario({
     api,
     databaseName: new URL(database.url).pathname.slice(1),
     ownerToken,
     holderToken,
   });
+});
+
+test("the isolated library has a complete public feed, format filters and cursor continuation without legacy seed data", async () => {
+  const pageSchema = z.object({
+    items: z.array(
+      z.object({
+        materialId: z.uuid(),
+        access: z.string(),
+        format: z.object({ slug: z.string() }),
+        topic: z.object({ slug: z.string() }),
+        productMemberships: z.array(z.unknown()),
+      }),
+    ),
+    totalCount: z.number(),
+    nextCursor: z.string().nullable(),
+  });
+  const read = async (query: URLSearchParams) => {
+    const response = await fetch(
+      `${api}/library/materials?${query.toString()}`,
+    );
+    expect(response.status).toBe(200);
+    return pageSchema.parse(await response.json());
+  };
+  const query = new URLSearchParams({
+    feedOnly: "true",
+    topic: "navigation-topic",
+  });
+  const first = await read(query);
+  expect(first.totalCount).toBe(120);
+  expect(first.items).toHaveLength(12);
+  expect(first.nextCursor).toEqual(expect.any(String));
+  const items = [...first.items];
+  let cursor = first.nextCursor;
+  while (cursor !== null) {
+    expect(items.length).toBeLessThan(120);
+    query.set("after", cursor);
+    const page = await read(query);
+    items.push(...page.items);
+    cursor = page.nextCursor;
+  }
+  expect(items).toHaveLength(120);
+  expect(new Set(items.map((item) => item.materialId)).size).toBe(120);
+  expect(new Set(items.map((item) => item.access))).toEqual(new Set(["free"]));
+  expect(new Set(items.map((item) => item.topic.slug))).toEqual(
+    new Set(["navigation-topic"]),
+  );
+  expect(items.every((item) => item.productMemberships.length === 0)).toBe(
+    true,
+  );
+  expect(items.filter((item) => item.format.slug === "video")).toHaveLength(60);
+  expect(items.filter((item) => item.format.slug === "guide")).toHaveLength(60);
+  for (const format of ["video", "guide"]) {
+    const filtered = await read(
+      new URLSearchParams({
+        feedOnly: "true",
+        topic: "navigation-topic",
+        format,
+      }),
+    );
+    expect(filtered.totalCount).toBe(60);
+    expect(new Set(filtered.items.map((item) => item.format.slug))).toEqual(
+      new Set([format]),
+    );
+  }
+  const empty = await read(
+    new URLSearchParams({ feedOnly: "true", topic: "synthetic-learning" }),
+  );
+  expect(empty).toMatchObject({ totalCount: 0, items: [], nextCursor: null });
 });
 
 test("the unpaid learner has real linked contacts, explicit waitlist membership and a pending purchase", async () => {
@@ -626,6 +700,31 @@ test("the holder reads the current Task Version, its submission and AuthorFeedba
   });
 });
 
+test("the extra lesson links to the current synthetic artifact file without a pinned version", async () => {
+  const catalogue = z
+    .object({
+      items: z.array(z.object({ title: z.string(), slug: z.string() })),
+    })
+    .parse(
+      await (await fetch(`${api}/library/products/synthetic-learning`)).json(),
+    );
+  const reference = catalogue.items.find(
+    ({ title }) => title === "Учебный пример: памятка",
+  );
+  if (reference === undefined) throw new Error("Expected supplementary lesson");
+  const response = await fetch(`${api}/materials/${reference.slug}`, {
+    headers: { authorization: `Bearer ${holderToken}` },
+  });
+  expect(response.status).toBe(200);
+  const body = await response.text();
+  expect(body).toContain("Скачать шаблон результата (.txt)");
+  expect(body).toContain(
+    `/api/products/${seeded.productId}/artifact-sources/synthetic-scenarios%3Aresult/file`,
+  );
+  expect(body).not.toContain("artifact:result");
+  expect(body).not.toContain("?version=");
+});
+
 test("the populated product offers a real downloadable synthetic artifact", async () => {
   const response = await fetch(
     `${api}/products/${seeded.productId}/artifacts`,
@@ -691,6 +790,13 @@ test.each([
 ])(
   "the seed refuses a non-isolated target before its first write: $api $databaseName",
   async ({ api: target, databaseName, message }) => {
+    await expect(
+      seedReadingFeedScenario({
+        api: target,
+        databaseName,
+        ownerToken: "unused",
+      }),
+    ).rejects.toThrow(message);
     await expect(
       seedLearningScenario({
         api: target,

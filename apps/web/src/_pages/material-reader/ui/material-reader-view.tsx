@@ -277,7 +277,9 @@ export function MaterialReaderView({
                     {deferredPracticeActions}
                   </div>
                 )}
-                {purchaseCall}
+                {purchaseCall == null ? null : (
+                  <LessonStepsTail>{purchaseCall}</LessonStepsTail>
+                )}
                 {/* The lesson end waits for its last part; the panel above stays. */}
                 {termDeck === undefined ? null : (
                   <LessonStepsTail>{termDeck}</LessonStepsTail>

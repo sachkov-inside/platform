@@ -1,4 +1,5 @@
 // @ts-check
+import { courseReferenceFacts } from "../../../../scenarios/course-references.mjs";
 import {
   readingProduct,
   navigationReadingTopic,
@@ -91,7 +92,7 @@ const cover = {
  * }} Product
  * @typedef {(typeof lessons)[number]} Lesson
  * @typedef {{ status: number; value: unknown; contentType?: undefined }} JsonResult
- * @typedef {{ status: number; value: Buffer; contentType: string }} ImageResult
+ * @typedef {{ status: number; value: Buffer; contentType: string; headers?: Record<string, string> }} BinaryResult
  */
 
 const archivedProductSlug = "navigation-archive";
@@ -270,8 +271,8 @@ const referenceLessons = [
     slug: `reference-lesson-${String(index + 1)}`,
     title: `Урок ${String(index + 1)}`,
   })),
-  { slug: "aie-project", title: "Описание проекта" },
-  { slug: "aie-product-brief", title: "Бриф заказчика" },
+  courseReferenceFacts.project,
+  courseReferenceFacts.brief,
   ...Array.from({ length: 4 }, (_, index) => ({
     slug: `reference-extra-${String(index + 1)}`,
     title: `Дополнение ${String(index + 1)}`,
@@ -366,7 +367,12 @@ function body(lesson, entitled) {
               {
                 kind: "text",
                 text: "проект из текста",
-                marks: [{ kind: "link", href: "/materials/aie-project" }],
+                marks: [
+                  {
+                    kind: "link",
+                    href: `/materials/${courseReferenceFacts.project.slug}`,
+                  },
+                ],
               },
               { kind: "text", text: ", ", marks: [] },
               {
@@ -391,7 +397,7 @@ function body(lesson, entitled) {
           },
         ]
       : // Справочный документ курса ссылается на шаг программы.
-        lesson.slug === "aie-project"
+        lesson.slug === courseReferenceFacts.project.slug
         ? [
             {
               kind: "paragraph",
@@ -532,7 +538,7 @@ function collection(entitled) {
  * @param {string | undefined} method
  * @param {URL} url
  * @param {boolean} entitled
- * @returns {JsonResult | ImageResult | undefined}
+ * @returns {JsonResult | BinaryResult | undefined}
  */
 function route(method, url, entitled) {
   const learning = learningScenarioRoute(method, url, entitled);
@@ -1075,7 +1081,7 @@ function route(method, url, entitled) {
  * Однотонная PNG нужного размера: браузеру важны размер и то, что картинка настоящая.
  *
  * @param {{ height: number; width: number }} size
- * @returns {ImageResult}
+ * @returns {BinaryResult}
  */
 function image({ height, width }) {
   const crcTable = Array.from({ length: 256 }, (_, n) => {
@@ -1564,6 +1570,7 @@ const server = createServer(async (request, response) => {
     response.writeHead(result.status, {
       "cache-control": "public, max-age=31536000, immutable",
       "content-type": result.contentType,
+      ...result.headers,
     });
     response.end(result.value);
     return;

@@ -1,3 +1,4 @@
+import { legacyCatalogueScenario } from "../../../../../../scenarios/legacy-catalog.mjs";
 import { productCapability } from "@inside/access-capabilities";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, waitFor } from "storybook/test";
@@ -26,7 +27,7 @@ import { ProductProgrammeOnboarding } from "./product-programme-onboarding.clien
 import { ProductLearningProvider } from "./product-learning.client";
 
 const environment = publicPageEnvironment(
-  "/products/platform-inside/programme",
+  "/products/" + legacyCatalogueScenario.product.slug + "/programme",
   { account: "authenticated" },
 );
 function Programme({ started = false }: { readonly started?: boolean }) {
@@ -56,7 +57,7 @@ function Programme({ started = false }: { readonly started?: boolean }) {
           productName={buyerProductName}
           firstLessonHref={materialReaderHref(
             "material-1",
-            productProgrammeHref("platform-inside"),
+            productProgrammeHref(legacyCatalogueScenario.product.slug),
           )}
         >
           <ProductProgrammeView

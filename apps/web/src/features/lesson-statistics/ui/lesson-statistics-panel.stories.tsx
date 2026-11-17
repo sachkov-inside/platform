@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 
+import { lessonStatisticsScenario } from "@/storybook/lesson-statistics.fixtures";
+
 import { LessonStatisticsPanel } from "./lesson-statistics-panel";
 
 const meta = {
@@ -8,51 +10,7 @@ const meta = {
   title: "Components/Админка/Редактор/Lesson statistics",
   component: LessonStatisticsPanel,
   args: {
-    state: {
-      kind: "ready",
-      ratings: { likes: 12, dislikes: 3 },
-      exercises: [
-        {
-          exerciseId: "rag-wrong-platform",
-          title: "Упражнение 1",
-          question: "На каком шаге RAG ошибается чаще всего?",
-          versions: [
-            {
-              fingerprint: "669258ca11c32c41",
-              current: true,
-              firstAnsweredAt: "2026-11-10T09:00:00.000Z",
-              respondents: 40,
-              firstTryCorrectPercent: 55,
-              firstTryDontKnow: 4,
-              mostFrequentWrong: {
-                label: "Частый неверный ответ",
-                text: "Эмбеддинги",
-                count: 11,
-              },
-            },
-            {
-              fingerprint: "00000000000000aa",
-              current: false,
-              firstAnsweredAt: "2026-10-01T09:00:00.000Z",
-              respondents: 18,
-              firstTryCorrectPercent: 28,
-              firstTryDontKnow: 0,
-              mostFrequentWrong: {
-                label: "Частый неверный ответ",
-                text: "Промпт",
-                count: 9,
-              },
-            },
-          ],
-        },
-        {
-          exerciseId: "pipeline",
-          title: "Упражнение 2",
-          question: "Расставь шаги поставки",
-          versions: [],
-        },
-      ],
-    },
+    state: lessonStatisticsScenario,
   },
   decorators: [
     (Story) => (

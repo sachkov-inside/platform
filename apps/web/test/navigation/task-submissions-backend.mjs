@@ -1,6 +1,6 @@
 // @ts-check
-import { readFileSync } from "node:fs";
 import { z } from "zod";
+import { legacyTaskSubmissionsHttp } from "../../../../scenarios/legacy-task-submissions-http.mjs";
 
 const schema = z
   .object({
@@ -26,14 +26,7 @@ const schema = z
     ),
   })
   .strict();
-const fixture = schema.parse(
-  JSON.parse(
-    readFileSync(
-      new URL("../fixtures/task-submissions.json", import.meta.url),
-      "utf8",
-    ),
-  ),
-);
+const fixture = schema.parse(legacyTaskSubmissionsHttp());
 const feedbackSchema = z
   .object({ comment: z.string(), reviewed: z.boolean() })
   .strict();

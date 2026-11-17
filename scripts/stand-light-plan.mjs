@@ -197,8 +197,8 @@ export function lightEnvironment({
 /**
  * The roles a browser can sign in as, with names nobody bears, so a screenshot shows no real
  * person. The product has one permission, `platform:admin`: the owner is also the author. The
- * holder stands for a buyer after the purchase: the owner's grant
- * gives the product with the closed material of the seed. The runbook's light instance section
+ * holder stands for a buyer after the purchase: each scenario grants the Product it creates
+ * through the owning interface. The runbook's light instance section
  * lists the roles for people; the `verify-platform` skill says which role suits which scenario.
  */
 export const lightRoles = scenarioRoles;
@@ -218,9 +218,6 @@ export function isLightRole(role) {
   return Object.hasOwn(lightRoles, role);
 }
 
-const accountSchema = z.object({
-  account: z.object({ accountId: z.string() }),
-});
 const termsSchema = z.object({
   document: z.object({ version: z.string(), digest: z.string() }),
 });
@@ -266,10 +263,7 @@ export async function seedLightRoles({
     }
     return response;
   };
-  const holder = accountSchema.parse(
-    await (await call("holder", "POST", "/accounts")).json(),
-  ).account.accountId;
-  for (const role of /** @type {const} */ (["learner", "newcomer"]))
+  for (const role of /** @type {const} */ (["holder", "learner", "newcomer"]))
     await (await call(role, "POST", "/accounts")).body?.cancel();
   for (const role of lightRoleNames) {
     const { name } = lightRoles[role];
@@ -290,14 +284,6 @@ export async function seedLightRoles({
       await call(role, "POST", "/account/profile", { displayName: name })
     ).body?.cancel();
   }
-  await (
-    await call("owner", "POST", "/admin/access/products/issue", {
-      accountId: holder,
-      productId: lightRoles.holder.productId,
-      reason: "Тестовый набор ролей лёгкого экземпляра",
-      sourceRef: "stand-light:holder",
-    })
-  ).body?.cancel();
 }
 
 /**

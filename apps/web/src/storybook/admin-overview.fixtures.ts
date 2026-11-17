@@ -1,3 +1,5 @@
+import { overviewScenario } from "../../../../scenarios/overview.mjs";
+import { peopleScenario } from "../../../../scenarios/people.mjs";
 import type {
   OverviewAttention,
   OverviewReport,
@@ -19,16 +21,19 @@ import type {
 export const storyOverviewProducts = [
   {
     id: "97000000-0000-4000-8000-000000000301",
-    name: "AI Engineering: агенты в работе",
+    name: peopleScenario.products[0].name,
   },
   {
     id: "97000000-0000-4000-8000-000000000302",
-    name: "Архитектура приложения и проектирование распределённых систем",
+    name: peopleScenario.products[1].longName,
   },
-  { id: "97000000-0000-4000-8000-000000000303", name: "Инженерная практика" },
+  {
+    id: "97000000-0000-4000-8000-000000000303",
+    name: peopleScenario.products[2].name,
+  },
 ] as const;
 
-const lastDay = Date.UTC(2026, 9, 24);
+const lastDay = Date.parse(overviewScenario.reportingDay);
 const dayMs = 86_400_000;
 
 function isoDay(ms: number): string {
@@ -44,7 +49,7 @@ export function storyOverviewPeriod(days: OverviewPeriodDays): OverviewPeriod {
   const start = (ms: number) => new Date(ms - 3 * 3_600_000).toISOString();
   return {
     days,
-    timeZone: "Europe/Moscow",
+    timeZone: overviewScenario.timeZone,
     current: {
       from: start(currentFirst),
       to: start(lastDay + dayMs),
@@ -95,13 +100,12 @@ function metric(
 const people = [
   {
     accountId: "97000000-0000-4000-8000-0000000000a1",
-    name: "Анна Петрова",
-    username: "anna_petrova",
+    name: peopleScenario.anna.displayName,
+    username: peopleScenario.anna.username,
   },
   {
     accountId: "97000000-0000-4000-8000-0000000000a2",
-    name: null,
-    username: "dmitry_k",
+    ...overviewScenario.anonymousSubmitter,
   },
   {
     accountId: "97000000-0000-4000-8000-0000000000a3",
@@ -136,7 +140,7 @@ export function storyOverviewEvents(): OverviewEvent[] {
       occurredAt: at(0),
       person: personAt(0),
       purchaseRef: "97000000-0000-4000-8000-000000000b01",
-      amountKopecks: 1_249_000,
+      amountKopecks: overviewScenario.purchaseAmountKopecks,
       product: { ...agents },
     },
     {
@@ -235,8 +239,16 @@ export function storyOverviewReport(
       state: "ready",
       revenue: metric(
         days,
-        [1_249_000, 0, 499_000, 0, 0, 1_249_000, 990_000],
-        [990_000, 0, 0, 499_000, 0, 1_249_000, 0],
+        [
+          overviewScenario.purchaseAmountKopecks,
+          0,
+          499_000,
+          0,
+          0,
+          overviewScenario.purchaseAmountKopecks,
+          990_000,
+        ],
+        [990_000, 0, 0, 499_000, 0, overviewScenario.purchaseAmountKopecks, 0],
       ),
       sales: metric(days, [1, 0, 1, 0, 0, 1, 1], [1, 0, 0, 1, 0, 1, 0]),
       newAccess: {
@@ -264,9 +276,9 @@ export function storyOverviewReport(
         {
           productId: agents.id,
           name: agents.name,
-          holders: 148,
-          started: 121,
-          averageProgress: 0.46,
+          holders: overviewScenario.agentsLearning.holders,
+          started: overviewScenario.agentsLearning.started,
+          averageProgress: overviewScenario.agentsLearning.averageProgress,
         },
         {
           productId: architecture.id,
@@ -342,7 +354,7 @@ export function storyOverviewOneSale(): OverviewReport {
     ...report,
     metrics: {
       state: "ready",
-      revenue: one(1_249_000),
+      revenue: one(overviewScenario.purchaseAmountKopecks),
       sales: one(1),
       newAccess: {
         ...one(1),
@@ -466,13 +478,19 @@ export function storyProductOverview(
     period: storyOverviewPeriod(days),
     holders: {
       state: "ready",
-      active: 148,
-      byOrigin: { purchase: 121, course_activation: 19, manual: 6, other: 2 },
+      active: overviewScenario.agentsLearning.holders,
+      byOrigin: { ...overviewScenario.agentsHoldersByOrigin },
     },
     revenue: metric(
       days,
-      [1_249_000, 0, 0, 1_249_000, 0],
-      [1_249_000, 0, 0, 0, 0],
+      [
+        overviewScenario.purchaseAmountKopecks,
+        0,
+        0,
+        overviewScenario.purchaseAmountKopecks,
+        0,
+      ],
+      [overviewScenario.purchaseAmountKopecks, 0, 0, 0, 0],
     ),
     sales: metric(days, [1, 0, 0, 1, 0], [1, 0, 0, 0, 0]),
     waitlist: {
@@ -481,9 +499,9 @@ export function storyProductOverview(
     },
     learning: {
       state: "ready",
-      holders: 148,
-      started: 121,
-      averageProgress: 0.46,
+      holders: overviewScenario.agentsLearning.holders,
+      started: overviewScenario.agentsLearning.started,
+      averageProgress: overviewScenario.agentsLearning.averageProgress,
     },
     events: {
       state: "ready",

@@ -68,6 +68,9 @@ export function TaskRelatedMaterialLink({
         anchor,
       )}
       data-task-related-material={material.materialId}
+      aria-busy={
+        resolved && accountId !== null && state === undefined && !failed
+      }
     >
       <span className="min-w-0 flex-1 leading-6 [overflow-wrap:anywhere]">
         {children}

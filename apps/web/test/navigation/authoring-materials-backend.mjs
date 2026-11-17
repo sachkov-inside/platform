@@ -1,4 +1,5 @@
 // @ts-check
+import { authoringScenario } from "../../../../scenarios/authoring.mjs";
 import { z } from "zod";
 
 /**
@@ -8,10 +9,7 @@ import { z } from "zod";
  */
 
 const authoringMaterialTopics = Object.freeze({
-  agents: {
-    id: "97000000-0000-4000-8000-000000000101",
-    name: "Разработка с агентами",
-  },
+  agents: authoringScenario.agentTopic,
   ai: { id: "97000000-0000-4000-8000-000000000102", name: "AI Engineering" },
   archived: {
     id: "97000000-0000-4000-8000-000000000103",
@@ -43,11 +41,11 @@ function initialMaterials() {
   /** @type {FixtureMaterial[]} */
   const named = [
     {
-      materialId: "97000000-0000-4000-8000-000000000001",
-      title: "Ревью кода с агентом",
+      materialId: authoringScenario.reviewMaterial.id,
+      title: authoringScenario.reviewMaterial.title,
       topic: authoringMaterialTopics.agents,
       format: "video",
-      publicationState: "unpublished",
+      publicationState: authoringScenario.reviewMaterial.publicationState,
       contentVersion: 3,
       neverPublished: false,
       updatedAt: "2026-10-20T09:00:00.000Z",

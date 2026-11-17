@@ -1,4 +1,9 @@
-import { peopleScenario } from "../../../../scenarios/people.mjs";
+import {
+  peopleScenario,
+  peopleDirectoryScenario,
+  peopleHistoryScenario,
+  peopleCardScenario,
+} from "../../../../scenarios/people.mjs";
 import { scenarioRoles } from "../../../../scenarios/roles.mjs";
 import type {
   PersonCard,
@@ -65,8 +70,8 @@ export const annaRow: PersonRow = {
   email: peopleScenario.anna.email,
   contactsState: "complete",
   telegram: "linked",
-  registeredAt: "2026-09-02T08:00:00.000Z",
-  lastActivityAt: "2026-10-26T18:20:00.000Z",
+  registeredAt: peopleCardScenario.registeredAt,
+  lastActivityAt: peopleCardScenario.lastActivityAt,
   products: [
     {
       productId: ai.productId,
@@ -145,13 +150,15 @@ export function storyPeopleRows(count: number): PersonRow[] {
       contactsState: "complete",
       telegram: index % 3 === 2 ? "not_linked" : "linked",
       registeredAt: new Date(
-        Date.UTC(2026, 9, 20, 9) - index * 86_400_000,
+        Date.parse(peopleDirectoryScenario.registeredEpoch) -
+          index * 86_400_000,
       ).toISOString(),
       lastActivityAt:
         index % 4 === 3
           ? null
           : new Date(
-              Date.UTC(2026, 9, 26, 15) - index * 3_600_000,
+              Date.parse(peopleDirectoryScenario.activityEpoch) -
+                index * 3_600_000,
             ).toISOString(),
       products,
     };
@@ -189,7 +196,7 @@ export const annaCard: PersonCard = {
     username: peopleScenario.anna.username,
     email: peopleScenario.anna.email,
     contactsState: "complete",
-    registeredAt: "2026-09-02T08:00:00.000Z",
+    registeredAt: peopleCardScenario.registeredAt,
     telegramUrl: `https://t.me/${peopleScenario.anna.username}`,
   },
   products: {
@@ -198,14 +205,12 @@ export const annaCard: PersonCard = {
       {
         productId: ai.productId,
         name: ai.name,
-        access: "active",
-        revision: 1,
-        firstIssuedAt: "2026-09-02T08:15:00.000Z",
-        origin: "paid",
+        ...peopleCardScenario.paidAccess,
+        firstIssuedAt: peopleHistoryScenario.issuedAt,
         history: [
           {
             kind: "purchase",
-            at: "2026-09-02T08:15:00.000Z",
+            at: peopleHistoryScenario.issuedAt,
             actor: { kind: "system" },
             reason: null,
           },
@@ -221,9 +226,9 @@ export const annaCard: PersonCard = {
         history: [
           {
             kind: "revoke",
-            at: "2026-10-01T12:40:00.000Z",
+            at: peopleHistoryScenario.revoke.at,
             actor: owner,
-            reason: "Возврат оплаты",
+            reason: peopleHistoryScenario.revoke.reason,
           },
           {
             kind: "restore",
@@ -248,18 +253,18 @@ export const annaCard: PersonCard = {
         paymentId: "96000000-0000-4000-8000-000000000501",
         productId: ai.productId,
         productName: ai.name,
-        amountKopecks: 1_499_000,
-        state: "confirmed",
-        createdAt: "2026-09-02T08:14:00.000Z",
+        amountKopecks: peopleCardScenario.payments[0].amountKopecks,
+        state: peopleCardScenario.payments[0].state,
+        createdAt: peopleCardScenario.payments[0].createdAt,
         paymentLinkId: "96000000-0000-4000-8000-000000000601",
       },
       {
         paymentId: "96000000-0000-4000-8000-000000000502",
         productId: architecture.productId,
         productName: architecture.name,
-        amountKopecks: 990_000,
-        state: "failed",
-        createdAt: "2026-08-28T19:02:00.000Z",
+        amountKopecks: peopleCardScenario.payments[1].amountKopecks,
+        state: peopleCardScenario.payments[1].state,
+        createdAt: peopleCardScenario.payments[1].createdAt,
         paymentLinkId: null,
       },
     ],
@@ -270,12 +275,12 @@ export const annaCard: PersonCard = {
       {
         productId: ai.productId,
         name: ai.name,
-        startedAt: "2026-09-03T10:00:00.000Z",
+        startedAt: peopleCardScenario.learning.startedAt,
         progress: {
           state: "measured",
-          read: 12,
-          total: 40,
-          lastActivityAt: "2026-10-26T18:20:00.000Z",
+          read: peopleCardScenario.learning.read,
+          total: peopleCardScenario.learning.total,
+          lastActivityAt: peopleCardScenario.lastActivityAt,
         },
       },
       {
@@ -291,20 +296,20 @@ export const annaCard: PersonCard = {
     items: [
       {
         productId: ai.productId,
-        count: 3,
-        lastSubmittedAt: "2026-10-25T11:05:00.000Z",
-        lastTaskCode: "agent-review",
+        count: peopleCardScenario.submissions.count,
+        lastSubmittedAt: peopleCardScenario.submissions.lastSubmittedAt,
+        lastTaskCode: peopleCardScenario.submissions.lastTaskCode,
       },
     ],
   },
   telegram: {
     state: "ready",
     link: "linked",
-    membership: "member",
-    restriction: "none",
-    marketing: "stopped",
-    observedAt: "2026-10-26T09:00:00.000Z",
-    joinReminders: { sent: 3, lastAt: "2026-10-24T09:00:00.000Z" },
+    membership: peopleCardScenario.telegram.membership,
+    restriction: peopleCardScenario.telegram.restriction,
+    marketing: peopleCardScenario.telegram.marketing,
+    observedAt: peopleCardScenario.telegram.observedAt,
+    joinReminders: { ...peopleCardScenario.telegram.joinReminders },
   },
   waitlists: {
     state: "ready",
@@ -312,9 +317,7 @@ export const annaCard: PersonCard = {
       {
         productId: practice.productId,
         productName: practice.name,
-        intakeName: "Поток весна 2027",
-        active: true,
-        joinedAt: "2026-10-10T07:30:00.000Z",
+        ...peopleCardScenario.practiceWaitlist,
       },
       {
         productId: ai.productId,
@@ -420,7 +423,7 @@ export function accessFetch({
     const value = {
       accountId: storyAnnaId,
       productId,
-      firstIssuedAt: "2026-09-02T08:15:00.000Z",
+      firstIssuedAt: peopleHistoryScenario.issuedAt,
       access: "active",
       revision: revision + 1,
     };

@@ -6,7 +6,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import {
   BillingReadError,
@@ -15,6 +15,8 @@ import {
   useOwnerPriceCatalog,
 } from "@/entities/subscription";
 import { useRepeatableOperations } from "@/shared/lib/repeatable-operations.client";
+import { useAnnouncedRefresh } from "@/shared/api/use-announced-refresh.client";
+import { refreshAnnouncedQueries } from "@/shared/api/announced-query-refresh";
 import {
   AdminConfirmDialog,
   AdminEmptyState,
@@ -131,19 +133,10 @@ export function PromotionsPanel({
   };
   /** Успешная запись: эта поверхность перечитывает список сразу, остальные по объявлению. */
   const announce = () => {
-    refresh();
-    promotionsChanged.announce();
+    const announcementId = promotionsChanged.announce();
+    void refreshAnnouncedQueries(cache, promotionsQueryKey, announcementId);
   };
-  useEffect(
-    () =>
-      promotionsChanged.subscribe(() => {
-        void cache.invalidateQueries(
-          { queryKey: promotionsQueryKey },
-          { cancelRefetch: false },
-        );
-      }),
-    [cache],
-  );
+  useAnnouncedRefresh(promotionsChanged, promotionsQueryKey);
 
   const archive = useMutation({
     mutationFn: archivePromotion,
