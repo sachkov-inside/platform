@@ -2,25 +2,22 @@ import { readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+  type MockInstance,
+} from "vitest";
 import { z } from "zod";
-
-const fakes = vi.hoisted(() => ({
-  token: vi.fn(),
-  LogtoSessionUnavailableError: class extends Error {},
-}));
-
-vi.mock("@/shared/auth/session-adapter.server", () => ({
-  sessionAdapter: {
-    accessToken: fakes.token,
-    baseUrl: () => "https://inside.example.test",
-  },
-  LogtoSessionUnavailableError: fakes.LogtoSessionUnavailableError,
-}));
 
 import type { MutationOperation } from "@/shared/api/mutation-operation";
 
-import { routeBrowserMutations } from "../support/mutation-operation-route";
+import { sessionAdapter } from "@/shared/auth/session-adapter.server";
+import { realBffSession } from "../support/real-bff-session";
+import { routeBrowserMutations as connectBrowserMutations } from "../support/mutation-operation-route";
 
 /** Operations a guest may send: their route answers without a session, so only Origin is checked. */
 const guestOperations = new Set([
@@ -29,6 +26,257 @@ const guestOperations = new Set([
 ]);
 
 type AnyOperation = MutationOperation<z.ZodType, z.ZodType>;
+
+interface FailureContract {
+  readonly names: readonly string[];
+  readonly responses: Readonly<Record<401 | 403, unknown>>;
+}
+const failureContracts: readonly FailureContract[] = [
+  {
+    names: [
+      "createContentCollectionOperation",
+      "updateContentCollectionOperation",
+      "setContentCollectionArchiveOperation",
+      "createMaterialDraftOperation",
+      "saveMaterialOperation",
+      "beginTelegramLinkOperation",
+      "confirmTelegramLinkOperation",
+      "createAccountProfileOperation",
+      "updateAccountProfileOperation",
+      "transitionMaterialPublicationOperation",
+      "deleteMaterialDraftOperation",
+      "createProductArtifactFromLinkOperation",
+      "updateProductArtifactOperation",
+      "replaceProductArtifactLinkOperation",
+      "setProductArtifactArchivedOperation",
+      "setProductArtifactProductsOperation",
+      "removeProductArtifactOperation",
+      "reorderProductOperation",
+    ],
+    responses: {
+      "401": {
+        value: {
+          kind: "unauthorized",
+        },
+      },
+      "403": {
+        value: {
+          kind: "unauthorized",
+        },
+      },
+    },
+  },
+  {
+    names: [
+      "saveAuthorFeedbackOperation",
+      "getBookmarkStatesOperation",
+      "readExerciseAttemptsOperation",
+      "recordExerciseAttemptOperation",
+      "readLessonRatingOperation",
+      "setLessonRatingOperation",
+      "readLessonStatisticsOperation",
+      "setHomePinOperation",
+      "submitProductTaskOperation",
+      "recordMaterialOpenOperation",
+      "recordOpenedPartsOperation",
+      "getReadingStatesOperation",
+      "setReadingStateOperation",
+      "acceptTermsOperation",
+    ],
+    responses: {
+      "401": {
+        value: {
+          kind: "unauthorized",
+        },
+      },
+      "403": {
+        value: {
+          kind: "unavailable",
+        },
+      },
+    },
+  },
+  {
+    names: [
+      "acceptBillingConsentsOperation",
+      "issueProductAccessOperation",
+      "restoreProductAccessOperation",
+      "previewProductRevocationOperation",
+      "revokeProductAccessOperation",
+      "startAccountEmailOperation",
+      "confirmAccountEmailOperation",
+      "createBillingQuoteOperation",
+      "startBillingPurchaseOperation",
+      "startBillingContactOperation",
+      "confirmBillingContactOperation",
+      "listCourseActivationRulesOperation",
+      "saveCourseActivationRuleOperation",
+      "changeNotificationPreferencesOperation",
+      "reconcilePaymentOperation",
+      "createOwnerPaymentLinkOperation",
+      "revokeOwnerPaymentLinkOperation",
+      "listOwnerPaymentLinksOperation",
+      "archiveProductPriceOperation",
+      "readOwnerProductPriceOperation",
+      "saveProductPriceOperation",
+      "saveProductSalesStateOperation",
+      "savePromotionOperation",
+      "archivePromotionOperation",
+      "listPromotionsOperation",
+      "readQuestionnaireRespondentsOperation",
+    ],
+    responses: {
+      "401": {
+        value: {
+          ok: false,
+          code: "unauthorized",
+        },
+      },
+      "403": {
+        value: {
+          ok: false,
+          code: "unavailable",
+        },
+      },
+    },
+  },
+  {
+    names: [
+      "initMaterialVideoUploadOperation",
+      "attachMaterialVideoOperation",
+      "reconcileMaterialVideoOperation",
+      "retryMaterialVideoDeletionOperation",
+      "beginWaitlistIntentOperation",
+      "joinWaitlistOperation",
+      "withdrawWaitlistOperation",
+    ],
+    responses: {
+      "401": {
+        value: {
+          kind: "unavailable",
+        },
+      },
+      "403": {
+        value: {
+          kind: "unavailable",
+        },
+      },
+    },
+  },
+  {
+    names: ["createMaterialVideoPlaybackSessionOperation"],
+    responses: {
+      "401": {
+        value: null,
+      },
+      "403": {
+        value: null,
+      },
+    },
+  },
+  {
+    names: ["saveMaterialVideoProgressOperation"],
+    responses: {
+      "401": {
+        value: false,
+      },
+      "403": {
+        value: false,
+      },
+    },
+  },
+  {
+    names: ["setBookmarkOperation"],
+    responses: {
+      "401": {
+        value: {
+          kind: "unauthorized",
+        },
+      },
+      "403": {
+        value: {
+          kind: "denied",
+        },
+      },
+    },
+  },
+  {
+    names: ["updateChapterAttachmentsOperation"],
+    responses: {
+      "401": {
+        value: {
+          kind: "unauthorized",
+        },
+      },
+      "403": {
+        value: {
+          kind: "error",
+          reference: "chapter-attachments-unavailable",
+        },
+      },
+    },
+  },
+  {
+    names: ["updateProductTopicsOperation"],
+    responses: {
+      "401": {
+        value: {
+          kind: "unauthorized",
+        },
+      },
+      "403": {
+        value: {
+          kind: "error",
+          reference: "product-topics-unavailable",
+        },
+      },
+    },
+  },
+  {
+    names: ["loadPersonalHomeOperation"],
+    responses: {
+      "401": {
+        value: {
+          kind: "hidden",
+        },
+      },
+      "403": {
+        rejected: "Personal Home is unavailable",
+      },
+    },
+  },
+  {
+    names: ["loadProductContinuationOperation"],
+    responses: {
+      "401": {
+        value: {
+          kind: "hidden",
+        },
+      },
+      "403": {
+        value: {
+          kind: "unavailable",
+        },
+      },
+    },
+  },
+];
+const expectedFailures = new Map<
+  string,
+  Readonly<Record<401 | 403, unknown>>
+>();
+for (const contract of failureContracts)
+  for (const name of contract.names) {
+    if (expectedFailures.has(name))
+      throw new Error(`Duplicate operation contract ${name}`);
+    expectedFailures.set(name, contract.responses);
+  }
+function expectedOutcome(name: string, status: 401 | 403): unknown {
+  const expected = expectedFailures.get(name);
+  if (expected === undefined)
+    throw new Error(`Missing explicit operation contract ${name}`);
+  return expected[status];
+}
 
 const moduleExports = z.record(z.string(), z.unknown());
 const webRoot = fileURLToPath(new URL("../..", import.meta.url));
@@ -81,9 +329,37 @@ async function outcome(call: () => unknown): Promise<unknown> {
   }
 }
 
-beforeEach(() => {
+let scope: Awaited<ReturnType<typeof realBffSession>>;
+let sessionRead: MockInstance<typeof sessionAdapter.accessToken>;
+const unexpectedBackend: string[] = [];
+function routeBrowserMutations(
+  routes: Parameters<typeof connectBrowserMutations>[0],
+  origin = "https://inside.example.test",
+) {
+  return connectBrowserMutations(routes, origin, {
+    run: scope,
+    externalFetch: (request) => {
+      unexpectedBackend.push(request.url);
+      return Promise.reject(
+        new Error(`Unexpected external request ${request.url}`),
+      );
+    },
+  });
+}
+beforeEach(async () => {
   vi.clearAllMocks();
-  fakes.token.mockRejectedValue(new fakes.LogtoSessionUnavailableError());
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2030-03-01T12:00:00Z"));
+  scope = await realBffSession(null);
+  sessionRead = vi.spyOn(sessionAdapter, "accessToken");
+  unexpectedBackend.length = 0;
+});
+afterEach(() => {
+  try {
+    expect(unexpectedBackend).toEqual([]);
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 /**
@@ -94,6 +370,9 @@ beforeEach(() => {
 describe("every mutation operation reaches its Route Handler", () => {
   it("finds the declared operations", () => {
     expect(operations.length).toBeGreaterThan(0);
+    expect([...expectedFailures.keys()].sort()).toEqual(
+      operations.map(({ name }) => name).sort(),
+    );
   });
 
   it.each(
@@ -102,7 +381,7 @@ describe("every mutation operation reaches its Route Handler", () => {
       .map((entry) => [entry.name, entry] as const),
   )(
     "%s refuses a missing session through its route",
-    async (_name, { operation }) => {
+    async (name, { operation }) => {
       const { requests, statuses } = routeBrowserMutations({
         [operation.path]: await routeModule(operation.path),
       });
@@ -112,17 +391,13 @@ describe("every mutation operation reaches its Route Handler", () => {
 
       expect(requests[0]?.method).toBe(operation.method);
       expect(statuses).toEqual([401]);
-      expect(result).toEqual(
-        await outcome(() =>
-          operation.transportFailure({ kind: "status", status: 401 }),
-        ),
-      );
+      expect(result).toEqual(expectedOutcome(name, 401));
     },
   );
 
   it.each(operations.map((entry) => [entry.name, entry] as const))(
     "%s refuses another origin before the session",
-    async (_name, { operation }) => {
+    async (name, { operation }) => {
       const { statuses } = routeBrowserMutations(
         { [operation.path]: await routeModule(operation.path) },
         "https://outside.test",
@@ -130,13 +405,9 @@ describe("every mutation operation reaches its Route Handler", () => {
 
       const result = await outcome(() => operation.send({}));
 
-      expect(result).toEqual(
-        await outcome(() =>
-          operation.transportFailure({ kind: "status", status: 403 }),
-        ),
-      );
+      expect(result).toEqual(expectedOutcome(name, 403));
       expect(statuses).toEqual([403]);
-      expect(fakes.token).not.toHaveBeenCalled();
+      expect(sessionRead).not.toHaveBeenCalled();
     },
   );
 });
