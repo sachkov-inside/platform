@@ -36,10 +36,11 @@ function subscribe(listener: () => void): () => void {
 function remember(edition: number): void {
   try {
     window.localStorage.setItem(storageNoticeKey, String(edition));
+    acknowledgedEdition = null;
   } catch {
     // Хранилище запрещено: уведомление скроется до перезагрузки страницы.
+    acknowledgedEdition = edition;
   }
-  acknowledgedEdition = edition;
   for (const listener of listeners) listener();
 }
 
