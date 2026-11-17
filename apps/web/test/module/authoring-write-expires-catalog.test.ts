@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
+import { realBffSession } from "../support/real-bff-session";
 import { defineMutationOperation } from "@/shared/api/mutation-operation";
 
 const fakes = vi.hoisted(() => ({ expirePublicCatalog: vi.fn() }));
@@ -11,17 +12,6 @@ vi.mock("next/cache", () => ({
   cacheTag: vi.fn(),
   revalidateTag: fakes.expirePublicCatalog,
 }));
-vi.mock("@/shared/auth/logto-bff-config.server", () => ({
-  readLogtoBffConfig: () => ({ baseUrl: "https://inside.example.test" }),
-}));
-vi.mock("@/shared/auth/platform-access-token.server", () => ({
-  getPlatformAccessToken: () => Promise.resolve("token"),
-  LogtoSessionUnavailableError: class extends Error {},
-}));
-vi.mock("@/shared/auth/optional-platform-access-token.server", () => ({
-  getOptionalPlatformAccessToken: () => Promise.resolve(undefined),
-}));
-
 function mutation(path: string, method = "POST"): Request {
   return new Request(`https://inside.example.test${path}`, {
     body: JSON.stringify({ value: "1" }),
@@ -48,14 +38,23 @@ async function serve(
 ): Promise<Response> {
   const { handleMutationOperation } =
     await import("@/shared/auth/authenticated-mutation-handler.server");
-  return handleMutationOperation(request, writeOperation, {
-    execute,
-    invalidInput: () => null,
-  });
+  return scope(() =>
+    handleMutationOperation(request, writeOperation, {
+      execute,
+      invalidInput: () => null,
+    }),
+  );
 }
 
+let scope: Awaited<ReturnType<typeof realBffSession>>;
+afterEach(() => {
+  vi.useRealTimers();
+});
 describe("an authoring write expires the public catalog cache", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2030-03-01T12:00:00Z"));
+    scope = await realBffSession();
     fakes.expirePublicCatalog.mockReset();
   });
 
