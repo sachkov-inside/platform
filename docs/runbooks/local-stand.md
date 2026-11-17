@@ -186,16 +186,22 @@ running instance is worth driving.
 
 `up` prints the web, API and sign-in addresses. Open
 `<sign-in>?as=owner&next=/path` (owner «Владелец Тестов» with `platform:admin`), `?as=holder`
-(«Покупатель Тестов», holds «Создание Platform Inside» and the synthetic learning course), `?as=learner` («Участник Тестов», no
+(«Покупатель Тестов», holds the synthetic learning course), `?as=learner` («Участник Тестов», no
 paid products; has a linked synthetic Telegram identity, a pending test purchase of the learning
 course, and an active waiting-list membership) or `?as=newcomer` (no name, terms not accepted) in the
 browser; `/sign-out` on the same server removes the session. Use a separate browser context per
 instance: cookies of `127.0.0.1` ignore the port, and each instance names its own cookie.
 
-Before it becomes ready, the fresh isolated instance uploads the overview Material’s synthetic SVG
-and checklist through the real authoring asset API and saves the returned IDs. The shared-stand
-CLI seed does not run this isolated repair. Repeating the isolated adapter reuses the uploads
-and leaves an already consistent document at its current Content Version.
+The fresh isolated instance uses only the common scenario adapters after migrations and trusted
+owner bootstrap. It does not call the legacy `db:seed` or depend on a pre-existing Product ID.
+Its library has the shared 120-Material open-feed variant, outside Products, with Video and Guide
+formats. ADR0043 permits only free Materials outside Products in the feed. The separate learning
+Product retains its chapters, free and paid lessons, supplementary reference with an inline file,
+holder progress and bookmark, dictionary, Task Versions, submissions and AuthorFeedback.
+
+The legacy development CLI remains a separate workflow. Its missing overview asset uploads from
+#2267 are not repaired by this startup. The isolated repair adapter remains covered by independent
+backend regression tests, but the common light instance no longer imports that legacy catalogue.
 
 The instance also owns loopback bank and Telegram protocol providers. The learner’s purchase is
 pending, so it grants no ProductAccess. The learner explicitly joins the accepting synthetic
@@ -221,10 +227,10 @@ How it works:
    `inside-platform` (`--infrastructure <project>` selects another one) and refuses when they are
    not running. It never starts or changes containers.
 2. A detached supervisor creates `inside_light_<id>`, where `<id>` derives from the worktree path,
-   then migrates it, seeds the published demonstration catalogue and bootstraps the owner. Once
+   then migrates it and bootstraps the owner through its real Account interface. Once
    the API answers it establishes the role Accounts through the API: the named roles
-   accept the current terms and get their fictional names, and the owner grants the holder the
-   seeded product. The isolated API then imports the shared synthetic learning scenario through
+   accept the current terms and get their fictional names. The isolated API publishes the shared
+   open-feed scenario and imports the synthetic learning scenario through
    real authoring interfaces: chapters, free and paid lessons, an extra material and a downloadable
    file, holder progress and bookmark, a dictionary term, two Task Versions and their submissions,
    and AuthorFeedback for the current version. It then links the learner through its owned

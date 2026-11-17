@@ -14,7 +14,7 @@ import { scenarioRoles } from "../scenarios/roles.mjs";
 import { commerceScenario } from "../scenarios/commerce.mjs";
 import { seedCommerceScenario } from "../scenarios/seed-commerce.mjs";
 import { seedLearningScenario } from "../scenarios/seed-learning.mjs";
-import { seedLegacyMaterialAssets } from "../scenarios/seed-legacy-assets.mjs";
+import { seedReadingFeedScenario } from "../scenarios/seed-reading-feed.mjs";
 import { composePsql } from "./check-database.mjs";
 import { commandExit } from "./diagnostic-command.mjs";
 import { fullStackRelease } from "./full-stack-environment.mjs";
@@ -183,7 +183,7 @@ try {
   psql(`drop database if exists ${assertLightDatabase(database)} with (force)`);
   psql(`create database ${assertLightDatabase(database)}`);
   databaseCreated = true;
-  for (const script of ["db:migrate", "db:seed", "release:bootstrap-owner"])
+  for (const script of ["db:migrate", "release:bootstrap-owner"])
     await runPnpm(["--filter", "@inside/backend", script], environment.shared);
 
   start(
@@ -226,7 +226,7 @@ try {
     api: environment.urls.api,
     createAccessToken: (subject) => identity.createAccessToken(subject),
   });
-  await seedLegacyMaterialAssets({
+  await seedReadingFeedScenario({
     api: environment.urls.api,
     databaseName: database,
     ownerToken: (await identity.createAccessToken(scenarioRoles.owner.subject))
