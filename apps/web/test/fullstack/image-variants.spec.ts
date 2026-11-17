@@ -145,15 +145,14 @@ async function verifyDiagram(
     node.addEventListener(
       "pointerdown",
       (event) => {
-        node.dataset["heldPointer"] = String(event.pointerId);
+        if (event instanceof PointerEvent)
+          node.dataset["heldPointer"] = String(event.pointerId);
       },
       { once: true },
     );
   });
   const capturedStage = await stage.elementHandle();
   const retainedDialog = await dialog.elementHandle();
-  if (capturedStage === null || retainedDialog === null)
-    throw new Error("Missing retained viewer nodes");
   const returnUrl = page.url();
   await page.mouse.move(center.x, center.y);
   await page.mouse.down();
