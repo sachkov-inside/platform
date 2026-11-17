@@ -509,9 +509,11 @@ test("topic row archive waits for the pending draft and uses its accepted versio
   const held = Promise.withResolvers<undefined>();
   const release = Promise.withResolvers<undefined>();
   const finished = Promise.withResolvers<undefined>();
+  const routeState = { started: false };
   await page.route(
     "**/api/authoring/collections/metadata",
     async (route) => {
+      routeState.started = true;
       try {
         const response = await route.fetch();
         expect(response.status()).toBe(200);
@@ -586,6 +588,7 @@ test("topic row archive waits for the pending draft and uses its accepted versio
     await expectAccessibleWithoutOverflow(page);
   } finally {
     release.resolve(undefined);
-    await finished.promise;
+    await page.unroute("**/api/authoring/collections/metadata");
+    if (routeState.started) await finished.promise;
   }
 });

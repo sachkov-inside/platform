@@ -28,7 +28,7 @@ export function createContentCollectionState(
       if (result.kind !== "saved") return;
       const saved = result.collection;
       const existing = collections.find((item) => item.id === saved.id);
-      // An older receipt cannot roll back the version used by the next command.
+      // Keep command versions monotonic across retained editors (#2382).
       if (existing !== undefined && saved.version < existing.version) return;
       const next =
         existing === undefined
