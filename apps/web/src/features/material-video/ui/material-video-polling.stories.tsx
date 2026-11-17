@@ -1,4 +1,5 @@
 import { act, useState } from "react";
+import { useIsMutating } from "@tanstack/react-query";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, spyOn, userEvent, waitFor, within } from "storybook/test";
 import { AutosaveActivity } from "@/storybook/autosave-activity";
@@ -82,6 +83,21 @@ function pollingHarness() {
             access: "closed",
             materialId,
             state,
+          },
+        }),
+      );
+    },
+    respondProcessing: (index: number) => {
+      responses[index]?.resolve(
+        Response.json({
+          kind: "ready",
+          value: {
+            ...deletingVideo,
+            access: "closed",
+            materialId,
+            state: "processing",
+            title: "Processing lesson",
+            videoId: "03000000-0000-4000-8000-000000000003",
           },
         }),
       );
@@ -213,9 +229,11 @@ export const ReturnAfterDisconnect: Story = {
 function ReplaceDeletionTarget(
   args: Parameters<typeof MaterialVideoAuthoring>[0],
 ) {
+  const pending = useIsMutating();
   const [target, setTarget] = useState(args.latestVideoDeletion);
   return (
     <>
+      <output aria-label="Video mutations">{pending}</output>
       <button
         onClick={() => {
           setTarget({
@@ -306,5 +324,61 @@ export const RefreshSameDeletionWhileReading: Story = {
     clock.respond(1, "deleting");
     await expect(canvas.queryByText(/удалено из Kinescope/u)).toBeNull();
     await waitFor(() => expect(clock.timers.size).toBe(1));
+  },
+};
+
+export const ProcessingReadDoesNotRetireDeletionRead: Story = {
+  args: {
+    unselectedUpload: {
+      ...deletingVideo,
+      state: "processing",
+      title: "Processing lesson",
+      videoId: "03000000-0000-4000-8000-000000000003",
+    },
+  },
+  play: async ({ canvasElement }) => {
+    if (polling === undefined) throw new Error("Polling clock is required");
+    const clock = polling;
+    const canvas = within(canvasElement);
+    await waitFor(() => expect(clock.timers.size).toBe(2));
+    await act(async () => {
+      clock.advance();
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(clock.request).toHaveBeenCalledTimes(2));
+    clock.respondProcessing(0);
+    await waitFor(() => expect(clock.timers.size).toBe(1));
+    clock.respond(1, "deleted");
+    await expect(
+      await canvas.findByText(/^«Удаляемый урок» удалено из Kinescope\.$/u),
+    ).toBeVisible();
+    // These are different Video resources. One settlement must not retire the other's answer.
+    await expect(clock.request).toHaveBeenCalledTimes(2);
+  },
+};
+
+export const RetargetWhileDeletionRetryIsPending: Story = {
+  args: { latestVideoDeletion: { ...deletingVideo, state: "delete_failed" } },
+  render: (args) => <ReplaceDeletionTarget {...args} />,
+  play: async ({ canvasElement }) => {
+    if (polling === undefined) throw new Error("Polling clock is required");
+    const clock = polling;
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Повторить удаление" }),
+    );
+    await waitFor(() => expect(clock.request).toHaveBeenCalledTimes(1));
+    await expect(canvas.getByLabelText("Video mutations")).toHaveTextContent(
+      "1",
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Другой объект удаления" }),
+    );
+    clock.respond(0, "deleted");
+    await waitFor(() =>
+      expect(canvas.getByLabelText("Video mutations")).toHaveTextContent("0"),
+    );
+    await expect(canvas.getByText(/Другой урок/u)).toBeVisible();
+    await expect(canvas.queryByText(/удалено из Kinescope/u)).toBeNull();
   },
 };

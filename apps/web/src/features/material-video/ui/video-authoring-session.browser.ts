@@ -1,4 +1,3 @@
-import type { MaterialVideoAuthoringViewProps } from "./material-video-authoring.client";
 import type {
   attachMaterialVideo,
   initMaterialVideoUpload,
@@ -25,6 +24,7 @@ import {
   resolveInitialVideoAuthoring,
   type MaterialAuthoringVideo,
   type MaterialVideo,
+  type MaterialVideoAuthoringPhase,
 } from "../model/video";
 
 export interface VideoAuthoringSelection {
@@ -46,14 +46,14 @@ interface Commands {
   readonly reconcileVideo: typeof reconcileMaterialVideo;
   readonly retryDeletion: typeof retryMaterialVideoDeletion;
 }
-type Snapshot = Pick<
-  MaterialVideoAuthoringViewProps,
-  "phase" | "progress" | "providerVideoId"
-> & {
+interface Snapshot {
+  readonly phase: MaterialVideoAuthoringPhase;
+  readonly progress: number;
+  readonly providerVideoId: string;
   readonly video: MaterialAuthoringVideo | null;
   readonly recoveredVideoId: string | null;
   readonly deletionVideo: MaterialAuthoringVideo | null;
-};
+}
 
 /** Owns one author's upload attempt and serial reconciliation reads. Construction is inert. */
 export function createVideoAuthoringSession(
@@ -73,8 +73,20 @@ export function createVideoAuthoringSession(
   let operation = 0;
   let uploadAttempt: BrowserVideoUploadAttempt | null = null;
   let uploadTransfer: Promise<ResumableVideoUpload | null> | null = null;
+  let uploadLifetime: AbortController | null = null;
   const pendingReconciliations = new Map<string, Promise<undefined>>();
-  let cancelPolling: (() => void) | undefined;
+  interface Poll {
+    readonly inputs: readonly unknown[];
+    readonly cancel: () => void;
+  }
+  let processingPoll: Poll | null = null;
+  let deletionPoll: Poll | null = null;
+  const cancelPolling = () => {
+    processingPoll?.cancel();
+    deletionPoll?.cancel();
+    processingPoll = null;
+    deletionPoll = null;
+  };
   const patch = (next: Partial<Snapshot>) => {
     if (
       Object.entries(next).every(
@@ -122,6 +134,7 @@ export function createVideoAuthoringSession(
         uploadAttempt = null;
       }
       uploadTransfer = null;
+      uploadLifetime = null;
       setRecoveredVideoId(null);
       selection.onChange(result.value, selection.deleteVideoId, null);
     }
@@ -144,8 +157,8 @@ export function createVideoAuthoringSession(
     if (revision !== operation || !isCurrent()) return;
     const completed = Promise.withResolvers<undefined>();
     pendingReconciliations.set(videoId, completed.promise);
+    const targetIsDeletion = snapshot.deletionVideo?.videoId === videoId;
     try {
-      const targetIsDeletion = snapshot.deletionVideo?.videoId === videoId;
       if (!targetIsDeletion) setPhase("processing");
       const result = await reconcileVideo({ videoId });
       if (revision !== operation || !isCurrent()) return;
@@ -159,7 +172,8 @@ export function createVideoAuthoringSession(
     } finally {
       pendingReconciliations.delete(videoId);
       completed.resolve(undefined);
-      if (isCurrent()) refreshPolling();
+      if (isCurrent())
+        refreshPolling(targetIsDeletion ? "deletion" : "processing");
     }
   };
 
@@ -228,7 +242,10 @@ export function createVideoAuthoringSession(
       await reconcile(initialized.value.video.videoId);
       return;
     }
+    const lifetime = new AbortController();
+    uploadLifetime = lifetime;
     const transfer = startResumableVideoUpload({
+      signal: lifetime.signal,
       file,
       onError: () => {
         if (revision !== operation) return;
@@ -265,39 +282,81 @@ export function createVideoAuthoringSession(
     applyVideoResult(result);
   };
 
-  function refreshPolling() {
-    cancelPolling?.();
-    if (listeners.size === 0) return;
-    let active = true;
-    const timers: number[] = [];
-    const schedule = (videoId: string) => {
-      timers.push(
-        window.setTimeout(() => {
-          void reconcile(videoId, () => active);
-        }, 5_000),
-      );
+  function refreshPolling(force?: "processing" | "deletion") {
+    if (listeners.size === 0) {
+      cancelPolling();
+      return;
+    }
+    const ensure = (
+      current: Poll | null,
+      inputs: readonly unknown[],
+      videoId: string | null,
+      forced: boolean,
+    ): Poll => {
+      if (
+        !forced &&
+        current !== null &&
+        inputs.every((value, index) => value === current.inputs[index])
+      )
+        return current;
+      current?.cancel();
+      let active = true;
+      const timer =
+        videoId === null
+          ? undefined
+          : window.setTimeout(() => {
+              void reconcile(videoId, () => active);
+            }, 5_000);
+      return {
+        inputs,
+        cancel: () => {
+          active = false;
+          window.clearTimeout(timer);
+        },
+      };
     };
-    cancelPolling = () => {
-      active = false;
-      for (const timer of timers) window.clearTimeout(timer);
-    };
-    if (
+    const processing =
       snapshot.video !== null &&
       awaitsReconciliation({
         materialId: selection.materialId,
         phase: snapshot.phase,
         video: snapshot.video,
       })
-    )
-      schedule(snapshot.video.videoId);
-    if (
+        ? snapshot.video.videoId
+        : null;
+    processingPoll = ensure(
+      processingPoll,
+      [
+        selection.materialId,
+        snapshot.phase,
+        snapshot.video,
+        snapshot.recoveredVideoId,
+        selection.deleteVideoId,
+        snapshot.deletionVideo?.videoId,
+      ],
+      processing,
+      force === "processing",
+    );
+    const deletion =
       snapshot.deletionVideo?.state === "deletion_requested" ||
       snapshot.deletionVideo?.state === "deleting"
-    )
-      schedule(snapshot.deletionVideo.videoId);
+        ? snapshot.deletionVideo.videoId
+        : null;
+    deletionPoll = ensure(
+      deletionPoll,
+      [
+        snapshot.deletionVideo,
+        snapshot.recoveredVideoId,
+        selection.deleteVideoId,
+      ],
+      deletion,
+      force === "deletion",
+    );
   }
   const stopUpload = () => {
     operation += 1;
+    uploadLifetime?.abort();
+    uploadLifetime = null;
     const ending = uploadTransfer;
     uploadTransfer = null;
     void ending
@@ -317,7 +376,7 @@ export function createVideoAuthoringSession(
       refreshPolling();
       return () => {
         listeners.delete(listener);
-        if (listeners.size === 0) cancelPolling?.();
+        if (listeners.size === 0) cancelPolling();
       };
     },
     stopUpload,
@@ -343,6 +402,7 @@ export function createVideoAuthoringSession(
       operation += 1;
       const transfer = await uploadTransfer;
       uploadTransfer = null;
+      uploadLifetime = null;
       await transfer?.abort(true).catch(() => undefined);
       if (uploadAttempt?.videoId === activeVideo.videoId) {
         clearBrowserVideoUploadAttempt(uploadAttempt);
@@ -375,9 +435,12 @@ export function createVideoAuthoringSession(
     },
     retryDeletion: () => {
       if (snapshot.deletionVideo === null) return;
-      void retryDeletion({ videoId: snapshot.deletionVideo.videoId }).then(
-        applyVideoResult,
-      );
+      const target = snapshot.deletionVideo;
+      const revision = operation;
+      void retryDeletion({ videoId: target.videoId }).then((result) => {
+        if (revision !== operation || snapshot.deletionVideo !== target) return;
+        applyVideoResult(result);
+      });
     },
   };
 }
