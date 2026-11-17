@@ -5,7 +5,9 @@ import {
   type ReactElement,
 } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
+
+import { withNextNavigation } from "../support/next-navigation";
 
 import { ProductJourney } from "@/_pages/library-discovery/ui/product-journey";
 import type { ProductJourneyControls } from "@/_pages/library-discovery/ui/product-journey-controls.client";
@@ -13,12 +15,6 @@ import type { ProductChapterTask } from "@/entities/product-task";
 import type { ProductChapter } from "@/features/library-discovery";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
 import { productJourneyCorpus } from "@/storybook/product-journey-corpus.fixtures";
-
-vi.mock("next/navigation", async (original) => ({
-  ...(await original<Record<string, unknown>>()),
-  useSearchParams: () => new URLSearchParams(),
-  useRouter: () => ({ refresh: vi.fn() }),
-}));
 
 function task(
   code: string,
@@ -195,10 +191,12 @@ describe("Product programme elements handed to the client", () => {
       false,
     ]);
     const html = renderToStaticMarkup(
-      createElement(ProductJourney, {
-        currentHref: productProgrammeHref("platform-inside"),
-        result,
-      }),
+      withNextNavigation(
+        createElement(ProductJourney, {
+          currentHref: productProgrammeHref("platform-inside"),
+          result,
+        }),
+      ),
     );
     const sections = [...html.matchAll(/<section([^>]*)>/gu)]
       .map((match) => match[1] ?? "")
