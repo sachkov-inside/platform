@@ -1,7 +1,6 @@
 export interface DecodedAvatarImage {
   readonly file: File;
   readonly height: number;
-  readonly url: string;
   readonly width: number;
 }
 
@@ -41,13 +40,13 @@ export function createAvatarImageReader({
         const image = {
           file,
           height: probe.naturalHeight,
-          url,
           width: probe.naturalWidth,
         };
         pending = null;
         probe.onload = null;
         probe.onerror = null;
         probe.removeAttribute("src");
+        URL.revokeObjectURL(url);
         onDecoded(image);
       };
       probe.onerror = () => {
@@ -61,5 +60,14 @@ export function createAvatarImageReader({
       active = false;
       discardPending();
     },
+  };
+}
+
+export function mountAvatarPreview(element: HTMLImageElement, file: File) {
+  const url = URL.createObjectURL(file);
+  element.src = url;
+  return () => {
+    element.removeAttribute("src");
+    URL.revokeObjectURL(url);
   };
 }

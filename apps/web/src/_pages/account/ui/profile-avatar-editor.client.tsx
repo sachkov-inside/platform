@@ -17,7 +17,6 @@ import {
   type PointerEvent,
   type ReactNode,
   useCallback,
-  useEffect,
   useId,
   useRef,
   useState,
@@ -38,8 +37,10 @@ import {
   type ProfileAvatarMutationInput,
 } from "../api/profile-avatar-mutation.browser";
 import { dragLeftElement } from "@/shared/lib/drag-left-element";
+import { useNativeDialog } from "@/shared/lib/native-dialog.client";
 import {
   createAvatarImageReader,
+  mountAvatarPreview,
   type DecodedAvatarImage,
 } from "./profile-avatar-image.browser";
 
@@ -79,7 +80,6 @@ export function ProfileAvatarEditor({
   readonly onProfileChange: (profile: PrivateAccountProfile) => void;
   readonly profile: PrivateAccountProfile;
 }) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pointerRef = useRef<{ x: number; y: number } | null>(null);
   const imageReader = useRef<ReturnType<typeof createAvatarImageReader> | null>(
@@ -107,7 +107,6 @@ export function ProfileAvatarEditor({
     onSuccess: (updated, variables) => {
       if (variables.input.kind === "upload") {
         setImage(null);
-        dialogRef.current?.close();
       }
       onProfileChange(updated);
     },
@@ -118,14 +117,10 @@ export function ProfileAvatarEditor({
       if (element === null) return;
       const reader = createAvatarImageReader({
         onDecoded: (selected) => {
-          setImage((previous) => {
-            if (previous !== null) URL.revokeObjectURL(previous.url);
-            return selected;
-          });
+          setImage(selected);
           setCrop({ centerX: 0.5, centerY: 0.5, zoom: 1 });
           resetMutation();
           setClientError(null);
-          dialogRef.current?.showModal();
         },
         onUnreadable: () => {
           resetMutation();
@@ -141,9 +136,10 @@ export function ProfileAvatarEditor({
     [resetMutation],
   );
 
-  useEffect(
-    () => () => {
-      if (image !== null) URL.revokeObjectURL(image.url);
+  const attachPreview = useCallback(
+    (element: HTMLImageElement | null) => {
+      if (element === null || image === null) return;
+      return mountAvatarPreview(element, image.file);
     },
     [image],
   );
@@ -188,6 +184,13 @@ export function ProfileAvatarEditor({
 
   const bounds = image === null ? null : cropCenterBounds(image, crop.zoom);
   const busy = avatarMutation.isPending;
+  const dialog = useNativeDialog({
+    open: image !== null,
+    pending: busy,
+    onOpenChange: (open) => {
+      if (!open) setImage(null);
+    },
+  });
   let status: AvatarStatus = { kind: "idle" };
   if (clientError !== null) {
     status = { kind: "error", message: clientError };
@@ -305,13 +308,10 @@ export function ProfileAvatarEditor({
       <AvatarStatusNotice status={status} />
 
       <dialog
+        {...dialog}
         aria-describedby={descriptionId}
         aria-labelledby={titleId}
         className="m-auto w-[min(42rem,calc(100%-2rem))] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-background p-0 text-foreground shadow-2xl backdrop:bg-foreground/35"
-        onCancel={(event) => {
-          if (busy) event.preventDefault();
-        }}
-        ref={dialogRef}
       >
         <div className="p-5 sm:p-7">
           <div className="flex items-start justify-between gap-4">
@@ -334,7 +334,9 @@ export function ProfileAvatarEditor({
               aria-label="Закрыть кадрирование"
               className="size-11 shrink-0"
               disabled={busy}
-              onClick={() => dialogRef.current?.close()}
+              onClick={() => {
+                setImage(null);
+              }}
               size="icon"
               type="button"
               variant="ghost"
@@ -394,7 +396,7 @@ export function ProfileAvatarEditor({
                     aria-hidden="true"
                     className="pointer-events-none absolute max-w-none select-none"
                     draggable={false}
-                    src={image.url}
+                    ref={attachPreview}
                     style={cropImageStyle(image, crop)}
                   />
                 </div>
@@ -452,7 +454,9 @@ export function ProfileAvatarEditor({
             <Button
               className="min-h-12 px-5"
               disabled={busy}
-              onClick={() => dialogRef.current?.close()}
+              onClick={() => {
+                setImage(null);
+              }}
               type="button"
               variant="ghost"
             >
