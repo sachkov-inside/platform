@@ -1,63 +1,16 @@
-import { fileURLToPath } from "node:url";
-import { chromium, webkit, expect as ui, type Browser } from "@playwright/test";
-import { createServer, type ViteDevServer } from "vite";
+import { expect as ui, type Browser } from "@playwright/test";
 import { beforeAll, afterAll, test } from "vitest";
+import { createOwnedBrowserFixture } from "../support/owned-browser-fixture";
 
-const browserLaunchBudgetMs = 30_000;
-let server: ViteDevServer | undefined;
-let settingUp: Promise<void> | undefined;
-let shuttingDown = false;
-const isShuttingDown = () => shuttingDown;
+const fixture = createOwnedBrowserFixture("body-fragments");
+let browsers: ReadonlyMap<string, Browser> = new Map();
 let url = "";
-const browsers = new Map<string, Browser>();
-async function setup() {
-  server = await createServer({
-    configFile: false,
-    root: fileURLToPath(new URL("../../", import.meta.url)),
-    cacheDir: "node_modules/.cache/body-fragments-browser",
-    define: { "process.env": "{}" },
-    resolve: {
-      alias: { "@": fileURLToPath(new URL("../../src", import.meta.url)) },
-    },
-    oxc: { jsx: { runtime: "automatic" } },
-    server: { host: "127.0.0.1", port: 0 },
-  });
-  if (isShuttingDown()) return;
-  await server.listen();
-  if (isShuttingDown()) return;
-  const address = server.httpServer?.address();
-  if (address === null || address === undefined || typeof address === "string")
-    throw new Error("Missing body fragment listener");
-  url = `http://127.0.0.1:${String(address.port)}/test/support/body-fragments.html`;
-  browsers.set(
-    "chromium",
-    await chromium.launch({ timeout: browserLaunchBudgetMs }),
-  );
-  if (isShuttingDown()) return;
-  browsers.set(
-    "webkit",
-    await webkit.launch({ timeout: browserLaunchBudgetMs }),
-  );
-}
-beforeAll(() => {
-  settingUp = setup();
-  return settingUp;
+beforeAll(async () => {
+  const started = await fixture.start();
+  browsers = started.browsers;
+  url = started.url;
 }, 30_000);
-afterAll(async () => {
-  // A setup deadline does not cancel an acquisition that settles later (#2309).
-  shuttingDown = true;
-  await settingUp?.catch(() => undefined);
-  const released = await Promise.allSettled([
-    ...[...browsers.values()].map((browser) => browser.close()),
-    ...(server === undefined ? [] : [server.close()]),
-  ]);
-  const failures: unknown[] = [];
-  for (const result of released) {
-    if (result.status === "rejected") failures.push(result.reason as unknown);
-  }
-  if (failures.length > 0)
-    throw new AggregateError(failures, "Could not close body fragment fixture");
-}, 30_000);
+afterAll(() => fixture.close(), 30_000);
 
 for (const engine of ["chromium", "webkit"]) {
   test(`${engine}: the repeated section link preserves a smooth scroll`, async () => {
