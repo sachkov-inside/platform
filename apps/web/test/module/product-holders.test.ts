@@ -303,7 +303,6 @@ describe("holders address and query", () => {
   });
 });
 
-/** Only this exact holders read may receive the named, post-handler wire fault. */
 function routeHoldersRead(search = "", transportCorruption?: "missing-items") {
   const statuses: number[] = [];
   const requests: Request[] = [];
