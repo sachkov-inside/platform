@@ -1,51 +1,42 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import type * as BackendModule from "@/shared/api/backend/index.server";
-
-const fakes = vi.hoisted(() => {
-  class SessionUnavailableError extends Error {}
-  return {
-    SessionUnavailableError,
-    getOptionalAccessToken: vi.fn(),
-    getRequiredAccessToken: vi.fn(),
-    requestDelivery: vi.fn(),
-    requestUpload: vi.fn(),
-  };
-});
-
-vi.mock("@/shared/api/backend/index.server", async (importOriginal) => {
-  const original = await importOriginal<typeof BackendModule>();
-  return {
-    ...original,
-    requestMaterialAssetDelivery: fakes.requestDelivery,
-    requestMaterialAssetUpload: fakes.requestUpload,
-  };
-});
-
-vi.mock("@/shared/auth/index.server", () => ({
-  getOptionalPlatformAccessToken: fakes.getOptionalAccessToken,
-  getPlatformAccessToken: fakes.getRequiredAccessToken,
-  isSameOriginMutation: (request: Request, baseUrl: string) =>
-    request.headers.get("origin") === new URL(baseUrl).origin,
-  LogtoSessionUnavailableError: fakes.SessionUnavailableError,
-  readLogtoBffConfig: () => ({ baseUrl: "https://inside.example.test" }),
-}));
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as auth from "@/shared/auth/index.server";
+import {
+  interceptBackendHttp,
+  expectSingleBackendRequest,
+} from "../support/backend-http";
+import { realBffSession } from "../support/real-bff-session";
+const backend = vi.fn<(request: Request) => Promise<Response>>();
+let session: Awaited<ReturnType<typeof realBffSession>>;
 
 import {
-  proxyMaterialAssetDelivery,
-  proxyMaterialAssetUpload,
+  proxyMaterialAssetDelivery as realDelivery,
+  proxyMaterialAssetUpload as realUpload,
 } from "@/features/material-assets/api/material-assets-bff.server";
+
+const proxyMaterialAssetUpload = (...args: Parameters<typeof realUpload>) =>
+  session(() => realUpload(...args));
+const proxyMaterialAssetDelivery = (...args: Parameters<typeof realDelivery>) =>
+  session(() => {
+    if (session.cookieHeader !== null)
+      args[0].headers.set("cookie", session.cookieHeader);
+    return realDelivery(...args);
+  });
 
 const materialId = "10000000-0000-4000-8000-000000000001";
 const assetId = "20000000-0000-4000-8000-000000000001";
 
 describe("Material assets BFF", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    fakes.getRequiredAccessToken.mockResolvedValue("access-token");
-    fakes.getOptionalAccessToken.mockResolvedValue("optional-token");
+  beforeEach(async () => {
+    backend.mockReset();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-16T10:00:00Z"));
+    session = await realBffSession();
+    interceptBackendHttp(backend);
   });
+  afterEach(() => vi.useRealTimers());
 
   it("rejects a cross-origin upload before identity or backend work", async () => {
+    const tokenReads = vi.spyOn(auth, "getPlatformAccessToken");
     const response = await proxyMaterialAssetUpload(
       uploadRequest("https://attacker.example.test"),
       materialId,
@@ -53,12 +44,12 @@ describe("Material assets BFF", () => {
 
     expect(response.status).toBe(403);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
-    expect(fakes.getRequiredAccessToken).not.toHaveBeenCalled();
-    expect(fakes.requestUpload).not.toHaveBeenCalled();
+    expect(tokenReads).not.toHaveBeenCalled();
+    expect(backend).not.toHaveBeenCalled();
   });
 
   it("copies the backend upload contract and selected response headers", async () => {
-    fakes.requestUpload.mockResolvedValue(
+    backend.mockResolvedValue(
       new Response(JSON.stringify({ assetId, state: "ready" }), {
         status: 201,
         headers: {
@@ -77,26 +68,33 @@ describe("Material assets BFF", () => {
     expect(response.status).toBe(201);
     expect(response.headers.get("content-type")).toBe("application/json");
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
-    expect(fakes.requestUpload).toHaveBeenCalledWith(
-      expect.objectContaining({
-        accessToken: "access-token",
-        idempotencyKey: "upload-1",
-        materialId,
-      }),
+    const outgoing = expectSingleBackendRequest(
+      backend,
+      "POST",
+      `/authoring/materials/${materialId}/assets`,
     );
+    expect(outgoing.headers.get("idempotency-key")).toBe("upload-1");
+    const form = await outgoing.formData();
+    expect(form.get("kind")).toBe("file");
+    const file = form.get("file");
+    expect(file).toBeInstanceOf(File);
+    if (!(file instanceof File)) throw new Error("Expected uploaded File");
+    expect(file.name).toBe("product.pdf");
+    expect(file.type).toBe("application/pdf");
+    expect(await file.text()).toBe("pdf");
   });
 
   it("distinguishes a missing session and a backend upload outage", async () => {
-    fakes.getRequiredAccessToken.mockRejectedValueOnce(
-      new fakes.SessionUnavailableError(),
-    );
+    session = await realBffSession(null);
     const missingSession = await proxyMaterialAssetUpload(
       uploadRequest("https://inside.example.test"),
       materialId,
     );
     expect(missingSession.status).toBe(401);
 
-    fakes.requestUpload.mockRejectedValueOnce(new Error("backend unavailable"));
+    expect(backend).not.toHaveBeenCalled();
+    session = await realBffSession();
+    backend.mockRejectedValueOnce(new Error("backend unavailable"));
     const unavailable = await proxyMaterialAssetUpload(
       uploadRequest("https://inside.example.test"),
       materialId,
@@ -108,7 +106,7 @@ describe("Material assets BFF", () => {
   });
 
   it("forwards the version-bound delivery and preserves redirect cache headers", async () => {
-    fakes.requestDelivery.mockResolvedValue(
+    backend.mockResolvedValue(
       new Response(null, {
         status: 302,
         headers: {
@@ -131,20 +129,18 @@ describe("Material assets BFF", () => {
       "https://storage.example.test/signed",
     );
     expect(response.headers.get("cache-control")).toBe("private, no-store");
-    expect(fakes.requestDelivery).toHaveBeenCalledWith(
-      expect.objectContaining({
-        accessToken: "optional-token",
-        assetId,
-        contentVersion: 7,
-        materialId,
-        preview: true,
-      }),
+    const outgoing = expectSingleBackendRequest(
+      backend,
+      "GET",
+      `/materials/${materialId}/assets/${assetId}?contentVersion=7&preview=true`,
     );
+    expect(outgoing.redirect).toBe("manual");
   });
 
   it("keeps the API's type and inert-content headers on public SVG bytes (#2025)", async () => {
+    session = await realBffSession(null);
     const policy = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
-    fakes.requestDelivery.mockResolvedValue(
+    backend.mockResolvedValue(
       new Response('<svg xmlns="http://www.w3.org/2000/svg"/>', {
         status: 200,
         headers: {
@@ -167,10 +163,20 @@ describe("Material assets BFF", () => {
     expect(response.headers.get("content-type")).toBe("image/svg+xml");
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
     expect(response.headers.get("content-security-policy")).toBe(policy);
+    const outgoing = expectSingleBackendRequest(
+      backend,
+      "GET",
+      `/materials/${materialId}/assets/${assetId}/images/720?contentVersion=7`,
+      null,
+    );
+    expect(outgoing.redirect).toBe("manual");
+    expect(await response.text()).toBe(
+      '<svg xmlns="http://www.w3.org/2000/svg"/>',
+    );
   });
 
   it("passes Caddy's edge mark to the API and returns its internal answer (#1766)", async () => {
-    fakes.requestDelivery.mockResolvedValue(
+    backend.mockResolvedValue(
       new Response(null, {
         status: 204,
         headers: {
@@ -193,17 +199,23 @@ describe("Material assets BFF", () => {
     expect(edge.headers.get("x-inside-storage-location")).toContain(
       "X-Amz-Signature",
     );
-    expect(fakes.requestDelivery).toHaveBeenLastCalledWith(
-      expect.objectContaining({ viaStorageEdge: true, variantWidth: "960" }),
+    const edgeRequest = expectSingleBackendRequest(
+      backend,
+      "GET",
+      `/materials/${materialId}/assets/${assetId}/images/960?contentVersion=7`,
     );
+    expect(edgeRequest.headers.get("x-inside-storage-delivery")).toBe("edge");
 
     await proxyMaterialAssetDelivery(new Request(url), {
       assetId,
       materialId,
     });
-    expect(fakes.requestDelivery).toHaveBeenLastCalledWith(
-      expect.objectContaining({ viaStorageEdge: false }),
+    expect(backend).toHaveBeenCalledTimes(2);
+    const direct = backend.mock.lastCall?.[0];
+    expect(direct?.url).toBe(
+      `https://platform-api.example.test/materials/${materialId}/assets/${assetId}?contentVersion=7`,
     );
+    expect(direct?.headers.get("x-inside-storage-delivery")).toBeNull();
   });
 
   it("rejects malformed delivery queries and fails closed on identity outages", async () => {
@@ -214,17 +226,24 @@ describe("Material assets BFF", () => {
       { assetId, materialId },
     );
     expect(malformed.status).toBe(404);
-    expect(fakes.requestDelivery).not.toHaveBeenCalled();
+    expect(backend).not.toHaveBeenCalled();
 
-    fakes.getOptionalAccessToken.mockRejectedValueOnce(
-      new Error("identity unavailable"),
-    );
+    session = await realBffSession({ refreshToken: "unavailable-identity" });
+    const externalRequests = vi.spyOn(globalThis, "fetch");
     const unavailable = await proxyMaterialAssetDelivery(
       new Request("https://inside.example.test/api/asset?contentVersion=7"),
       { assetId, materialId },
     );
     expect(unavailable.status).toBe(503);
     expect(unavailable.headers.get("cache-control")).toBe("private, no-store");
+    expect(backend).not.toHaveBeenCalled();
+    expect(
+      externalRequests.mock.calls.some(
+        ([input, init]) =>
+          new URL(new Request(input, init).url).origin ===
+          "https://identity.example.test",
+      ),
+    ).toBe(true);
   });
 });
 
