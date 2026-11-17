@@ -13,22 +13,49 @@ type RouteModule = Partial<Record<string, RouteHandler>>;
 export function routeBrowserMutations(
   routes: Readonly<Partial<Record<string, RouteModule>>>,
   origin = testSiteOrigin,
+  server: {
+    readonly externalFetch?: (request: Request) => Promise<Response>;
+    readonly run?: (
+      handler: () => Promise<Response> | Response,
+    ) => Promise<Response> | Response;
+  } = {},
 ) {
   const requests: Request[] = [];
   const statuses: number[] = [];
   const fetch = vi.fn(
-    async (url: string | URL, init?: RequestInit): Promise<Response> => {
-      const target = new URL(url, testSiteOrigin);
-      const headers = new Headers(init?.headers);
+    async (
+      url: string | URL | Request,
+      init?: RequestInit,
+    ): Promise<Response> => {
+      const target = new URL(
+        url instanceof Request ? url.url : url,
+        testSiteOrigin,
+      );
+      if (
+        target.origin !== new URL(testSiteOrigin).origin &&
+        server.externalFetch !== undefined
+      ) {
+        return server.externalFetch(
+          new Request(url instanceof Request ? url : target, init),
+        );
+      }
+      const headers = new Headers(
+        init?.headers ?? (url instanceof Request ? url.headers : undefined),
+      );
       headers.set("origin", origin);
-      const request = new Request(target, { ...init, headers });
+      const request = new Request(url instanceof Request ? url : target, {
+        ...init,
+        headers,
+      });
       requests.push(request.clone());
       const route = routes[target.pathname];
       const handler = route?.[request.method];
       const response =
         handler === undefined
           ? new Response(null, { status: 404 })
-          : await handler(request);
+          : await (server.run === undefined
+              ? handler(request)
+              : server.run(() => handler(request)));
       statuses.push(response.status);
       return response;
     },

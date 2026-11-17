@@ -1,19 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const fakes = vi.hoisted(() => ({
-  token: vi.fn<() => Promise<string>>(),
-  manage: vi.fn(),
-}));
-vi.mock("@/shared/api/backend/index.server", () => ({
-  requestManageBilling: fakes.manage,
-}));
-vi.mock("@/shared/auth/session-adapter.server", () => ({
-  sessionAdapter: {
-    accessToken: () => fakes.token(),
-    baseUrl: () => "https://inside.example.test",
-  },
-  LogtoSessionUnavailableError: class extends Error {},
-}));
+import { realBffSession } from "../support/real-bff-session";
+import { ownerBillingBackend } from "../support/owner-billing-backend";
+let backend: ReturnType<typeof ownerBillingBackend>;
+let session: Awaited<ReturnType<typeof realBffSession>>;
 
 import * as listRoute from "../../app/api/authoring/billing/activation-rules/list/route";
 import * as saveRoute from "../../app/api/authoring/billing/activation-rules/save/route";
@@ -49,11 +39,14 @@ function rule(
   };
 }
 
-beforeEach(() => {
-  vi.resetAllMocks();
-  vi.unstubAllGlobals();
-  fakes.token.mockResolvedValue("owner-token");
+beforeEach(async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-16T10:00:00Z"));
+  session = await realBffSession("owner-token");
+  backend = ownerBillingBackend();
 });
+
+afterEach(() => vi.useRealTimers());
 
 describe("правила активации на странице продукта", () => {
   it("показывает только правила этого продукта по названию", () => {
@@ -98,19 +91,21 @@ describe("правила активации на странице продукт
   });
 
   it("читает и сохраняет правила прежними командами через свои маршруты", async () => {
-    routeBrowserMutations({
-      "/api/authoring/billing/activation-rules/list": listRoute,
-      "/api/authoring/billing/activation-rules/save": saveRoute,
-    });
+    routeBrowserMutations(
+      {
+        "/api/authoring/billing/activation-rules/list": listRoute,
+        "/api/authoring/billing/activation-rules/save": saveRoute,
+      },
+      undefined,
+      { externalFetch: backend.fetch, run: (handler) => session(handler) },
+    );
     const saved = rule("00000000-0000-4000-8000-000000000001", "Прежний курс");
-    fakes.manage.mockResolvedValueOnce({
-      ok: true,
-      body: {
+    backend.command.mockResolvedValueOnce(
+      Response.json({
         operationRef: operationId,
         result: { outcome: "activationRules", items: [saved] },
-      },
-      response: new Response(),
-    });
+      }),
+    );
     await expect(
       listCourseActivationRulesOperation.send({ operationId }),
     ).resolves.toEqual({
@@ -120,17 +115,14 @@ describe("правила активации на странице продукт
         result: { outcome: "activationRules", items: [saved] },
       },
     });
-    expect(fakes.manage).toHaveBeenLastCalledWith(
-      { operation: "activationRules.list", operationId },
-      "owner-token",
-      {},
-    );
-
-    fakes.manage.mockResolvedValueOnce({
-      ok: false,
-      problem: { code: "revision_conflict" },
-      response: new Response(null, { status: 409 }),
+    expect(await lastCommand()).toEqual({
+      operation: "activationRules.list",
+      operationId,
     });
+
+    backend.command.mockResolvedValueOnce(
+      Response.json({ code: "revision_conflict" }, { status: 409 }),
+    );
     const { revision, ...value } = saved;
     await expect(
       saveCourseActivationRuleOperation.send({
@@ -140,17 +132,20 @@ describe("правила активации на странице продукт
         reason: "Изменение публикации владельцем",
       }),
     ).resolves.toEqual({ ok: false, code: "revision_conflict" });
-    expect(fakes.manage).toHaveBeenLastCalledWith(
-      {
-        operation: "activationRules.save",
-        operationId,
-        expectedRevision: revision,
-        value: { ...value, published: false },
-        reason: "Изменение публикации владельцем",
-      },
-      "owner-token",
-      {},
-    );
-    expect(fakes.manage).toHaveBeenCalledTimes(2);
+    expect(await lastCommand()).toEqual({
+      operation: "activationRules.save",
+      operationId,
+      expectedRevision: revision,
+      value: { ...value, published: false },
+      reason: "Изменение публикации владельцем",
+    });
+    expect(backend.command).toHaveBeenCalledTimes(2);
   });
 });
+
+async function lastCommand(): Promise<unknown> {
+  const request = backend.command.mock.calls.at(-1)?.[0];
+  if (request === undefined) throw new Error("Expected owner Billing request");
+  expect(request.headers.get("authorization")).toBe("Bearer owner-token");
+  return request.json();
+}
