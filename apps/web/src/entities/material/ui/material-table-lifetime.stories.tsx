@@ -129,3 +129,58 @@ export const RetainsTableViewport: Story = {
     await waitFor(() => expect(scroller.isConnected).toBe(false));
   },
 };
+
+export const TracksContentWidthWithoutViewportResize: Story = {
+  args: { initialColumns: 2 },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const scroller = canvas.getByRole("region", {
+      name: "Таблица в материале",
+    });
+    const frame = scroller.parentElement;
+    const table = scroller.querySelector("table");
+    if (frame === null || table === null)
+      throw new Error("Missing rendered table");
+    await document.fonts.ready;
+    const geometry = () => ({
+      clientWidth: scroller.clientWidth,
+      clientHeight: scroller.clientHeight,
+      scrollWidth: scroller.scrollWidth,
+      contentWidth: table.getBoundingClientRect().width,
+      contentHeight: table.getBoundingClientRect().height,
+      fonts: document.fonts.status,
+      connected: scroller.isConnected,
+    });
+    await expect(scroller.scrollWidth).toBeLessThanOrEqual(
+      scroller.clientWidth,
+    );
+    await waitFor(() => expect(frame).toHaveAttribute("data-overflow", "none"));
+    const initial = geometry();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Изменить столбцы" }),
+    );
+    await waitFor(() =>
+      expect(scroller.scrollWidth).toBeGreaterThan(scroller.clientWidth),
+    );
+    await expect(scroller.querySelector("table")).toBe(table);
+    await expect(scroller.clientWidth).toBe(initial.clientWidth);
+    await expect(scroller.clientHeight).toBe(initial.clientHeight);
+    await waitFor(() =>
+      expect(
+        frame,
+        JSON.stringify({ initial, now: geometry() }),
+      ).toHaveAttribute("data-overflow", "end"),
+    );
+    const fade = frame.querySelector("[data-table-fade='end']");
+    if (fade === null) throw new Error("Missing table end fade");
+    await waitFor(() => expect(getComputedStyle(fade).opacity).toBe("1"));
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Изменить столбцы" }),
+    );
+    await waitFor(() => expect(frame).toHaveAttribute("data-overflow", "none"));
+    await expect(scroller.scrollWidth).toBeLessThanOrEqual(
+      scroller.clientWidth,
+    );
+    await waitFor(() => expect(getComputedStyle(fade).opacity).toBe("0"));
+  },
+};
