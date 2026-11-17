@@ -15,9 +15,15 @@ export function mountMaterialTableScroll(element: HTMLDivElement | null) {
   if (element === null) return;
   const frame = element.parentElement;
   if (frame === null) return;
-  const start = frame.querySelector<HTMLElement>("[data-table-fade='start']");
-  const end = frame.querySelector<HTMLElement>("[data-table-fade='end']");
-  if (start === null || end === null) return;
+  const start = element.nextElementSibling;
+  const end = start?.nextElementSibling;
+  if (
+    !(start instanceof HTMLElement) ||
+    !(end instanceof HTMLElement) ||
+    start.getAttribute("data-table-fade") !== "start" ||
+    end.getAttribute("data-table-fade") !== "end"
+  )
+    return;
 
   let active = true;
   const update = () => {
