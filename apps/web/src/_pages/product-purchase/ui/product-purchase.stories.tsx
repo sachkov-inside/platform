@@ -1,3 +1,4 @@
+import { legacyCatalogueScenario } from "../../../../../../scenarios/legacy-catalog.mjs";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Suspense, use } from "react";
 import { ReadonlyURLSearchParams, useSearchParams } from "next/navigation";
@@ -62,7 +63,7 @@ function requestPath(input: RequestInfo | URL): string {
 
 const product = {
   id: buyerProductId,
-  name: "Создание Platform Inside",
+  name: legacyCatalogueScenario.product.name,
 };
 
 /** Что ответил собственный billing BFF на чтение покупок этого человека. */
@@ -83,7 +84,7 @@ function purchaseRoute(
   const { beforeEach, decorators, parameters } = publicPageEnvironment(
     individual
       ? `/payment/links/${individualLink.id}`
-      : "/products/platform-inside/buy",
+      : "/products/" + legacyCatalogueScenario.product.slug + "/buy",
     { account: viewer === "guest" ? "guest" : "authenticated" },
   );
   return {
@@ -156,7 +157,7 @@ const meta = {
   args: {
     product,
     offers: [productOnlyOffer],
-    slug: "platform-inside",
+    slug: legacyCatalogueScenario.product.slug,
   },
   parameters: {
     docs: {

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { legacyAssetsScenario } from "../../../../scenarios/legacy-assets.mjs";
+import { legacyCatalogueScenario } from "../../../../scenarios/legacy-catalog.mjs";
 import { isDeepStrictEqual } from "node:util";
 
 import type { PlatformPrisma } from "../infrastructure/prisma/index.js";
@@ -23,9 +24,9 @@ const demoHarnessProductId = "72000000-0000-4000-8000-000000000295";
 const demoStepsProductId = "72000000-0000-4000-8000-000000000298";
 const demoStepsSharedProductId = "72000000-0000-4000-8000-000000000299";
 const demoReviewProductId = "72000000-0000-4000-8000-000000000296";
-const slug = legacyAssetsScenario.slug;
+const slug = legacyCatalogueScenario.overview.slug;
 const [overviewImage, overviewFile] = legacyAssetsScenario.assets;
-const membershipSlug = "developer-pipeline-bez-poteri-konteksta";
+const membershipSlug = legacyCatalogueScenario.closedGuide.slug;
 const membershipCreateIdempotencyKey = "72000000-0000-4000-8000-000000000033";
 const videoFormatId = "video";
 const noteFormatId = "note";
@@ -41,24 +42,26 @@ const localVideoFixtures: ReadonlyMap<
   }
 > = new Map([
   [
-    "local-home-developer-pipeline",
+    legacyCatalogueScenario.videos.pipeline.providerVideoId,
     {
-      durationSeconds: 628,
-      title: "Видео про Developer Pipeline",
+      durationSeconds: legacyCatalogueScenario.videos.pipeline.durationSeconds,
+      title: legacyCatalogueScenario.videos.pipeline.titleVariants.development,
     },
   ],
   [
-    "local-home-deep-modules",
+    legacyCatalogueScenario.videos.deepModules.providerVideoId,
     {
-      durationSeconds: 481,
-      title: "Глубокие модули на практике",
+      durationSeconds:
+        legacyCatalogueScenario.videos.deepModules.durationSeconds,
+      title: legacyCatalogueScenario.videos.deepModules.title,
     },
   ],
   [
-    "local-home-product-context",
+    legacyCatalogueScenario.videos.productContext.providerVideoId,
     {
-      durationSeconds: 754,
-      title: "Продукт и инженерный контекст",
+      durationSeconds:
+        legacyCatalogueScenario.videos.productContext.durationSeconds,
+      title: legacyCatalogueScenario.videos.productContext.title,
     },
   ],
   [
@@ -122,7 +125,7 @@ export async function seedLocalDevelopment(
   await ensureProductReaderScenario(seed);
   const representativeMaterial = {
     metadata: {
-      title: "Как устроен Inside Platform",
+      title: legacyCatalogueScenario.overview.title,
       summary:
         "Representative published Material для локальной full-stack разработки.",
       access: "free",
@@ -850,26 +853,29 @@ async function ensureHomeMaterials(seed: SeedContext): Promise<void> {
   const materials = [
     {
       formatId: videoFormatId,
-      slug: "video-pro-developer-pipeline",
+      slug: legacyCatalogueScenario.videos.pipeline.slug,
       summary: "Короткий разбор пути задачи от ready до проверяемой поставки.",
-      title: "Видео про Developer Pipeline",
-      providerVideoId: "local-home-developer-pipeline",
+      title: legacyCatalogueScenario.videos.pipeline.titleVariants.development,
+      providerVideoId: legacyCatalogueScenario.videos.pipeline.providerVideoId,
     },
     {
       formatId: videoFormatId,
-      slug: "video-pro-glubokie-moduli",
+      slug: legacyCatalogueScenario.videos.deepModules.slugVariants.development,
       summary:
         "Как сделать интерфейс модуля компактным, а реализацию — глубокой.",
-      title: "Глубокие модули на практике",
-      providerVideoId: "local-home-deep-modules",
+      title: legacyCatalogueScenario.videos.deepModules.title,
+      providerVideoId:
+        legacyCatalogueScenario.videos.deepModules.providerVideoId,
     },
     {
       formatId: videoFormatId,
-      slug: "video-pro-produkty-i-kontekst",
+      slug: legacyCatalogueScenario.videos.productContext.slugVariants
+        .development,
       summary:
         "Как продуктовый контекст помогает принимать инженерные решения.",
-      title: "Продукт и инженерный контекст",
-      providerVideoId: "local-home-product-context",
+      title: legacyCatalogueScenario.videos.productContext.title,
+      providerVideoId:
+        legacyCatalogueScenario.videos.productContext.providerVideoId,
     },
     {
       formatId: noteFormatId,
@@ -899,7 +905,7 @@ async function ensureHomeMaterials(seed: SeedContext): Promise<void> {
 
   const progressSlugs = [
     "tekst-dlya-proverki-progressa",
-    "video-pro-developer-pipeline",
+    legacyCatalogueScenario.videos.pipeline.slug,
     "gayd-dlya-proverki-progressa",
   ];
   const progressIds = new Map<string, string>();
@@ -979,7 +985,7 @@ async function ensureMembershipCatalogMaterial(
   seed: SeedContext,
 ): Promise<string> {
   const metadata = {
-    title: "Developer Pipeline без потери контекста",
+    title: legacyCatalogueScenario.closedGuide.title,
     summary: "Закрытый Material с публичным безопасным описанием для каталога.",
     access: "closed" as const,
     difficulty: null,
@@ -1067,11 +1073,11 @@ async function ensureReferenceData(prisma: PlatformPrisma): Promise<void> {
     where: { id: productId },
     create: {
       id: productId,
-      slug: "platform-inside",
-      name: "Создание Platform Inside",
-      summary: "Путь от продуктовой идеи до работающей Platform.",
+      slug: legacyCatalogueScenario.product.slug,
+      name: legacyCatalogueScenario.product.name,
+      summary: legacyCatalogueScenario.product.summary,
     },
-    update: { summary: "Путь от продуктовой идеи до работающей Platform." },
+    update: { summary: legacyCatalogueScenario.product.summary },
   });
   for (const data of [
     {

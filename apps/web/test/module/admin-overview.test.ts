@@ -1,22 +1,18 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const fakes = vi.hoisted(() => ({ token: vi.fn() }));
-vi.mock("@/shared/auth/session-adapter.server", () => ({
-  sessionAdapter: {
-    accessToken: fakes.token,
-    baseUrl: () => "https://inside.example.test",
-  },
-  LogtoSessionUnavailableError: class extends Error {},
-}));
+import { expectOwnerReadRequest } from "../support/owner-read-request";
+import { realBffSession } from "../support/real-bff-session";
+const backend = vi.fn<(request: Request) => Promise<Response>>();
+let session: Awaited<ReturnType<typeof realBffSession>>;
 
-import { handleOverviewRequest } from "@/_pages/authoring-overview.server";
+import { handleOverviewRequest as realHandleOverviewRequest } from "@/_pages/authoring-overview.server";
 import {
   parsePeopleListQuery,
   peopleFilterChips,
   peopleListHref,
   withPeopleListFilter,
 } from "@/_pages/authoring-people/model/people-list";
-import { handleProductOverviewRequest } from "@/features/admin-overview.server";
+import { handleProductOverviewRequest as realHandleProductOverviewRequest } from "@/features/admin-overview.server";
 import {
   paymentsListRequest,
   parsePaymentsListRequest,
@@ -416,28 +412,26 @@ describe("funnel and events", () => {
   });
 });
 
-function backendAnswer(status: number, body: unknown) {
-  const response = new Response(null, { status });
-  return status === 200
-    ? ({ ok: true, body, response } as const)
-    : ({ ok: false, problem: body, response } as const);
-}
+const handleOverviewRequest = (request: Request) =>
+  session(() => realHandleOverviewRequest(request));
+const handleProductOverviewRequest = (request: Request, productId: string) =>
+  session(() => realHandleProductOverviewRequest(request, productId));
+beforeEach(async () => {
+  backend.mockReset();
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-16T10:00:00Z"));
+  session = await realBffSession("owner-token");
+  vi.stubGlobal("fetch", backend);
+});
+afterEach(() => vi.useRealTimers());
 
 describe("overview BFF", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    fakes.token.mockResolvedValue("owner-token");
-  });
-
   it("passes the period, validates the answer and keeps a refusal apart from an empty Overview", async () => {
-    const read = vi.fn(() =>
-      Promise.resolve(backendAnswer(200, storyOverviewReport(7))),
-    );
+    backend.mockResolvedValueOnce(Response.json(storyOverviewReport(7)));
     const ready = await handleOverviewRequest(
       new Request(
         "https://inside.example.test/api/authoring/overview?period=7",
       ),
-      { read },
     );
     expect(ready.status).toBe(200);
     expect(ready.headers.get("cache-control")).toContain("no-store");
@@ -445,68 +439,64 @@ describe("overview BFF", () => {
       kind: "ready",
       period: { days: 7 },
     });
-    expect(read).toHaveBeenCalledWith(7, "owner-token");
-
-    const unknownPeriod = vi.fn(() =>
-      Promise.resolve(backendAnswer(403, { code: "forbidden" })),
+    expectOwnerReadRequest(backend.mock.calls.at(-1)?.[0], "/admin/overview", {
+      period: "7",
+    });
+    backend.mockResolvedValueOnce(
+      Response.json({ code: "forbidden" }, { status: 403 }),
     );
     const refused = await handleOverviewRequest(
       new Request(
         "https://inside.example.test/api/authoring/overview?period=14",
       ),
-      { read: unknownPeriod },
     );
-    expect(unknownPeriod).toHaveBeenCalledWith(30, "owner-token");
+    expectOwnerReadRequest(backend.mock.calls.at(-1)?.[0], "/admin/overview", {
+      period: "30",
+    });
     expect(refused.status).toBe(403);
     expect(await refused.json()).toEqual({ kind: "forbidden" });
-
+    backend.mockResolvedValueOnce(Response.json({ period: {}, metrics: {} }));
     const malformed = await handleOverviewRequest(
       new Request("https://inside.example.test/api/authoring/overview"),
-      {
-        read: () =>
-          Promise.resolve(backendAnswer(200, { period: {}, metrics: {} })),
-      },
     );
-    // The read boundary answers a failed dependency in its own closed shape; nothing reads as empty.
     expect(malformed.status).toBe(503);
     expect(await malformed.json()).not.toHaveProperty("metrics");
   });
-
   it("answers the product overview by product and keeps 403 and 404 distinct", async () => {
     const productId = "97000000-0000-4000-8000-000000000301";
-    const read = vi.fn(() =>
-      Promise.resolve(backendAnswer(200, storyProductOverview(90))),
-    );
+    backend.mockResolvedValueOnce(Response.json(storyProductOverview(90)));
     const ready = await handleProductOverviewRequest(
       new Request(
         `https://inside.example.test/api/authoring/products/${productId}/overview?period=90`,
       ),
       productId,
-      { read },
     );
     expect(ready.status).toBe(200);
-    expect(read).toHaveBeenCalledWith(productId, 90, "owner-token");
+    expectOwnerReadRequest(
+      backend.mock.calls.at(-1)?.[0],
+      `/admin/products/${productId}/overview`,
+      { period: "90" },
+    );
+    backend.mockResolvedValueOnce(
+      Response.json({ code: "forbidden" }, { status: 403 }),
+    );
     const refused = await handleProductOverviewRequest(
       new Request(
         "https://inside.example.test/api/authoring/products/x/overview",
       ),
       productId,
-      {
-        read: () => Promise.resolve(backendAnswer(403, { code: "forbidden" })),
-      },
     );
     expect(refused.status).toBe(403);
     expect(await refused.json()).toEqual({ kind: "forbidden" });
-    const notUuid = vi.fn();
+    backend.mockReset();
     const missing = await handleProductOverviewRequest(
       new Request(
         "https://inside.example.test/api/authoring/products/x/overview",
       ),
       "not-a-product",
-      { read: notUuid },
     );
     expect(missing.status).toBe(404);
-    expect(notUuid).not.toHaveBeenCalled();
+    expect(backend).not.toHaveBeenCalled();
   });
 });
 

@@ -1,3 +1,4 @@
+import { legacyCatalogueScenario } from "../../../../../../scenarios/legacy-catalog.mjs";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, within } from "storybook/test";
 
@@ -21,12 +22,16 @@ const materials = [
     availability: "available",
     format: "Гайд",
     productMemberships: [
-      { name: "Создание Platform Inside", ordinal: 1, slug: "platform-inside" },
+      {
+        name: legacyCatalogueScenario.product.name,
+        ordinal: 1,
+        slug: legacyCatalogueScenario.product.slug,
+      },
     ],
     slug: "inside-platform-overview",
     summary: "Архитектура продукта, bounded contexts и delivery flow.",
     tags: ["Architecture", "Platform"],
-    title: "Как устроен Inside Platform",
+    title: legacyCatalogueScenario.overview.title,
     topic: "Platform",
     topicSlug: "platform",
   },
@@ -35,7 +40,11 @@ const materials = [
     availability: "locked",
     format: "Заметка",
     productMemberships: [
-      { name: "Создание Platform Inside", ordinal: 2, slug: "platform-inside" },
+      {
+        name: legacyCatalogueScenario.product.name,
+        ordinal: 2,
+        slug: legacyCatalogueScenario.product.slug,
+      },
     ],
     slug: "platform-membership",
     summary: "Закрытый выпуск о membership и доступе к материалам.",
@@ -72,8 +81,8 @@ const productResult = {
       coverId: "02000000-0000-4000-8000-000000000063",
       renditions: [{ height: 540, width: 960 }],
     },
-    name: "Создание Platform Inside",
-    slug: "platform-inside",
+    name: legacyCatalogueScenario.product.name,
+    slug: legacyCatalogueScenario.product.slug,
     summary: "Последовательный путь создания Platform.",
   },
   relatedProduct: [],
@@ -82,7 +91,7 @@ const productResult = {
 
 /** Страница продукта без особого оформления: `PublishedProductPage` рисует её через развилку открытия. */
 const meta = {
-  ...publicPageEnvironment("/products/platform-inside"),
+  ...publicPageEnvironment("/products/" + legacyCatalogueScenario.product.slug),
   component: LibraryDiscoveryView,
   id: "pages-product-product",
   title: "Pages/Product/Landing/General",
@@ -157,7 +166,7 @@ export const Empty: Story = {
       kind: "empty",
       reference: {
         name: "Новый продукт",
-        slug: "platform-inside",
+        slug: legacyCatalogueScenario.product.slug,
         summary: "",
       },
       relatedProduct: [],

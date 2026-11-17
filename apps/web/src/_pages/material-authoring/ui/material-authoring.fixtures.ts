@@ -1,3 +1,4 @@
+import { legacyCatalogueScenario } from "../../../../../../scenarios/legacy-catalog.mjs";
 import { fn } from "storybook/test";
 
 import {
@@ -213,7 +214,7 @@ export const materialAuthoringPresentation = {
   ],
   availableProduct: [
     {
-      label: "Создание Platform Inside",
+      label: legacyCatalogueScenario.product.name,
       value: "94000000-0000-4000-8000-000000000041",
     },
   ],

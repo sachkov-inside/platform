@@ -1,3 +1,4 @@
+import { legacyCatalogueScenario } from "../../../../../../scenarios/legacy-catalog.mjs";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { useState } from "react";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
@@ -33,7 +34,9 @@ const productWithSupportQuote = {
   ...baseProductQuoteB,
   snapshot: productWithSupportOffer,
 };
-const environment = publicPageEnvironment("/products/platform-inside/buy");
+const environment = publicPageEnvironment(
+  "/products/" + legacyCatalogueScenario.product.slug + "/buy",
+);
 
 function SelectionScenario(args: CheckoutFlowProps) {
   const [snapshot, setSnapshot] = useState(args.snapshot);
@@ -69,7 +72,7 @@ function SelectionScenario(args: CheckoutFlowProps) {
               ...snapshot,
               product: {
                 id: "00000000-0000-4000-8000-000000000f01",
-                name: "Создание Platform Inside",
+                name: legacyCatalogueScenario.product.name,
                 priceRevision: 2,
               },
             });

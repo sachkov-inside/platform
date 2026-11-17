@@ -1,3 +1,4 @@
+import { legacyCatalogueScenario } from "../../../../../../scenarios/legacy-catalog.mjs";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
@@ -14,7 +15,9 @@ import { publicPageEnvironment } from "@/storybook/story-environment";
 
 import { CheckoutFlow } from "./checkout-flow.client";
 
-const environment = publicPageEnvironment("/products/platform-inside/buy");
+const environment = publicPageEnvironment(
+  "/products/" + legacyCatalogueScenario.product.slug + "/buy",
+);
 
 /** Какие маршруты собственного BFF вызвал поток: по ним видно, что оплата не начиналась. */
 const requestPath = fn();

@@ -1,3 +1,4 @@
+import { legacyCatalogueScenario } from "../../../../../../scenarios/legacy-catalog.mjs";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Suspense, use } from "react";
 import { expect, within } from "storybook/test";
@@ -52,8 +53,8 @@ const materials = titles.map((title, index): MaterialPreview => ({
   tags: [],
   productMemberships: [
     {
-      name: "Создание Platform Inside",
-      slug: "platform-inside",
+      name: legacyCatalogueScenario.product.name,
+      slug: legacyCatalogueScenario.product.slug,
       ordinal: index + 1,
     },
   ],
@@ -73,9 +74,9 @@ const result = {
   hasNext: false,
   reference: {
     id: "72000000-0000-4000-8000-000000000670",
-    name: "Создание Platform Inside",
-    slug: "platform-inside",
-    summary: "От продуктовой идеи до работающего приложения.",
+    name: legacyCatalogueScenario.product.name,
+    slug: legacyCatalogueScenario.product.slug,
+    summary: legacyCatalogueScenario.product.programmeSummary,
   },
   items: materials,
   relatedProduct: [],
@@ -175,7 +176,7 @@ function measure(canvasElement: HTMLElement): ProgrammeGeometry {
 }
 
 const environment = publicPageEnvironment(
-  "/products/platform-inside/programme",
+  "/products/" + legacyCatalogueScenario.product.slug + "/programme",
 );
 const meta = {
   ...environment,

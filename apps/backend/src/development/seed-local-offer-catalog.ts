@@ -2,6 +2,7 @@ import { assembleAccounts } from "../modules/accounts/index.js";
 import { CoverageCatalog } from "../modules/materials/index.js";
 import { ProductDiscovery } from "../modules/products/index.js";
 import { randomUUID } from "node:crypto";
+import { legacyCatalogueScenario } from "../../../../scenarios/legacy-catalog.mjs";
 import type { PlatformPrisma } from "../infrastructure/prisma/index.js";
 import { BillingPricing } from "../modules/billing/index.js";
 /** Development-only Product price. Existing sales closure stays under its owner's control. */
@@ -44,7 +45,7 @@ export async function seedLocalOfferCatalog(
   const current = await prisma.billingProductPrice.findUnique({
     where: { productId: target.productId },
   });
-  const name = "Руководство «Создание Platform Inside»",
+  const name = legacyCatalogueScenario.offer.name,
     priceKopecks = 3000;
   if (current?.archived === true) return;
   const published =

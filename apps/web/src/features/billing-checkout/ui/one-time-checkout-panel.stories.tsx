@@ -1,3 +1,4 @@
+import { legacyCatalogueScenario } from "../../../../../../scenarios/legacy-catalog.mjs";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 
@@ -14,7 +15,9 @@ import {
 import { OneTimeCheckoutPanel } from "./one-time-checkout-panel.client";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 
-const environment = publicPageEnvironment("/products/platform-inside/buy");
+const environment = publicPageEnvironment(
+  "/products/" + legacyCatalogueScenario.product.slug + "/buy",
+);
 
 const meta = {
   ...environment,
