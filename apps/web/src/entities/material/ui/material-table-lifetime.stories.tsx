@@ -192,3 +192,76 @@ export const TracksContentWidthWithoutViewportResize: Story = {
     await waitFor(() => expect(getComputedStyle(fade).opacity).toBe("0"));
   },
 };
+
+export const NestedTablesOwnTheirEdgeHints: Story = {
+  render: () => {
+    const outer = tableBlock(3);
+    const row = outer.rows[0];
+    if (row === undefined) throw new Error("Missing outer table row");
+    const nested = {
+      ...outer,
+      rows: [
+        {
+          cells: row.cells.map((cell, index) =>
+            index === 0 ? { ...cell, content: [tableBlock(8)] } : cell,
+          ),
+        },
+      ],
+    };
+    return (
+      <MaterialBodyView blocks={[nested]} path={[]} rendering={rendering} />
+    );
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const viewports = canvas.getAllByRole("region", {
+      name: "Таблица в материале",
+    });
+    await expect(viewports).toHaveLength(2);
+    const outer = viewports[0];
+    const inner = viewports[1];
+    if (outer === undefined || inner === undefined)
+      throw new Error("Missing nested viewports");
+    const hints = (viewport: HTMLElement) => {
+      const frame = viewport.parentElement;
+      if (frame === null) throw new Error("Missing table frame");
+      const own = Array.from(frame.children);
+      const start = own.find(
+        (child) => child.getAttribute("data-table-fade") === "start",
+      );
+      const end = own.find(
+        (child) => child.getAttribute("data-table-fade") === "end",
+      );
+      if (start === undefined || end === undefined)
+        throw new Error("Missing own edge hints");
+      return { frame, start, end };
+    };
+    const outerHints = hints(outer);
+    const innerHints = hints(inner);
+    for (const viewport of viewports) {
+      const { frame, end } = hints(viewport);
+      await expect(viewport.scrollWidth).toBeGreaterThan(viewport.clientWidth);
+      await waitFor(() =>
+        expect(frame).toHaveAttribute("data-overflow", "end"),
+      );
+      await waitFor(() => expect(getComputedStyle(end).opacity).toBe("1"));
+    }
+    outer.scrollLeft = outer.scrollWidth;
+    await waitFor(() =>
+      expect(outerHints.frame).toHaveAttribute("data-overflow", "start"),
+    );
+    await waitFor(() =>
+      expect(getComputedStyle(outerHints.start).opacity).toBe("1"),
+    );
+    await expect(innerHints.frame).toHaveAttribute("data-overflow", "end");
+    await expect(getComputedStyle(innerHints.end).opacity).toBe("1");
+    inner.scrollLeft = inner.scrollWidth;
+    await waitFor(() =>
+      expect(innerHints.frame).toHaveAttribute("data-overflow", "start"),
+    );
+    await waitFor(() =>
+      expect(getComputedStyle(innerHints.start).opacity).toBe("1"),
+    );
+    await expect(getComputedStyle(outerHints.start).opacity).toBe("1");
+  },
+};
