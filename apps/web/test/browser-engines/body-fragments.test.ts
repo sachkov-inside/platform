@@ -3,6 +3,7 @@ import { chromium, webkit, expect as ui, type Browser } from "@playwright/test";
 import { createServer, type ViteDevServer } from "vite";
 import { beforeAll, afterAll, test } from "vitest";
 
+const browserLaunchBudgetMs = 30_000;
 let server: ViteDevServer | undefined;
 let settingUp: Promise<void> | undefined;
 let shuttingDown = false;
@@ -28,9 +29,15 @@ async function setup() {
   if (address === null || address === undefined || typeof address === "string")
     throw new Error("Missing body fragment listener");
   url = `http://127.0.0.1:${String(address.port)}/test/support/body-fragments.html`;
-  browsers.set("chromium", await chromium.launch());
+  browsers.set(
+    "chromium",
+    await chromium.launch({ timeout: browserLaunchBudgetMs }),
+  );
   if (isShuttingDown()) return;
-  browsers.set("webkit", await webkit.launch());
+  browsers.set(
+    "webkit",
+    await webkit.launch({ timeout: browserLaunchBudgetMs }),
+  );
 }
 beforeAll(() => {
   settingUp = setup();
