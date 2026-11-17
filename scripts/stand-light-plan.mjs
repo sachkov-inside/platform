@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
+import { isolatedTelegramSecret } from "../scenarios/commerce.mjs";
 import { scenarioRoles } from "../scenarios/roles.mjs";
 import {
   fullStackOfflineServices,
@@ -107,7 +108,7 @@ export async function listLightStates(directory) {
  * @param {object} input
  * @param {string} input.database
  * @param {number} input.postgresPort
- * @param {{ web: number; api: number; mcp: number | undefined }} input.ports
+ * @param {{ web: number; api: number; mcp: number | undefined; bank: number; telegram: number }} input.ports
  * @param {Record<string, string>} input.identity environment of the synthetic sign-in
  * @param {NodeJS.Dict<string>} input.defaults values of `.env.example`
  * @param {NodeJS.ProcessEnv} input.base the caller's environment
@@ -137,6 +138,8 @@ export function lightEnvironment({
           !key.startsWith("COMPOSE_") &&
           !key.startsWith("LOGTO_") &&
           !key.startsWith("OWNER_LOGTO_") &&
+          !key.startsWith("TBANK_") &&
+          !key.startsWith("TELEGRAM_") &&
           key !== "DATABASE_URL",
       ),
     ),
@@ -147,6 +150,13 @@ export function lightEnvironment({
     BACKEND_BASE_URL: api,
     PUBLIC_SITE_ORIGIN: web,
     ...fullStackOfflineServices,
+    TBANK_TEST_API_BASE_URL: `http://127.0.0.1:${String(ports.bank)}/v2`,
+    TBANK_TEST_PUBLIC_ORIGIN: `http://127.0.0.1:${String(ports.bank)}`,
+    TBANK_TEST_NOTIFICATION_URL: `${api}/billing/tbank/notification`,
+    TBANK_TEST_RETURN_URL: `${web}/payment/return`,
+    TELEGRAM_LINKING_ENDPOINT: `http://127.0.0.1:${String(ports.telegram)}/integrations/platform/v1/identity-links`,
+    TELEGRAM_LINKING_SECRET: isolatedTelegramSecret,
+    TELEGRAM_BOT_START_URL: "https://t.me/unused_bot",
     KINESCOPE_PROVIDER_MODE: "test",
     LOCAL_SEED_DEMO: "published",
     ...fullStackReleaseEnvironment,
@@ -187,7 +197,7 @@ export function lightEnvironment({
 /**
  * The roles a browser can sign in as, with names nobody bears, so a screenshot shows no real
  * person. The product has one permission, `platform:admin`: the owner is also the author. The
- * holder stands for a buyer after the purchase: payments do not run here, so the owner's grant
+ * holder stands for a buyer after the purchase: the owner's grant
  * gives the product with the closed material of the seed. The runbook's light instance section
  * lists the roles for people; the `verify-platform` skill says which role suits which scenario.
  */

@@ -130,6 +130,7 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@inside/access-capabilities": "workspace:*",
     "@inside/material-blocks": "workspace:*",
     "@logto/node": "4.0.2",
     "@types/node": "26.6.6",

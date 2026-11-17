@@ -187,7 +187,8 @@ running instance is worth driving.
 `up` prints the web, API and sign-in addresses. Open
 `<sign-in>?as=owner&next=/path` (owner «Владелец Тестов» with `platform:admin`), `?as=holder`
 («Покупатель Тестов», holds «Создание Platform Inside» and the synthetic learning course), `?as=learner` («Участник Тестов», no
-products) or `?as=newcomer` (no name, terms not accepted) in the
+paid products; has a linked synthetic Telegram identity, a pending test purchase of the learning
+course, and an active waiting-list membership) or `?as=newcomer` (no name, terms not accepted) in the
 browser; `/sign-out` on the same server removes the session. Use a separate browser context per
 instance: cookies of `127.0.0.1` ignore the port, and each instance names its own cookie.
 
@@ -196,10 +197,21 @@ and checklist through the real authoring asset API and saves the returned IDs. T
 CLI seed does not run this isolated repair. Repeating the isolated adapter reuses the uploads
 and leaves an already consistent document at its current Content Version.
 
+The instance also owns loopback bank and Telegram protocol providers. The learner’s purchase is
+pending, so it grants no ProductAccess. The learner explicitly joins the accepting synthetic
+Product Intake through the normal Account API; the local composition creates that Intake through
+the Sales Funnel interface. The same learning Product supplies its name and price in the payment.
+The owner can inspect the learner under People and the pending purchase under Sales → Payments.
+The Telegram profile is fictional and marketing remains stopped. The provider only accepts the
+proof from a registered synthetic link. No real bank, Telegram bot or external message is called.
+The supervisor discards inherited `TBANK_*` and `TELEGRAM_*` configuration before assigning its
+own providers, and stops both with its API and Web processes. This fixture does not run payment
+confirmation, fulfillment workers, community membership or message delivery.
+
 | Need | Use |
 |---|---|
 | An agent checks its own change in a browser, several agents at once | Light instance |
-| Real Logto sign-in, mail codes, the bank double, workers, RabbitMQ, the owner's data | Full stand (`pnpm stand show`) |
+| Real Logto sign-in, mail codes, payment confirmation and fulfillment, workers, RabbitMQ, the owner's data | Full stand (`pnpm stand show`) |
 | An owner review that stays open after the session | Full stand |
 | Navigation speed of the production build | Full stand with `--production-web` |
 
@@ -215,8 +227,11 @@ How it works:
    seeded product. The isolated API then imports the shared synthetic learning scenario through
    real authoring interfaces: chapters, free and paid lessons, an extra material and a downloadable
    file, holder progress and bookmark, a dictionary term, two Task Versions and their submissions,
-   and AuthorFeedback for the current version. This setup runs only against the instance database;
-   it never assembles a bank or an external message delivery. Every
+   and AuthorFeedback for the current version. It then links the learner through its owned
+   Telegram protocol provider, creates one accepting Product Intake through trusted local
+   composition, explicitly joins it as that learner, and creates a pending purchase through real
+   pricing, quote, legal-consent and purchase interfaces against the loopback bank. This setup runs
+   only against the instance database and never calls real payment or message providers. Every
    `up` starts from a fresh database.
 3. It starts the backend's `dev:api` from this worktree and builds and starts Web in production
    mode (`next build`, `next start`), with environment from `.env.example`, the caller's

@@ -11,6 +11,8 @@ import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
 import { z } from "zod";
 import { scenarioRoles } from "../scenarios/roles.mjs";
+import { commerceScenario } from "../scenarios/commerce.mjs";
+import { seedCommerceScenario } from "../scenarios/seed-commerce.mjs";
 import { seedLearningScenario } from "../scenarios/seed-learning.mjs";
 import { seedLegacyMaterialAssets } from "../scenarios/seed-legacy-assets.mjs";
 import { composePsql } from "./check-database.mjs";
@@ -122,6 +124,8 @@ try {
   const ports = {
     web: await reservePort(),
     api: await reservePort(),
+    bank: await reservePort(),
+    telegram: await reservePort(),
     mcp: configuration.mcp ? await reservePort() : undefined,
   };
   const webBaseUrl = `http://127.0.0.1:${String(ports.web)}`;
@@ -182,6 +186,20 @@ try {
   for (const script of ["db:migrate", "db:seed", "release:bootstrap-owner"])
     await runPnpm(["--filter", "@inside/backend", script], environment.shared);
 
+  start(
+    [
+      "--filter",
+      "@inside/backend",
+      "exec",
+      "tsx",
+      "src/development/isolated-commerce-providers.ts",
+    ],
+    { ...environment.shared, ISOLATED_TELEGRAM_PORT: String(ports.telegram) },
+  );
+  const deadline = Date.now() + lightStartupBudgetMilliseconds;
+  await waitFor(`http://127.0.0.1:${String(ports.bank)}/health`, deadline);
+  await waitFor(`http://127.0.0.1:${String(ports.telegram)}/health`, deadline);
+
   webAgentsText = await readFile(webAgentsPath, "utf8");
   start(["--filter", "@inside/backend", "dev:api"], environment.shared);
   if (environment.mcp)
@@ -203,7 +221,6 @@ try {
   } else
     start(["--filter", "@inside/web", "dev", ...webAddress], environment.web);
 
-  const deadline = Date.now() + lightStartupBudgetMilliseconds;
   await waitFor(`${environment.urls.api}/health`, deadline);
   await seedLightRoles({
     api: environment.urls.api,
@@ -215,7 +232,7 @@ try {
     ownerToken: (await identity.createAccessToken(scenarioRoles.owner.subject))
       .token,
   });
-  await seedLearningScenario({
+  const learning = await seedLearningScenario({
     api: environment.urls.api,
     databaseName: database,
     ownerToken: (await identity.createAccessToken(scenarioRoles.owner.subject))
@@ -223,6 +240,49 @@ try {
     holderToken: (
       await identity.createAccessToken(scenarioRoles.holder.subject)
     ).token,
+  });
+  await seedCommerceScenario({
+    api: environment.urls.api,
+    databaseName: database,
+    productId: learning.productId,
+    ownerToken: (await identity.createAccessToken(scenarioRoles.owner.subject))
+      .token,
+    buyerToken: (
+      await identity.createAccessToken(
+        scenarioRoles[commerceScenario.buyer].subject,
+      )
+    ).token,
+    createIntake: () =>
+      runPnpm(
+        [
+          "--filter",
+          "@inside/backend",
+          "exec",
+          "tsx",
+          "src/development/seed-isolated-product-intake.ts",
+          learning.productId,
+        ],
+        environment.shared,
+      ),
+    completeTelegramLink: async (deepLink) => {
+      const response = await fetch(
+        `http://127.0.0.1:${String(ports.telegram)}/__scenario/complete`,
+        {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${environment.shared["TELEGRAM_LINKING_SECRET"] ?? ""}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ deepLink }),
+          signal: AbortSignal.timeout(readinessRequestMilliseconds),
+        },
+      );
+      await response.body?.cancel();
+      if (!response.ok)
+        throw new Error(
+          `Synthetic Telegram confirmation failed: HTTP ${String(response.status)}`,
+        );
+    },
   });
   if (environment.urls.mcp)
     await waitFor(
