@@ -187,6 +187,28 @@ for (const engine of ["chromium", "webkit"]) {
     }
   }, 30_000);
 
+  test(`${engine}: cancelling the crop also disposes a later native image read`, async () => {
+    const page = await openPage();
+    try {
+      const { dialog } = await chooseAvatar(page);
+      await page.locator("#cancel").evaluate((button: HTMLButtonElement) => {
+        button.click();
+      });
+      await ui(page.getByLabel("URL receipts")).not.toHaveText("[]");
+      const immediate = await receipts(page);
+      ui(
+        immediate.find((entry) => entry.fileName === "pending.webp"),
+      ).toMatchObject({
+        released: true,
+      });
+      ui(immediate.every((entry) => entry.released)).toBe(true);
+      await ui(dialog).toBeHidden();
+      await ui(page.getByLabel("Harness error")).toHaveText("");
+    } finally {
+      await page.close();
+    }
+  }, 30_000);
+
   test(`${engine}: a pointer held across hide cannot drag the returned crop without a new press`, async () => {
     const page = await openPage();
     try {

@@ -50,7 +50,9 @@ function App() {
   const [receipt, setReceipt] = useState<ReturnType<typeof resourceState>>([]);
   const [failure, setFailure] = useState("");
 
-  async function selectBeforeDecode(mode: "leave" | "latest" | "invalid") {
+  async function selectBeforeDecode(
+    mode: "leave" | "latest" | "invalid" | "cancel",
+  ) {
     const response = await fetch("/images/sachkov-dev-avatar.webp");
     if (!response.ok) throw new Error("Missing real image fixture");
     const bytes = await response.blob();
@@ -66,14 +68,39 @@ function App() {
         fileInput.dispatchEvent(new Event("change", { bubbles: true }));
       });
     }
-    select(new File([bytes], "first.webp", { type: "image/webp" }));
+    if (mode === "cancel") {
+      const dialog = document.querySelector("dialog");
+      if (!(dialog instanceof HTMLDialogElement) || !dialog.open)
+        throw new Error("Missing open crop before image paste");
+      const transfer = new DataTransfer();
+      transfer.items.add(
+        new File([bytes], "pending.webp", { type: "image/webp" }),
+      );
+      flushSync(() => {
+        dialog.dispatchEvent(
+          new ClipboardEvent("paste", {
+            bubbles: true,
+            clipboardData: transfer,
+          }),
+        );
+      });
+      const cancel = [...dialog.querySelectorAll("button")].find(
+        (button) => button.textContent === "Отмена",
+      );
+      if (cancel === undefined) throw new Error("Missing public crop cancel");
+      flushSync(() => {
+        cancel.click();
+      });
+    } else {
+      select(new File([bytes], "first.webp", { type: "image/webp" }));
+    }
     if (mode === "leave") {
       flushSync(() => {
         setMounted(false);
       });
     } else if (mode === "latest") {
       select(new File([bytes], "latest.webp", { type: "image/webp" }));
-    } else {
+    } else if (mode === "invalid") {
       select(new File(["invalid"], "wrong.txt", { type: "text/plain" }));
     }
     const immediate = resourceState();
@@ -124,7 +151,7 @@ function App() {
       >
         Уйти со страницы
       </button>
-      {(["leave", "latest", "invalid"] as const).map((mode) => (
+      {(["leave", "latest", "invalid", "cancel"] as const).map((mode) => (
         <button
           key={mode}
           type="button"
