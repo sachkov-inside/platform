@@ -16,6 +16,7 @@ import {
   type DragEvent,
   type PointerEvent,
   type ReactNode,
+  useCallback,
   useEffect,
   useId,
   useRef,
@@ -37,6 +38,10 @@ import {
   type ProfileAvatarMutationInput,
 } from "../api/profile-avatar-mutation.browser";
 import { dragLeftElement } from "@/shared/lib/drag-left-element";
+import {
+  createAvatarImageReader,
+  type DecodedAvatarImage,
+} from "./profile-avatar-image.browser";
 
 export type { ProfileAvatarMutation } from "../api/profile-avatar-mutation.browser";
 
@@ -44,12 +49,7 @@ const ACCEPTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 type Crop = ProfileAvatarCrop;
 
-interface SelectedImage {
-  readonly file: File;
-  readonly height: number;
-  readonly url: string;
-  readonly width: number;
-}
+type SelectedImage = DecodedAvatarImage;
 
 type AvatarStatus =
   | { readonly kind: "idle" }
@@ -82,6 +82,9 @@ export function ProfileAvatarEditor({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pointerRef = useRef<{ x: number; y: number } | null>(null);
+  const imageReader = useRef<ReturnType<typeof createAvatarImageReader> | null>(
+    null,
+  );
   const [image, setImage] = useState<SelectedImage | null>(null);
   const [crop, setCrop] = useState<Crop>({
     centerX: 0.5,
@@ -109,6 +112,34 @@ export function ProfileAvatarEditor({
       onProfileChange(updated);
     },
   });
+  const resetMutation = avatarMutation.reset;
+  const attachImageReader = useCallback(
+    (element: HTMLElement | null) => {
+      if (element === null) return;
+      const reader = createAvatarImageReader({
+        onDecoded: (selected) => {
+          setImage((previous) => {
+            if (previous !== null) URL.revokeObjectURL(previous.url);
+            return selected;
+          });
+          setCrop({ centerX: 0.5, centerY: 0.5, zoom: 1 });
+          resetMutation();
+          setClientError(null);
+          dialogRef.current?.showModal();
+        },
+        onUnreadable: () => {
+          resetMutation();
+          setClientError("Изображение не удалось прочитать.");
+        },
+      });
+      imageReader.current = reader;
+      return () => {
+        reader.dispose();
+        if (imageReader.current === reader) imageReader.current = null;
+      };
+    },
+    [resetMutation],
+  );
 
   useEffect(
     () => () => {
@@ -128,29 +159,7 @@ export function ProfileAvatarEditor({
       setClientError("Выберите JPEG, PNG или WebP размером до 10 МБ.");
       return;
     }
-    const url = URL.createObjectURL(file);
-    const probe = new Image();
-    probe.onload = () => {
-      setImage((previous) => {
-        if (previous !== null) URL.revokeObjectURL(previous.url);
-        return {
-          file,
-          height: probe.naturalHeight,
-          url,
-          width: probe.naturalWidth,
-        };
-      });
-      setCrop({ centerX: 0.5, centerY: 0.5, zoom: 1 });
-      avatarMutation.reset();
-      setClientError(null);
-      dialogRef.current?.showModal();
-    };
-    probe.onerror = () => {
-      URL.revokeObjectURL(url);
-      avatarMutation.reset();
-      setClientError("Изображение не удалось прочитать.");
-    };
-    probe.src = url;
+    imageReader.current?.read(file);
   };
 
   const upload = () => {
@@ -204,6 +213,7 @@ export function ProfileAvatarEditor({
 
   return (
     <section
+      ref={attachImageReader}
       aria-labelledby="profile-avatar-heading"
       className="border-b border-border pb-7"
       onDragEnter={(event) => {
