@@ -3,14 +3,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import {
-  useEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type ReactNode,
-  type RefObject,
-} from "react";
+import { useState, useSyncExternalStore, type ReactNode } from "react";
 
 import { useHomePin } from "@/features/product-order";
 import {
@@ -59,6 +52,7 @@ import {
   createContentCollectionState,
   type ContentCollectionState,
 } from "../model/content-collection-state";
+import { useTopicFocus } from "../model/use-topic-focus.client";
 import { CollectionCreateForm } from "./collection-create-form.client";
 import { MutationNotice } from "./collection-mutation-notice";
 import { HomePinNotice, ProductsTable } from "./products-list.client";
@@ -200,8 +194,7 @@ function TopicsSection({
     mutationFn: setContentCollectionArchive,
     onSuccess: onSaved,
   });
-  const listRef = useRef<HTMLDivElement>(null);
-  useTopicFocus(openId, listRef);
+  const { listRef, headingId } = useTopicFocus(openId);
 
   const found = filterCollections(collections, query);
   const shown = pageOfCollections(found, query.page);
@@ -287,7 +280,7 @@ function TopicsSection({
           <div className="contents" hidden={id !== openId} key={id}>
             <TopicEditor
               collection={collection}
-              headingId={topicHeadingId(id)}
+              headingId={headingId(id)}
               onClose={close}
               state={collectionState}
             />
@@ -296,39 +289,6 @@ function TopicsSection({
       })}
     </>
   );
-}
-
-/**
- * Фокус идёт за видом: открытая тема получает его на заголовке, а возврат к списку ставит его на
- * ссылку той же темы в строке.
- */
-function useTopicFocus(
-  openId: string | undefined,
-  listRef: RefObject<HTMLDivElement | null>,
-) {
-  const previous = useRef(openId);
-  useEffect(() => {
-    const left = previous.current;
-    if (left === openId) return;
-    previous.current = openId;
-    if (openId !== undefined) {
-      document.getElementById(topicHeadingId(openId))?.focus();
-      return;
-    }
-    const link = [
-      ...(listRef.current?.querySelectorAll<HTMLAnchorElement>("a[href]") ??
-        []),
-    ].find(
-      (anchor) =>
-        anchor.getClientRects().length > 0 &&
-        new URL(anchor.href).searchParams.get("topic") === left,
-    );
-    link?.focus();
-  }, [openId, listRef]);
-}
-
-function topicHeadingId(topicId: string): string {
-  return `topic-editor-${topicId}`;
 }
 
 /** Заголовок, форма создания, поиск и фильтр архива одного списка. */
