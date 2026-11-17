@@ -23,7 +23,7 @@
 | `legacy-task-submissions.mjs`, три reviewed snapshots и отдельный четвёртый HTTP variant | прежний публичный `task-submissions.fixtures.ts` adapter, migrated | independent: новый learning Task имеет другую identity/definition | `legacy-task-submissions-http.mjs`, migrated; прежний ручной JSON удалён после полного сравнения | not-applicable: существующие Nav tests обращаются к HTTP | PR #2325 merged. Дополнительные module consumers принадлежат audit2 |
 | `course-references.mjs`, два справочных Material slug/title | `course-reading.fixtures.ts` и inline MaterialReader Story input, migrated | not-applicable | `fake-backend.mjs` reference lessons, migrated | not-applicable: нет отдельного эквивалентного массива | PR #2340 merged |
 | `sales-catalogue.mjs`, 25 Product, три общих Promotion с вариантами, respondent names и anchors | `sales-catalog.fixtures.ts`, migrated | not-applicable: это прежний sales preview, другой pending commerce order | `sales-catalog-backend.mjs`, migrated | not-applicable | PR #2343 merged, `9198f58f16e71701339e5b725d39dabfbdcf1cc7` |
-| `authoring.mjs`, те же c011 Products и review Material/Topic metadata | not-applicable: ProductSale Story имеет другой Product/название | not-applicable | `content-collections`, `product-sale`, `authoring-materials`, `authoring-search` adapters, migrated в этом срезе | not-applicable: отдельные route/URL assertions независимы | #2335, доставка и итоговая проверка pending |
+| `authoring.mjs`, те же c011 Products и review Material/Topic metadata | not-applicable: ProductSale Story имеет другой Product/название | not-applicable | `content-collections`, `product-sale`, `product-learners`, `authoring-materials`, `authoring-search` adapters, migrated в этом срезе | not-applicable: отдельные route/URL assertions независимы | #2335, доставка и итоговая проверка pending |
 
 ### Конечные исключения и уточнение 37 кандидатов
 
@@ -56,7 +56,7 @@
 | People/overview, 26 выбранных fields | 72 объявления | 26 (#2317) |
 | Reference metadata, четыре поля | 15 объявлений | Четыре (#2333) |
 | Sales, 17 выбранных fields | 35 объявлений | 17 (#2334) |
-| Authoring metadata, девять выбранных fields | 24 объявления | Девять (#2335) |
+| Authoring metadata, девять выбранных fields | 25 объявлений в пяти адаптерах | Девять (#2335) |
 
 Счётчики не складываются в глобальный процент: составы и единицы разные, generic flags, явные варианты, чужие сущности и независимые assertions исключены. Структурные проверки 2880 assertion/locator nodes и 53 Reader play functions подтверждают сохранность кода ожиданий, но не заменяют реальные Story/Nav/HTTP/PostgreSQL запуски и fault RED/GREEN. Каждый supporting PR хранит собственные evidence и immutable SHA.
 
