@@ -18,7 +18,7 @@ it("renders the requested complete sitemap chunk with escaped URLs and publicati
         productSlugs: [],
         topicSlugs: [],
         items: Array.from({ length: 50_000 }, (_, index) => ({
-          slug: `material-${index}`,
+          slug: `material-${String(index)}`,
           publishedAt: "2026-09-01T00:00:00.000Z",
         })),
         nextCursor: "page-2",

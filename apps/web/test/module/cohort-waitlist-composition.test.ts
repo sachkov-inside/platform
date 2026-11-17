@@ -20,7 +20,10 @@ import {
 import { WaitlistProvider } from "@/_pages/library-discovery/ui/waitlist-provider.client";
 import { productWaitlistKey } from "@/features/product-waitlist";
 
-const productId = productWithSupportOffer.product.id;
+const offerProduct = productWithSupportOffer.product;
+if (offerProduct === undefined)
+  throw new Error("Expected existing product offer fixture");
+const productId = offerProduct.id;
 const accountId = commerceFixtureFacts.buyerAccountId;
 const backend = vi.fn<(request: Request) => Promise<Response>>();
 let scope: Awaited<ReturnType<typeof realBffSession>>;
