@@ -186,8 +186,9 @@ export function enterReaderHistory(
       chapter.dataset["courseChapter"] !== requiredChapter
     )
       return;
-    const visible = chapter ?? (root instanceof Element ? root : null);
-    if (visible?.getClientRects().length === 0) return;
+    // A desktop rail may be hidden while its reader is visible (#2330).
+    const visible = root instanceof Element ? root : document.documentElement;
+    if (visible.getClientRects().length === 0) return;
     scrollShellRootsTo(view, root);
     root
       .querySelector("[data-course-rail-scroll]")

@@ -382,7 +382,10 @@ for (const engine of [chromium, webkit])
       await browserExpect(page).toHaveURL(source);
       await browserExpect
         .poll(() =>
-          page.evaluate(() => Reflect.get(window, "activeReaderObservers")),
+          page.evaluate(() => {
+            const count: unknown = Reflect.get(window, "activeReaderObservers");
+            return typeof count === "number" ? count : undefined;
+          }),
         )
         .toBe(1);
       await page
@@ -390,7 +393,10 @@ for (const engine of [chromium, webkit])
         .dispatchEvent("click");
       await browserExpect
         .poll(() =>
-          page.evaluate(() => Reflect.get(window, "activeReaderObservers")),
+          page.evaluate(() => {
+            const count: unknown = Reflect.get(window, "activeReaderObservers");
+            return typeof count === "number" ? count : undefined;
+          }),
         )
         .toBe(0);
       await page.locator("main").evaluate((element) => {
@@ -409,7 +415,10 @@ for (const engine of [chromium, webkit])
         .toBe(37);
       await browserExpect
         .poll(() =>
-          page.evaluate(() => Reflect.get(window, "activeReaderObservers")),
+          page.evaluate(() => {
+            const count: unknown = Reflect.get(window, "activeReaderObservers");
+            return typeof count === "number" ? count : undefined;
+          }),
         )
         .toBe(0);
     } finally {
@@ -565,6 +574,43 @@ for (const engine of [chromium, webkit])
           page.locator("main").evaluate((element) => element.scrollTop),
         )
         .toBe(37);
+    } finally {
+      await browser.close();
+    }
+  }, 30_000);
+
+for (const engine of [chromium, webkit])
+  test(`${engine.name()} restores a visible reader when its optional chapter rail is hidden`, async () => {
+    const browser = await engine.launch({ timeout: 30_000 });
+    try {
+      const page = await browser.newPage();
+      await page.addInitScript(() => {
+        window.requestAnimationFrame = () => 0;
+        window.cancelAnimationFrame = () => undefined;
+      });
+      const source = `${baseURL}/products/course/tasks/start`;
+      await page.goto(source);
+      await page.waitForFunction(() => "readerHistoryReady" in window);
+      await page
+        .getByRole("button", { name: "Hide the optional rail" })
+        .dispatchEvent("click");
+      await page.locator("main").evaluate((element) => {
+        element.scrollTop = 600;
+      });
+      await page.locator("#project").dispatchEvent("click", { button: 0 });
+      await page.locator("#return").click();
+      await browserExpect(page).toHaveURL(source);
+      await browserExpect(
+        page.locator("[data-reader-history-root]"),
+      ).toBeVisible();
+      await browserExpect(
+        page.locator("[data-reader-history-root] [data-course-chapter]"),
+      ).toBeHidden();
+      await browserExpect
+        .poll(() =>
+          page.locator("main").evaluate((element) => element.scrollTop),
+        )
+        .toBe(600);
     } finally {
       await browser.close();
     }

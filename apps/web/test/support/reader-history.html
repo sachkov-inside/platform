@@ -22,11 +22,12 @@
       let listenerReady = true;
       let requestedChapter;
       let stopTracking;
+      let hiddenRail = false;
       function render() {
         stopTracking?.();
         stopTracking = undefined;
         const supplementary = location.pathname.startsWith("/materials/");
-        document.body.innerHTML = `<section hidden><aside data-course-chapter="stale"><div data-course-rail-scroll></div></aside></section><div data-reader-history-root data-course-reading-host><h1>${location.pathname}</h1><aside data-course-chapter="${!supplementary && deferredChapter ? "first" : "second"}"><div data-course-rail-scroll style="height:80px;overflow:auto"><div style="height:${!supplementary && deferredChapter ? "60" : "600"}px">Rail</div></div></aside><main data-material-id="current" data-application-content style="height:400px;overflow:auto"><div style="height:1600px"><a id="project" href="/materials/project${context}">Project</a> <a id="brief" href="/materials/brief${context}">Brief</a> <a id="return" href="${readerOriginHref(source) ?? source}">Return</a><p>Document body</p><button id="defer-chapter">Wait for the next chapter</button><button id="ready-chapter">Commit the requested chapter</button><button id="defer-listener">Wait for the chapter subscription</button><button id="connect-listener">Connect the chapter subscription</button><button id="disconnect-tracker">Disconnect the reader</button><button id="forget-chapter">Use remaining chapters</button></div></main></div>`;
+        document.body.innerHTML = `<section hidden><aside data-course-chapter="stale"><div data-course-rail-scroll></div></aside></section><div data-reader-history-root data-course-reading-host><h1>${location.pathname}</h1><aside ${hiddenRail ? "hidden" : ""} data-course-chapter="${!supplementary && deferredChapter ? "first" : "second"}"><div data-course-rail-scroll style="height:80px;overflow:auto"><div style="height:${!supplementary && deferredChapter ? "60" : "600"}px">Rail</div></div></aside><main data-material-id="current" data-application-content style="height:400px;overflow:auto"><div style="height:1600px"><a id="project" href="/materials/project${context}">Project</a> <a id="brief" href="/materials/brief${context}">Brief</a> <a id="return" href="${readerOriginHref(source) ?? source}">Return</a><p>Document body</p><button id="defer-chapter">Wait for the next chapter</button><button id="ready-chapter">Commit the requested chapter</button><button id="defer-listener">Wait for the chapter subscription</button><button id="connect-listener">Connect the chapter subscription</button><button id="disconnect-tracker">Disconnect the reader</button><button id="forget-chapter">Use remaining chapters</button><button id="hide-rail">Hide the optional rail</button></div></main></div>`;
         // Model a streamed intermediate document whose links arrive before its Tracker.
         if (!(
           location.pathname === "/materials/project" &&
@@ -49,6 +50,13 @@
           );
       }
       document.addEventListener("click", (event) => {
+        if (event.target.closest("#hide-rail")) {
+          hiddenRail = true;
+          document.querySelector(
+            "[data-reader-history-root] [data-course-chapter]",
+          ).hidden = true;
+          return;
+        }
         if (event.target.closest("#disconnect-tracker")) {
           stopTracking?.();
           stopTracking = undefined;
