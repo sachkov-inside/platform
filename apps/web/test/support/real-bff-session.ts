@@ -43,7 +43,7 @@ export async function realBffSession(
           },
           cookieSecret,
         );
-  return <T>(run: () => T): T => {
+  const scope = <T>(run: () => T): T => {
     const request = new NextRequest("https://inside.example.test", {
       headers: cookie === null ? {} : { cookie: `logto_${appId}=${cookie}` },
     });
@@ -87,4 +87,7 @@ export async function realBffSession(
       workUnitAsyncStorage.run(store, run),
     );
   };
+  return Object.assign(scope, {
+    cookieHeader: cookie === null ? null : `logto_${appId}=${cookie}`,
+  });
 }
