@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { peopleScenario } from "../../../../scenarios/people.mjs";
+import { expectOwnerReadRequest } from "../support/owner-read-request";
 import { realBffSession } from "../support/real-bff-session";
 import {
   handlePeopleIdentitiesRequest,
@@ -53,10 +54,14 @@ describe("people search BFF", () => {
       nameSearch: "available",
     });
     expect(backend).toHaveBeenCalledOnce();
-    expectRequest("/authoring/people/search", {
-      query: "Анна Петрова",
-      limit: "5",
-    });
+    expectOwnerReadRequest(
+      backend.mock.calls.at(-1)?.[0],
+      "/authoring/people/search",
+      {
+        query: "Анна Петрова",
+        limit: "5",
+      },
+    );
   });
   it("keeps an unavailable name search distinct from an empty answer", async () => {
     backend.mockResolvedValueOnce(
@@ -102,9 +107,13 @@ describe("people identities BFF", () => {
     const response = await identities(anna.accountId);
     expect(await response.json()).toEqual({ kind: "ready", items: [anna] });
     expect(backend).toHaveBeenCalledOnce();
-    expectRequest("/authoring/people/identities", {
-      accountIds: "d1210000-0000-4000-8000-000000000001",
-    });
+    expectOwnerReadRequest(
+      backend.mock.calls.at(-1)?.[0],
+      "/authoring/people/identities",
+      {
+        accountIds: "d1210000-0000-4000-8000-000000000001",
+      },
+    );
     const tooMany = Array.from(
       { length: 101 },
       (_, index) =>
@@ -146,14 +155,3 @@ describe("person label", () => {
     });
   });
 });
-function expectRequest(path: string, query: Readonly<Record<string, string>>) {
-  const request = backend.mock.calls.at(-1)?.[0];
-  if (request === undefined) throw new Error("Expected People HTTP request");
-  const url = new URL(request.url);
-  expect(url.origin + url.pathname).toBe(
-    `https://platform-api.example.test${path}`,
-  );
-  expect(request.method).toBe("GET");
-  expect(Object.fromEntries(url.searchParams)).toEqual(query);
-  expect(request.headers.get("authorization")).toBe("Bearer owner-token");
-}

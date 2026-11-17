@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { expectOwnerReadRequest } from "../support/owner-read-request";
 import { realBffSession } from "../support/real-bff-session";
 const backend = vi.fn<(request: Request) => Promise<Response>>();
 let session: Awaited<ReturnType<typeof realBffSession>>;
@@ -438,7 +439,9 @@ describe("overview BFF", () => {
       kind: "ready",
       period: { days: 7 },
     });
-    expectRequest("/admin/overview", { period: "7" });
+    expectOwnerReadRequest(backend.mock.calls.at(-1)?.[0], "/admin/overview", {
+      period: "7",
+    });
     backend.mockResolvedValueOnce(
       Response.json({ code: "forbidden" }, { status: 403 }),
     );
@@ -447,7 +450,9 @@ describe("overview BFF", () => {
         "https://inside.example.test/api/authoring/overview?period=14",
       ),
     );
-    expectRequest("/admin/overview", { period: "30" });
+    expectOwnerReadRequest(backend.mock.calls.at(-1)?.[0], "/admin/overview", {
+      period: "30",
+    });
     expect(refused.status).toBe(403);
     expect(await refused.json()).toEqual({ kind: "forbidden" });
     backend.mockResolvedValueOnce(Response.json({ period: {}, metrics: {} }));
@@ -467,7 +472,11 @@ describe("overview BFF", () => {
       productId,
     );
     expect(ready.status).toBe(200);
-    expectRequest(`/admin/products/${productId}/overview`, { period: "90" });
+    expectOwnerReadRequest(
+      backend.mock.calls.at(-1)?.[0],
+      `/admin/products/${productId}/overview`,
+      { period: "90" },
+    );
     backend.mockResolvedValueOnce(
       Response.json({ code: "forbidden" }, { status: 403 }),
     );
@@ -568,15 +577,3 @@ describe("«Обзор» in the admin shell", () => {
     expect(authoringLocation("/authoring/communications").item).toBeUndefined();
   });
 });
-
-function expectRequest(path: string, query: Readonly<Record<string, string>>) {
-  const request = backend.mock.calls.at(-1)?.[0];
-  if (request === undefined) throw new Error("Expected Overview HTTP request");
-  const url = new URL(request.url);
-  expect(url.origin + url.pathname).toBe(
-    `https://platform-api.example.test${path}`,
-  );
-  expect(request.method).toBe("GET");
-  expect(Object.fromEntries(url.searchParams)).toEqual(query);
-  expect(request.headers.get("authorization")).toBe("Bearer owner-token");
-}
