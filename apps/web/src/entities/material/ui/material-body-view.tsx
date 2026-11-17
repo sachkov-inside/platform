@@ -9,6 +9,7 @@ import {
   glossaryTermIdOf,
   isGlossaryTermHref,
   materialExerciseNumbers,
+  materialBlockText,
   type MaterialExerciseNumber,
 } from "@inside/material-blocks";
 import type { GlossaryTerms } from "../model/glossary-term";
@@ -89,7 +90,15 @@ export function MaterialBodyView(props: {
     after: gate.at,
     node: (
       <Fragment key={`lesson-step-${String(ordinal)}`}>
-        <LessonGateControl gate={gate} ordinal={ordinal} />
+        <LessonGateControl
+          gate={gate}
+          ordinal={ordinal}
+          preview={
+            gate.kind === "break"
+              ? lessonTextPreview(props.blocks, gate.at + 1)
+              : undefined
+          }
+        />
         <LessonCut part={ordinal + 1} />
       </Fragment>
     ),
@@ -466,4 +475,16 @@ function BodyTable({
       </table>
     </MaterialTableScroll>
   );
+}
+
+/** Only the next prose paragraph is previewed; never look past media, an exercise or a gate. */
+function lessonTextPreview(
+  blocks: readonly RenderedBlock[],
+  from: number,
+): string | undefined {
+  for (const block of blocks.slice(from)) {
+    if (block.kind === "heading") continue;
+    return block.kind === "paragraph" ? materialBlockText(block) : undefined;
+  }
+  return undefined;
 }
