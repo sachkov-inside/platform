@@ -1,10 +1,12 @@
 import LogtoClient, { PersistKey } from "@logto/node/edge";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { providerCallbackUrl } from "@/shared/auth/provider-callback-url.server";
 import { isTelegramSignInToken } from "@/shared/auth/telegram-sign-in-token.server";
 import { executeAcceptTerms } from "@/features/terms-acceptance/api/accept-terms.server";
+import { configureWebRuntime } from "../support/web-runtime";
+import { commerceFixtureFacts } from "../../../../scenarios/commerce.mjs";
 
 vi.mock("server-only", () => ({}));
 
@@ -13,8 +15,17 @@ const redirectUri = "https://inside.example.test/callback";
 const validCode = "valid-authorization-code";
 const providerCanary = "provider-payload-canary-116";
 
+const unexpectedRequests: string[] = [];
+beforeEach(() => {
+  configureWebRuntime();
+  unexpectedRequests.length = 0;
+});
 afterEach(() => {
-  vi.unstubAllGlobals();
+  try {
+    expect(unexpectedRequests).toEqual([]);
+  } finally {
+    vi.unstubAllGlobals();
+  }
 });
 
 describe.each(["confidential", "public"] as const)(
@@ -118,21 +129,26 @@ describe.each(["confidential", "public"] as const)(
         version: "1",
         digest: "a".repeat(64),
       };
-      const resumeTelegramSignIn = vi.fn().mockResolvedValue({
-        accountId: "7a0c2c1e-2d4b-4a57-8a1e-0d9d6f3b8a11",
+      await expect(executeAcceptTerms(form, refreshed)).resolves.toEqual({
+        kind: "accepted",
       });
-      await expect(
-        executeAcceptTerms(form, refreshed, {
-          accept: () =>
-            Promise.resolve({
-              ok: true,
-              body: {},
-              response: Response.json({}),
-            }),
-          resumeTelegramSignIn,
-        }),
-      ).resolves.toEqual({ kind: "accepted" });
-      expect(resumeTelegramSignIn).toHaveBeenCalledWith(refreshed);
+      expect(proof.backendRequests.map((request) => request.url)).toEqual([
+        "https://platform-api.example.test/accounts/current/legal-acceptances/terms",
+        "https://platform-api.example.test/accounts/current/telegram-sign-in/resume",
+      ]);
+      for (const request of proof.backendRequests) {
+        expect(request.method).toBe("POST");
+        expect(request.headers.get("authorization")).toBe(
+          `Bearer ${refreshed}`,
+        );
+      }
+      expect(await proof.backendRequests[0]?.json()).toEqual({
+        operationId: "7a0c2c1e-2d4b-4a57-8a1e-0d9d6f3b8a11",
+        version: "1",
+        digest: "a".repeat(64),
+        buttonLabel: "Принять условия и продолжить",
+      });
+      expect(proof.backendRequests[1]?.body).toBeNull();
     });
   },
 );
@@ -140,12 +156,32 @@ describe.each(["confidential", "public"] as const)(
 async function createProofClient(appType: "confidential" | "public") {
   const storage = new Map<string, string>();
   const tokenRequests: URLSearchParams[] = [];
+  const backendRequests: Request[] = [];
   const accepted = { verifier: undefined as string | undefined };
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const request = new Request(input, init);
       const url = request.url;
+      if (
+        url ===
+        "https://platform-api.example.test/accounts/current/legal-acceptances/terms"
+      ) {
+        backendRequests.push(request);
+        return jsonResponse({
+          ok: true,
+          acceptanceRef: "7a0c2c1e-2d4b-4a57-8a1e-0d9d6f3b8a11",
+        });
+      }
+      if (
+        url ===
+        "https://platform-api.example.test/accounts/current/telegram-sign-in/resume"
+      ) {
+        backendRequests.push(request);
+        return jsonResponse({
+          account: { accountId: commerceFixtureFacts.buyerAccountId },
+        });
+      }
       if (url.endsWith("/.well-known/openid-configuration")) {
         return Promise.resolve(
           jsonResponse({
@@ -194,7 +230,8 @@ async function createProofClient(appType: "confidential" | "public") {
           }),
         );
       }
-      return Promise.resolve(jsonResponse({ code: "not_found" }, 404));
+      unexpectedRequests.push(url);
+      throw new Error(`Unexpected external request ${url}`);
     }),
   );
   const client = createClient(storage, appType);
@@ -211,7 +248,7 @@ async function createProofClient(appType: "confidential" | "public") {
   const state = new URL(authorizationUrl).searchParams.get("state");
   if (state === null)
     throw new Error("Pinned Logto SDK did not create callback state");
-  return { client, state, storage, tokenRequests };
+  return { client, state, storage, tokenRequests, backendRequests };
 }
 
 function createClient(
