@@ -154,8 +154,19 @@ export const PriceWriteRefreshesOnce: Story = {
           "inside.owner.product-sale.changed": 1,
         });
       });
+      await waitFor(async () => {
+        await expect(
+          page.getByRole("button", { name: "Сохранить цену" }),
+        ).toHaveAttribute("aria-busy", "false");
+      });
+      await expect(
+        page.getByRole("button", { name: "Сохранить цену" }),
+      ).toBeEnabled();
       held.resolve(undefined);
       await waitFor(async () => {
+        const save = page.getByRole("button", { name: "Сохранить цену" });
+        await expect(save).toHaveAttribute("aria-busy", "false");
+        await expect(save).toBeDisabled();
         await expect(
           page.getByRole("textbox", { name: "Цена, ₽" }),
         ).toHaveValue("9\u00a0900");
