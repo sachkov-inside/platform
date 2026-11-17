@@ -21,10 +21,32 @@ export const readerHistoryRestoreEvent = "inside-reader-history-restore";
 let pending:
   { target: string; origin?: Origin; restoreFrom?: string } | undefined;
 let activeEntryId: string | undefined;
+let cancelPendingRestoration: () => void = () => undefined;
+const mountedRails = new WeakMap<
+  ParentNode,
+  { readonly chapters: readonly string[] }
+>();
+let pendingRailRestoration:
+  { readonly root: ParentNode; request(): void } | undefined;
 let preservationInstalled = false;
 export function resetReaderHistoryActivation() {
+  cancelPendingRestoration();
   activeEntryId = undefined;
 }
+/** The mounted rail owns availability until its subscription disconnects (#2330). */
+export function readerHistoryRailReady(
+  root: ParentNode,
+  availableChapters: readonly string[],
+) {
+  const owner = liveReaderRoot(root);
+  const readiness = { chapters: [...availableChapters] };
+  mountedRails.set(owner, readiness);
+  if (pendingRailRestoration?.root === owner) pendingRailRestoration.request();
+  return () => {
+    if (mountedRails.get(owner) === readiness) mountedRails.delete(owner);
+  };
+}
+
 const key = (id: string) => `inside-reader-entry:${id}`;
 
 function entry() {
@@ -80,12 +102,23 @@ function path(href: string) {
 
 export function readerHistoryRoot(element: Element): Element {
   return (
+    element.closest('[data-reader-history-rail="none"]') ??
     element.closest("[data-course-reading-host]") ??
-    element.closest(
-      "[data-material-id], [data-course-reading], [data-product-task]",
-    ) ??
+    element.closest("[data-course-reading]") ??
+    element.closest("[data-material-id], [data-product-task]") ??
     element.parentElement ??
     element
+  );
+}
+
+function liveReaderRoot(root: ParentNode): ParentNode {
+  return root instanceof Element ? readerHistoryRoot(root) : root;
+}
+function hasNoCourse(root: ParentNode): boolean {
+  const selector = '[data-reader-history-rail="none"]';
+  if (root instanceof Element) return root.matches(selector);
+  return [...root.querySelectorAll(selector)].some(
+    (node) => node.getClientRects().length > 0,
   );
 }
 
@@ -93,6 +126,7 @@ export function readerHistoryRoot(element: Element): Element {
 export function saveReaderHistoryView(root: ParentNode = document) {
   const current = entry();
   if (current === undefined || current.href !== window.location.href) return;
+  root = liveReaderRoot(root);
   const rail = root.querySelector<HTMLElement>("[data-course-rail-scroll]");
   const view = {
     href: window.location.href,
@@ -114,6 +148,7 @@ export function enterReaderHistory(
   root: ParentNode = document,
 ) {
   preserveReaderHistoryEntry();
+  cancelPendingRestoration();
   let current = entry();
   if (current?.href !== window.location.href) current = undefined;
   const restoreFrom =
@@ -150,23 +185,141 @@ export function enterReaderHistory(
     (restoreFrom === undefined && view.href !== window.location.href)
   )
     return;
-  requestAnimationFrame(() =>
-    requestAnimationFrame(() => {
-      if (entry()?.id !== current.id || window.location.href !== current.href)
+  const anchor = root;
+  let waitingForView = true;
+  let observedRoot: ParentNode | undefined;
+  const targetChapter = (scope: ParentNode) => {
+    if (view.chapter === undefined || hasNoCourse(scope)) return undefined;
+    const available = mountedRails.get(scope);
+    return available !== undefined && !available.chapters.includes(view.chapter)
+      ? undefined
+      : view.chapter;
+  };
+  const stop = () => {
+    release();
+    if (!waitingForView) return;
+    waitingForView = false;
+    if (activeEntryId === current.id) activeEntryId = undefined;
+  };
+  const restore = () => {
+    if (!waitingForView) return;
+    if (entry()?.id !== current.id || window.location.href !== current.href) {
+      stop();
+      return;
+    }
+    const scope = liveReaderRoot(anchor);
+    if (observedRoot !== scope) {
+      observer.disconnect();
+      observedRoot = scope;
+      if (scope instanceof Node)
+        observer.observe(scope, {
+          subtree: true,
+          childList: true,
+          attributes: true,
+          attributeFilter: [
+            "data-course-chapter",
+            "data-course-reading",
+            "data-course-reading-host",
+            "data-reader-history-rail",
+            "aria-busy",
+            "hidden",
+            "style",
+          ],
+        });
+    }
+    const requiredChapter = targetChapter(scope);
+    const chapter = scope.querySelector<HTMLElement>("[data-course-chapter]");
+    if (
+      requiredChapter !== undefined &&
+      (chapter === null || chapter.dataset["courseChapter"] !== requiredChapter)
+    )
+      return;
+    // A desktop rail may be hidden while its reader is visible (#2330).
+    const visible = scope instanceof Element ? scope : document.documentElement;
+    if (visible.getClientRects().length === 0) return;
+    // A Task's pending progress label can reflow its related Material card (#2330).
+    // Restore after that concrete layout owner commits, before completing this lease.
+    if (
+      [
+        ...scope.querySelectorAll(
+          '[data-task-related-material][aria-busy="true"]',
+        ),
+      ].some((element) => element.getClientRects().length > 0)
+    )
+      return;
+    scrollShellRootsTo(view, scope);
+    if (!hasNoCourse(scope))
+      scope
+        .querySelector("[data-course-rail-scroll]")
+        ?.scrollTo({ top: view.railY, behavior: "instant" });
+    waitingForView = false;
+    release();
+  };
+  const userScrollEvents = ["wheel", "touchmove", "keydown"] as const;
+  const userScroll = (event: Event) => {
+    if (!event.isTrusted) return;
+    if (event instanceof KeyboardEvent) {
+      if (
+        ![
+          "ArrowUp",
+          "ArrowDown",
+          "PageUp",
+          "PageDown",
+          "Home",
+          "End",
+          " ",
+        ].includes(event.key)
+      )
         return;
+      if (
+        event.target instanceof Element &&
+        event.target.closest(
+          'input, textarea, select, [contenteditable]:not([contenteditable="false"])',
+        ) !== null
+      )
+        return;
+    }
+    const scope = liveReaderRoot(anchor);
+    if (
+      scope instanceof Node &&
+      event.target instanceof Node &&
+      scope.contains(event.target)
+    )
+      stop();
+  };
+  const observer = new MutationObserver(restore);
+  const readiness = {
+    get root() {
+      return liveReaderRoot(anchor);
+    },
+    request: () => {
       window.dispatchEvent(
-        new CustomEvent(readerHistoryRestoreEvent, { detail: view.chapter }),
+        new CustomEvent(readerHistoryRestoreEvent, {
+          detail: targetChapter(liveReaderRoot(anchor)),
+        }),
       );
-      requestAnimationFrame(() => {
-        if (entry()?.id !== current.id || window.location.href !== current.href)
-          return;
-        scrollShellRootsTo(view, root);
-        root
-          .querySelector("[data-course-rail-scroll]")
-          ?.scrollTo({ top: view.railY, behavior: "instant" });
-      });
-    }),
-  );
+      restore();
+    },
+  };
+  const release = () => {
+    observer.disconnect();
+    for (const type of userScrollEvents)
+      document.removeEventListener(type, userScroll, true);
+    if (pendingRailRestoration === readiness)
+      pendingRailRestoration = undefined;
+    if (cancelPendingRestoration === stop)
+      cancelPendingRestoration = () => undefined;
+  };
+  pendingRailRestoration = readiness;
+  cancelPendingRestoration = stop;
+  // A real reader scroll takes ownership while layout is still pending (#2330).
+  for (const type of userScrollEvents)
+    document.addEventListener(type, userScroll, {
+      passive: true,
+      capture: true,
+    });
+  readiness.request();
+  return stop;
 }
 
 /** Capture ordinary in-tab supplementary and same-document fragment transitions. */

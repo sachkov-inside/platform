@@ -9,12 +9,11 @@ import { aiFirstProductPage } from "@/storybook/product-page.fixtures";
 
 describe("Product product page", () => {
   test("keeps a description this site can draw", () => {
-    const warn = vi.fn();
+    const warn = vi.spyOn(console, "warn");
     expect(
       readProductLandingPage(
         { presentation: "ai-first-process", page: aiFirstProductPage },
         "Product x",
-        warn,
       ),
     ).toEqual({
       presentation: "ai-first-process",
@@ -24,8 +23,8 @@ describe("Product product page", () => {
   });
 
   test("falls back to the default template for a presentation it does not know", () => {
-    const warn = vi.fn();
-    expect(resolveProductPresentation("neon-hero", "Product x", warn)).toBe(
+    const warn = vi.spyOn(console, "warn");
+    expect(resolveProductPresentation("neon-hero", "Product x")).toBe(
       "default",
     );
     expect(warn).toHaveBeenCalledWith(
@@ -34,14 +33,13 @@ describe("Product product page", () => {
   });
 
   test("shows no description when the stored one does not match this site", () => {
-    const warn = vi.fn();
+    const warn = vi.spyOn(console, "warn");
     const result = readProductLandingPage(
       {
         presentation: "ai-first-process",
         page: { card: null, blocks: [{ id: "hero", kind: "poster" }] },
       },
       "Product x",
-      warn,
     );
     expect(result).toEqual({ presentation: "ai-first-process", page: null });
     expect(warn).toHaveBeenCalledWith(
@@ -50,12 +48,11 @@ describe("Product product page", () => {
   });
 
   test("a product without a description is not a warning: the default template uses the editor fields", () => {
-    const warn = vi.fn();
+    const warn = vi.spyOn(console, "warn");
     expect(
       readProductLandingPage(
         { presentation: "default", page: null },
         "Product x",
-        warn,
       ),
     ).toEqual({
       presentation: "default",
