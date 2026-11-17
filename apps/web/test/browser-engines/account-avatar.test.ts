@@ -13,7 +13,7 @@ import { createOwnedBrowserFixture } from "../support/owned-browser-fixture";
 
 const fixture = createOwnedBrowserFixture("account-avatar");
 const avatarFile = fileURLToPath(
-  new URL("../../public/images/sachkov-dev-avatar.webp", import.meta.url),
+  new URL("../support/fixtures/account-avatar.png", import.meta.url),
 );
 const receiptsSchema = z.array(
   z.object({
@@ -97,7 +97,7 @@ for (const engine of ["chromium", "webkit"]) {
       await ui(page.getByText("Другая страница")).toBeVisible();
       const acquired = await receipts(page);
       ui(acquired).toHaveLength(1);
-      ui(acquired[0]).toMatchObject({ fileName: "first.webp", released: true });
+      ui(acquired[0]).toMatchObject({ fileName: "first.png", released: true });
       await ui(page.getByLabel("Harness error")).toHaveText("");
     } finally {
       await page.close();
@@ -168,13 +168,13 @@ for (const engine of ["chromium", "webkit"]) {
       await ui(dialog).toBeVisible();
       const immediate = await receipts(page);
       ui(immediate[0]).toMatchObject({
-        fileName: "first.webp",
+        fileName: "first.png",
         released: true,
       });
       const previewUrl = await dialog.locator("img").getAttribute("src");
       const acquired = await inspect(page);
       ui(acquired.find((entry) => entry.url === previewUrl)).toMatchObject({
-        fileName: "latest.webp",
+        fileName: "latest.png",
         released: false,
       });
       await dialog.getByRole("button", { name: "Отмена", exact: true }).click();
@@ -193,7 +193,7 @@ for (const engine of ["chromium", "webkit"]) {
       const immediate = await receipts(page);
       ui(immediate).toHaveLength(1);
       ui(immediate[0]).toMatchObject({
-        fileName: "first.webp",
+        fileName: "first.png",
         released: true,
       });
       await ui(page.getByRole("alert")).toHaveText(
@@ -215,7 +215,7 @@ for (const engine of ["chromium", "webkit"]) {
       await ui(page.getByLabel("URL receipts")).not.toHaveText("[]");
       const immediate = await receipts(page);
       ui(
-        immediate.find((entry) => entry.fileName === "pending.webp"),
+        immediate.find((entry) => entry.fileName === "pending.png"),
       ).toMatchObject({
         released: true,
       });
@@ -241,12 +241,12 @@ for (const engine of ["chromium", "webkit"]) {
       });
       await ui.poll(() => pending.route !== undefined).toBe(true);
       ui(pending.route?.request().method()).toBe("PUT");
-      ui(pending.body).toContain('filename="sachkov-dev-avatar.webp"');
+      ui(pending.body).toContain('filename="account-avatar.png"');
       await ui
         .poll(
           async () =>
             (await inspect(page)).find(
-              (entry) => entry.fileName === "pending.webp",
+              (entry) => entry.fileName === "pending.png",
             )?.released,
         )
         .toBe(true);

@@ -53,7 +53,7 @@ function App() {
   async function selectBeforeDecode(
     mode: "leave" | "latest" | "invalid" | "cancel" | "upload",
   ) {
-    const response = await fetch("/images/sachkov-dev-avatar.webp");
+    const response = await fetch("/test/support/fixtures/account-avatar.png");
     if (!response.ok) throw new Error("Missing real image fixture");
     const bytes = await response.blob();
     const input = document.querySelector('input[type="file"]');
@@ -74,7 +74,7 @@ function App() {
         throw new Error("Missing open crop before image paste");
       const transfer = new DataTransfer();
       transfer.items.add(
-        new File([bytes], "pending.webp", { type: "image/webp" }),
+        new File([bytes], "pending.png", { type: "image/png" }),
       );
       flushSync(() => {
         dialog.dispatchEvent(
@@ -94,14 +94,14 @@ function App() {
         action.click();
       });
     } else {
-      select(new File([bytes], "first.webp", { type: "image/webp" }));
+      select(new File([bytes], "first.png", { type: "image/png" }));
     }
     if (mode === "leave") {
       flushSync(() => {
         setMounted(false);
       });
     } else if (mode === "latest") {
-      select(new File([bytes], "latest.webp", { type: "image/webp" }));
+      select(new File([bytes], "latest.png", { type: "image/png" }));
     } else if (mode === "invalid") {
       select(new File(["invalid"], "wrong.txt", { type: "text/plain" }));
     }
