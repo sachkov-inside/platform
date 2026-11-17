@@ -178,6 +178,8 @@ describe("Material Authoring action workflow", () => {
     );
   });
 
+  // Newly adopted implementation-derived preservation criterion, not a historical product contract:
+  // https://github.com/sachkov-inside/platform/issues/2292#issuecomment-6940196888
   it("keeps external backend loss retryable with the same draft key", async () => {
     replies.push({
       method: "POST",
