@@ -102,6 +102,10 @@ export function ProfileAvatarEditor({
   const [dragging, setDragging] = useState(false);
   const titleId = useId();
   const descriptionId = useId();
+  const dismissImage = () => {
+    imageReader.current?.cancel();
+    setImage(null);
+  };
   const avatarMutation = useMutation<
     PrivateAccountProfile,
     unknown,
@@ -110,7 +114,7 @@ export function ProfileAvatarEditor({
     mutationFn: ({ input, onProgress }) => mutation(input, onProgress),
     onSuccess: (updated, variables) => {
       if (variables.input.kind === "upload") {
-        setImage(null);
+        dismissImage();
       }
       onProfileChange(updated);
     },
@@ -206,7 +210,7 @@ export function ProfileAvatarEditor({
     open: image !== null,
     pending: busy,
     onOpenChange: (open) => {
-      if (!open) setImage(null);
+      if (!open) dismissImage();
     },
   });
   let status: AvatarStatus = { kind: "idle" };
@@ -352,9 +356,7 @@ export function ProfileAvatarEditor({
               aria-label="Закрыть кадрирование"
               className="size-11 shrink-0"
               disabled={busy}
-              onClick={() => {
-                setImage(null);
-              }}
+              onClick={dismissImage}
               size="icon"
               type="button"
               variant="ghost"
@@ -501,9 +503,7 @@ export function ProfileAvatarEditor({
             <Button
               className="min-h-12 px-5"
               disabled={busy}
-              onClick={() => {
-                setImage(null);
-              }}
+              onClick={dismissImage}
               type="button"
               variant="ghost"
             >
