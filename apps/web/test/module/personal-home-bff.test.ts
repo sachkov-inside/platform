@@ -1,36 +1,27 @@
-import { beforeEach, expect, it, vi } from "vitest";
-const fakes = vi.hoisted(() => ({
-  token: vi.fn(),
-  open: vi.fn(),
-  home: vi.fn(),
-  product: vi.fn(),
-}));
-vi.mock("@/shared/api/backend/index.server", () => ({
-  requestRecordMaterialOpen: fakes.open,
-  requestLearningHome: fakes.home,
-  requestProductContinuation: fakes.product,
-}));
-vi.mock("@/shared/auth/platform-access-token.server", () => ({
-  getPlatformAccessToken: fakes.token,
-  LogtoSessionUnavailableError: class extends Error {},
-}));
-vi.mock("@/shared/auth/logto-bff-config.server", () => ({
-  readLogtoBffConfig: () => ({ baseUrl: "https://inside.example.test" }),
-}));
-vi.mock("@/shared/auth/index.server", async () => {
-  const handlers =
-    await import("@/shared/auth/authenticated-mutation-handler.server");
-  return {
-    handleAuthenticatedMutation: handlers.handleAuthenticatedMutation,
-    handleMutationOperation: handlers.handleMutationOperation,
-  };
-});
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
-  handleMaterialOpen,
-  handleProductContinuation,
+  readingProduct,
+  readingMaterials,
+  readingTopic,
+} from "../../../../scenarios/reading.mjs";
+import { realBffSession } from "../support/real-bff-session";
+const backend = vi.fn<(request: Request) => Promise<Response>>();
+let session: Awaited<ReturnType<typeof realBffSession>>;
+
+import {
+  handleMaterialOpen as realHandleMaterialOpen,
+  handleProductContinuation as realHandleProductContinuation,
 } from "@/features/reading-progress.server";
-import { handlePersonalHome } from "@/features/reading-progress.server";
-const materialId = "10000000-0000-4000-8000-000000000001";
+import { handlePersonalHome as realHandlePersonalHome } from "@/features/reading-progress.server";
+const handleMaterialOpen = (request: Request) =>
+  session(() => realHandleMaterialOpen(request));
+const handleProductContinuation = (request: Request) =>
+  session(() => realHandleProductContinuation(request));
+const handlePersonalHome = (request: Request) =>
+  session(() => realHandlePersonalHome(request));
+const video = readingMaterials.find((material) => material.format === "video");
+if (video === undefined) throw new Error("Missing canonical video material");
+const materialId = video.materialId;
 const commandId = "20000000-0000-4000-8000-000000000001";
 function request(
   input: Record<string, unknown>,
@@ -43,25 +34,25 @@ function request(
     body,
   });
 }
-beforeEach(() => {
-  vi.clearAllMocks();
-  fakes.token.mockResolvedValue("trusted-token");
+beforeEach(async () => {
+  backend.mockReset();
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-16T10:00:00Z"));
+  session = await realBffSession();
+  vi.stubGlobal("fetch", backend);
 });
+afterEach(() => vi.useRealTimers());
+
 it("authenticates visible-open commands, preserves replay and keeps responses private", async () => {
   const saved = { openedAt: "2026-09-07T00:00:00.000Z", replayed: true };
-  fakes.open.mockResolvedValue({
-    ok: true,
-    body: saved,
-    response: new Response(),
-  });
+  backend.mockResolvedValueOnce(Response.json(saved));
   const response = await handleMaterialOpen(
     request({ materialId, commandId, contentVersion: 4 }),
   );
   expect(await response.json()).toEqual({ kind: "saved", ...saved });
-  expect(fakes.open).toHaveBeenCalledWith(
-    { materialId, commandId, contentVersion: 4 },
-    "trusted-token",
-  );
+  expect(
+    await expectBackendRequest("POST", "/reading-activity/opens").json(),
+  ).toEqual({ materialId, commandId, contentVersion: 4 });
   expect(response.headers.get("cache-control")).toBe("no-store, private");
 });
 it("rejects cross-origin and user-supplied Account before sending an open", async () => {
@@ -80,15 +71,12 @@ it("rejects cross-origin and user-supplied Account before sending an open", asyn
       )
     ).json(),
   ).toEqual({ kind: "invalid_input" });
-  expect(fakes.open).not.toHaveBeenCalled();
+  expect(backend).not.toHaveBeenCalled();
 });
 it("does not confirm unavailable, stale-version or malformed success", async () => {
-  fakes.open
-    .mockResolvedValueOnce({
-      ok: false,
-      response: new Response(null, { status: 409 }),
-    })
-    .mockResolvedValueOnce({ ok: true, body: {}, response: new Response() })
+  backend
+    .mockResolvedValueOnce(new Response(null, { status: 409 }))
+    .mockResolvedValueOnce(Response.json({}))
     .mockRejectedValueOnce(new Error("lost"));
   for (const kind of ["conflict", "unavailable", "unavailable"])
     expect(
@@ -100,23 +88,17 @@ it("does not confirm unavailable, stale-version or malformed success", async () 
     ).toEqual({ kind });
 });
 it("serves a private empty Home and limits failure to its personal layer", async () => {
-  fakes.home
-    .mockResolvedValueOnce({
-      ok: true,
-      body: { video: null, product: null },
-      response: new Response(),
-    })
-    .mockResolvedValueOnce({
-      ok: true,
-      body: [{ material: { availability: "locked" } }],
-      response: new Response(),
-    })
+  backend
+    .mockResolvedValueOnce(Response.json({ video: null, product: null }))
+    .mockResolvedValueOnce(
+      Response.json([{ material: { availability: "locked" } }]),
+    )
     .mockRejectedValueOnce(new Error("offline"));
   const response = await handlePersonalHome(
     request({ accountId: "untrusted" }),
   );
   expect(await response.json()).toEqual({ kind: "ready", continuation: {} });
-  expect(fakes.home).toHaveBeenCalledWith("trusted-token");
+  expectBackendRequest("GET", "/reading-activity/learning-home");
   expect(response.headers.get("cache-control")).toBe("no-store, private");
   for (let index = 0; index < 2; index++)
     expect(await (await handlePersonalHome(request({}))).json()).toEqual({
@@ -124,28 +106,27 @@ it("serves a private empty Home and limits failure to its personal layer", async
     });
 });
 
-const productId = "30000000-0000-4000-8000-000000000001";
+const productId = readingProduct.id;
 const projection = {
   materialId,
   contentVersion: 1,
-  slug: "partial-video",
-  title: "Video",
-  summary: "Resume",
+  slug: video.slug,
+  title: video.title,
+  summary: video.summary,
   access: "free",
   availability: "available",
-  publishedAt: "2026-09-07T00:00:00.000Z",
+  publishedAt: video.publishedAt,
   primaryVideoId: commandId,
   primaryVideoDurationSeconds: 300,
   cover: null,
-  format: { id: commandId, name: "Видео", slug: "video" },
-  topic: { id: commandId, name: "Topic", slug: "topic" },
+  format: { id: "video", name: "Видео", slug: "video" },
+  topic: readingTopic,
   tags: [],
   productMemberships: [],
 };
 it("maps published covers, saved position and a resumed collection to existing Home cards", async () => {
-  fakes.home.mockResolvedValue({
-    ok: true,
-    body: {
+  backend.mockResolvedValueOnce(
+    Response.json({
       video: {
         material: projection,
         lastOpenedAt: "2026-09-07T00:00:00.000Z",
@@ -154,72 +135,67 @@ it("maps published covers, saved position and a resumed collection to existing H
       product: {
         collection: {
           id: productId,
-          slug: "product",
-          name: "Product",
+          slug: readingProduct.slug,
+          name: readingProduct.name,
           summary: "A product",
           cover: null,
-          count: 2,
+          count: 120,
           previewItems: [projection],
         },
         read: 1,
-        total: 2,
+        total: 120,
         continuation: {
-          materialSlug: "partial-video",
+          materialSlug: video.slug,
           resume: { kind: "position", positionSeconds: 123 },
         },
       },
-    },
-    response: new Response(),
-  });
+    }),
+  );
   const result: unknown = await (await handlePersonalHome(request({}))).json();
   expect(result).toMatchObject({
     kind: "ready",
     continuation: {
       video: {
-        material: { materialId, slug: "partial-video" },
+        material: { materialId, slug: "performance-lesson-1" },
         label: "Продолжить с 2:03",
       },
-      product: { collection: { id: productId }, read: 1, total: 2 },
+      product: { collection: { id: productId }, read: 1, total: 120 },
     },
   });
 });
 it("rejects inaccessible video and impossible product counts in upstream responses", async () => {
-  fakes.home.mockResolvedValueOnce({
-    ok: true,
-    body: {
+  backend.mockResolvedValueOnce(
+    Response.json({
       video: {
         material: { ...projection, availability: "locked" },
         lastOpenedAt: "2026-09-07T00:00:00.000Z",
         resume: { kind: "position", positionSeconds: 10 },
       },
       product: null,
-    },
-    response: new Response(),
-  });
+    }),
+  );
   expect(await (await handlePersonalHome(request({}))).json()).toEqual({
     kind: "unavailable",
   });
-  fakes.home.mockResolvedValueOnce({
-    ok: true,
-    body: {
+  backend.mockResolvedValueOnce(
+    Response.json({
       video: null,
       product: {
         collection: {
           id: productId,
-          slug: "product",
-          name: "Product",
+          slug: readingProduct.slug,
+          name: readingProduct.name,
           summary: null,
           cover: null,
-          count: 2,
+          count: 120,
           previewItems: [],
         },
-        read: 3,
-        total: 2,
+        read: 121,
+        total: 120,
         continuation: null,
       },
-    },
-    response: new Response(),
-  });
+    }),
+  );
   expect(await (await handlePersonalHome(request({}))).json()).toEqual({
     kind: "unavailable",
   });
@@ -229,36 +205,38 @@ it("keeps product continuation private, binds the requested slug and rejects unk
   const value = {
     collection: {
       id: productId,
-      slug: "product",
-      name: "Product",
+      slug: readingProduct.slug,
+      name: readingProduct.name,
       summary: null,
       cover: null,
-      count: 2,
+      count: 120,
       previewItems: [],
     },
     read: 1,
-    total: 2,
+    total: 120,
     continuation: {
-      materialSlug: "partial-video",
+      materialSlug: video.slug,
       resume: { kind: "position", positionSeconds: 123 },
     },
   };
-  fakes.product.mockResolvedValue({
-    ok: true,
-    body: value,
-    response: new Response(),
-  });
+  backend.mockImplementation(() => Promise.resolve(Response.json(value)));
   const response = await handleProductContinuation(
-    request({ slug: "product", accountId: "untrusted" }),
+    request({ slug: readingProduct.slug, accountId: "untrusted" }),
   );
   expect(response.headers.get("cache-control")).toBe("no-store, private");
   expect(await response.json()).toEqual({
     kind: "ready",
     read: 1,
-    total: 2,
-    continuation: { materialSlug: "partial-video", label: "Продолжить с 2:03" },
+    total: 120,
+    continuation: {
+      materialSlug: "performance-lesson-1",
+      label: "Продолжить с 2:03",
+    },
   });
-  expect(fakes.product).toHaveBeenCalledWith("product", "trusted-token");
+  expectBackendRequest(
+    "GET",
+    "/reading-activity/product-continuation/performance-course",
+  );
   expect(
     await (
       await handleProductContinuation(request({ slug: "another" }))
@@ -267,8 +245,17 @@ it("keeps product continuation private, binds the requested slug and rejects unk
   expect(
     (
       await handleProductContinuation(
-        request({ slug: "product" }, "https://outside.test"),
+        request({ slug: readingProduct.slug }, "https://outside.test"),
       )
     ).status,
   ).toBe(403);
 });
+
+function expectBackendRequest(method: string, path: string): Request {
+  const request = backend.mock.calls.at(-1)?.[0];
+  if (request === undefined) throw new Error("Expected backend request");
+  expect(request.method).toBe(method);
+  expect(request.url).toBe(`https://platform-api.example.test${path}`);
+  expect(request.headers.get("authorization")).toBe("Bearer trusted-token");
+  return request;
+}
