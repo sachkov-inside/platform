@@ -69,6 +69,7 @@ function connectBrowser(corruption?: "missing-ready-state") {
         );
         const method =
           init?.method ?? (input instanceof Request ? input.method : "GET");
+        // deterministic-test-allow unit-io: #2292 audit2 worker7e1496b5; this in-process bridge calls real app handlers, no network, under the accepted named wire-fault boundary.
         const response = await bridge.fetch(input, init);
         if (
           url.href !== "https://inside.example.test/api/bookmarks/state" ||
