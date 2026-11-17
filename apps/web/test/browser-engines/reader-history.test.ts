@@ -885,3 +885,150 @@ for (const name of ["chromium", "webkit"] as const)
       await context.close();
     }
   }, 30_000);
+
+for (const name of ["chromium", "webkit"] as const)
+  test(`${name} yields a pending Task progress restoration to a real user wheel`, async () => {
+    const context = await browserFor(name).newContext();
+    try {
+      const page = await context.newPage();
+      await page.goto(`${baseURL}/products/course/tasks/start`);
+      await page.waitForFunction(() => "readerHistoryReady" in window);
+      await scrollReaderTo(page, 600);
+      await page.locator("#save-current").dispatchEvent("click");
+      await page.locator("#defer-progress").dispatchEvent("click");
+      await page.locator("#project").dispatchEvent("click", { button: 0 });
+      await page.locator("#return").dispatchEvent("click", { button: 0 });
+      const content = page.locator("main");
+      await browserExpect
+        .poll(() => content.evaluate((element) => element.scrollTop))
+        .toBe(0);
+      await content.hover();
+      await page.mouse.wheel(0, 200);
+      await browserExpect
+        .poll(() => content.evaluate((element) => element.scrollTop))
+        .toBe(200);
+      // This case isolates user ownership; the preceding case covers the actual height reflow.
+      await page.locator("#ready-progress-no-reflow").dispatchEvent("click");
+      await browserExpect(
+        page.locator("[data-task-related-material]"),
+      ).toHaveAttribute("aria-busy", "false");
+      await browserExpect
+        .poll(() => content.evaluate((element) => element.scrollTop))
+        .toBe(200);
+    } finally {
+      await context.close();
+    }
+  }, 30_000);
+
+for (const name of ["chromium", "webkit"] as const) {
+  for (const input of ["scroll", "edit"] as const) {
+    test(`${name} preserves ${input === "scroll" ? "a reader's native End scroll" : "restoration while the reader types a space"} during pending Task progress`, async () => {
+      const context = await browserFor(name).newContext();
+      try {
+        const page = await context.newPage();
+        await page.goto(`${baseURL}/products/course/tasks/start`);
+        await page.waitForFunction(() => "readerHistoryReady" in window);
+        await scrollReaderTo(page, 600);
+        await page.locator("#save-current").dispatchEvent("click");
+        await page.locator("#defer-progress").dispatchEvent("click");
+        await page.locator("#project").dispatchEvent("click", { button: 0 });
+        await page.locator("#return").dispatchEvent("click", { button: 0 });
+        const content = page.locator("main");
+        await browserExpect
+          .poll(() => content.evaluate((element) => element.scrollTop))
+          .toBe(0);
+        if (input === "scroll") {
+          await content.focus();
+          await page.keyboard.press("End");
+          await browserExpect
+            .poll(() => content.evaluate((element) => element.scrollTop))
+            .toBe(1266);
+        } else {
+          const note = page.getByRole("textbox", { name: "Reader note" });
+          await note.fill("Draft");
+          await page.keyboard.press("Space");
+          await browserExpect(note).toHaveValue("Draft ");
+        }
+        await page.locator("#ready-progress-no-reflow").dispatchEvent("click");
+        await browserExpect(
+          page.locator("[data-task-related-material]"),
+        ).toHaveAttribute("aria-busy", "false");
+        await browserExpect
+          .poll(() => content.evaluate((element) => element.scrollTop))
+          .toBe(input === "scroll" ? 1266 : 600);
+      } finally {
+        await context.close();
+      }
+    }, 30_000);
+  }
+}
+
+test("chromium yields pending Task progress restoration to a native touch scroll", async () => {
+  const context = await browserFor("chromium").newContext({
+    hasTouch: true,
+    isMobile: true,
+    viewport: { width: 390, height: 844 },
+  });
+  try {
+    const page = await context.newPage();
+    await page.goto(`${baseURL}/products/course/tasks/start`);
+    await page.waitForFunction(() => "readerHistoryReady" in window);
+    await scrollReaderTo(page, 600);
+    await page.locator("#save-current").dispatchEvent("click");
+    await page.locator("#defer-progress").dispatchEvent("click");
+    await page.locator("#project").dispatchEvent("click", { button: 0 });
+    await page.locator("#return").dispatchEvent("click", { button: 0 });
+    const content = page.locator("main");
+    await browserExpect
+      .poll(() => content.evaluate((element) => element.scrollTop))
+      .toBe(0);
+    const ended = content.evaluate(
+      (element) =>
+        new Promise<void>((resolve) => {
+          element.addEventListener(
+            "scrollend",
+            () => {
+              resolve();
+            },
+            { once: true },
+          );
+          element.setAttribute("data-touch-scroll-listening", "true");
+        }),
+    );
+    await browserExpect(content).toHaveAttribute(
+      "data-touch-scroll-listening",
+      "true",
+    );
+    const area = await content.boundingBox();
+    if (area === null) throw new Error("Missing touch scroll surface");
+    const input = await context.newCDPSession(page);
+    const x = area.x + 100;
+    const y = area.y + 350;
+    await input.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ x, y }],
+    });
+    for (const offset of [50, 100, 150, 200])
+      await input.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ x, y: y - offset }],
+      });
+    await input.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    });
+    await ended;
+    const position = await content.evaluate((element) => element.scrollTop);
+    browserExpect(position).toBeGreaterThan(0);
+    browserExpect(position).not.toBe(600);
+    await page.locator("#ready-progress-no-reflow").dispatchEvent("click");
+    await browserExpect(
+      page.locator("[data-task-related-material]"),
+    ).toHaveAttribute("aria-busy", "false");
+    await browserExpect
+      .poll(() => content.evaluate((element) => element.scrollTop))
+      .toBe(position);
+  } finally {
+    await context.close();
+  }
+}, 30_000);

@@ -221,6 +221,7 @@ export function enterReaderHistory(
             "data-course-reading",
             "data-course-reading-host",
             "data-reader-history-rail",
+            "aria-busy",
             "hidden",
             "style",
           ],
@@ -236,6 +237,16 @@ export function enterReaderHistory(
     // A desktop rail may be hidden while its reader is visible (#2330).
     const visible = scope instanceof Element ? scope : document.documentElement;
     if (visible.getClientRects().length === 0) return;
+    // A Task's pending progress label can reflow its related Material card (#2330).
+    // Restore after that concrete layout owner commits, before completing this lease.
+    if (
+      [
+        ...scope.querySelectorAll(
+          '[data-task-related-material][aria-busy="true"]',
+        ),
+      ].some((element) => element.getClientRects().length > 0)
+    )
+      return;
     scrollShellRootsTo(view, scope);
     if (!hasNoCourse(scope))
       scope
@@ -243,6 +254,38 @@ export function enterReaderHistory(
         ?.scrollTo({ top: view.railY, behavior: "instant" });
     waitingForView = false;
     release();
+  };
+  const userScrollEvents = ["wheel", "touchmove", "keydown"] as const;
+  const userScroll = (event: Event) => {
+    if (!event.isTrusted) return;
+    if (event instanceof KeyboardEvent) {
+      if (
+        ![
+          "ArrowUp",
+          "ArrowDown",
+          "PageUp",
+          "PageDown",
+          "Home",
+          "End",
+          " ",
+        ].includes(event.key)
+      )
+        return;
+      if (
+        event.target instanceof Element &&
+        event.target.closest(
+          'input, textarea, select, [contenteditable]:not([contenteditable="false"])',
+        ) !== null
+      )
+        return;
+    }
+    const scope = liveReaderRoot(anchor);
+    if (
+      scope instanceof Node &&
+      event.target instanceof Node &&
+      scope.contains(event.target)
+    )
+      stop();
   };
   const observer = new MutationObserver(restore);
   const readiness = {
@@ -260,6 +303,8 @@ export function enterReaderHistory(
   };
   const release = () => {
     observer.disconnect();
+    for (const type of userScrollEvents)
+      document.removeEventListener(type, userScroll, true);
     if (pendingRailRestoration === readiness)
       pendingRailRestoration = undefined;
     if (cancelPendingRestoration === stop)
@@ -267,6 +312,12 @@ export function enterReaderHistory(
   };
   pendingRailRestoration = readiness;
   cancelPendingRestoration = stop;
+  // A real reader scroll takes ownership while layout is still pending (#2330).
+  for (const type of userScrollEvents)
+    document.addEventListener(type, userScroll, {
+      passive: true,
+      capture: true,
+    });
   readiness.request();
   return stop;
 }
