@@ -181,6 +181,10 @@ export const KeepsUnpersistedChoiceAcrossRetention: Story = {
       await userEvent.click(
         canvas.getByRole("button", { name: "Вернуть страницу курса" }),
       );
+      const expand = canvas.queryByRole("button", {
+        name: "Развернуть меню уроков",
+      });
+      if (expand !== null) await userEvent.click(expand);
       localStorage.removeItem(courseMenuStorageKey);
       window.dispatchEvent(
         new StorageEvent("storage", {
