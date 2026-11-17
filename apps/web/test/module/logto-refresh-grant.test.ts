@@ -13,7 +13,7 @@ const cookieWrites: {
   value: string;
   maxAge: number | undefined;
 }[] = [];
-const refreshGrants = { count: 0 };
+let refreshGrants: { count: number };
 const unexpectedRequests: Request[] = [];
 const identityRequests: Request[] = [];
 const tokenForms: URLSearchParams[] = [];
@@ -179,6 +179,7 @@ const providerFailures = [
 ] as const;
 
 beforeEach(async () => {
+  refreshGrants = { count: 0 };
   vi.setSystemTime(new Date("2030-03-01T12:00:00.000Z"));
   scope = await realBffSession(null);
   releaseImage = useProductionRuntimeImage();
@@ -219,7 +220,6 @@ afterEach(() => {
   } finally {
     cookieWrites.length = 0;
     unexpectedCookieWrites.length = 0;
-    refreshGrants.count = 0;
     unexpectedRequests.length = 0;
     identityRequests.length = 0;
     tokenForms.length = 0;
