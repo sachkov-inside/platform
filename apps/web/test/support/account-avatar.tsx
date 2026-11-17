@@ -51,7 +51,7 @@ function App() {
   const [failure, setFailure] = useState("");
 
   async function selectBeforeDecode(
-    mode: "leave" | "latest" | "invalid" | "cancel" | "upload",
+    mode: "leave" | "latest" | "invalid" | "cancel" | "upload" | "remove",
   ) {
     const response = await fetch("/test/support/fixtures/account-avatar.png");
     if (!response.ok) throw new Error("Missing real image fixture");
@@ -96,7 +96,15 @@ function App() {
     } else {
       select(new File([bytes], "first.png", { type: "image/png" }));
     }
-    if (mode === "leave") {
+    if (mode === "remove") {
+      const remove = [...document.querySelectorAll("button")].find(
+        (button) => button.textContent === "Удалить",
+      );
+      if (remove === undefined) throw new Error("Missing public remove action");
+      flushSync(() => {
+        remove.click();
+      });
+    } else if (mode === "leave") {
       flushSync(() => {
         setMounted(false);
       });
@@ -153,22 +161,22 @@ function App() {
       >
         Уйти со страницы
       </button>
-      {(["leave", "latest", "invalid", "cancel", "upload"] as const).map(
-        (mode) => (
-          <button
-            key={mode}
-            type="button"
-            id={mode}
-            onClick={() => {
-              void selectBeforeDecode(mode).catch((error: unknown) => {
-                setFailure(error instanceof Error ? error.message : "Failed");
-              });
-            }}
-          >
-            {mode}
-          </button>
-        ),
-      )}
+      {(
+        ["leave", "latest", "invalid", "cancel", "upload", "remove"] as const
+      ).map((mode) => (
+        <button
+          key={mode}
+          type="button"
+          id={mode}
+          onClick={() => {
+            void selectBeforeDecode(mode).catch((error: unknown) => {
+              setFailure(error instanceof Error ? error.message : "Failed");
+            });
+          }}
+        >
+          {mode}
+        </button>
+      ))}
       <button
         id="inspect"
         type="button"
@@ -185,7 +193,16 @@ function App() {
       <Activity mode={visible ? "visible" : "hidden"}>
         {mounted ? (
           <ProfileAvatarEditor
-            profile={profile}
+            profile={
+              new URL(location.href).searchParams.has("existing")
+                ? {
+                    ...profile,
+                    avatar: {
+                      avatarId: "00000000-0000-4000-8000-000000000239",
+                    },
+                  }
+                : profile
+            }
             onProfileChange={() => undefined}
           />
         ) : (

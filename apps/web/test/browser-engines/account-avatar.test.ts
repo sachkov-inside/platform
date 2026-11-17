@@ -74,14 +74,16 @@ async function chooseAvatar(page: Page) {
 }
 
 for (const engine of ["chromium", "webkit"]) {
-  async function openPage() {
+  async function openPage(existing = false) {
     const browser = browsers.get(engine);
     if (browser === undefined) throw new Error("Missing avatar browser");
     const page = await browser.newPage();
     try {
-      await page.goto(url);
+      await page.goto(existing ? `${url}?existing=1` : url);
       await ui(
-        page.getByRole("button", { name: "Добавить фото" }),
+        page.getByRole("button", {
+          name: existing ? "Заменить фото" : "Добавить фото",
+        }),
       ).toBeVisible();
       return page;
     } catch (error) {
@@ -266,6 +268,46 @@ for (const engine of ["chromium", "webkit"]) {
       await ui(
         page.getByRole("status").filter({ hasText: "Аватар сохранён." }),
       ).toHaveText("Аватар сохранён.");
+      ui((await inspect(page)).every((entry) => entry.released)).toBe(true);
+    } finally {
+      try {
+        if (pending.route !== undefined) await pending.route.abort();
+      } finally {
+        await page.close();
+      }
+    }
+  }, 30_000);
+
+  test(`${engine}: removing the avatar cancels pending native image reading and stays busy until the response`, async () => {
+    const page = await openPage(true);
+    const pending: { route?: Route; body?: string | null } = {};
+    try {
+      await page.route("**/account/avatar", (route) => {
+        pending.body = route.request().postData();
+        pending.route = route;
+      });
+      await page.locator("#remove").click();
+      await ui.poll(() => pending.route !== undefined).toBe(true);
+      ui(pending.route?.request().method()).toBe("DELETE");
+      ui(JSON.parse(pending.body ?? "null")).toEqual({ expectedVersion: 1 });
+      ui(
+        (await receipts(page)).find((entry) => entry.fileName === "first.png"),
+      ).toMatchObject({ released: true });
+      await ui(
+        page.getByRole("button", { name: "Удаляем…", exact: true }),
+      ).toBeDisabled();
+      await ui(page.getByRole("dialog")).toHaveCount(0);
+      const route = pending.route;
+      if (route === undefined)
+        throw new Error("Missing actual removal request");
+      delete pending.route;
+      await route.fulfill({
+        status: 200,
+        json: { profile: { ...uploadResponse.profile, avatar: null } },
+      });
+      await ui(
+        page.getByRole("status").filter({ hasText: "Аватар удалён." }),
+      ).toHaveText("Аватар удалён.");
       ui((await inspect(page)).every((entry) => entry.released)).toBe(true);
     } finally {
       try {
