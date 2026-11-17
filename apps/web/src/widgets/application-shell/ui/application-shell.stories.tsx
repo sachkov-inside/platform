@@ -177,7 +177,9 @@ export const IndependentHeaders: Story = {
     if (first === undefined || second === undefined)
       throw new Error("Missing two public headers");
     const offset = (header: HTMLElement) =>
-      new DOMMatrixReadOnly(getComputedStyle(header).transform).m42;
+      Number.parseFloat(
+        getComputedStyle(header).translate.split(" ")[1] ?? "0",
+      );
     try {
       await scrollDocument(0);
       await scrollDocument(600);
