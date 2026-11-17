@@ -1,24 +1,18 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import type {
   HomePinnedCollection,
   HomeResult,
 } from "@/_pages/home/model/home-view";
 
-const fakes = vi.hoisted(() => ({ readTerms: vi.fn() }));
-
-vi.mock("server-only", () => ({}));
-vi.mock("@/features/billing-checkout.terms.server", () => ({
-  readPublicProductOfferTerms: fakes.readTerms,
-}));
-vi.mock("@/_pages/home/api/public-home.public-cache.server", () => ({
-  readPublicHome: vi.fn(),
-}));
+import { productWithSupportOffer } from "@/storybook/billing.fixtures";
+import { catalogBackend } from "../support/catalog-backend";
+let catalog: ReturnType<typeof catalogBackend>;
 
 const pinned: HomePinnedCollection = {
   count: 3,
   cover: null,
-  id: "00000000-0000-4000-8000-000000000780",
+  id: "00000000-0000-4000-8000-000000000f01",
   name: "AI Engineering",
   previewItems: [],
   slug: "ai-engineering",
@@ -60,28 +54,36 @@ function cardOf(result: HomeResult) {
 
 describe("pinned product texts on the home page", () => {
   beforeEach(() => {
-    fakes.readTerms.mockReset();
+    catalog = catalogBackend();
   });
 
   it("carry the terms of the product offer instead of placeholders", async () => {
-    fakes.readTerms.mockResolvedValue({
-      kind: "ready",
-      terms: { materialsMonths: null, chatMonths: null, supportMonths: 6 },
-    });
+    catalog.prices.mockResolvedValueOnce(
+      Response.json({ items: [productWithSupportOffer], nextCursor: null }),
+    );
 
     expect(cardOf(await fill(home(pinned)))).toEqual({
       eyebrow: "Доступ без ограничения срока",
       subtitle: "Поддержка по условиям оферты",
       action: "Открыть",
     });
-    expect(fakes.readTerms).toHaveBeenCalledWith(pinned.id);
+    expect(catalog.prices).toHaveBeenCalledOnce();
+    const sent = catalog.prices.mock.calls[0]?.[0];
+    expect(new URL(sent?.url ?? "").searchParams.get("productId")).toBe(
+      "00000000-0000-4000-8000-000000000f01",
+    );
+    expect(sent?.headers.has("authorization")).toBe(false);
   });
 
   it.each([
-    ["the product is not on sale", { kind: "ready", terms: null }],
-    ["the offer read failed", { kind: "unavailable" }],
-  ])("name no term when %s", async (_name, read) => {
-    fakes.readTerms.mockResolvedValue(read);
+    ["the product is not on sale", 200],
+    ["the offer read failed", 503],
+  ])("name no term when %s", async (_name, status) => {
+    catalog.prices.mockResolvedValueOnce(
+      status === 200
+        ? Response.json({ items: [], nextCursor: null })
+        : new Response(null, { status }),
+    );
 
     expect(cardOf(await fill(home(pinned)))?.subtitle).toBe(
       "Поддержка по условиям предложения",
@@ -92,6 +94,6 @@ describe("pinned product texts on the home page", () => {
     const result = home({ ...pinned, card: null });
 
     expect(await fill(result)).toBe(result);
-    expect(fakes.readTerms).not.toHaveBeenCalled();
+    expect(catalog.fetch).not.toHaveBeenCalled();
   });
 });
