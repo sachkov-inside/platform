@@ -40,7 +40,7 @@ test("welcome remains visible in server HTML without JavaScript", async ({
   const context = await browser.newContext({
     baseURL,
     javaScriptEnabled: false,
-    viewport: info.project.use.viewport,
+    viewport: info.project.use.viewport ?? { width: 1440, height: 1024 },
   });
   try {
     await context.addCookies([await welcomeCookie(baseURL)]);
