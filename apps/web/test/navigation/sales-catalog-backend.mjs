@@ -1,4 +1,9 @@
 // @ts-check
+import {
+  salesCatalogueScenario,
+  salesProductFacts,
+  salesPromotionFact,
+} from "../../../../scenarios/sales-catalogue.mjs";
 import { z } from "zod";
 
 /**
@@ -17,32 +22,12 @@ const productId = (index) =>
 
 /** @typedef {{ id: string, name: string, priceKopecks: number, priceRevision: number }} FixtureProduct */
 /** @type {FixtureProduct[]} */
-const products = [
-  {
-    id: productId(1),
-    name: "AI Engineering",
-    priceKopecks: 2_990_000,
-    priceRevision: 3,
-  },
-  {
-    id: productId(2),
-    name: "Агентная разработка",
-    priceKopecks: 1_990_000,
-    priceRevision: 1,
-  },
-  {
-    id: productId(3),
-    name: "Архитектура систем",
-    priceKopecks: 3_900_000,
-    priceRevision: 2,
-  },
-  ...Array.from({ length: 22 }, (_, index) => ({
-    id: productId(index + 11),
-    name: `Практикум ${String(index + 1).padStart(2, "0")}`,
-    priceKopecks: 990_000 + index * 10_000,
-    priceRevision: 1,
-  })),
-];
+const products = salesProductFacts("navigation").map((fact) => ({
+  id: productId(fact.index),
+  name: fact.name,
+  priceKopecks: fact.priceKopecks,
+  priceRevision: fact.priceRevision,
+}));
 
 /** @param {FixtureProduct} product @param {number} firstPriceKopecks @param {string | undefined} linkId */
 function snapshot(
@@ -107,7 +92,7 @@ function initialLinks() {
       id: "98100000-0000-4000-8000-000000000001",
       revision: 1,
       state: "active",
-      createdAt: "2026-10-26T09:00:00.000Z",
+      createdAt: salesCatalogueScenario.linkCreatedEpoch,
       expiresAt: "2099-11-16T00:00:00+03:00",
       snapshot: snapshot(
         productAt(0),
@@ -149,53 +134,17 @@ function initialLinks() {
  */
 /** @returns {FixturePromotion[]} */
 function initialPromotions() {
-  return [
-    {
-      id: "98200000-0000-4000-8000-000000000001",
-      revision: 3,
-      name: "Осенняя скидка на AI Engineering",
-      percent: 20,
-      code: "AUTUMN",
-      startsAt: "2026-10-01T00:00:00+03:00",
-      endsAt: "2099-01-01T00:00:00+03:00",
-      productIds: [productAt(0).id, productAt(1).id],
-      usageLimit: 50,
-      archived: false,
-      usedCount: 12,
-      questionnaire: false,
-      legacy: false,
-    },
-    {
-      id: "98200000-0000-4000-8000-000000000002",
-      revision: 1,
-      name: "Скидка выпускникам",
-      percent: 10,
-      code: null,
-      startsAt: "2026-09-01T00:00:00+03:00",
-      endsAt: "2099-01-01T00:00:00+03:00",
-      productIds: [],
-      usageLimit: null,
-      archived: false,
-      usedCount: 140,
-      questionnaire: false,
-      legacy: false,
-    },
-    {
-      id: "98200000-0000-4000-8000-000000000003",
-      revision: 2,
-      name: "Скидка подписчикам Tribute",
-      percent: 30,
-      code: null,
-      startsAt: "2025-01-01T00:00:00+03:00",
-      endsAt: "2025-03-01T00:00:00+03:00",
-      productIds: [],
-      usageLimit: null,
-      archived: true,
-      usedCount: 61,
-      questionnaire: false,
-      legacy: true,
-    },
-  ];
+  return /** @type {const} */ (["autumn", "alumni", "tribute"]).map((key) => {
+    const { index, productIndexes, ...fact } = salesPromotionFact(
+      key,
+      "navigation",
+    );
+    return {
+      id: `98200000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+      ...fact,
+      productIds: productIndexes.map((at) => productAt(at).id),
+    };
+  });
 }
 
 let links = initialLinks();
@@ -208,7 +157,7 @@ let received = [];
 const funnelProducts = [
   {
     id: productAt(0).id,
-    name: "AI Engineering",
+    name: productAt(0).name,
     chapters: [
       {
         id: "98300000-0000-4000-8000-000000000001",
@@ -219,7 +168,7 @@ const funnelProducts = [
   },
   {
     id: productAt(1).id,
-    name: "Агентная разработка",
+    name: productAt(1).name,
     chapters: [
       { id: "98300000-0000-4000-8000-000000000003", name: "Введение" },
     ],
@@ -409,7 +358,8 @@ function ownerOperation(body) {
         revision: 1,
         state: "active",
         createdAt: new Date(
-          Date.parse("2026-10-27T09:00:00.000Z") + created * 60_000,
+          Date.parse(salesCatalogueScenario.actionCreatedEpoch) +
+            created * 60_000,
         ).toISOString(),
         expiresAt: input.expiresAt,
         snapshot: snapshot(product, price, id),
@@ -499,16 +449,20 @@ function ownerOperation(body) {
           purchased: 1,
           respondents: [
             {
-              username: "anna_dev",
-              issuedAt: "2026-05-12T09:00:00.000Z",
+              username: salesCatalogueScenario.respondentUsernames[0],
+              issuedAt: salesCatalogueScenario.firstRespondentIssuedAt,
               purchased: true,
             },
             {
-              username: "kirill_codes",
+              username: salesCatalogueScenario.respondentUsernames[1],
               issuedAt: "2026-05-13T09:00:00.000Z",
               purchased: false,
             },
-            { username: "olga_qa", issuedAt: null, purchased: false },
+            {
+              username: salesCatalogueScenario.respondentUsernames[2],
+              issuedAt: null,
+              purchased: false,
+            },
           ],
         },
       });
