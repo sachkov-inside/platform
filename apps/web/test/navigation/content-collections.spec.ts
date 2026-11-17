@@ -498,3 +498,97 @@ test("topics filter and search live in the address and a topic opens as its own 
   await expect(page).toHaveURL(/\/authoring\/topics$/u);
   await expect(topics).toHaveCount(3);
 });
+
+test("topic row archive waits for the pending draft and uses its accepted version (#2382)", async ({
+  page,
+}, info) => {
+  await page.goto("/authoring/topics");
+  await rows(page, info, "Все темы")
+    .getByRole("link", { name: "Инфраструктура" })
+    .click();
+  const held = Promise.withResolvers<undefined>();
+  const release = Promise.withResolvers<undefined>();
+  const finished = Promise.withResolvers<undefined>();
+  const routeState = { started: false };
+  await page.route(
+    "**/api/authoring/collections/metadata",
+    async (route) => {
+      routeState.started = true;
+      try {
+        const response = await route.fetch();
+        expect(response.status()).toBe(200);
+        const value: unknown = await response.json();
+        expect(value).toMatchObject({
+          kind: "saved",
+          collection: { version: 2 },
+        });
+        held.resolve(undefined);
+        await release.promise;
+        await route.fulfill({ response });
+      } finally {
+        finished.resolve(undefined);
+      }
+    },
+    { times: 1 },
+  );
+  try {
+    await page
+      .getByRole("textbox", { name: "Краткое описание" })
+      .fill("Правка перед архивацией");
+    await held.promise;
+    await page.goBack();
+    await expect(page).toHaveURL(/\/authoring\/topics$/u);
+    await page
+      .getByRole("button", { name: "Действия с «Инфраструктура»" })
+      .click();
+    const item = page.getByRole("menuitem", { name: "В архив", exact: true });
+    const archiveRequest = page.waitForRequest(
+      (request) =>
+        new URL(request.url()).pathname ===
+        "/api/authoring/collections/archive",
+    );
+    const archiveResponse = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname ===
+        "/api/authoring/collections/archive",
+    );
+    await item.click();
+    await expect(item).toBeHidden();
+    release.resolve(undefined);
+    const request = await archiveRequest;
+    const input: unknown = request.postDataJSON();
+    expect(input).toMatchObject({
+      collectionId: infrastructureId,
+      expectedVersion: 2,
+      archived: true,
+    });
+    const response = await archiveResponse;
+    expect(response.status()).toBe(200);
+    const result: unknown = await response.json();
+    expect(result).toMatchObject({
+      kind: "saved",
+      collection: {
+        version: 3,
+        archived: true,
+        summary: "Правка перед архивацией",
+      },
+    });
+    await expect(
+      page.getByText("Изменения сохранены.", { exact: true }),
+    ).toBeVisible();
+    await rows(page, info, "Все темы")
+      .getByRole("link", { name: "Инфраструктура" })
+      .click();
+    await expect(
+      page.getByRole("button", { name: "Вернуть из архива", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("textbox", { name: "Краткое описание" }),
+    ).toHaveValue("Правка перед архивацией");
+    await expectAccessibleWithoutOverflow(page);
+  } finally {
+    release.resolve(undefined);
+    await page.unroute("**/api/authoring/collections/metadata");
+    if (routeState.started) await finished.promise;
+  }
+});

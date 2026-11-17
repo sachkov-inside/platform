@@ -7,10 +7,8 @@ import { flushPendingEdits } from "@/shared/lib/autosave/use-autosave";
 import { StateBadge } from "@/shared/ui/admin";
 import { Button } from "@/shared/ui/button";
 
-import type {
-  ContentCollection,
-  ContentCollectionMutationResult,
-} from "../model/content-collections";
+import type { ContentCollection } from "../model/content-collections";
+import type { ContentCollectionState } from "../model/content-collection-state";
 import { useCollectionDraft } from "../model/use-collection-draft.client";
 import {
   CollectionField,
@@ -26,12 +24,12 @@ import { MutationNotice } from "./collection-mutation-notice";
 export function TopicEditor({
   collection,
   headingId,
-  onSaved,
+  state,
   onClose,
 }: {
   readonly collection: ContentCollection;
   readonly headingId: string;
-  readonly onSaved: (result: ContentCollectionMutationResult) => void;
+  readonly state: ContentCollectionState;
   /** Возврат к списку; вызывается, когда правки сохранены. */
   readonly onClose: () => void;
 }) {
@@ -46,7 +44,7 @@ export function TopicEditor({
     update,
     archive,
     autosave,
-  } = useCollectionDraft(collection, onSaved);
+  } = useCollectionDraft(collection, state);
   return (
     <section aria-labelledby={headingId} className="grid gap-6">
       <nav

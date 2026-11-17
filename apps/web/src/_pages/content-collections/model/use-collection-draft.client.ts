@@ -1,6 +1,6 @@
 "use client";
 import { useMutation } from "@tanstack/react-query";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   flushPendingEdits,
   useAutosave,
@@ -11,10 +11,11 @@ import {
 } from "../api/content-collections.browser";
 import type {
   ContentCollection,
-  ContentCollectionMutationResult,
   ProductIntroductionDraft,
   UpdateContentCollectionInput,
 } from "./content-collections";
+
+import type { ContentCollectionState } from "./content-collection-state";
 
 const EMPTY_INTRODUCTION: ProductIntroductionDraft = {
   audience: "",
@@ -25,7 +26,7 @@ const EMPTY_INTRODUCTION: ProductIntroductionDraft = {
 
 export function useCollectionDraft(
   collection: ContentCollection,
-  onSaved: (result: ContentCollectionMutationResult) => void,
+  state: ContentCollectionState,
   /** A surface that does not edit the introduction leaves the stored text alone. */
   options: { readonly editsIntroduction?: boolean } = {},
 ) {
@@ -35,20 +36,11 @@ export function useCollectionDraft(
     collection.introduction ?? EMPTY_INTRODUCTION,
   );
   const [cover, setCover] = useState(collection.cover ?? null);
-  const version = useRef(collection.version);
-  // Архив из меню списка тем меняет версию мимо этого черновика: следующая запись ждёт новую.
-  useLayoutEffect(() => {
-    if (collection.version > version.current)
-      version.current = collection.version;
-  }, [collection.version]);
   const attempted = useRef<UpdateContentCollectionInput | null>(null);
   const update = useMutation({ mutationFn: updateContentCollection });
   const archive = useMutation({
     mutationFn: setContentCollectionArchive,
-    onSuccess: (result) => {
-      if (result.kind === "saved") version.current = result.collection.version;
-      onSaved(result);
-    },
+    onSuccess: state.accept,
   });
   const autosave = useAutosave({
     value:
@@ -60,15 +52,14 @@ export function useCollectionDraft(
       const input = attempted.current ?? {
         ...value,
         collectionId: collection.id,
-        expectedVersion: version.current,
+        expectedVersion: state.collection(collection.id).version,
         kind: collection.kind,
       };
       attempted.current = input;
       const result = await update.mutateAsync(input);
       if (result.kind === "saved") {
-        version.current = result.collection.version;
         attempted.current = null;
-        onSaved(result);
+        state.accept(result);
         return "saved";
       }
       if (result.kind === "invalid") {
@@ -101,7 +92,7 @@ export function useCollectionDraft(
           archive.mutate({
             archived,
             collectionId: collection.id,
-            expectedVersion: version.current,
+            expectedVersion: state.collection(collection.id).version,
             kind: collection.kind,
           });
       });
