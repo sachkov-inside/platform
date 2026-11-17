@@ -30,7 +30,13 @@ async function scrollReaderTo(page: Page, top: number) {
           resolve();
           return;
         }
-        element.addEventListener("scroll", () => resolve(), { once: true });
+        element.addEventListener(
+          "scroll",
+          () => {
+            resolve();
+          },
+          { once: true },
+        );
         element.scrollTop = position;
       }),
     top,
