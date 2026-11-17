@@ -93,7 +93,6 @@ export function useMaterialAssetUploads(
   return { cancel: session.cancel, enqueue, retry, uploads };
 }
 
-/** One connected editor owns the queue, transaction positions and every asynchronous attempt. */
 function createMaterialUploadSession() {
   let uploads: readonly PendingUpload[] = [];
   const listeners = new Set<() => void>();
@@ -157,7 +156,7 @@ function createMaterialUploadSession() {
         },
       });
       if (!currentAttempt()) return;
-      if (editor.isDestroyed) {
+      if (editor.isDestroyed || !editor.view.dom.isConnected) {
         attempts.delete(upload.id);
         positions.delete(upload.id);
         publish(uploads.filter((candidate) => candidate.id !== upload.id));

@@ -29,6 +29,102 @@ async function selectImage(page: Page) {
   });
 }
 for (const engine of ["chromium", "webkit"] as const) {
+  test(`${engine}: physical editor removal rejects late URL acquisition before React disposal`, async () => {
+    const browser = browsers.get(engine);
+    if (browser === undefined) throw new Error(`Missing ${engine}`);
+    const context = await browser.newContext();
+    const release = Promise.withResolvers<undefined>();
+    try {
+      const page = await context.newPage();
+      const requested = Promise.withResolvers<undefined>();
+      let requests = 0;
+      await page.route("**/api/authoring/materials/*/assets", async (route) => {
+        requests += 1;
+        if (requests === 2) {
+          requested.resolve(undefined);
+          await release.promise;
+        }
+        await route.fulfill({
+          status: 201,
+          json: {
+            assetId:
+              requests === 1
+                ? "03000000-0000-4000-8000-000000000001"
+                : "03000000-0000-4000-8000-000000000002",
+            contentType: "image/svg+xml",
+            filename: "proof.svg",
+            kind: "image",
+            size: 120,
+            state: "ready",
+          },
+        });
+      });
+      await page.goto(url);
+      await browserExpect(
+        page.getByRole("textbox", { name: "Содержимое материала" }),
+      ).toBeVisible();
+      await page.evaluate(() => {
+        const proof = document.createElement("output");
+        proof.id = "physical-removal-proof";
+        proof.dataset["created"] = "0";
+        proof.dataset["terminal"] = "0";
+        document.body.append(proof);
+        const create = URL.createObjectURL.bind(URL);
+        URL.createObjectURL = (...args) => {
+          proof.dataset["created"] = String(
+            Number(proof.dataset["created"]) + 1,
+          );
+          return create(...args);
+        };
+        // eslint-disable-next-line @typescript-eslint/unbound-method -- Native observer forwards original receiver.
+        const send = XMLHttpRequest.prototype.send;
+        XMLHttpRequest.prototype.send = function (body) {
+          this.addEventListener(
+            "loadend",
+            () => {
+              proof.dataset["terminal"] = String(
+                Number(proof.dataset["terminal"]) + 1,
+              );
+            },
+            { once: true },
+          );
+          send.call(this, body);
+        };
+      });
+      await selectImage(page);
+      const image = page.locator('#material-body img[src^="blob:"]');
+      await browserExpect(image).toHaveCount(1);
+      const src = await image.getAttribute("src");
+      await selectImage(page);
+      await requested.promise;
+      // Native containment ends first. React has not been asked to dispose its root yet.
+      await page.locator("#root").evaluate((node) => {
+        node.remove();
+      });
+      await browserExpect
+        .poll(() =>
+          page.evaluate(async (url) => {
+            try {
+              return (await fetch(url ?? "")).ok;
+            } catch {
+              return false;
+            }
+          }, src),
+        )
+        .toBe(false);
+      release.resolve(undefined);
+      await browserExpect(
+        page.locator("#physical-removal-proof"),
+      ).toHaveAttribute("data-terminal", "2");
+      await browserExpect(
+        page.locator("#physical-removal-proof"),
+      ).toHaveAttribute("data-created", "1");
+    } finally {
+      release.resolve(undefined);
+      await context.close();
+    }
+  }, 15_000);
+
   test(`${engine}: a late response cannot insert into another Material`, async () => {
     const browser = browsers.get(engine);
     if (browser === undefined) throw new Error(`Missing ${engine}`);
@@ -37,20 +133,29 @@ for (const engine of ["chromium", "webkit"] as const) {
     try {
       const page = await context.newPage();
       const requested = Promise.withResolvers<undefined>();
+      const replied = Promise.withResolvers<undefined>();
+      let aborted = false;
+      page.on("requestfailed", (request) => {
+        if (request.url().endsWith("/assets")) aborted = true;
+      });
       await page.route("**/api/authoring/materials/*/assets", async (route) => {
         requested.resolve(undefined);
         await release.promise;
-        await route.fulfill({
-          status: 201,
-          json: {
-            assetId: "03000000-0000-4000-8000-000000000001",
-            contentType: "image/svg+xml",
-            filename: "proof.svg",
-            kind: "image",
-            size: 120,
-            state: "ready",
-          },
-        });
+        try {
+          await route.fulfill({
+            status: 201,
+            json: {
+              assetId: "03000000-0000-4000-8000-000000000001",
+              contentType: "image/svg+xml",
+              filename: "proof.svg",
+              kind: "image",
+              size: 120,
+              state: "ready",
+            },
+          });
+        } finally {
+          replied.resolve(undefined);
+        }
       });
       await page.goto(url);
       const editor = page.getByRole("textbox", {
@@ -63,7 +168,9 @@ for (const engine of ["chromium", "webkit"] as const) {
       await browserExpect(
         page.getByRole("button", { name: "Отменить загрузку" }),
       ).toHaveCount(0);
+      await browserExpect.poll(() => aborted).toBe(true);
       release.resolve(undefined);
+      await replied.promise;
       await browserExpect(editor.locator('img[src^="blob:"]')).toHaveCount(0);
       await page.getByRole("button", { name: "Toggle readonly" }).click();
       await browserExpect(editor).toHaveAttribute("contenteditable", "false");
@@ -172,9 +279,15 @@ for (const engine of ["chromium", "webkit"] as const) {
       await requested.promise;
       await editor.click();
       await editor.press("ControlOrMeta+a");
-      await editor.press("ArrowRight");
-      await editor.press("Enter");
-      await editor.pressSequentially("Ahead while loading");
+      await browserExpect
+        .poll(() =>
+          page.evaluate(() => window.getSelection()?.toString().trim()),
+        )
+        .toBe("Before upload");
+      await page.keyboard.type("Ahead while loading");
+      await browserExpect(editor.locator(":scope > p")).toHaveText([
+        "Ahead while loading",
+      ]);
       release.resolve(undefined);
       await browserExpect(editor.locator('img[src^="blob:"]')).toHaveCount(1);
       await browserExpect(

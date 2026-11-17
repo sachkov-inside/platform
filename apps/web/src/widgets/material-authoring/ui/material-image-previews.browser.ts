@@ -29,6 +29,8 @@ export function createMaterialImagePreviews() {
         removal.observe(parent, { childList: true });
     },
     imageReady(assetId: string, file: File): Readonly<Record<string, string>> {
+      if (element === null || !element.isConnected)
+        return Object.fromEntries(urls);
       const previous = urls.get(assetId);
       if (previous !== undefined) URL.revokeObjectURL(previous);
       urls.set(assetId, URL.createObjectURL(file));
