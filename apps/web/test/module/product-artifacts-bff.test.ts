@@ -19,7 +19,6 @@ import {
   describeArtifactContent,
   formatArtifactSize,
 } from "@/features/product-artifacts/model/product-artifacts";
-import { MAX_PRODUCT_ARTIFACT_MUTATION_BYTES } from "@/shared/api/mutation-limits";
 
 const handleCreateProductArtifactFile = (
   ...args: Parameters<typeof realhandleCreateProductArtifactFile>
@@ -175,15 +174,11 @@ describe("Product artifacts BFF", () => {
       );
 
     // The shared 2 MiB browser-mutation limit would refuse a normal artifact.
-    const accepted = await handleCreateProductArtifactFile(
-      upload(MAX_PRODUCT_ARTIFACT_MUTATION_BYTES),
-    );
+    const accepted = await handleCreateProductArtifactFile(upload(26_279_936));
     expect(accepted.status).toBe(200);
     expect(backend).toHaveBeenCalledTimes(1);
 
-    const refused = await handleCreateProductArtifactFile(
-      upload(MAX_PRODUCT_ARTIFACT_MUTATION_BYTES + 1),
-    );
+    const refused = await handleCreateProductArtifactFile(upload(26_279_937));
     expect(refused.status).toBe(413);
     await expect(refused.json()).resolves.toMatchObject({
       code: "invalid_content",
