@@ -1,4 +1,5 @@
 // @ts-check
+import { authoringScenario } from "../../../../scenarios/authoring.mjs";
 import { z } from "zod";
 
 /**
@@ -11,7 +12,7 @@ import { z } from "zod";
  * возвращает исходных учеников, `GET /__product-learners/commands` отдаёт принятые выдачи.
  */
 
-export const learnersProductId = "c0110000-0000-4000-8000-000000000001";
+export const learnersProductId = authoringScenario.products.architecture.id;
 /** Человек из `people-backend.mjs` с email и без имени: его первая выдача не удаётся. */
 export const failingAccountId = "d1210000-0000-4000-8000-000000000003";
 /** Ученик без контактов: в чтении людей его нет. */
