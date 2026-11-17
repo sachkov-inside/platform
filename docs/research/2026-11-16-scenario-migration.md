@@ -166,6 +166,50 @@ Story assertions заданы литералами. Намеренно выбр�
 прежних объявления fingerprint в одно. Прежние denied/error/cross-origin assertions этого
 исполнителя не меняются здесь.
 
+## Седьмой шаг: common seed без старого бизнес-каталога
+
+Issue #2297 убирает `db:seed` из light startup. После свежих миграций и доверенного bootstrap
+владельца Accounts, legal acceptance и profile создаются настоящими интерфейсами. Общие роли
+больше не содержат физический ID старого Product. Доступ holder выдаёт существующий learning
+adapter к Product, который только что создал настоящий import interface.
+
+`seed-reading-feed.mjs` публикует 120 общих `openReadingMaterials` через reserve/apply API,
+с темой `navigationReadingTopic`, двумя форматами и явным `inFeed:true`. У этих материалов нет
+Product association: ADR0043 допускает в ленту только бесплатные материалы вне Products.
+Отдельный learning Product сохраняет платные и бесплатные уроки, главы, дополнительный материал
+с файлом, ProductAccess holder, progress/bookmark/dictionary, версии задания, сдачи и feedback.
+Commerce adapter сохраняет pending purchase, People и явную запись в принимающий Intake.
+
+Новый integration case обходит настоящий cursor страницами по 12 без пропусков и повторов,
+проверяет 120 материалов, по 60 для Video/Guide, и пустой feed для темы Product. Ожидания
+записаны литералами. Прежние проверки учебного и коммерческого состояния сохранены. До добавления
+адаптера case получал HTTP200 и totalCount0, после него получает120; прежние12 cases проходят.
+Отдельный role contract до исправления фиксировал лишний grant к старому720 Product, после
+исправления все8 contracts проходят. Это не обещает, что runtime уже проверен свежим браузером;
+проверка полного populated instance и manifest остаётся отдельным обязательным этапом поставки.
+
+Граница четырёх семейств потребителей после #2297:
+
+| Общие факты | Storybook | Изолированный seed | Navigation fake backend | Playwright interception |
+| --- | --- | --- | --- | --- |
+| Reading120 | Перенесены, preview120 | Перенесены, real API open-feed120 | Перенесены, open-course120 | Перенесены, open-feed18 |
+| Learning и роли | Перенесены, programme и reference Reader | Перенесены, реальные learning interfaces | Перенесены, Product/Reader/file HTTP | Перенесены, catalog и file response |
+| Новый pending commerce | Перенесены | Перенесены, реальные Accounts/Billing/Sales Funnel | Перенесены, отдельный scenario token | Перенесены, BFF payment projection |
+| Прежние People/Payment | Имена, продукты и матрицы перенесены; card histories частично ожидают переноса | Новый learner case отличается от прежней Anna matrix | Имена/матрицы перенесены; card histories частично ожидают переноса | Новый commerce перенесены; прежние card variants не заявлены |
+| Legacy catalogue | Повторяемые имена/описания ещё ожидают #2299 | Не применимо для common light; старый CLI остаётся отдельным legacy consumer до2299 | Собственные отличающиеся course cases не приравниваются к legacy catalogue | Не применимо |
+| Lesson interaction snapshots | Перенесены | Не применимо, frontend-only snapshots | Не применимо, два module HTTP consumers принадлежат audit2 | Не применимо |
+
+Разные роли, закрытые/пустые/недоступные и устаревшие состояния остаются отдельными сценариями.
+Таблица не требует равенства всех wire shapes или полной Storybook parity. Backend-only
+fixtures остаются независимыми. Повтор одинаковой даты в двух разных сюжетах сам по себе не
+доказывает общий факт; оставшиеся People histories, overview, sales catalogue и reference facts
+требуют ручной проверки владельца и смысла.
+
+Старый development CLI и регрессионные тесты legacy asset repair сохраняются отдельно. Отсутствие
+shared CLI uploads из #2267 не объявляется исправленным; default light больше не использует этот
+каталог и не запускает repair. До переноса эквивалентных старых consumers и окончательной живой
+проверки общий audit1 не завершён.
+
 ## Общие факты прежнего каталога
 
 Issue #2299 переносит тождественные входные данные прежнего каталога в
@@ -192,7 +236,9 @@ calls в 13 изменённых Story-файлах сохранены, 2880 у�
 
 Остаются прежние People histories/dates и часть overview/sales/reference consumers.
 Issue #2313 отдельно владеет прежними reviewedSubmissions и HTTP JSON навигации; новые
-учебные Task facts не заменяют их иной сюжет. Два interaction BFF consumers переносятся
-исполнителем audit2 в PR2310, до фактического merge их состояние остаётся pending.
+учебные Task facts не заменяют их иной сюжет. Два interaction BFF consumers перенесены
+исполнителем audit2 в PR2310, фактический merge `3c83b4d9b5620a0cbfd56d6181861a2b14111cf9`
+от 2026-11-17. Их основные входные снимки теперь импортируются из общего источника;
+независимые ожидаемые значения и ошибочные варианты сохранены.
 Общий CLI сохраняет отдельное ограничение assets из #2267. Полный перенос четырёх семейств
 и завершение audit1 этим срезом не объявляются.

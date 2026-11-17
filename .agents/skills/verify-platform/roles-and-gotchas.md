@@ -12,7 +12,7 @@ no real person. The product has one permission, `platform:admin`: no separate au
 | Role | Who | Take it for | Sign in |
 |---|---|---|---|
 | `owner` | «Владелец Тестов», `platform:admin` | authoring and every admin page | `O open "$(V address owner /authoring)"` |
-| `holder` | «Покупатель Тестов», holds the demonstration and synthetic learning Products | what a buyer sees after the purchase | `H open "$(V address holder /account)"` |
+| `holder` | «Покупатель Тестов», holds the synthetic learning Product | what a buyer sees after the purchase | `H open "$(V address holder /account)"` |
 | `learner` | «Участник Тестов», no paid access, synthetic Telegram linked, pending purchase and active waiting-list membership | an unpaid member | `L open "$(V address learner /account)"` |
 | `newcomer` | no name, terms not accepted, no profile row | the first sign-in | `N open "$(V address newcomer /account)"` |
 | `guest` | nobody signed in | public pages | `G open "$(V address web /)"` |

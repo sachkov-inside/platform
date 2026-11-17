@@ -1,23 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const fakes = vi.hoisted(() => ({
-  token: vi.fn<() => Promise<string>>(),
-  manage: vi.fn(),
-  salesStates: vi.fn(),
-  LogtoSessionUnavailableError: class extends Error {},
-}));
-const { LogtoSessionUnavailableError } = fakes;
-vi.mock("@/shared/api/backend/index.server", () => ({
-  requestManageBilling: fakes.manage,
-  requestProductSalesStates: fakes.salesStates,
-}));
-vi.mock("@/shared/auth/session-adapter.server", () => ({
-  sessionAdapter: {
-    accessToken: () => fakes.token(),
-    baseUrl: () => "https://inside.example.test",
-  },
-  LogtoSessionUnavailableError: fakes.LogtoSessionUnavailableError,
-}));
+import { realBffSession } from "../support/real-bff-session";
+import { ownerBillingBackend } from "../support/owner-billing-backend";
+let backend: ReturnType<typeof ownerBillingBackend>;
+let session: Awaited<ReturnType<typeof realBffSession>>;
 
 import * as readPriceRoute from "../../app/api/authoring/billing/product-prices/read/route";
 import * as savePriceRoute from "../../app/api/authoring/billing/product-prices/save/route";
@@ -100,12 +86,9 @@ function snapshot(id: string, published?: boolean): PriceSnapshot {
   };
 }
 
-const ok = (body: unknown) => ({ ok: true, body, response: new Response() });
-const problem = (code: string, status: number) => ({
-  ok: false,
-  problem: { code },
-  response: new Response(null, { status }),
-});
+const ok = (body: unknown) => Response.json(body);
+const problem = (code: string, status: number) =>
+  Response.json({ code }, { status });
 const catalog = (
   items: readonly PriceSnapshot[],
   archivedProductIds?: readonly string[],
@@ -128,11 +111,14 @@ const routes = {
   "/api/authoring/billing/product-sales-states/save": saveStateRoute,
 };
 
-beforeEach(() => {
-  vi.resetAllMocks();
-  vi.unstubAllGlobals();
-  fakes.token.mockResolvedValue("owner-token");
+beforeEach(async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-16T10:00:00Z"));
+  session = await realBffSession("owner-token");
+  backend = ownerBillingBackend();
 });
+
+afterEach(() => vi.useRealTimers());
 
 describe("состояние продажи продукта", () => {
   it.each([
@@ -381,13 +367,20 @@ describe("форма состояния продажи", () => {
 
 describe("маршруты продажи", () => {
   it("читает цену одного продукта без перебора каталога", async () => {
-    routeBrowserMutations(routes);
-    fakes.manage.mockResolvedValue(catalog([snapshot(productId, true)]));
-    fakes.salesStates.mockResolvedValue(
-      ok({
-        items: [{ ...salesState, productId: otherProductId }, salesState],
-        nextCursor: null,
-      }),
+    routeBrowserMutations(routes, undefined, {
+      externalFetch: backend.fetch,
+      run: (handler) => session(handler),
+    });
+    backend.command.mockImplementation(() =>
+      Promise.resolve(catalog([snapshot(productId, true)])),
+    );
+    backend.sales.mockImplementation(() =>
+      Promise.resolve(
+        ok({
+          items: [{ ...salesState, productId: otherProductId }, salesState],
+          nextCursor: null,
+        }),
+      ),
     );
 
     await expect(readProductSale(productId)).resolves.toEqual({
@@ -395,37 +388,40 @@ describe("маршруты продажи", () => {
       priceArchived: false,
       salesState,
     });
-    expect(fakes.manage).toHaveBeenCalledTimes(1);
+    expect(backend.command).toHaveBeenCalledTimes(1);
     // Одна запись одного продукта: каталог не перебирается страницами.
-    expect(fakes.manage).toHaveBeenCalledWith(
+    expect(await commandBody(backend.command.mock.calls.at(-1)?.[0])).toEqual(
       expect.objectContaining({
         operation: "productPrices.list",
         productId,
         limit: 1,
       }),
-      "owner-token",
     );
-    expect(fakes.salesStates).toHaveBeenCalledWith(productId);
+    expectSalesQuery({ productId });
   });
 
   it("состояния продажи читаются GET без кеша, а без сессии и с неверным продуктом не читаются", async () => {
-    fakes.salesStates.mockResolvedValue(
-      ok({ items: [salesState], nextCursor: null }),
+    backend.sales.mockImplementation(() =>
+      Promise.resolve(ok({ items: [salesState], nextCursor: null })),
     );
-    const read = await salesStatesRoute.GET(
-      new Request(
-        `https://inside.example.test/api/authoring/billing/product-sales-states?productId=${productId}`,
+    const read = await session(() =>
+      salesStatesRoute.GET(
+        new Request(
+          `https://inside.example.test/api/authoring/billing/product-sales-states?productId=${productId}`,
+        ),
       ),
     );
     expect(read.status).toBe(200);
     expect(read.headers.get("cache-control")).toBe("no-store, private");
     expect(await read.json()).toEqual({ ok: true, value: [salesState] });
-    expect(fakes.salesStates).toHaveBeenCalledWith(productId);
+    expectSalesQuery({ productId });
 
-    fakes.salesStates.mockClear();
-    const invalid = await salesStatesRoute.GET(
-      new Request(
-        "https://inside.example.test/api/authoring/billing/product-sales-states?productId=1718",
+    backend.sales.mockClear();
+    const invalid = await session(() =>
+      salesStatesRoute.GET(
+        new Request(
+          "https://inside.example.test/api/authoring/billing/product-sales-states?productId=1718",
+        ),
       ),
     );
     expect(invalid.status).toBe(400);
@@ -433,22 +429,29 @@ describe("маршруты продажи", () => {
       ok: false,
       code: "invalid_request",
     });
-    expect(fakes.salesStates).not.toHaveBeenCalled();
+    expect(backend.sales).not.toHaveBeenCalled();
 
-    fakes.token.mockRejectedValue(new LogtoSessionUnavailableError());
-    const signedOut = await salesStatesRoute.GET(
-      new Request(
-        "https://inside.example.test/api/authoring/billing/product-sales-states",
+    session = await realBffSession(null);
+    const signedOut = await session(() =>
+      salesStatesRoute.GET(
+        new Request(
+          "https://inside.example.test/api/authoring/billing/product-sales-states",
+        ),
       ),
     );
     expect(signedOut.status).toBe(401);
-    expect(fakes.salesStates).not.toHaveBeenCalled();
+    expect(backend.sales).not.toHaveBeenCalled();
   });
 
   it("продукт без цены и без состояния продажи читается как пустой, а не как сбой", async () => {
-    routeBrowserMutations(routes);
-    fakes.manage.mockResolvedValue(catalog([]));
-    fakes.salesStates.mockResolvedValue(ok({ items: [], nextCursor: null }));
+    routeBrowserMutations(routes, undefined, {
+      externalFetch: backend.fetch,
+      run: (handler) => session(handler),
+    });
+    backend.command.mockImplementation(() => Promise.resolve(catalog([])));
+    backend.sales.mockImplementation(() =>
+      Promise.resolve(ok({ items: [], nextCursor: null })),
+    );
 
     await expect(readProductSale(productId)).resolves.toEqual({
       price: null,
@@ -458,10 +461,15 @@ describe("маршруты продажи", () => {
   });
 
   it("цена в архиве приходит отдельным признаком, а не пустой ценой", async () => {
-    routeBrowserMutations(routes);
-    fakes.manage.mockResolvedValue(catalog([], [productId]));
-    fakes.salesStates.mockResolvedValue(
-      ok({ items: [salesState], nextCursor: null }),
+    routeBrowserMutations(routes, undefined, {
+      externalFetch: backend.fetch,
+      run: (handler) => session(handler),
+    });
+    backend.command.mockImplementation(() =>
+      Promise.resolve(catalog([], [productId])),
+    );
+    backend.sales.mockImplementation(() =>
+      Promise.resolve(ok({ items: [salesState], nextCursor: null })),
     );
 
     await expect(readProductSale(productId)).resolves.toEqual({
@@ -472,9 +480,16 @@ describe("маршруты продажи", () => {
   });
 
   it("цена чужого продукта в ответе означает недоступность", async () => {
-    routeBrowserMutations(routes);
-    fakes.manage.mockResolvedValue(catalog([snapshot(otherProductId, true)]));
-    fakes.salesStates.mockResolvedValue(ok({ items: [], nextCursor: null }));
+    routeBrowserMutations(routes, undefined, {
+      externalFetch: backend.fetch,
+      run: (handler) => session(handler),
+    });
+    backend.command.mockImplementation(() =>
+      Promise.resolve(catalog([snapshot(otherProductId, true)])),
+    );
+    backend.sales.mockImplementation(() =>
+      Promise.resolve(ok({ items: [], nextCursor: null })),
+    );
 
     await expect(readProductSale(productId)).rejects.toMatchObject({
       code: "unavailable",
@@ -482,9 +497,16 @@ describe("маршруты продажи", () => {
   });
 
   it("отказ в праве остаётся отказом, а не пустой продажей", async () => {
-    routeBrowserMutations(routes);
-    fakes.manage.mockResolvedValue(problem("forbidden", 403));
-    fakes.salesStates.mockResolvedValue(ok({ items: [], nextCursor: null }));
+    routeBrowserMutations(routes, undefined, {
+      externalFetch: backend.fetch,
+      run: (handler) => session(handler),
+    });
+    backend.command.mockImplementation(() =>
+      Promise.resolve(problem("forbidden", 403)),
+    );
+    backend.sales.mockImplementation(() =>
+      Promise.resolve(ok({ items: [], nextCursor: null })),
+    );
 
     await expect(readProductSale(productId)).rejects.toMatchObject({
       code: "forbidden",
@@ -492,8 +514,13 @@ describe("маршруты продажи", () => {
   });
 
   it("конфликт ревизии возвращается один раз и не отправляется повторно", async () => {
-    const { requests } = routeBrowserMutations(routes);
-    fakes.manage.mockResolvedValue(problem("revision_conflict", 409));
+    const { requests } = routeBrowserMutations(routes, undefined, {
+      externalFetch: backend.fetch,
+      run: (handler) => session(handler),
+    });
+    backend.command.mockImplementation(() =>
+      Promise.resolve(problem("revision_conflict", 409)),
+    );
     const command = priceCommand({
       productId,
       productName: "AI Engineering",
@@ -505,32 +532,33 @@ describe("маршруты продажи", () => {
       saveProductPriceOperation.send({ ...command, operationId }),
     ).resolves.toEqual({ ok: false, code: "revision_conflict" });
     expect(requests).toHaveLength(1);
-    expect(fakes.manage).toHaveBeenCalledTimes(1);
-    expect(fakes.manage).toHaveBeenCalledWith(
-      {
-        operation: "productPrices.save",
-        operationId,
-        expectedRevision: 3,
-        value: command.value,
-      },
-      "owner-token",
-      {},
-    );
+    expect(backend.command).toHaveBeenCalledTimes(1);
+    expect(await commandBody(backend.command.mock.calls.at(-1)?.[0])).toEqual({
+      operation: "productPrices.save",
+      operationId,
+      expectedRevision: 3,
+      value: command.value,
+    });
     expect(saleFailureMessage("revision_conflict")).toContain(
       "Обновите данные",
     );
   });
 
   it("архив цены и состояние продажи идут прежними командами billing", async () => {
-    routeBrowserMutations(routes);
-    fakes.manage.mockResolvedValue(
-      ok({
-        operationRef: operationId,
-        result: {
-          outcome: "catalog",
-          value: { id: productId, revision: 4, archived: true },
-        },
-      }),
+    routeBrowserMutations(routes, undefined, {
+      externalFetch: backend.fetch,
+      run: (handler) => session(handler),
+    });
+    backend.command.mockImplementation(() =>
+      Promise.resolve(
+        ok({
+          operationRef: operationId,
+          result: {
+            outcome: "catalog",
+            value: { id: productId, revision: 4, archived: true },
+          },
+        }),
+      ),
     );
 
     await expect(
@@ -540,16 +568,12 @@ describe("маршруты продажи", () => {
         expectedRevision: 3,
       }),
     ).resolves.toMatchObject({ ok: true });
-    expect(fakes.manage).toHaveBeenLastCalledWith(
-      {
-        operation: "productPrices.archive",
-        operationId,
-        id: productId,
-        expectedRevision: 3,
-      },
-      "owner-token",
-      {},
-    );
+    expect(await commandBody(backend.command.mock.calls.at(-1)?.[0])).toEqual({
+      operation: "productPrices.archive",
+      operationId,
+      id: productId,
+      expectedRevision: 3,
+    });
 
     const state = salesStateCommand(
       productId,
@@ -559,11 +583,11 @@ describe("маршруты продажи", () => {
     await expect(
       saveProductSalesStateOperation.send({ ...state, operationId }),
     ).resolves.toMatchObject({ ok: true });
-    expect(fakes.manage).toHaveBeenLastCalledWith(
-      { operation: "productSalesState.save", operationId, ...state },
-      "owner-token",
-      {},
-    );
+    expect(await commandBody(backend.command.mock.calls.at(-1)?.[0])).toEqual({
+      operation: "productSalesState.save",
+      operationId,
+      ...state,
+    });
   });
 });
 
@@ -645,10 +669,13 @@ describe("продажи каталога в списке продуктов", (
   });
 
   it("читает публичные состояния продажи всех продуктов страницами", async () => {
-    routeBrowserMutations(routes);
+    routeBrowserMutations(routes, undefined, {
+      externalFetch: backend.fetch,
+      run: (handler) => session(handler),
+    });
     const cursor = "00000000-0000-4000-8000-0000000017ff";
     const other = { ...salesState, productId: otherProductId };
-    fakes.salesStates
+    backend.sales
       .mockResolvedValueOnce(ok({ items: [salesState], nextCursor: cursor }))
       .mockResolvedValueOnce(ok({ items: [other], nextCursor: null }));
 
@@ -658,14 +685,37 @@ describe("продажи каталога в списке продуктов", (
         [otherProductId, other],
       ]),
     );
-    expect(fakes.salesStates).toHaveBeenNthCalledWith(1, undefined, undefined);
-    expect(fakes.salesStates).toHaveBeenNthCalledWith(2, undefined, cursor);
+    expectSalesQuery({}, 0);
+    expectSalesQuery({ cursor }, 1);
   });
 
   it("сбой публичного чтения не выдаёт пустые этапы", async () => {
-    routeBrowserMutations(routes);
-    fakes.salesStates.mockResolvedValue(problem("unavailable", 503));
+    routeBrowserMutations(routes, undefined, {
+      externalFetch: backend.fetch,
+      run: (handler) => session(handler),
+    });
+    backend.sales.mockImplementation(() =>
+      Promise.resolve(problem("unavailable", 503)),
+    );
 
     await expect(readCatalogSalesStates()).resolves.toBeNull();
   });
 });
+
+async function commandBody(request: Request | undefined): Promise<unknown> {
+  if (request === undefined)
+    throw new Error("Expected owner Billing HTTP request");
+  expect(request.headers.get("authorization")).toBe("Bearer owner-token");
+  return request.clone().json();
+}
+
+function expectSalesQuery(
+  query: Readonly<Record<string, string>>,
+  index = backend.sales.mock.calls.length - 1,
+) {
+  const request = backend.sales.mock.calls[index]?.[0];
+  if (request === undefined)
+    throw new Error("Expected public sales-state HTTP request");
+  expect(Object.fromEntries(new URL(request.url).searchParams)).toEqual(query);
+  expect(request.headers.has("authorization")).toBe(false);
+}

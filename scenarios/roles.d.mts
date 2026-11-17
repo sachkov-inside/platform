@@ -3,7 +3,6 @@ export const scenarioRoles: {
   readonly holder: {
     readonly subject: string;
     readonly name: string;
-    readonly productId: string;
   };
   readonly learner: { readonly subject: string; readonly name: string };
   readonly newcomer: { readonly subject: string; readonly name: null };
