@@ -77,18 +77,18 @@ export function materialTableNames(
   for (const index of bodyBlockIndices(blocks, order)) {
     const block = blocks[index];
     if (block === undefined) continue;
-    if (
-      comparison !== undefined &&
-      index >= comparison.at &&
-      index < comparison.at + comparison.labels.length
-    ) {
-      if (index === comparison.at)
-        comparison.labels.forEach((_, offset) => {
-          const card = blocks[index + offset];
-          if (card?.kind === "callout" && card.title !== undefined)
-            visit(card.content, [...path, index + offset]);
-        });
-    } else visitBlock(block, [...path, index]);
+    if (index === comparison?.at) {
+      comparison.labels.forEach((_, offset) => {
+        const card = blocks[index + offset];
+        if (card?.kind === "callout" && card.title !== undefined)
+          visit(card.content, [...path, index + offset]);
+      });
+    } else if (
+      comparison === undefined ||
+      index < comparison.at ||
+      index >= comparison.at + comparison.labels.length
+    )
+      visitBlock(block, [...path, index]);
   }
   return new Map(
     tables.map((table, index) => [
