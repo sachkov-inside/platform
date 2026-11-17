@@ -1,40 +1,22 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const fakes = vi.hoisted(() => ({
-  token: vi.fn(),
-  save: vi.fn(),
-  LogtoSessionUnavailableError: class extends Error {},
-}));
-vi.mock("@/shared/api/backend/index.server", async () => {
-  const transport = await import("@/shared/api/backend/transport-core.server");
-  return {
-    BackendConnectionError: transport.BackendConnectionError,
-    requestSaveAuthorTaskFeedback: fakes.save,
-  };
-});
-vi.mock("@/shared/auth/platform-access-token.server", () => ({
-  getPlatformAccessToken: fakes.token,
-  LogtoSessionUnavailableError: fakes.LogtoSessionUnavailableError,
-}));
-vi.mock("@/shared/auth/logto-bff-config.server", () => ({
-  readLogtoBffConfig: () => ({ baseUrl: "https://inside.example.test" }),
-}));
-vi.mock("@/shared/auth/index.server", async () => {
-  const handlers =
-    await import("@/shared/auth/authenticated-mutation-handler.server");
-  return {
-    handleAuthenticatedMutation: handlers.handleAuthenticatedMutation,
-    handleMutationOperation: handlers.handleMutationOperation,
-    handleOptionalMutationOperation: handlers.handleOptionalMutationOperation,
-  };
-});
-import { handleSaveAuthorFeedback } from "@/_pages/task-submissions/api/save-author-feedback-route.server";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { sessionAdapter } from "@/shared/auth/session-adapter.server";
+import { realBffSession } from "../support/real-bff-session";
+import {
+  interceptBackendHttp,
+  expectSingleBackendRequest,
+} from "../support/backend-http";
+const backend = vi.fn<(request: Request) => Promise<Response>>();
+let scope: Awaited<ReturnType<typeof realBffSession>>;
+import { handleSaveAuthorFeedback as realHandleSaveAuthorFeedback } from "@/_pages/task-submissions/api/save-author-feedback-route.server";
 import {
   consistentSelection,
   repositoryLink,
   submissionsListHref,
   type FilterProduct,
 } from "@/_pages/task-submissions/model/task-submissions";
+
+const handleSaveAuthorFeedback = (request: Request) =>
+  scope(() => realHandleSaveAuthorFeedback(request));
 
 const submissionId = "30000000-0000-4000-8000-000000000001";
 
@@ -52,13 +34,18 @@ function feedback(
   );
 }
 
-beforeEach(() => {
-  vi.clearAllMocks();
-  fakes.token.mockResolvedValue("trusted-token");
+beforeEach(async () => {
+  backend.mockReset();
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-16T10:00:00Z"));
+  scope = await realBffSession();
+  interceptBackendHttp(backend);
 });
+afterEach(() => vi.useRealTimers());
 
 describe("author feedback BFF (#948)", () => {
   it("refuses a cross-origin save before the session or the backend", async () => {
+    const tokenReads = vi.spyOn(sessionAdapter, "accessToken");
     const response = await handleSaveAuthorFeedback(
       feedback(
         { submissionId, comment: "x", reviewed: true },
@@ -66,8 +53,8 @@ describe("author feedback BFF (#948)", () => {
       ),
     );
     expect(response.status).toBe(403);
-    expect(fakes.token).not.toHaveBeenCalled();
-    expect(fakes.save).not.toHaveBeenCalled();
+    expect(tokenReads).not.toHaveBeenCalled();
+    expect(backend).not.toHaveBeenCalled();
   });
 
   it("forwards the comment as typed and the mark with the trusted token; the backend owns trimming", async () => {
@@ -76,11 +63,9 @@ describe("author feedback BFF (#948)", () => {
       reviewedAt: "2026-10-05T16:40:00.000Z",
       updatedAt: "2026-10-05T16:40:00.000Z",
     };
-    fakes.save.mockResolvedValue({
-      ok: true,
-      body: { authorFeedback: stored },
-      response: new Response(),
-    });
+    backend.mockResolvedValueOnce(
+      Response.json({ authorFeedback: stored }, { status: 200 }),
+    );
     const response = await handleSaveAuthorFeedback(
       feedback({
         submissionId,
@@ -88,38 +73,43 @@ describe("author feedback BFF (#948)", () => {
         reviewed: true,
       }),
     );
-    expect(fakes.save).toHaveBeenCalledWith(
-      submissionId,
-      { comment: "  Хорошее разделение.  ", reviewed: true },
-      "trusted-token",
-    );
+    expect(
+      await expectSingleBackendRequest(
+        backend,
+        "PUT",
+        `/authoring/product-tasks/submissions/${submissionId}/feedback`,
+      ).json(),
+    ).toEqual({ comment: "  Хорошее разделение.  ", reviewed: true });
     expect(response.headers.get("cache-control")).toBe("no-store, private");
     expect(await response.json()).toEqual({
       kind: "saved",
-      authorFeedback: stored,
+      authorFeedback: {
+        comment: "Хорошее разделение.",
+        reviewedAt: "2026-10-05T16:40:00.000Z",
+        updatedAt: "2026-10-05T16:40:00.000Z",
+      },
     });
 
-    fakes.save.mockResolvedValue({
-      ok: true,
-      body: { authorFeedback: null },
-      response: new Response(),
-    });
+    backend.mockResolvedValueOnce(
+      Response.json({ authorFeedback: null }, { status: 200 }),
+    );
     await handleSaveAuthorFeedback(
       feedback({ submissionId, comment: "   ", reviewed: false }),
     );
-    expect(fakes.save).toHaveBeenLastCalledWith(
-      submissionId,
-      { comment: "   ", reviewed: false },
-      "trusted-token",
+    expect(backend).toHaveBeenCalledTimes(2);
+    const cleared = backend.mock.lastCall?.[0];
+    expect(cleared?.method).toBe("PUT");
+    expect(cleared?.url).toBe(
+      `https://platform-api.example.test/authoring/product-tasks/submissions/${submissionId}/feedback`,
     );
+    expect(cleared?.headers.get("authorization")).toBe("Bearer trusted-token");
+    expect(await cleared?.json()).toEqual({ comment: "   ", reviewed: false });
   });
 
   it("counts a CRLF line break of the form as one character", async () => {
-    fakes.save.mockResolvedValue({
-      ok: true,
-      body: { authorFeedback: null },
-      response: new Response(),
-    });
+    backend.mockResolvedValueOnce(
+      Response.json({ authorFeedback: null }, { status: 200 }),
+    );
     const comment = `${"x".repeat(3_990)}${"\r\n".repeat(10)}`;
     const response = await handleSaveAuthorFeedback(
       feedback({ submissionId, comment, reviewed: true }),
@@ -128,11 +118,16 @@ describe("author feedback BFF (#948)", () => {
       kind: "saved",
       authorFeedback: null,
     });
-    expect(fakes.save).toHaveBeenCalledWith(
-      submissionId,
-      { comment: `${"x".repeat(3_990)}${"\n".repeat(10)}`, reviewed: true },
-      "trusted-token",
-    );
+    expect(
+      await expectSingleBackendRequest(
+        backend,
+        "PUT",
+        `/authoring/product-tasks/submissions/${submissionId}/feedback`,
+      ).json(),
+    ).toEqual({
+      comment: `${"x".repeat(3_990)}${"\n".repeat(10)}`,
+      reviewed: true,
+    });
   });
 
   it("refuses a malformed save without calling the backend", async () => {
@@ -144,7 +139,7 @@ describe("author feedback BFF (#948)", () => {
       const response = await handleSaveAuthorFeedback(feedback(values));
       expect(await response.json()).toEqual({ kind: "invalid_input" });
     }
-    expect(fakes.save).not.toHaveBeenCalled();
+    expect(backend).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -154,11 +149,9 @@ describe("author feedback BFF (#948)", () => {
     [404, { kind: "submission_not_found" }],
     [503, { kind: "unavailable" }],
   ])("maps backend status %i to a form outcome", async (status, outcome) => {
-    fakes.save.mockResolvedValue({
-      ok: false,
-      problem: { code: "x" },
-      response: new Response(null, { status }),
-    });
+    backend.mockResolvedValueOnce(
+      Response.json({ code: "x" }, { status: status }),
+    );
     const response = await handleSaveAuthorFeedback(
       feedback({ submissionId, comment: "", reviewed: true }),
     );

@@ -117,6 +117,13 @@ migrations, Prisma, Kysely and RabbitMQ stay real wherever the kind above lists 
   Web test may answer that HTTP itself. Tooling tests also replace git, the network and processes.
   Replace a service at its public adapter or port, or with an owned loopback double.
 
+A named transport-corruption test may change only the delivered bytes of an exact request after
+its real handler has returned and the valid success has been checked and consumed. Keep a paired
+normal path and the separate real-BFF rejection of malformed backend data. This is synthetic wire
+fault injection, not an own-module substitute or proof of real network corruption; unexpected
+requests fail. A generic transport contract may configure a synthetic operation through the real
+factory and handler's declared callback port, without replacing a product operation or session.
+
 [Waiting in tests](../../CODING_STANDARDS.md#waiting-in-tests) holds the rules for barriers.
 
 Known exception: Web module tests replace their own `@/shared` modules with `vi.mock`. On

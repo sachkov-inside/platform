@@ -1,11 +1,11 @@
-import { beforeEach, expect, it, vi } from "vitest";
-
-const session = vi.hoisted(() => ({ accessToken: vi.fn() }));
-vi.mock("@/shared/auth/session-adapter.server", () => ({
-  sessionAdapter: { accessToken: session.accessToken },
-  LogtoSessionUnavailableError: class extends Error {},
-}));
-import { LogtoSessionUnavailableError } from "@/shared/auth/session-adapter.server";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { sessionAdapter } from "@/shared/auth/session-adapter.server";
+import { realBffSession } from "../support/real-bff-session";
+import {
+  interceptIdentityOutage,
+  expectIdentityOutage,
+} from "../support/identity-http";
+let scope: Awaited<ReturnType<typeof realBffSession>>;
 import { handleAccountPresentationRequest } from "@/_pages/account/api/account-presentation-route.server";
 import { handleAccountProfileRequest } from "@/_pages/account/api/account-profile-route.server";
 import { handleAuthoringMaterialsRequest } from "@/_pages/authoring-materials/api/authoring-materials-route.server";
@@ -36,32 +36,47 @@ const capabilities = [
   ],
 ] as const;
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  billingBackend.mockReset();
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-16T10:00:00Z"));
+});
+afterEach(() => vi.useRealTimers());
 
 it.each(capabilities)(
   "%s uses the common missing-session and provider-failure protocol",
   async (_name, read) => {
-    for (const [error, kind, status] of [
-      [new LogtoSessionUnavailableError(), "authentication_required", 401],
-      [new Error("provider failed"), "identity_unavailable", 503],
+    for (const [kind, status] of [
+      ["authentication_required", 401],
+      ["identity_unavailable", 503],
     ] as const) {
-      session.accessToken.mockRejectedValue(error);
-      const response = await read();
+      scope = await realBffSession(
+        kind === "authentication_required"
+          ? null
+          : { refreshToken: "failed-reader-identity" },
+      );
+      const identity = interceptIdentityOutage();
+      const response = await scope(read);
       expect(response.status).toBe(status);
       expect(await response.json()).toEqual({ kind });
       expect(response.headers.get("cache-control")).toBe("no-store, private");
       expect(response.headers.get("vary")).toBe("cookie");
+      if (kind === "identity_unavailable") expectIdentityOutage(identity);
+      else expect(identity).not.toHaveBeenCalled();
     }
     expect(billingBackend).not.toHaveBeenCalled();
   },
 );
 
 it("task submissions and the sales report select the render session mode", async () => {
-  session.accessToken.mockRejectedValue(new LogtoSessionUnavailableError());
-  expect(await loadTaskSubmissions({}, undefined)).toEqual({
+  scope = await realBffSession(null);
+  const tokenReads = vi.spyOn(sessionAdapter, "accessToken");
+  expect(await scope(() => loadTaskSubmissions({}, undefined))).toEqual({
     kind: "unauthorized",
   });
-  expect(await loadSalesFunnelReport({})).toEqual({ kind: "unauthorized" });
-  expect(session.accessToken).toHaveBeenCalledTimes(2);
-  expect(session.accessToken).toHaveBeenCalledWith("rsc");
+  expect(await scope(() => loadSalesFunnelReport({}))).toEqual({
+    kind: "unauthorized",
+  });
+  expect(tokenReads).toHaveBeenCalledTimes(2);
+  expect(tokenReads).toHaveBeenCalledWith("rsc");
 });

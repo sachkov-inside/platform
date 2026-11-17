@@ -1,34 +1,16 @@
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { sessionAdapter } from "@/shared/auth/session-adapter.server";
+import { realBffSession } from "../support/real-bff-session";
+import {
+  interceptBackendHttp,
+  expectSingleBackendRequest,
+} from "../support/backend-http";
+const backend = vi.fn<(request: Request) => Promise<Response>>();
+let scope: Awaited<ReturnType<typeof realBffSession>>;
+import { handleSubmitProductTask as realHandleSubmitProductTask } from "@/features/product-task-submission.server";
 
-const fakes = vi.hoisted(() => ({
-  token: vi.fn(),
-  submit: vi.fn(),
-  LogtoSessionUnavailableError: class extends Error {},
-}));
-vi.mock("@/shared/api/backend/index.server", async () => {
-  const transport = await import("@/shared/api/backend/transport-core.server");
-  return {
-    BackendConnectionError: transport.BackendConnectionError,
-    requestSubmitProductTaskForm: fakes.submit,
-  };
-});
-vi.mock("@/shared/auth/platform-access-token.server", () => ({
-  getPlatformAccessToken: fakes.token,
-  LogtoSessionUnavailableError: fakes.LogtoSessionUnavailableError,
-}));
-vi.mock("@/shared/auth/logto-bff-config.server", () => ({
-  readLogtoBffConfig: () => ({ baseUrl: "https://inside.example.test" }),
-}));
-vi.mock("@/shared/auth/index.server", async () => {
-  const handlers =
-    await import("@/shared/auth/authenticated-mutation-handler.server");
-  return {
-    handleAuthenticatedMutation: handlers.handleAuthenticatedMutation,
-    handleMutationOperation: handlers.handleMutationOperation,
-    handleOptionalMutationOperation: handlers.handleOptionalMutationOperation,
-  };
-});
-import { handleSubmitProductTask } from "@/features/product-task-submission.server";
+const handleSubmitProductTask = (request: Request) =>
+  scope(() => realHandleSubmitProductTask(request));
 
 const fields = {
   code: "aie-ch1-onboarding",
@@ -55,48 +37,56 @@ function submission(
 }
 
 function problem(status: number, body: Record<string, unknown>) {
-  return { ok: false, problem: body, response: new Response(null, { status }) };
+  return Response.json(body, { status });
 }
 
-beforeEach(() => {
-  vi.clearAllMocks();
-  fakes.token.mockResolvedValue("trusted-token");
+beforeEach(async () => {
+  backend.mockReset();
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-16T10:00:00Z"));
+  scope = await realBffSession();
+  interceptBackendHttp(backend);
 });
+afterEach(() => vi.useRealTimers());
 
 it("refuses a cross-origin submission before the session or the backend", async () => {
+  const tokenReads = vi.spyOn(sessionAdapter, "accessToken");
   const response = await handleSubmitProductTask(
     submission(fields, "https://outside.test"),
   );
   expect(response.status).toBe(403);
-  expect(fakes.token).not.toHaveBeenCalled();
-  expect(fakes.submit).not.toHaveBeenCalled();
+  expect(tokenReads).not.toHaveBeenCalled();
+  expect(backend).not.toHaveBeenCalled();
 });
 
 it("forwards the form with the trusted token, drops empty optional fields and never a branch or commit", async () => {
-  fakes.submit.mockResolvedValue({
-    ok: true,
-    body: {
-      submissionId: "30000000-0000-4000-8000-000000000001",
-      code: fields.code,
-      taskVersion: 2,
-      source: "form",
-      submittedAt: "2026-10-05T16:40:00.000Z",
-    },
-    response: new Response(),
-  });
+  backend.mockResolvedValueOnce(
+    Response.json(
+      {
+        submissionId: "30000000-0000-4000-8000-000000000001",
+        code: fields.code,
+        taskVersion: 2,
+        source: "form",
+        submittedAt: "2026-10-05T16:40:00.000Z",
+      },
+      { status: 200 },
+    ),
+  );
   const response = await handleSubmitProductTask(
     submission({ ...fields, branch: "main", commit: "4f2a9c1" }),
   );
-  expect(fakes.submit).toHaveBeenCalledWith(
-    fields.code,
-    {
-      taskVersion: 2,
-      submissionKey: "key-1",
-      note: fields.note,
-      repositoryUrl: fields.repositoryUrl,
-    },
-    "trusted-token",
-  );
+  expect(
+    await expectSingleBackendRequest(
+      backend,
+      "POST",
+      "/accounts/current/product-tasks/aie-ch1-onboarding/submissions",
+    ).json(),
+  ).toEqual({
+    taskVersion: 2,
+    submissionKey: "key-1",
+    note: "Сделал выдачу доступа.",
+    repositoryUrl: "https://github.com/learner/devportal",
+  });
   expect(response.headers.get("cache-control")).toBe("no-store, private");
   expect(await response.json()).toEqual({
     kind: "submitted",
@@ -112,7 +102,7 @@ it("refuses an empty note or a repository that is not an address without calling
     const response = await handleSubmitProductTask(submission(values));
     expect(await response.json()).toEqual({ kind: "invalid_input" });
   }
-  expect(fakes.submit).not.toHaveBeenCalled();
+  expect(backend).not.toHaveBeenCalled();
 });
 
 it.each([
@@ -129,7 +119,7 @@ it.each([
 ])(
   "maps backend status %i to a form outcome",
   async (status, body, outcome) => {
-    fakes.submit.mockResolvedValue(problem(status, body));
+    backend.mockResolvedValue(problem(status, body));
     const response = await handleSubmitProductTask(submission(fields));
     expect(await response.json()).toEqual(outcome);
   },
