@@ -3,6 +3,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Activity, useState } from "react";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 
+import { legalDocumentPath } from "@/shared/routing/public-page-path";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 
 import { StorageNotice } from "./storage-notice.client";
@@ -16,18 +17,36 @@ function RetainedNotice() {
   const [mounted, setMounted] = useState(true);
   return (
     <>
-      <button type="button" onClick={() => setVisible(false)}>
+      <button
+        type="button"
+        onClick={() => {
+          setVisible(false);
+        }}
+      >
         Скрыть уведомление
       </button>
-      <button type="button" onClick={() => setVisible(true)}>
+      <button
+        type="button"
+        onClick={() => {
+          setVisible(true);
+        }}
+      >
         Вернуть уведомление
       </button>
-      <button type="button" onClick={() => setMounted(false)}>
+      <button
+        type="button"
+        onClick={() => {
+          setMounted(false);
+        }}
+      >
         Удалить уведомление
       </button>
       <Activity mode={visible ? "visible" : "hidden"}>
         {mounted ? (
-          <StorageNotice edition={edition} policyHref="/legal/cookies" />
+          <StorageNotice
+            edition={edition}
+            policyHref={legalDocumentPath("cookies")}
+          />
         ) : null}
       </Activity>
     </>
@@ -45,7 +64,7 @@ type Story = StoryObj<typeof meta>;
 export const ReleasesSpaceWhileHidden: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const notice = await canvas.findByRole<HTMLElement>("region", {
+    const notice = await canvas.findByRole("region", {
       name: "Хранение в браузере",
     });
     const reserved = () =>

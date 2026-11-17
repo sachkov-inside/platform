@@ -2,69 +2,19 @@
 
 import type { Route } from "next";
 import Link from "next/link";
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 
 import { Button } from "@/shared/ui/button";
 
+import { storageNoticeVisible } from "../model/storage-notice";
+
 import {
-  storageNoticeKey,
-  storageNoticeVisible,
-} from "../model/storage-notice";
-
-const listeners = new Set<() => void>();
-
-function readStored(): string | null {
-  try {
-    return window.localStorage.getItem(storageNoticeKey);
-  } catch {
-    return null;
-  }
-}
-
-function subscribe(listener: () => void): () => void {
-  const onStorage = (event: StorageEvent) => {
-    if (event.key === storageNoticeKey) listener();
-  };
-  listeners.add(listener);
-  window.addEventListener("storage", onStorage);
-  return () => {
-    listeners.delete(listener);
-    window.removeEventListener("storage", onStorage);
-  };
-}
-
-function remember(edition: number): void {
-  try {
-    window.localStorage.setItem(storageNoticeKey, String(edition));
-    acknowledgedEdition = null;
-  } catch {
-    // Хранилище запрещено: уведомление скроется до перезагрузки страницы.
-    acknowledgedEdition = edition;
-  }
-  for (const listener of listeners) listener();
-}
-
-let acknowledgedEdition: number | null = null;
-interface NoticeSnapshot {
-  readonly stored: string | null;
-  readonly acknowledgedEdition: number | null;
-}
-let currentSnapshot: NoticeSnapshot = {
-  stored: null,
-  acknowledgedEdition: null,
-};
-function readSnapshot(): NoticeSnapshot {
-  const stored = readStored();
-  if (
-    currentSnapshot.stored !== stored ||
-    currentSnapshot.acknowledgedEdition !== acknowledgedEdition
-  ) {
-    currentSnapshot = { stored, acknowledgedEdition };
-  }
-  return currentSnapshot;
-}
-
-const storageNoticeSpace = "--storage-notice-space";
+  acknowledgeStorageNotice,
+  mountStorageNotice,
+  readStorageNoticeSnapshot,
+  subscribeStorageNotice,
+  type StorageNoticeSnapshot,
+} from "./storage-notice.browser";
 
 /**
  * Уведомление о хранении в браузере (cookies v2): без выбора, со ссылкой на документ. «Понятно»
@@ -79,33 +29,19 @@ export function StorageNotice({
   readonly edition: number;
   readonly policyHref: Route;
 }) {
-  const snapshot = useSyncExternalStore<NoticeSnapshot | null>(
-    subscribe,
-    readSnapshot,
+  const snapshot = useSyncExternalStore<StorageNoticeSnapshot | null>(
+    subscribeStorageNotice,
+    readStorageNoticeSnapshot,
     () => null,
   );
   const visible =
     snapshot !== null &&
     storageNoticeVisible(snapshot.stored, edition) &&
-    snapshot.acknowledgedEdition !== edition;
-  const notice = useRef<HTMLElement>(null);
-  useEffect(() => {
-    const element = notice.current;
-    if (!visible || element === null) return;
-    const root = document.documentElement.style;
-    const observer = new ResizeObserver(() => {
-      root.setProperty(storageNoticeSpace, `${String(element.offsetHeight)}px`);
-    });
-    observer.observe(element);
-    return () => {
-      observer.disconnect();
-      root.removeProperty(storageNoticeSpace);
-    };
-  }, [visible]);
+    snapshot.fallbackEdition !== edition;
   if (!visible) return null;
   return (
     <section
-      ref={notice}
+      ref={mountStorageNotice}
       aria-label="Хранение в браузере"
       className="storage-notice fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] z-40 mx-auto max-w-xl rounded-2xl border border-border bg-card p-5 text-foreground shadow-2xl lg:bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))]"
     >
@@ -122,7 +58,7 @@ export function StorageNotice({
       <Button
         className="mt-3 min-h-11 px-4"
         onClick={() => {
-          remember(edition);
+          acknowledgeStorageNotice(edition);
         }}
         type="button"
       >
