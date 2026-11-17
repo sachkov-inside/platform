@@ -21,7 +21,6 @@ test("storage notice follows a genuine clear after its ordinary key event", asyn
     await expect(notice).toBeVisible();
     await acknowledge.click();
     await expect(notice).toBeHidden();
-    // Observe delivery; the storage methods and every application module remain genuine.
     await page.evaluate(() => {
       const observed = (event: StorageEvent) => {
         if (event.key !== null) return;
