@@ -18,6 +18,7 @@ const fixtureName = z.enum([
   "reader-history",
   "cabinet-facts",
   "course-film",
+  "native-dialog",
 ]);
 const budget = z.number().int().positive().max(30_000);
 const configuration = z.object({
