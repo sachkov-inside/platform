@@ -1,44 +1,51 @@
+import { cookies } from "next/headers";
+import { realBffSession } from "../support/real-bff-session";
+import { useProductionRuntimeImage } from "../support/web-runtime";
 import { PersistKey, wrapSession } from "@logto/node";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { parseLogtoBffConfig } from "@/shared/auth/logto-bff-config.server";
 import { getPlatformAccessTokenRsc } from "@/shared/auth/platform-access-token.server";
 
-/**
- * Настоящий SDK Logto обновляет токен по refresh grant (#1005). Подменены только граница cookie
- * Next.js и сеть: синтетическая ошибка SDK скрыла, что настоящий отказ провайдера приходит не тем
- * кодом. Discovery SDK кеширует в памяти модуля по адресу провайдера, поэтому все случаи делят
- * один `endpoint` и один ответ discovery.
- */
-const cookieJar = vi.hoisted(() => new Map<string, string>());
-const cookieWrites = vi.hoisted(
-  () => [] as { name: string; value: string; maxAge: number | undefined }[],
-);
-const refreshGrants = vi.hoisted(() => ({ count: 0 }));
-const backend = vi.hoisted(() => ({
-  requestMaterialAuthoringReferences: vi.fn(),
-  resolveAccount: vi.fn(),
-}));
-
-vi.mock("next/headers", () => ({
-  cookies: () =>
-    Promise.resolve({
-      get: (name: string) => {
-        const value = cookieJar.get(name);
-        return value === undefined ? undefined : { name, value };
-      },
-      getAll: () => [...cookieJar].map(([name, value]) => ({ name, value })),
-      set: (name: string, value: string, options?: { maxAge?: number }) => {
-        cookieWrites.push({ name, value, maxAge: options?.maxAge });
-        cookieJar.set(name, value);
-      },
-    }),
-}));
-
-vi.mock("@/shared/api/backend/index.server", async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
-  ...backend,
-}));
+const unexpectedCookieWrites: unknown[][] = [];
+const cookieWrites: {
+  name: string;
+  value: string;
+  maxAge: number | undefined;
+}[] = [];
+let refreshGrants: { count: number };
+const unexpectedRequests: Request[] = [];
+const identityRequests: Request[] = [];
+const tokenForms: URLSearchParams[] = [];
+const observedSessions: (string | undefined)[] = [];
+let sessionValue: string;
+let scope: Awaited<ReturnType<typeof realBffSession>>;
+let releaseImage: () => void;
+async function withSession<T>(run: () => Promise<T>): Promise<T> {
+  return scope(async () => {
+    const jar = await cookies();
+    jar.set(sessionCookie, sessionValue);
+    const writes = vi.spyOn(jar, "set");
+    try {
+      return await run();
+    } finally {
+      for (const args of writes.mock.calls) {
+        const [name, value, options] = args;
+        if (typeof name === "string" && typeof value === "string")
+          cookieWrites.push({ name, value, maxAge: options?.maxAge });
+        else if (typeof name === "object")
+          cookieWrites.push({
+            name: name.name,
+            value: name.value,
+            maxAge: name.maxAge,
+          });
+        else unexpectedCookieWrites.push(args);
+      }
+      observedSessions.push(jar.get(sessionCookie)?.value);
+      writes.mockRestore();
+    }
+  });
+}
 
 const endpoint = "https://identity.example.test";
 const config = parseLogtoBffConfig(
@@ -56,11 +63,6 @@ const config = parseLogtoBffConfig(
   },
   { release: "v7", sourceSha: "7".repeat(40) },
 );
-
-vi.mock("@/shared/auth/logto-bff-config.server", async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
-  readLogtoBffConfig: () => config,
-}));
 
 import { GET as accountPresentation } from "../../app/api/account/route";
 import { GET as authStatus } from "../../app/auth/status/route";
@@ -86,7 +88,7 @@ async function storeSessionNeedingRefresh(): Promise<string> {
     },
     config.cookieSecret,
   );
-  cookieJar.set(sessionCookie, session);
+  sessionValue = session;
   return session;
 }
 
@@ -95,16 +97,22 @@ function answerRefreshGrantWith(answer: () => Promise<Response>): void {
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const request = new Request(input, init);
-      const url = new URL(request.url);
-      if (url.pathname === "/oidc/.well-known/openid-configuration")
+      identityRequests.push(request);
+      if (
+        request.url ===
+        "https://identity.example.test/oidc/.well-known/openid-configuration"
+      )
         return Response.json(discovery);
-      if (url.pathname === "/oidc/token") {
+      if (request.url === "https://identity.example.test/oidc/token") {
         const form = new URLSearchParams(await request.text());
-        expect(form.get("grant_type")).toBe("refresh_token");
+        tokenForms.push(form);
         refreshGrants.count += 1;
         return answer();
       }
-      return new Response(null, { status: 404 });
+      unexpectedRequests.push(request);
+      throw new Error(
+        `Unexpected external request ${request.method} ${request.url}`,
+      );
     }),
   );
 }
@@ -170,15 +178,56 @@ const providerFailures = [
   ],
 ] as const;
 
-beforeEach(() => {
-  // SDK пишет тело отказа в свой журнал; проверка смотрит на ответы BFF, а не на журнал SDK.
+beforeEach(async () => {
+  refreshGrants = { count: 0 };
+  vi.setSystemTime(new Date("2030-03-01T12:00:00.000Z"));
+  scope = await realBffSession(null);
+  releaseImage = useProductionRuntimeImage();
+  vi.stubEnv("NODE_ENV", "production");
+  for (const [name, value] of Object.entries({
+    BACKEND_BASE_URL: "https://api-internal.example.test",
+    LOGTO_ENDPOINT: endpoint,
+    LOGTO_AUDIENCE: "https://api.example.test",
+    LOGTO_APP_ID: "inside-web",
+    LOGTO_APP_SECRET: "inside-web-confidential-secret",
+    LOGTO_COOKIE_SECRET: "logto-refresh-grant-test-cookie-secret",
+    WEB_BASE_URL: "https://inside.example.test",
+  }))
+    vi.stubEnv(name, value);
   vi.spyOn(console, "error").mockImplementation(() => undefined);
 });
 
 afterEach(() => {
-  cookieJar.clear();
-  cookieWrites.length = 0;
-  refreshGrants.count = 0;
+  try {
+    expect(unexpectedRequests).toEqual([]);
+    expect(unexpectedCookieWrites).toEqual([]);
+    for (const request of identityRequests) {
+      expect([
+        "https://identity.example.test/oidc/.well-known/openid-configuration",
+        "https://identity.example.test/oidc/token",
+      ]).toContain(request.url);
+      expect(request.method).toBe(
+        request.url.endsWith("/token") ? "POST" : "GET",
+      );
+    }
+    for (const form of tokenForms) {
+      expect(form.get("grant_type")).toBe("refresh_token");
+      expect(form.get("refresh_token")).toBe(
+        "refresh-token-provider-payload-canary-1005",
+      );
+      expect(form.get("resource")).toBe("https://api.example.test");
+    }
+  } finally {
+    cookieWrites.length = 0;
+    unexpectedCookieWrites.length = 0;
+    unexpectedRequests.length = 0;
+    identityRequests.length = 0;
+    tokenForms.length = 0;
+    observedSessions.length = 0;
+    releaseImage();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  }
 });
 
 describe.each(rejectedGrants)(
@@ -193,7 +242,7 @@ describe.each(rejectedGrants)(
     it("reports a guest and removes the BFF session cookie", async () => {
       await storeSessionNeedingRefresh();
 
-      const response = await authStatus();
+      const response = await withSession(authStatus);
 
       const text = await response.text();
       expect(JSON.parse(text)).toEqual({
@@ -205,13 +254,13 @@ describe.each(rejectedGrants)(
       expect(cookieWrites).toEqual([
         { name: sessionCookie, value: "", maxAge: 0 },
       ]);
-      expect(backend.resolveAccount).not.toHaveBeenCalled();
+      expect(unexpectedRequests).toEqual([]);
     });
 
     it("closes the Account with 401 and removes the BFF session cookie", async () => {
       await storeSessionNeedingRefresh();
 
-      const response = await accountPresentation();
+      const response = await withSession(accountPresentation);
 
       expect(response.status).toBe(401);
       expect(await response.json()).toEqual({
@@ -227,8 +276,8 @@ describe.each(rejectedGrants)(
       await storeSessionNeedingRefresh();
 
       const [status, account] = await Promise.all([
-        authStatus(),
-        accountPresentation(),
+        withSession(authStatus),
+        withSession(accountPresentation),
       ]);
 
       await expect(status.json()).resolves.toMatchObject({ state: "guest" });
@@ -243,7 +292,9 @@ describe.each(rejectedGrants)(
     it("treats a server render as a guest without writing cookies", async () => {
       await storeSessionNeedingRefresh();
 
-      await expect(getPlatformAccessTokenRsc(config)).rejects.toMatchObject({
+      await expect(
+        withSession(() => getPlatformAccessTokenRsc(config)),
+      ).rejects.toMatchObject({
         name: "LogtoSessionUnavailableError",
       });
       expect(cookieWrites).toEqual([]);
@@ -261,7 +312,7 @@ describe.each(providerFailures)(
     it("keeps the status unavailable and the BFF session cookie", async () => {
       const session = await storeSessionNeedingRefresh();
 
-      const response = await authStatus();
+      const response = await withSession(authStatus);
 
       const text = await response.text();
       expect(JSON.parse(text)).toEqual({
@@ -271,13 +322,13 @@ describe.each(providerFailures)(
       });
       expect(text).not.toContain(providerCanary);
       expect(cookieWrites).toEqual([]);
-      expect(cookieJar.get(sessionCookie)).toBe(session);
+      expect(observedSessions).toEqual([session]);
     });
 
     it("keeps the Account closed with 503", async () => {
       await storeSessionNeedingRefresh();
 
-      const response = await accountPresentation();
+      const response = await withSession(accountPresentation);
 
       expect(response.status).toBe(503);
       expect(await response.json()).toEqual({ kind: "identity_unavailable" });
