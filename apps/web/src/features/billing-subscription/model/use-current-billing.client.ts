@@ -1,12 +1,15 @@
 "use client";
-import { useEffect, useSyncExternalStore } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSyncExternalStore } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useAnnouncedRefresh } from "@/shared/api/use-announced-refresh.client";
 
 import {
   subscribeToCurrentBillingChanges,
   currentBillingQueryOptions,
-  resetCurrentBilling,
+  currentBillingQueryKey,
 } from "./current-billing";
+
+const billingAnnouncements = { subscribe: subscribeToCurrentBillingChanges };
 
 const subscribeToHydration = () => () => undefined;
 const readClientHydration = () => true;
@@ -28,16 +31,9 @@ export function useCurrentBilling({
     readClientHydration,
     readServerHydration,
   );
-  const queryClient = useQueryClient();
   const query = useQuery({ ...currentBillingQueryOptions(), enabled });
 
-  useEffect(
-    () =>
-      subscribeToCurrentBillingChanges(() => {
-        void resetCurrentBilling(queryClient);
-      }),
-    [queryClient],
-  );
+  useAnnouncedRefresh(billingAnnouncements, currentBillingQueryKey);
 
   // Рамка кабинета может прочитать billing раньше гидратации вложенной панели. Её первый
   // рендер всё равно повторяет пустой серверный снимок; затем она видит общий кеш без нового чтения.
