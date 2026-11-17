@@ -32,6 +32,7 @@ interface BackendReply {
   readonly method: string;
   readonly path: string;
   readonly response: Response;
+  request?: Request;
 }
 let replies: BackendReply[];
 let scope: Awaited<ReturnType<typeof realBffSession>>;
@@ -41,8 +42,14 @@ beforeEach(async () => {
   scope = await realBffSession("access-token");
   replies = [];
   backend.mockReset();
-  backend.mockImplementation(() => {
-    const reply = replies[backend.mock.calls.length - 1];
+  backend.mockImplementation((request) => {
+    const reply = replies.find(
+      (candidate) =>
+        candidate.request === undefined &&
+        candidate.method === request.method &&
+        request.url === `https://platform-api.example.test${candidate.path}`,
+    );
+    if (reply !== undefined) reply.request = request;
     return reply === undefined
       ? Promise.reject(new Error("Unexpected external request"))
       : Promise.resolve(reply.response);
@@ -52,8 +59,8 @@ beforeEach(async () => {
 afterEach(() => {
   try {
     expect(backend).toHaveBeenCalledTimes(replies.length);
-    replies.forEach((reply, index) => {
-      const request = backend.mock.calls[index]?.[0];
+    replies.forEach((reply) => {
+      const request = reply.request;
       if (request === undefined) throw new Error("Expected backend request");
       expect(request.method).toBe(reply.method);
       expect(request.url).toBe(
