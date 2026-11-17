@@ -323,6 +323,60 @@
       "file": "test/support/course-reading-router.ts",
       "source": "import { use, useSyncExternalStore } from \"react\";\n\nlet release: () => void;\nconst ready = new Promise<void>((resolve) => {\n  release = resolve;\n});\nexport function usePathname() {\n  return useSyncExternalStore(\n    (notify) => {\n      window.addEventListener(\"popstate\", notify);\n      return () => {\n        window.removeEventListener(\"popstate\", notify);\n      };\n    },\n    () => window.location.pathname,\n    () => window.location.pathname,\n  );\n}\nexport function useSearchParams() {\n  void ready;\n  return new URLSearchParams(window.location.search);\n}\nexport function releaseLocation() {\n  release();\n}\n",
       "diagnostic": "framework adapter API or behavior changed outside its accepted boundary"
+    },
+    {
+      "name": "SPEC-MOCK-1 dynamic own callable default",
+      "file": "test/module/substitution.test.ts",
+      "source": "const { executeCreateAccountProfile: create } = await import(\"@/_pages/account/api/create-account-profile\"); create({}, \"token\", async () => null);",
+      "diagnostic": "exercise own callable defaults"
+    },
+    {
+      "name": "SPEC-MOCK-1 dynamic own spy",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { vi } from \"vitest\"; const { sessionAdapter } = await import(\"@/shared/auth/session-adapter.server\"); vi.spyOn(sessionAdapter, \"accessToken\").mockResolvedValue(\"fake\");",
+      "diagnostic": "cannot replace own or SDK behavior"
+    },
+    {
+      "name": "SPEC-MOCK-2 transparent observer assignment",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { vi } from \"vitest\"; const state=vi.hoisted(()=>({loaded:vi.fn()})); state.loaded=()=>{throw new Error(\"replacement\")}; vi.mock(\"@/shared/auth/index.server\",async original=>{const module=await original();state.loaded(\"actual\");return module;});",
+      "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "SPEC-MOCK-2 transparent observer alias",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { vi } from \"vitest\"; const state=vi.hoisted(()=>({loaded:vi.fn()})); const alias=state.loaded; alias.mockImplementation(()=>{throw new Error(\"replacement\")}); vi.mock(\"@/shared/auth/index.server\",async original=>{const module=await original();state.loaded(\"actual\");return module;});",
+      "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "SPEC-MOCK-3 spy name chain",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { vi } from \"vitest\"; import { sessionAdapter } from \"@/shared/auth/session-adapter.server\"; vi.spyOn(sessionAdapter,\"accessToken\").mockName(\"auth\").mockResolvedValue(\"fake\");",
+      "diagnostic": "cannot replace own or SDK behavior"
+    },
+    {
+      "name": "SPEC-MOCK-4 dynamic handoff adapter",
+      "file": "test/module/substitution.test.ts",
+      "source": "const {useSearchParams}=await import(\"../support/course-reading-router\"); useSearchParams();",
+      "diagnostic": "framework adapters stay in their approved fixture contexts"
+    },
+    {
+      "name": "cache observation cannot change behavior later",
+      "file": "test/module/mutation-operation.test.ts",
+      "source": "import { vi } from \"vitest\"; const state=vi.hoisted(()=>({life:vi.fn(),tag:vi.fn(),invalidate:vi.fn()})); state.invalidate.mockImplementation(()=>{throw new Error(\"replacement\")}); vi.mock(\"next/cache\",()=>({cacheLife:state.life,cacheTag:state.tag,revalidateTag:state.invalidate}));",
+      "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "SPEC-MOCK-1 inline dynamic own default",
+      "file": "test/module/substitution.test.ts",
+      "source": "(await import(\"@/_pages/account/api/create-account-profile\")).executeCreateAccountProfile({},\"token\",async()=>null);",
+      "diagnostic": "exercise own callable defaults"
+    },
+    {
+      "name": "SPEC-MOCK-2 observer Object.assign",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { vi } from \"vitest\"; const state=vi.hoisted(()=>({loaded:vi.fn()})); Object.assign(state,{loaded:()=>{throw new Error(\"replacement\")}}); vi.mock(\"@/shared/auth/index.server\",async original=>{const module=await original();state.loaded(\"actual\");return module;});",
+      "diagnostic": "tests keep modules real"
     }
   ],
   "accepted": [
@@ -465,6 +519,21 @@
       "name": "framework adapter comments do not alter behavior",
       "file": ".storybook/mocks/next-navigation.ts",
       "source": "// vi.mock(\"own\") is a comment, not a call.\nimport { fn } from \"storybook/test\";\nimport { ReadonlyURLSearchParams } from \"next/dist/client/components/readonly-url-search-params\";\n\nexport { ReadonlyURLSearchParams };\n\nconst router = {\n  back: () => undefined,\n  forward: () => undefined,\n  prefetch: () => Promise.resolve(),\n  push: () => undefined,\n  refresh: () => undefined,\n  replace: () => undefined,\n};\n\nexport const usePathname = fn((): string => \"/\");\n\n/** Параметры маршрута: story задаёт их через `mocked(useParams).mockReturnValue(...)`. */\nexport const useParams = fn((): Record<string, string | string[]> => ({}));\n\nexport function useRouter() {\n  return router;\n}\n\n/** Story fixtures configure the external router before rendering production hooks. */\nexport function getStoryRouter() {\n  return router;\n}\n\nexport const useSearchParams = fn(\n  (): ReadonlyURLSearchParams => new ReadonlyURLSearchParams(),\n);\n"
+    },
+    {
+      "name": "dynamic own default stays real",
+      "file": "test/module/observation.test.ts",
+      "source": "const {executeCreateAccountProfile:create}=await import(\"@/_pages/account/api/create-account-profile\"); create({},\"token\");"
+    },
+    {
+      "name": "dynamic own namespace observation",
+      "file": "test/module/observation.test.ts",
+      "source": "import { vi } from \"vitest\"; const module=await import(\"@/shared/auth/session-adapter.server\"); vi.spyOn(module.sessionAdapter,\"accessToken\").mockName(\"actual\").mockClear();"
+    },
+    {
+      "name": "transparent observer alias only clears",
+      "file": "test/module/observation.test.ts",
+      "source": "import { vi } from \"vitest\"; const state=vi.hoisted(()=>({loaded:vi.fn()})); const alias=state.loaded; alias.mockClear(); vi.mock(\"@/shared/auth/index.server\",async original=>{const module=await original();state.loaded(\"actual\");return module;});"
     }
   ]
 }

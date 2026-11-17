@@ -8,6 +8,9 @@ import process from "node:process";
 import { fileURLToPath, URL } from "node:url";
 import { z } from "zod";
 
+import { commandExit } from "../../../scripts/diagnostic-command.mjs";
+import { spawnOwned, stopOwned } from "../../../scripts/owned-process.mjs";
+
 import { testSubstituteViolations } from "./test-substitutes.mts";
 
 const webRoot = fileURLToPath(new URL("..", import.meta.url));
@@ -277,7 +280,7 @@ for (const fixture of [
     );
 }
 
-// Code-as-data keeps deliberately forbidden calls outside runnable tests and their inventory.
+// Deliberate violations are data, not runnable substitutes: https://github.com/sachkov-inside/platform/issues/2292
 const substituteFixtures = z
   .object({
     rejected: z.array(
@@ -322,30 +325,76 @@ for (const fixture of substituteFixtures.accepted) {
 }
 assert.deepEqual(substituteFailures, [], "Web test substitute fixtures");
 
-// Also prove that the actual command invokes the policy, rather than only testing a helper.
 const substituteDirectory = mkdtempSync(
   path.join(tmpdir(), "platform-test-substitutes-"),
 );
+/** @type {NodeJS.Signals | undefined} */
+let substituteInterrupted;
+const substituteCliTimeoutMs = 30_000;
+const substituteCliStopGraceMs = 1_000;
 try {
   const fixture = substituteFixtures.rejected[0];
   assert.ok(fixture);
   const file = path.join(substituteDirectory, "substitution.test.ts");
   writeFileSync(file, fixture.source);
-  const result = spawnSync(
-    "node",
+  const child = spawnOwned(
+    process.execPath,
     ["scripts/check-web-architecture.mjs", file],
-    { cwd: webRoot, encoding: "utf8" },
+    { cwd: webRoot },
   );
-  if (result.error) throw result.error;
-  assert.notEqual(
-    result.status,
-    0,
-    "Architecture command must reject an own-module substitution",
-  );
-  assert.ok(`${result.stdout}${result.stderr}`.includes(fixture.diagnostic));
+  let timedOut = false;
+  let stdout = "";
+  let stderr = "";
+  const stop = () => {
+    void stopOwned(child, substituteCliStopGraceMs);
+  };
+  const onInterrupt = () => {
+    substituteInterrupted = "SIGINT";
+    stop();
+  };
+  const onTerminate = () => {
+    substituteInterrupted = "SIGTERM";
+    stop();
+  };
+  const deadline = setTimeout(() => {
+    timedOut = true;
+    stop();
+  }, substituteCliTimeoutMs);
+  process.once("SIGINT", onInterrupt);
+  process.once("SIGTERM", onTerminate);
+  try {
+    child.stdout?.on("data", (chunk) => {
+      stdout += String(chunk);
+    });
+    child.stderr?.on("data", (chunk) => {
+      stderr += String(chunk);
+    });
+    const status = await commandExit(child);
+    if (substituteInterrupted === undefined) {
+      assert.equal(
+        timedOut,
+        false,
+        "Architecture command exceeded its failure budget",
+      );
+      assert.equal(
+        status,
+        1,
+        "Architecture command must reject an own-module substitution",
+      );
+      assert.ok(`${stdout}${stderr}`.includes(fixture.diagnostic));
+    } else {
+      process.exitCode = substituteInterrupted === "SIGINT" ? 130 : 143;
+    }
+  } finally {
+    clearTimeout(deadline);
+    process.off("SIGINT", onInterrupt);
+    process.off("SIGTERM", onTerminate);
+    await stopOwned(child, substituteCliStopGraceMs);
+  }
 } finally {
   rmSync(substituteDirectory, { recursive: true, force: true });
 }
-process.stdout.write(
-  `Web test substitute guardrails passed (${substituteFixtures.rejected.length} rejected, ${substituteFixtures.accepted.length} accepted).\n`,
-);
+if (substituteInterrupted === undefined)
+  process.stdout.write(
+    `Web test substitute guardrails passed (${substituteFixtures.rejected.length} rejected, ${substituteFixtures.accepted.length} accepted).\n`,
+  );

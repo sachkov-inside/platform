@@ -11,6 +11,7 @@ interface Import {
 interface Module {
   file: string;
   fingerprint: string;
+  references: string[];
   imports: Map<string, Import>;
   definitions: Map<string, Node>;
   exports: Map<
@@ -27,7 +28,7 @@ interface Binding {
 }
 const webRoot = fileURLToPath(new URL("..", import.meta.url));
 const modules = new Map<string, Module>();
-// Explicit framework ports accepted in #2292 (85c0363), not a legacy own-module baseline.
+// Explicit framework ports: https://github.com/sachkov-inside/platform/issues/2292
 // AST fingerprints ignore comments, quotes and positions; API/body changes need a new decision.
 const frameworkAdapters = new Map([
   [
@@ -124,6 +125,7 @@ const extensions = [
 ];
 const modifications =
   /^(?:mockImplementation(?:Once)?|mockReturnValue(?:Once)?|mockResolvedValue(?:Once)?|mockRejectedValue(?:Once)?|withImplementation)$/u;
+const spyReturningMethods = new Set(["mockName", "mockClear", "mockReset"]);
 
 function unwrap(node: Node | null | undefined): Node | undefined {
   if (
@@ -161,6 +163,7 @@ function parse(file: string, source: string): Module {
     );
   const info: Module = {
     file,
+    references: [],
     fingerprint: createHash("sha256")
       .update(
         JSON.stringify(program, (key, value: unknown) =>
@@ -177,6 +180,13 @@ function parse(file: string, source: string): Module {
     nodes: [],
   };
   for (const statement of program.body) {
+    if (
+      (statement.type === "ImportDeclaration" ||
+        statement.type === "ExportAllDeclaration" ||
+        statement.type === "ExportNamedDeclaration") &&
+      statement.source
+    )
+      info.references.push(statement.source.value);
     if (
       statement.type === "ImportDeclaration" &&
       statement.importKind !== "type"
@@ -232,6 +242,30 @@ function parse(file: string, source: string): Module {
       info.nodes.push(node);
       if (node.id.type === "Identifier" && node.init)
         info.definitions.set(node.id.name, node.init);
+      const value = unwrap(node.init);
+      const source =
+        value?.type === "AwaitExpression" &&
+        value.argument.type === "ImportExpression"
+          ? literal(value.argument.source)
+          : undefined;
+      if (source !== undefined) {
+        if (node.id.type === "Identifier")
+          info.imports.set(node.id.name, { source, name: "*" });
+        if (node.id.type === "ObjectPattern")
+          for (const property of node.id.properties)
+            if (
+              property.type === "Property" &&
+              property.value.type === "Identifier"
+            )
+              info.imports.set(property.value.name, {
+                source,
+                name: name(property.key),
+              });
+      }
+    },
+    ImportExpression(node) {
+      const source = literal(node.source);
+      if (source !== undefined) info.references.push(source);
     },
     CallExpression(node) {
       info.nodes.push(node);
@@ -326,15 +360,23 @@ function binding(
 function calledBinding(info: Module, callee: Node): Binding | undefined {
   callee = unwrap(callee) ?? callee;
   if (callee.type === "Identifier") return binding(info, callee.name);
-  if (
-    callee.type === "MemberExpression" &&
-    callee.object.type === "Identifier"
-  ) {
-    const imported = info.imports.get(callee.object.name);
+  if (callee.type !== "MemberExpression") return undefined;
+  const object = unwrap(callee.object);
+  if (object?.type === "Identifier") {
+    const imported = info.imports.get(object.name);
     if (imported?.name === "*") {
       const target = localModule(info.file, imported.source);
       return target && exported(target, member(callee));
     }
+  }
+  if (
+    object?.type === "AwaitExpression" &&
+    object.argument.type === "ImportExpression"
+  ) {
+    const source = literal(object.argument.source);
+    const target =
+      source !== undefined ? localModule(info.file, source) : undefined;
+    return target && exported(target, member(callee));
   }
   return undefined;
 }
@@ -512,8 +554,8 @@ export function testSubstituteViolations(
     violations.add(
       "framework adapter API or behavior changed outside its accepted boundary",
     );
-  for (const imported of info.imports.values()) {
-    const resolved = localModule(info.file, imported.source);
+  for (const reference of new Set(info.references)) {
+    const resolved = localModule(info.file, reference);
     if (!resolved) continue;
     const target = path
       .relative(webRoot, resolved.file)
@@ -556,12 +598,23 @@ export function testSubstituteViolations(
     if (node?.type === "Identifier") return owned.has(node.name);
     if (node?.type === "MemberExpression") return rootOwn(node.object);
     if (
+      node?.type === "AwaitExpression" &&
+      node.argument.type === "ImportExpression"
+    )
+      return protectedImport(literal(node.argument.source) ?? "");
+    if (
       node?.type === "CallExpression" &&
       (apiMethod(node) === "mocked" ||
         (node.callee.type === "Identifier" &&
           mockedViews.has(node.callee.name)))
     )
       return rootOwn(node.arguments[0]);
+    if (
+      node?.type === "CallExpression" &&
+      node.callee.type === "MemberExpression" &&
+      spyReturningMethods.has(member(node.callee))
+    )
+      return rootOwn(node.callee.object);
     return false;
   };
   const apiMethod = (node: Node): string | undefined => {
@@ -581,11 +634,14 @@ export function testSubstituteViolations(
   };
   const ownSpy = (node: Node | null | undefined): boolean => {
     node = unwrap(node);
-    return node?.type === "Identifier"
-      ? spies.has(node.name)
-      : node?.type === "CallExpression" &&
-          apiMethod(node) === "spyOn" &&
-          rootOwn(node.arguments[0]);
+    if (node?.type === "Identifier") return spies.has(node.name);
+    if (node?.type !== "CallExpression") return false;
+    if (apiMethod(node) === "spyOn") return rootOwn(node.arguments[0]);
+    return (
+      node.callee.type === "MemberExpression" &&
+      spyReturningMethods.has(member(node.callee)) &&
+      ownSpy(node.callee.object)
+    );
   };
   for (let pass = 0; pass < 4; pass++)
     for (const node of info.nodes) {
@@ -675,26 +731,64 @@ export function testSubstituteViolations(
     }
     return false;
   };
-  const observationKey = (node: Node | undefined): string => {
-    if (node?.type === "Identifier") return node.name;
+  const observationKey = (
+    node: Node | undefined,
+    seen = new Set<string>(),
+  ): string => {
+    if (node?.type === "Identifier") {
+      if (seen.has(node.name)) return node.name;
+      seen.add(node.name);
+      const value = info.definitions.get(node.name);
+      return value?.type === "Identifier" || value?.type === "MemberExpression"
+        ? observationKey(value, seen)
+        : node.name;
+    }
     if (node?.type === "MemberExpression") {
-      const root = observationKey(node.object);
+      const root = observationKey(node.object, seen);
       return root.length > 0 && member(node).length > 0
         ? `${root}.${member(node)}`
         : "";
+    }
+    if (node?.type === "CallExpression") {
+      if (apiMethod(node) === "mocked")
+        return observationKey(node.arguments[0], seen);
+      if (
+        node.callee.type === "MemberExpression" &&
+        spyReturningMethods.has(member(node.callee))
+      )
+        return observationKey(node.callee.object, seen);
     }
     return "";
   };
   const unchangedObservation = (node: Node): boolean => {
     if (!emptyMock(node)) return false;
     const key = observationKey(node);
-    return !info.nodes.some(
-      (candidate) =>
-        candidate.type === "CallExpression" &&
-        candidate.callee.type === "MemberExpression" &&
-        modifications.test(member(candidate.callee)) &&
-        observationKey(candidate.callee.object) === key,
-    );
+    if (key.length === 0) return true;
+    const changesRoot = (node: Node | undefined): boolean => {
+      const target = observationKey(node);
+      return (
+        target.length > 0 && (target === key || key.startsWith(`${target}.`))
+      );
+    };
+    return !info.nodes.some((candidate) => {
+      if (candidate.type === "AssignmentExpression")
+        return changesRoot(candidate.left);
+      if (
+        candidate.type !== "CallExpression" ||
+        candidate.callee.type !== "MemberExpression"
+      )
+        return false;
+      if (modifications.test(member(candidate.callee)))
+        return observationKey(candidate.callee.object) === key;
+      return (
+        candidate.callee.object.type === "Identifier" &&
+        ["Object", "Reflect"].includes(candidate.callee.object.name) &&
+        ["assign", "defineProperty", "set"].includes(
+          member(candidate.callee),
+        ) &&
+        changesRoot(candidate.arguments[0])
+      );
+    });
   };
   const platformFactory = (
     target: string,
@@ -722,9 +816,10 @@ export function testSubstituteViolations(
           "test/module/mutation-operation.test.ts",
         ].includes(sourcePath) &&
         properties?.size === 3 &&
-        ["cacheLife", "cacheTag", "revalidateTag"].every((key) =>
-          emptyMock(properties.get(key)),
-        )
+        ["cacheLife", "cacheTag", "revalidateTag"].every((key) => {
+          const value = properties.get(key);
+          return value !== undefined && unchangedObservation(value);
+        })
       );
     if (target !== "next/server") return false;
     if (properties?.size === 1 && properties.has("after"))
