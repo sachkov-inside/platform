@@ -127,7 +127,7 @@ describe("Profile Avatar capability route", () => {
     vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) =>
       backendFetch(new Request(input, init)),
     );
-    backendFetch.mockImplementation(async () =>
+    backendFetch.mockResolvedValue(
       Response.json(
         { profile },
         { headers: { "content-type": "application/json" } },
