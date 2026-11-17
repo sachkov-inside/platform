@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { beginTelegramLink } from "../api/begin-telegram-link.browser";
 import { confirmTelegramLink } from "../api/confirm-telegram-link.browser";
@@ -10,15 +10,20 @@ import {
   resolveTelegramLinkDeepLink,
 } from "./telegram-link-session.browser";
 
+interface TelegramLinkBrowser {
+  opening: { readonly popup: Window | null } | null;
+}
+
 export function useTelegramLinkFlow(onRefresh: () => Promise<void>) {
   const [deepLink, setDeepLink] = useState<string | null>(null);
   const [automaticConfirmation, setAutomaticConfirmation] = useState(false);
   const automaticLinkRef = useRef<string | null>(null);
   const automaticConfirmInFlight = useRef(false);
-  const confirmOnReturn = useRef<() => void>(() => undefined);
+  const browser = useRef<TelegramLinkBrowser | null>(null);
   const beginMutation = useMutation({
     mutationFn: beginTelegramLink,
   });
+  const { reset: resetBegin } = beginMutation;
   const confirmMutation = useMutation({
     mutationFn: confirmTelegramLink,
   });
@@ -36,13 +41,18 @@ export function useTelegramLinkFlow(onRefresh: () => Promise<void>) {
   };
 
   const begin = async () => {
-    beginMutation.reset();
+    const active = browser.current;
+    if (active?.opening !== null) return;
+    resetBegin();
     confirmMutation.reset();
     clearAutomaticConfirmation();
     const telegramWindow = window.open("about:blank", "_blank");
+    const opening = { popup: telegramWindow };
+    active.opening = opening;
     if (telegramWindow !== null) telegramWindow.opener = null;
     try {
       const result = await beginMutation.mutateAsync();
+      if (browser.current !== active) return;
       const resolvedDeepLink =
         result.kind === "received"
           ? resolveTelegramLinkDeepLink(result.state)
@@ -60,16 +70,20 @@ export function useTelegramLinkFlow(onRefresh: () => Promise<void>) {
       } else {
         telegramWindow?.close();
       }
+      active.opening = null;
       await onRefresh();
     } catch {
-      telegramWindow?.close();
+      if (browser.current === active) {
+        telegramWindow?.close();
+        if (active.opening === opening) active.opening = null;
+      }
     }
   };
 
   const runConfirmation = async (linkRef: string, automatic: boolean) => {
     if (automatic && automaticConfirmInFlight.current) return;
     if (automatic) automaticConfirmInFlight.current = true;
-    beginMutation.reset();
+    resetBegin();
     confirmMutation.reset();
     try {
       const result = await confirmMutation.mutateAsync(linkRef);
@@ -103,37 +117,42 @@ export function useTelegramLinkFlow(onRefresh: () => Promise<void>) {
     void runConfirmation(linkRef, false);
   };
   const refresh = () => {
-    beginMutation.reset();
+    resetBegin();
     confirmMutation.reset();
     clearAutomaticConfirmation();
     refreshMutation.mutate();
   };
 
-  useEffect(() => {
-    confirmOnReturn.current = () => {
-      const linkRef = automaticLinkRef.current;
-      if (
-        linkRef === null ||
-        document.visibilityState !== "visible" ||
-        automaticConfirmInFlight.current
-      ) {
-        return;
-      }
-      void runConfirmation(linkRef, true);
-    };
+  const confirmOnReturn = useEffectEvent(() => {
+    const linkRef = automaticLinkRef.current;
+    if (
+      linkRef === null ||
+      document.visibilityState !== "visible" ||
+      automaticConfirmInFlight.current
+    ) {
+      return;
+    }
+    void runConfirmation(linkRef, true);
   });
 
   useEffect(() => {
+    const active: TelegramLinkBrowser = { opening: null };
+    browser.current = active;
     const handleReturn = () => {
-      confirmOnReturn.current();
+      confirmOnReturn();
     };
     window.addEventListener("focus", handleReturn);
     document.addEventListener("visibilitychange", handleReturn);
     return () => {
+      browser.current = null;
       window.removeEventListener("focus", handleReturn);
       document.removeEventListener("visibilitychange", handleReturn);
+      if (active.opening !== null) {
+        active.opening.popup?.close();
+        resetBegin();
+      }
     };
-  }, []);
+  }, [resetBegin]);
 
   return {
     automaticConfirmation,

@@ -48,6 +48,7 @@ import { salesCatalogRoute } from "./sales-catalog-backend.mjs";
 import { authoringOverviewRoute } from "./authoring-overview-backend.mjs";
 import { learningScenarioRoute } from "./learning-scenario-backend.mjs";
 import { commerceScenarioRoute } from "./commerce-scenario-backend.mjs";
+import { accountAccessRoute } from "./account-access-backend.mjs";
 
 // Request bodies the checks send to the double; a malformed body fails the request.
 const controlSchema = z
@@ -1189,6 +1190,9 @@ const server = createServer(async (request, response) => {
     });
     response.end(JSON.stringify(value));
   };
+  const accountAccess = await accountAccessRoute(request, url);
+  if (accountAccess !== null)
+    return send(accountAccess.status, accountAccess.value);
   // Вход в админку (#1879): у вошедшего автора двойника есть все права, отказы разделов
   // отвечают двойники самих разделов. Проверка входа не попадает в журнал запросов.
   if (url.pathname === "/accounts/current/permissions") {
