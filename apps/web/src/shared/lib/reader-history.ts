@@ -22,21 +22,29 @@ let pending:
   { target: string; origin?: Origin; restoreFrom?: string } | undefined;
 let activeEntryId: string | undefined;
 let cancelPendingRestoration: () => void = () => undefined;
+const mountedRails = new WeakMap<
+  ParentNode,
+  { readonly chapters: readonly string[] }
+>();
 let pendingRailRestoration:
-  | { readonly root: ParentNode; reveal(chapters: readonly string[]): void }
-  | undefined;
+  { readonly root: ParentNode; request(): void } | undefined;
 let preservationInstalled = false;
 export function resetReaderHistoryActivation() {
   cancelPendingRestoration();
   activeEntryId = undefined;
 }
-/** A mounted rail can receive the request before its selected chapter commits (#2330). */
+/** The mounted rail owns availability until its subscription disconnects (#2330). */
 export function readerHistoryRailReady(
   root: ParentNode,
   availableChapters: readonly string[],
 ) {
-  if (pendingRailRestoration?.root === root)
-    pendingRailRestoration.reveal(availableChapters);
+  const owner = liveReaderRoot(root);
+  const readiness = { chapters: [...availableChapters] };
+  mountedRails.set(owner, readiness);
+  if (pendingRailRestoration?.root === owner) pendingRailRestoration.request();
+  return () => {
+    if (mountedRails.get(owner) === readiness) mountedRails.delete(owner);
+  };
 }
 
 const key = (id: string) => `inside-reader-entry:${id}`;
@@ -94,12 +102,23 @@ function path(href: string) {
 
 export function readerHistoryRoot(element: Element): Element {
   return (
+    element.closest('[data-reader-history-rail="none"]') ??
     element.closest("[data-course-reading-host]") ??
-    element.closest(
-      "[data-material-id], [data-course-reading], [data-product-task]",
-    ) ??
+    element.closest("[data-course-reading]") ??
+    element.closest("[data-material-id], [data-product-task]") ??
     element.parentElement ??
     element
+  );
+}
+
+function liveReaderRoot(root: ParentNode): ParentNode {
+  return root instanceof Element ? readerHistoryRoot(root) : root;
+}
+function hasNoCourse(root: ParentNode): boolean {
+  const selector = '[data-reader-history-rail="none"]';
+  if (root instanceof Element) return root.matches(selector);
+  return [...root.querySelectorAll(selector)].some(
+    (node) => node.getClientRects().length > 0,
   );
 }
 
@@ -107,6 +126,7 @@ export function readerHistoryRoot(element: Element): Element {
 export function saveReaderHistoryView(root: ParentNode = document) {
   const current = entry();
   if (current === undefined || current.href !== window.location.href) return;
+  root = liveReaderRoot(root);
   const rail = root.querySelector<HTMLElement>("[data-course-rail-scroll]");
   const view = {
     href: window.location.href,
@@ -165,8 +185,16 @@ export function enterReaderHistory(
     (restoreFrom === undefined && view.href !== window.location.href)
   )
     return;
+  const anchor = root;
   let waitingForView = true;
-  let requiredChapter = view.chapter;
+  let observedRoot: ParentNode | undefined;
+  const targetChapter = (scope: ParentNode) => {
+    if (view.chapter === undefined || hasNoCourse(scope)) return undefined;
+    const available = mountedRails.get(scope);
+    return available !== undefined && !available.chapters.includes(view.chapter)
+      ? undefined
+      : view.chapter;
+  };
   const stop = () => {
     release();
     if (!waitingForView) return;
@@ -179,41 +207,53 @@ export function enterReaderHistory(
       stop();
       return;
     }
-    const chapter = root.querySelector<HTMLElement>("[data-course-chapter]");
+    const scope = liveReaderRoot(anchor);
+    if (observedRoot !== scope) {
+      observer.disconnect();
+      observedRoot = scope;
+      if (scope instanceof Node)
+        observer.observe(scope, {
+          subtree: true,
+          childList: true,
+          attributes: true,
+          attributeFilter: [
+            "data-course-chapter",
+            "data-course-reading",
+            "data-course-reading-host",
+            "data-reader-history-rail",
+            "hidden",
+            "style",
+          ],
+        });
+    }
+    const requiredChapter = targetChapter(scope);
+    const chapter = scope.querySelector<HTMLElement>("[data-course-chapter]");
     if (
       requiredChapter !== undefined &&
-      chapter !== null &&
-      chapter.dataset["courseChapter"] !== requiredChapter
+      (chapter === null || chapter.dataset["courseChapter"] !== requiredChapter)
     )
       return;
     // A desktop rail may be hidden while its reader is visible (#2330).
-    const visible = root instanceof Element ? root : document.documentElement;
+    const visible = scope instanceof Element ? scope : document.documentElement;
     if (visible.getClientRects().length === 0) return;
-    scrollShellRootsTo(view, root);
-    root
-      .querySelector("[data-course-rail-scroll]")
-      ?.scrollTo({ top: view.railY, behavior: "instant" });
+    scrollShellRootsTo(view, scope);
+    if (!hasNoCourse(scope))
+      scope
+        .querySelector("[data-course-rail-scroll]")
+        ?.scrollTo({ top: view.railY, behavior: "instant" });
     waitingForView = false;
     release();
   };
   const observer = new MutationObserver(restore);
-  if (root instanceof Node)
-    observer.observe(root, {
-      subtree: true,
-      childList: true,
-      attributes: true,
-      attributeFilter: ["data-course-chapter", "hidden", "style"],
-    });
   const readiness = {
-    root,
-    reveal: (availableChapters: readonly string[]) => {
-      if (
-        requiredChapter !== undefined &&
-        !availableChapters.includes(requiredChapter)
-      )
-        requiredChapter = undefined;
+    get root() {
+      return liveReaderRoot(anchor);
+    },
+    request: () => {
       window.dispatchEvent(
-        new CustomEvent(readerHistoryRestoreEvent, { detail: requiredChapter }),
+        new CustomEvent(readerHistoryRestoreEvent, {
+          detail: targetChapter(liveReaderRoot(anchor)),
+        }),
       );
       restore();
     },
@@ -227,10 +267,7 @@ export function enterReaderHistory(
   };
   pendingRailRestoration = readiness;
   cancelPendingRestoration = stop;
-  window.dispatchEvent(
-    new CustomEvent(readerHistoryRestoreEvent, { detail: view.chapter }),
-  );
-  restore();
+  readiness.request();
   return stop;
 }
 

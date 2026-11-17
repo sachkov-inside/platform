@@ -27,6 +27,7 @@
       let signalBeforeEnter = false;
       let availableChapters = ["first", "second"];
       let stopRail;
+      let confirmedNoCourse = false;
       function commitChapter(id) {
         const root = document.querySelector("[data-reader-history-root]");
         root.querySelector("[data-course-chapter]").dataset.courseChapter = id;
@@ -42,7 +43,10 @@
         stopRail?.();
         stopRail = undefined;
         const supplementary = location.pathname.startsWith("/materials/");
-        document.body.innerHTML = `<section hidden><aside data-course-chapter="stale"><div data-course-rail-scroll></div></aside></section><div data-reader-history-root data-course-reading-host><h1>${location.pathname}</h1>${missingRail && !supplementary ? "" : railMarkup(supplementary)}<main data-material-id="current" data-application-content style="height:400px;overflow:auto"><div style="height:1600px"><a id="project" href="/materials/project${context}">Project</a> <a id="brief" href="/materials/brief${context}">Brief</a> <a id="return" href="${readerOriginHref(source) ?? source}">Return</a><p>Document body</p><button id="defer-chapter">Wait for the next chapter</button><button id="ready-chapter">Commit the requested chapter</button><button id="defer-listener">Wait for the chapter subscription</button><button id="connect-listener">Connect the chapter subscription</button><button id="disconnect-tracker">Disconnect the reader</button><button id="forget-chapter">Use remaining chapters</button><button id="hide-rail">Hide the optional rail</button><button id="early-deleted">The remaining rail is ready before the reader</button><button id="missing-rail">Wait for the rail to mount</button><button id="mount-rail">Mount the rail</button></div></main></div>`;
+        const ownership = location.search.includes("localFrame=1")
+          ? "data-course-reading"
+          : "data-course-reading-host";
+        document.body.innerHTML = `<section hidden><aside data-course-chapter="stale"><div data-course-rail-scroll></div></aside></section><div data-reader-history-root ${ownership} ${confirmedNoCourse && !supplementary ? 'data-reader-history-rail="none"' : ""}><h1>${location.pathname}</h1>${missingRail && !supplementary ? "" : railMarkup(supplementary)}<main data-material-id="current" data-application-content style="height:400px;overflow:auto"><div style="height:1600px"><a id="project" href="/materials/project${context}">Project</a> <a id="brief" href="/materials/brief${context}">Brief</a> <a id="return" href="${readerOriginHref(source) ?? source}">Return</a><p>Document body</p><button id="defer-chapter">Wait for the next chapter</button><button id="ready-chapter">Commit the requested chapter</button><button id="defer-listener">Wait for the chapter subscription</button><button id="connect-listener">Connect the chapter subscription</button><button id="disconnect-tracker">Disconnect the reader</button><button id="forget-chapter">Use remaining chapters</button><button id="hide-rail">Hide the optional rail</button><button id="early-deleted">The remaining rail is ready before the reader</button><button id="missing-rail">Wait for the rail to mount</button><button id="mount-rail">Mount the rail</button><button id="no-course">The reader no longer has a course</button><button id="save-current">Remember the current view</button><button id="register-remaining">Connect the remaining chapters</button><button id="disconnect-ready">Disconnect chapter availability</button><button id="restore-current">Restore this entry again</button></div></main></div>`;
         if (signalBeforeEnter)
           stopRail = historyLifecycle.readerHistoryRailReady?.(
             document.querySelector("[data-reader-history-root]"),
@@ -70,6 +74,44 @@
           );
       }
       document.addEventListener("click", (event) => {
+        const currentRoot = document.querySelector(
+          "[data-reader-history-root]",
+        );
+        if (event.target.closest("#save-current")) {
+          saveReaderHistoryView(currentRoot);
+          return;
+        }
+        if (event.target.closest("#register-remaining")) {
+          availableChapters = ["first"];
+          stopRail = historyLifecycle.readerHistoryRailReady?.(
+            currentRoot,
+            availableChapters,
+          );
+          return;
+        }
+        if (event.target.closest("#disconnect-ready")) {
+          stopRail?.();
+          stopRail = undefined;
+          listenerReady = false;
+          currentRoot.querySelector(
+            "[data-course-chapter]",
+          ).dataset.courseChapter = "first";
+          return;
+        }
+        if (event.target.closest("#restore-current")) {
+          stopTracking?.();
+          historyLifecycle.resetReaderHistoryActivation();
+          currentRoot.querySelector("main").scrollTop = 0;
+          stopTracking = enterReaderHistory(undefined, currentRoot);
+          return;
+        }
+        if (event.target.closest("#no-course")) {
+          confirmedNoCourse = true;
+          missingRail = true;
+          listenerReady = false;
+          availableChapters = [];
+          return;
+        }
         if (event.target.closest("#early-deleted")) {
           signalBeforeEnter = true;
           deferredChapter = true;
@@ -121,6 +163,7 @@
           return;
         }
         if (event.target.closest("#connect-listener")) {
+          availableChapters = ["first", "second"];
           listenerReady = true;
           deferredChapter = false;
           // Feature detection keeps this public consumer usable for immutable-base regression runs.

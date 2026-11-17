@@ -1,4 +1,8 @@
-import { expect as browserExpect, type Browser } from "@playwright/test";
+import {
+  expect as browserExpect,
+  type Browser,
+  type Page,
+} from "@playwright/test";
 import { createOwnedBrowserFixture } from "../support/owned-browser-fixture";
 import { afterAll, beforeAll, test } from "vitest";
 
@@ -16,6 +20,26 @@ function browserFor(name: string): Browser {
   const browser = browsers.get(name);
   if (browser === undefined) throw new Error(`Missing fixture browser ${name}`);
   return browser;
+}
+
+async function scrollReaderTo(page: Page, top: number) {
+  await page.locator("main").evaluate(
+    (element, position) =>
+      new Promise<void>((resolve) => {
+        if (element.scrollTop === position) {
+          resolve();
+          return;
+        }
+        element.addEventListener("scroll", () => resolve(), { once: true });
+        element.scrollTop = position;
+      }),
+    top,
+  );
+}
+
+function suspendReaderFrames() {
+  window.requestAnimationFrame = () => 0;
+  window.cancelAnimationFrame = () => undefined;
 }
 
 for (const name of ["chromium", "webkit"] as const)
@@ -135,10 +159,7 @@ for (const name of ["chromium", "webkit"] as const)
     try {
       const page = await context.newPage();
       // Time is the substitute: an already committed document needs no frame-count barrier.
-      await page.addInitScript(() => {
-        window.requestAnimationFrame = () => 0;
-        window.cancelAnimationFrame = () => undefined;
-      });
+      await page.addInitScript(suspendReaderFrames);
       const source = `${baseURL}/products/course/tasks/start?attemptsAfter=older#submission`;
       await page.goto(source);
       await page.waitForFunction(() => "readerHistoryReady" in window);
@@ -182,10 +203,7 @@ for (const name of ["chromium", "webkit"] as const)
     const context = await browserFor(name).newContext();
     try {
       const page = await context.newPage();
-      await page.addInitScript(() => {
-        window.requestAnimationFrame = () => 0;
-        window.cancelAnimationFrame = () => undefined;
-      });
+      await page.addInitScript(suspendReaderFrames);
       const source = `${baseURL}/products/course/tasks/start`;
       await page.goto(source);
       await page.waitForFunction(() => "readerHistoryReady" in window);
@@ -247,10 +265,7 @@ for (const name of ["chromium", "webkit"] as const)
     const context = await browserFor(name).newContext();
     try {
       const page = await context.newPage();
-      await page.addInitScript(() => {
-        window.requestAnimationFrame = () => 0;
-        window.cancelAnimationFrame = () => undefined;
-      });
+      await page.addInitScript(suspendReaderFrames);
       const source = `${baseURL}/products/course/tasks/start`;
       await page.goto(source);
       await page.waitForFunction(() => "readerHistoryReady" in window);
@@ -398,10 +413,7 @@ for (const name of ["chromium", "webkit"] as const)
     const context = await browserFor(name).newContext();
     try {
       const page = await context.newPage();
-      await page.addInitScript(() => {
-        window.requestAnimationFrame = () => 0;
-        window.cancelAnimationFrame = () => undefined;
-      });
+      await page.addInitScript(suspendReaderFrames);
       const source = `${baseURL}/products/course/tasks/start`;
       await page.goto(source);
       await page.waitForFunction(() => "readerHistoryReady" in window);
@@ -450,10 +462,7 @@ for (const name of ["chromium", "webkit"] as const)
     const context = await browserFor(name).newContext();
     try {
       const page = await context.newPage();
-      await page.addInitScript(() => {
-        window.requestAnimationFrame = () => 0;
-        window.cancelAnimationFrame = () => undefined;
-      });
+      await page.addInitScript(suspendReaderFrames);
       const source = `${baseURL}/products/course/tasks/start`;
       await page.goto(source);
       await page.waitForFunction(() => "readerHistoryReady" in window);
@@ -508,10 +517,7 @@ for (const name of ["chromium", "webkit"] as const)
     const context = await browserFor(name).newContext();
     try {
       const page = await context.newPage();
-      await page.addInitScript(() => {
-        window.requestAnimationFrame = () => 0;
-        window.cancelAnimationFrame = () => undefined;
-      });
+      await page.addInitScript(suspendReaderFrames);
       const source = `${baseURL}/products/course/tasks/start`;
       await page.goto(source);
       await page.waitForFunction(() => "readerHistoryReady" in window);
@@ -551,10 +557,7 @@ for (const name of ["chromium", "webkit"] as const)
     const context = await browserFor(name).newContext();
     try {
       const page = await context.newPage();
-      await page.addInitScript(() => {
-        window.requestAnimationFrame = () => 0;
-        window.cancelAnimationFrame = () => undefined;
-      });
+      await page.addInitScript(suspendReaderFrames);
       const source = `${baseURL}/products/course/tasks/start`;
       await page.goto(source);
       await page.waitForFunction(() => "readerHistoryReady" in window);
@@ -588,10 +591,7 @@ for (const name of ["chromium", "webkit"] as const)
     const context = await browserFor(name).newContext();
     try {
       const page = await context.newPage();
-      await page.addInitScript(() => {
-        window.requestAnimationFrame = () => 0;
-        window.cancelAnimationFrame = () => undefined;
-      });
+      await page.addInitScript(suspendReaderFrames);
       const source = `${baseURL}/products/course/tasks/start`;
       await page.goto(source);
       await page.waitForFunction(() => "readerHistoryReady" in window);
@@ -624,10 +624,7 @@ for (const name of ["chromium", "webkit"] as const)
     const context = await browserFor(name).newContext();
     try {
       const page = await context.newPage();
-      await page.addInitScript(() => {
-        window.requestAnimationFrame = () => 0;
-        window.cancelAnimationFrame = () => undefined;
-      });
+      await page.addInitScript(suspendReaderFrames);
       const source = `${baseURL}/products/course/tasks/start`;
       await page.goto(source);
       await page.waitForFunction(() => "readerHistoryReady" in window);
@@ -671,6 +668,182 @@ for (const name of ["chromium", "webkit"] as const)
             .evaluate((element) => element.scrollTop),
         )
         .toBe(100);
+    } finally {
+      await context.close();
+    }
+  }, 30_000);
+
+for (const name of ["chromium", "webkit"] as const)
+  test(`${name} owns the local course frame instead of its inner material when saving rail history`, async () => {
+    const context = await browserFor(name).newContext();
+    try {
+      const page = await context.newPage();
+      await page.addInitScript(suspendReaderFrames);
+      const source = `${baseURL}/products/course/tasks/start?localFrame=1`;
+      await page.goto(source);
+      await page.waitForFunction(() => "readerHistoryReady" in window);
+      await page.locator("main").evaluate((element) => {
+        element.scrollTop = 600;
+      });
+      await page
+        .locator("[data-reader-history-root] [data-course-rail-scroll]")
+        .evaluate((element) => {
+          element.scrollTop = 100;
+        });
+      await page.locator("#project").dispatchEvent("click", { button: 0 });
+      await page.locator("#return").click();
+      await browserExpect(page).toHaveURL(source);
+      await browserExpect
+        .poll(() =>
+          page.locator("main").evaluate((element) => element.scrollTop),
+        )
+        .toBe(600);
+      await browserExpect
+        .poll(() =>
+          page
+            .locator("[data-reader-history-root] [data-course-rail-scroll]")
+            .evaluate((element) => element.scrollTop),
+        )
+        .toBe(100);
+    } finally {
+      await context.close();
+    }
+  }, 30_000);
+
+for (const name of ["chromium", "webkit"] as const)
+  test(`${name} preserves the main position when the composition explicitly has no course`, async () => {
+    const context = await browserFor(name).newContext();
+    try {
+      const page = await context.newPage();
+      await page.addInitScript(suspendReaderFrames);
+      const source = `${baseURL}/products/course/tasks/start`;
+      await page.goto(source);
+      await page.waitForFunction(() => "readerHistoryReady" in window);
+      await page.locator("main").evaluate((element) => {
+        element.scrollTop = 600;
+      });
+      await page.locator("#project").dispatchEvent("click", { button: 0 });
+      await page
+        .getByRole("button", { name: "The reader no longer has a course" })
+        .dispatchEvent("click");
+      await page.locator("#return").click();
+      await browserExpect(page).toHaveURL(source);
+      await browserExpect(
+        page.locator("[data-reader-history-root] [data-course-chapter]"),
+      ).toHaveCount(0);
+      await browserExpect
+        .poll(() =>
+          page.locator("main").evaluate((element) => element.scrollTop),
+        )
+        .toBe(600);
+    } finally {
+      await context.close();
+    }
+  }, 30_000);
+
+for (const name of ["chromium", "webkit"] as const)
+  test(`${name} withdraws a disconnected rail's availability while retaining the reader root`, async () => {
+    const context = await browserFor(name).newContext();
+    try {
+      const page = await context.newPage();
+      await page.addInitScript(suspendReaderFrames);
+      const source = `${baseURL}/products/course/tasks/start`;
+      await page.goto(source);
+      await page.waitForFunction(() => "readerHistoryReady" in window);
+      // The fixture saves on scroll; settle that input before replacing the chapter DOM.
+      await scrollReaderTo(page, 600);
+      await page
+        .locator("[data-reader-history-root] [data-course-rail-scroll]")
+        .evaluate((element) => {
+          element.scrollTop = 100;
+        });
+      await page
+        .getByRole("button", { name: "Remember the current view" })
+        .dispatchEvent("click");
+      await page
+        .getByRole("button", { name: "Connect the remaining chapters" })
+        .dispatchEvent("click");
+      await page
+        .getByRole("button", { name: "Disconnect chapter availability" })
+        .dispatchEvent("click");
+      await page
+        .getByRole("button", { name: "Restore this entry again" })
+        .dispatchEvent("click");
+      await browserExpect
+        .poll(() =>
+          page.locator("main").evaluate((element) => element.scrollTop),
+        )
+        .toBe(0);
+      await page
+        .getByRole("button", { name: "Connect the chapter subscription" })
+        .dispatchEvent("click");
+      await browserExpect(
+        page.locator("[data-reader-history-root] [data-course-chapter]"),
+      ).toHaveAttribute("data-course-chapter", "second");
+      await browserExpect
+        .poll(() =>
+          page.locator("main").evaluate((element) => element.scrollTop),
+        )
+        .toBe(600);
+      await browserExpect
+        .poll(() =>
+          page
+            .locator("[data-reader-history-root] [data-course-rail-scroll]")
+            .evaluate((element) => element.scrollTop),
+        )
+        .toBe(100);
+    } finally {
+      await context.close();
+    }
+  }, 30_000);
+
+for (const name of ["chromium", "webkit"] as const)
+  test(`${name} preserves the reader's real wheel scroll after chapter availability disconnects`, async () => {
+    const context = await browserFor(name).newContext();
+    try {
+      const page = await context.newPage();
+      await page.addInitScript(suspendReaderFrames);
+      const source = `${baseURL}/products/course/tasks/start`;
+      await page.goto(source);
+      await page.waitForFunction(() => "readerHistoryReady" in window);
+      await scrollReaderTo(page, 600);
+      await page
+        .getByRole("button", { name: "Remember the current view" })
+        .dispatchEvent("click");
+      await page
+        .getByRole("button", { name: "Connect the remaining chapters" })
+        .dispatchEvent("click");
+      await page
+        .getByRole("button", { name: "Disconnect chapter availability" })
+        .dispatchEvent("click");
+      const content = page.locator("main");
+      await content.evaluate((element) => {
+        const settled = () => {
+          if (element.scrollTop !== 500) return;
+          if (element instanceof HTMLElement)
+            element.dataset["userScrollObserved"] = "yes";
+          element.removeEventListener("scroll", settled);
+        };
+        element.addEventListener("scroll", settled);
+      });
+      await content.hover();
+      await page.mouse.wheel(0, -100);
+      await browserExpect(content).toHaveAttribute(
+        "data-user-scroll-observed",
+        "yes",
+      );
+      await browserExpect
+        .poll(() => content.evaluate((element) => element.scrollTop))
+        .toBe(500);
+      await page
+        .getByRole("button", { name: "Restore this entry again" })
+        .dispatchEvent("click");
+      await browserExpect(
+        page.locator("[data-reader-history-root] [data-course-chapter]"),
+      ).toHaveAttribute("data-course-chapter", "first");
+      await browserExpect
+        .poll(() => content.evaluate((element) => element.scrollTop))
+        .toBe(500);
     } finally {
       await context.close();
     }

@@ -146,7 +146,11 @@ export function CourseReadingLayout({
   }, [displayedContext, publish, supplementaryTitle]);
   if (displayedContext === null)
     return (
-      <div ref={content} className={styles["standalone"]}>
+      <div
+        ref={content}
+        className={styles["standalone"]}
+        data-reader-history-rail="none"
+      >
         {children}
       </div>
     );
@@ -371,12 +375,15 @@ export function CourseRail({
       });
     };
     window.addEventListener(readerHistoryRestoreEvent, restore);
-    if (variant === "rail" && rail.current !== null)
-      readerHistoryRailReady(
-        readerHistoryRoot(rail.current),
-        context.chapters.map((chapter) => chapter.id),
-      );
+    const releaseReadiness =
+      variant === "rail" && rail.current !== null
+        ? readerHistoryRailReady(
+            readerHistoryRoot(rail.current),
+            context.chapters.map((chapter) => chapter.id),
+          )
+        : undefined;
     return () => {
+      releaseReadiness?.();
       window.removeEventListener(readerHistoryRestoreEvent, restore);
     };
   }, [context.chapters, selectionKey, setSelection, variant]);
