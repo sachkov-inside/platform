@@ -1,5 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { configureWebRuntime } from "../support/web-runtime";
+import { interceptBackendHttp } from "../support/backend-http";
 import { executeCreateContentCollection } from "@/_pages/content-collections/api/create-content-collection";
 import { getContentCollections } from "@/_pages/content-collections/api/get-content-collections";
 import { executeSetContentCollectionArchive } from "@/_pages/content-collections/api/set-content-collection-archive";
@@ -49,6 +51,50 @@ const collection = {
   version: 2 as const,
 } as const;
 
+interface BackendReply {
+  readonly method: string;
+  readonly path: string;
+  readonly response: Response;
+}
+let replies: BackendReply[];
+const backend = vi.fn<(request: Request) => Promise<Response>>();
+function respond(
+  method: string,
+  path: string,
+  body: unknown,
+  status = 200,
+): void {
+  replies.push({ method, path, response: Response.json(body, { status }) });
+}
+function outgoing(index = 0): Request {
+  const request = backend.mock.calls[index]?.[0];
+  if (request === undefined)
+    throw new Error("Expected external backend request");
+  return request;
+}
+beforeEach(() => {
+  configureWebRuntime();
+  replies = [];
+  backend.mockReset();
+  backend.mockImplementation(() => {
+    const response = replies[backend.mock.calls.length - 1]?.response;
+    return response === undefined
+      ? Promise.reject(new Error("Unexpected backend request"))
+      : Promise.resolve(response);
+  });
+  interceptBackendHttp(backend);
+});
+afterEach(() => {
+  expect(backend).toHaveBeenCalledTimes(replies.length);
+  replies.forEach((reply, index) => {
+    const request = outgoing(index);
+    expect(request.method).toBe(reply.method);
+    expect(request.url).toBe(`https://platform-api.example.test${reply.path}`);
+    expect(request.headers.get("authorization")).toBe("Bearer token");
+    if (reply.method === "GET") expect(request.body).toBeNull();
+  });
+});
+
 describe("Content collection web adapters", () => {
   it("keeps mutation result contracts operation-specific", () => {
     expect(
@@ -67,26 +113,20 @@ describe("Content collection web adapters", () => {
   });
 
   it("loads active and archived collections through the protected backend", async () => {
-    const request = vi.fn().mockResolvedValue({
-      body: [
-        collection,
-        {
-          ...collection,
-          archived: true,
-          id: "96500000-0000-4000-8000-000000000002",
-          slug: "archive",
-        },
-      ],
-      ok: true,
-      response: Response.json({}),
-    });
-    await expect(
-      getContentCollections("topic", "token", request),
-    ).resolves.toEqual({
+    respond("GET", "/authoring/collections?kind=topic", [
+      collection,
+      {
+        ...collection,
+        archived: true,
+        id: "96500000-0000-4000-8000-000000000002",
+        slug: "archive",
+      },
+    ]);
+    await expect(getContentCollections("topic", "token")).resolves.toEqual({
       collections: [collection, expect.objectContaining({ archived: true })],
       kind: "ready",
     });
-    expect(request).toHaveBeenCalledWith("topic", "token");
+    expect(backend).toHaveBeenCalledOnce();
   });
 
   it("reads the Product page fields the backend sends with every collection", async () => {
@@ -99,13 +139,9 @@ describe("Content collection web adapters", () => {
       presentation: "default",
       sourceId: "products/platform",
     } as const;
-    const list = vi.fn().mockResolvedValue({
-      body: [product],
-      ok: true,
-      response: Response.json({}),
-    });
+    respond("GET", "/authoring/collections?kind=product", [product]);
     await expect(
-      getContentCollections("product", "token", list),
+      getContentCollections("product", "token"),
     ).resolves.toMatchObject({
       collections: [{ id: collectionId, presentation: "default" }],
       kind: "ready",
@@ -116,13 +152,9 @@ describe("Content collection web adapters", () => {
       slug: "platform",
       summary: "Architecture and delivery.",
     });
-    const create = vi.fn().mockResolvedValue({
-      body: product,
-      ok: true,
-      response: Response.json({}),
-    });
+    respond("POST", "/authoring/collections", product, 201);
     await expect(
-      executeCreateContentCollection(input, "token", create),
+      executeCreateContentCollection(input, "token"),
     ).resolves.toMatchObject({
       kind: "saved",
       collection: { id: collectionId },
@@ -130,7 +162,7 @@ describe("Content collection web adapters", () => {
   });
 
   it("creates a collection through the focused creation operation", async () => {
-    const request = successfulRequest();
+    respond("POST", "/authoring/collections", collection, 201);
     const input = createContentCollectionOperation.input.parse({
       kind: "topic",
       name: "Platform",
@@ -140,47 +172,40 @@ describe("Content collection web adapters", () => {
     });
 
     await expect(
-      executeCreateContentCollection(input, "token", request),
+      executeCreateContentCollection(input, "token"),
     ).resolves.toEqual({ kind: "saved", collection });
-    expect(request).toHaveBeenCalledWith(
-      {
-        kind: "topic",
-        name: "Platform",
-        slug: "platform",
-        summary: "Architecture and delivery.",
-      },
-      "token",
-    );
+    expect(await outgoing().json()).toEqual({
+      kind: "topic",
+      name: "Platform",
+      slug: "platform",
+      summary: "Architecture and delivery.",
+    });
   });
 
   it("updates immutable-slug metadata and maps optimistic conflicts", async () => {
-    const request = successfulRequest();
+    respond("PUT", `/authoring/collections/${collectionId}`, collection);
     await expect(
-      executeUpdateContentCollection(metadataInput(), "token", request),
+      executeUpdateContentCollection(metadataInput(), "token"),
     ).resolves.toEqual({ kind: "saved", collection });
-    expect(request).toHaveBeenCalledWith(
-      {
-        collectionId,
-        expectedVersion: 2,
-        kind: "topic",
-        name: "Platform engineering",
-        summary: "Updated summary.",
-      },
-      "token",
-    );
-
-    const conflict = vi.fn().mockResolvedValue({
-      ok: false,
-      problem: { code: "stale_content_collection_version" },
-      response: Response.json({}, { status: 409 }),
+    expect(await outgoing().json()).toEqual({
+      expectedVersion: 2,
+      kind: "topic",
+      name: "Platform engineering",
+      summary: "Updated summary.",
     });
+    respond(
+      "PUT",
+      `/authoring/collections/${collectionId}`,
+      { code: "stale_content_collection_version" },
+      409,
+    );
     await expect(
-      executeUpdateContentCollection(metadataInput(), "token", conflict),
+      executeUpdateContentCollection(metadataInput(), "token"),
     ).resolves.toEqual({ kind: "conflict" });
   });
 
   it("sends the Product introduction only when its four fields travel together", async () => {
-    const withIntroduction = successfulRequest();
+    respond("PUT", `/authoring/collections/${collectionId}`, collection);
     const introduction = {
       audience: "Разработчики, которые впервые выпускают своё приложение.",
       outcome: "Настроить путь от проверок до подтверждённого обновления.",
@@ -188,29 +213,16 @@ describe("Content collection web adapters", () => {
       scope: "Один проект и один тестовый сервер.",
     };
     await expect(
-      executeUpdateContentCollection(
-        metadataInput({ introduction }),
-        "token",
-        withIntroduction,
-      ),
+      executeUpdateContentCollection(metadataInput({ introduction }), "token"),
     ).resolves.toEqual({ kind: "saved", collection });
-    expect(withIntroduction).toHaveBeenCalledWith(
-      expect.objectContaining({ introduction }),
-      "token",
-    );
+    expect(await outgoing().json()).toMatchObject({ introduction });
 
     // A rename that carries no introduction field must not clear the stored text.
-    const withoutIntroduction = successfulRequest();
+    respond("PUT", `/authoring/collections/${collectionId}`, collection);
     await expect(
-      executeUpdateContentCollection(
-        metadataInput(),
-        "token",
-        withoutIntroduction,
-      ),
+      executeUpdateContentCollection(metadataInput(), "token"),
     ).resolves.toEqual({ kind: "saved", collection });
-    expect(withoutIntroduction.mock.calls[0]?.[0]).not.toHaveProperty(
-      "introduction",
-    );
+    expect(await outgoing(1).json()).not.toHaveProperty("introduction");
 
     // A partial introduction is a malformed command, not a partial write.
     expect(
@@ -222,7 +234,11 @@ describe("Content collection web adapters", () => {
   });
 
   it("archives a collection through the focused archive operation", async () => {
-    const request = successfulRequest();
+    respond(
+      "PUT",
+      `/authoring/collections/${collectionId}/archive`,
+      collection,
+    );
     const input = setContentCollectionArchiveOperation.input.parse({
       archived: true,
       collectionId,
@@ -231,17 +247,13 @@ describe("Content collection web adapters", () => {
     });
 
     await expect(
-      executeSetContentCollectionArchive(input, "token", request),
+      executeSetContentCollectionArchive(input, "token"),
     ).resolves.toEqual({ kind: "saved", collection });
-    expect(request).toHaveBeenCalledWith(
-      {
-        archived: true,
-        collectionId,
-        expectedVersion: 2,
-        kind: "topic",
-      },
-      "token",
-    );
+    expect(await outgoing().json()).toEqual({
+      archived: true,
+      expectedVersion: 2,
+      kind: "topic",
+    });
   });
 });
 
@@ -479,13 +491,5 @@ function metadataInput(extra: Record<string, unknown> = {}) {
   return updateContentCollectionOperation.input.parse({
     ...metadataBody(),
     ...extra,
-  });
-}
-
-function successfulRequest() {
-  return vi.fn().mockResolvedValue({
-    body: collection,
-    ok: true,
-    response: Response.json({}),
   });
 }
