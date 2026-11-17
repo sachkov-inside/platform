@@ -3,6 +3,7 @@ import type { NativeMessageInput } from "./native-message-input.js";
 
 export interface AuthorInput extends NativeMessageInput {
   readonly botIdentity: string;
+  readonly botUsername?: string;
   readonly updateId: string;
   readonly telegramUserId: string;
   /** The author's private chat; Telegram gives it the author's user ID. */

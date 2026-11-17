@@ -715,7 +715,7 @@ function performEdit(t: Turn, s: AuthorSequenceState, a: SequenceEdit): void {
       const source = f.sources.find((item) => item.sourceId === a.id);
       if (!source) throw new CommunicationsError("not_found");
       return t.reply(
-        `${source.name}\nКод: ${source.code}\nПараметр ссылки: ?start=${source.code}`,
+        `${source.name}\n${t.botStartUrl === undefined ? `Параметр ссылки: ?start=${source.code}` : `Ссылка для входа: ${t.botStartUrl}?start=${source.code}`}`,
         [
           [
             "Убрать источник",

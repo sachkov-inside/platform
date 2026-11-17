@@ -74,6 +74,7 @@ class Dialog {
   get env(): DialogEnvironment {
     return {
       pendingCompositions: this.pending,
+      botUsername: "inside_demo_bot",
       now,
       newId: () => uuid(++this.ids),
     };
@@ -962,6 +963,17 @@ describe("sequence settings", () => {
       target: "entry",
       partId: uuid(802),
     });
+  });
+
+  it("shows a complete entry link directly from the funnel card", () => {
+    const dialog = card(
+      sequence({
+        sources: [{ sourceId: uuid(850), code: "m_video", name: "Видео" }],
+      }),
+    ).click("Ссылка для входа");
+    expect(required(dialog.menu).text).toContain(
+      "https://t.me/inside_demo_bot?start=m_video",
+    );
   });
 
   it("opens settings and messages from the sequence card and returns to it", () => {
