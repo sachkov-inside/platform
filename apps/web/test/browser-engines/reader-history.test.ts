@@ -161,3 +161,51 @@ for (const engine of [chromium, webkit])
       await browser.close();
     }
   }, 30_000);
+
+for (const engine of [chromium, webkit])
+  test(`${engine.name()} restores a ready reading view while animation frames are suspended`, async () => {
+    const browser = await engine.launch({ timeout: 30_000 });
+    try {
+      const page = await browser.newPage();
+      // Time is the substitute: an already committed document needs no frame-count barrier.
+      await page.addInitScript(() => {
+        window.requestAnimationFrame = () => 0;
+        window.cancelAnimationFrame = () => undefined;
+      });
+      const source = `${baseURL}/products/course/tasks/start?attemptsAfter=older#submission`;
+      await page.goto(source);
+      await page.waitForFunction(() => "readerHistoryReady" in window);
+      await page.locator("main").evaluate((element) => {
+        element.scrollTop = 600;
+      });
+      await page
+        .locator("[data-reader-history-root] [data-course-rail-scroll]")
+        .evaluate((element) => {
+          element.scrollTop = 100;
+        });
+      await page.locator("#project").dispatchEvent("click", { button: 0 });
+      await browserExpect(page.getByRole("heading")).toHaveText(
+        "/materials/project",
+      );
+      await page.locator("#return").click();
+      await browserExpect(page).toHaveURL(source);
+      await browserExpect
+        .poll(() =>
+          page.locator("main").evaluate((element) => element.scrollTop),
+        )
+        .toBe(600);
+      await browserExpect
+        .poll(() =>
+          page
+            .locator("[data-reader-history-root] [data-course-rail-scroll]")
+            .evaluate((element) => element.scrollTop),
+        )
+        .toBe(100);
+      await browserExpect(page.locator("html")).toHaveAttribute(
+        "data-restored-chapter",
+        "second",
+      );
+    } finally {
+      await browser.close();
+    }
+  }, 30_000);
