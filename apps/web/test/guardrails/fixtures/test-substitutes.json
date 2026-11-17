@@ -389,6 +389,54 @@
       "file": "src/example.stories.tsx",
       "source": "import {spyOn as observe} from \"storybook/test\"; import {sessionAdapter} from \"@/shared/auth/session-adapter.server\"; const observed=observe(sessionAdapter,\"accessToken\"); observed.mockImplementation(()=>\"fake\");",
       "diagnostic": "tests cannot replace own or SDK behavior through a spy or mocked view"
+    },
+    {
+      "name": "owner-fact alias in another context",
+      "file": "test/browser-engines/other-owner-facts.test.ts",
+      "source": "import { fileURLToPath } from \"node:url\"; const config={resolve:{alias:{\"next/navigation\":fileURLToPath(new URL(\"../../file-preview/next-navigation.ts\",import.meta.url))}}};",
+      "diagnostic": "framework aliases require the approved target, adapter and owning context"
+    },
+    {
+      "name": "owner-fact alias with another target",
+      "file": "test/browser-engines/owner-fact-announcements.test.ts",
+      "source": "import { fileURLToPath } from \"node:url\"; const config={resolve:{alias:{\"next/link\":fileURLToPath(new URL(\"../../file-preview/next-navigation.ts\",import.meta.url))}}};",
+      "diagnostic": "framework aliases require the approved target, adapter and owning context"
+    },
+    {
+      "name": "owner-fact alias with another adapter",
+      "file": "test/browser-engines/owner-fact-announcements.test.ts",
+      "source": "import { fileURLToPath } from \"node:url\"; const config={resolve:{alias:{\"next/navigation\":fileURLToPath(new URL(\"../../.storybook/mocks/next-navigation.ts\",import.meta.url))}}};",
+      "diagnostic": "framework aliases require the approved target, adapter and owning context"
+    },
+    {
+      "name": "owner-fact adapter expanded exports",
+      "file": "file-preview/next-navigation.ts",
+      "source": "import { ReadonlyURLSearchParams } from \"next/dist/client/components/readonly-url-search-params\";\n\nexport { ReadonlyURLSearchParams };\n\n/** Navigation of the light preview: every transition is a page load of the preview address. */\nconst router = {\n  back: () => {\n    window.history.back();\n  },\n  forward: () => {\n    window.history.forward();\n  },\n  prefetch: () => Promise.resolve(),\n  push: (href: string) => {\n    window.location.assign(href);\n  },\n  refresh: () => undefined,\n  replace: (href: string) => {\n    window.location.replace(href);\n  },\n};\n\nexport function usePathname(): string {\n  return window.location.pathname;\n}\n\nexport function useParams(): Record<string, string | string[]> {\n  return {};\n}\n\nexport function useRouter() {\n  return router;\n}\n\nexport function useSearchParams(): ReadonlyURLSearchParams {\n  return new ReadonlyURLSearchParams(window.location.search);\n}\n\nexport const unapprovedNavigation = true;\n",
+      "diagnostic": "framework adapter API or behavior changed outside its accepted boundary"
+    },
+    {
+      "name": "owner-fact adapter changed body",
+      "file": "file-preview/next-navigation.ts",
+      "source": "import { ReadonlyURLSearchParams } from \"next/dist/client/components/readonly-url-search-params\";\n\nexport { ReadonlyURLSearchParams };\n\n/** Navigation of the light preview: every transition is a page load of the preview address. */\nconst router = {\n  back: () => {\n    window.history.back();\n  },\n  forward: () => {\n    window.history.forward();\n  },\n  prefetch: () => Promise.resolve(),\n  push: (href: string) => {\n    window.location.assign(href);\n  },\n  refresh: () => window.location.reload(),\n  replace: (href: string) => {\n    window.location.replace(href);\n  },\n};\n\nexport function usePathname(): string {\n  return window.location.pathname;\n}\n\nexport function useParams(): Record<string, string | string[]> {\n  return {};\n}\n\nexport function useRouter() {\n  return router;\n}\n\nexport function useSearchParams(): ReadonlyURLSearchParams {\n  return new ReadonlyURLSearchParams(window.location.search);\n}\n",
+      "diagnostic": "framework adapter API or behavior changed outside its accepted boundary"
+    },
+    {
+      "name": "owner-fact adapter direct module consumer",
+      "file": "test/module/unapproved-preview.test.ts",
+      "source": "import {useRouter} from \"../../file-preview/next-navigation\"; useRouter();",
+      "diagnostic": "framework adapters stay in their approved fixture contexts"
+    },
+    {
+      "name": "owner-fact adapter direct production consumer",
+      "file": "src/unapproved-preview.ts",
+      "source": "import {usePathname} from \"../file-preview/next-navigation\"; usePathname();",
+      "diagnostic": "framework adapters stay in their approved fixture contexts"
+    },
+    {
+      "name": "owner-fact adapter dynamic module consumer",
+      "file": "test/module/unapproved-preview.test.ts",
+      "source": "const {useParams}=await import(\"../../file-preview/next-navigation\"); useParams();",
+      "diagnostic": "framework adapters stay in their approved fixture contexts"
     }
   ],
   "accepted": [
@@ -556,6 +604,16 @@
       "name": "storybook imported alias observing own call",
       "file": "src/example.stories.tsx",
       "source": "import {spyOn as observe} from \"storybook/test\"; import {sessionAdapter} from \"@/shared/auth/session-adapter.server\"; const observation=observe(sessionAdapter,\"accessToken\"); const returned=observation.mock.results[0]?.value;"
+    },
+    {
+      "name": "owner-fact exact framework alias context",
+      "file": "test/browser-engines/owner-fact-announcements.test.ts",
+      "source": "import { fileURLToPath } from \"node:url\"; const config={resolve:{alias:{\"next/navigation\":fileURLToPath(new URL(\"../../file-preview/next-navigation.ts\",import.meta.url))}}};"
+    },
+    {
+      "name": "owner-fact exact accepted adapter",
+      "file": "file-preview/next-navigation.ts",
+      "source": "import { ReadonlyURLSearchParams } from \"next/dist/client/components/readonly-url-search-params\";\n\nexport { ReadonlyURLSearchParams };\n\n/** Navigation of the light preview: every transition is a page load of the preview address. */\nconst router = {\n  back: () => {\n    window.history.back();\n  },\n  forward: () => {\n    window.history.forward();\n  },\n  prefetch: () => Promise.resolve(),\n  push: (href: string) => {\n    window.location.assign(href);\n  },\n  refresh: () => undefined,\n  replace: (href: string) => {\n    window.location.replace(href);\n  },\n};\n\nexport function usePathname(): string {\n  return window.location.pathname;\n}\n\nexport function useParams(): Record<string, string | string[]> {\n  return {};\n}\n\nexport function useRouter() {\n  return router;\n}\n\nexport function useSearchParams(): ReadonlyURLSearchParams {\n  return new ReadonlyURLSearchParams(window.location.search);\n}\n"
     }
   ]
 }

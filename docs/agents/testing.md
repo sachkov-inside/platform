@@ -161,11 +161,27 @@ the earlier table. Keep their inventory separate from `vi.mock` registrations.
 | `.storybook/main.ts`: `next/link` → `.storybook/mocks/next-link.tsx`, `next/navigation` → `.storybook/mocks/next-navigation.ts` | The anchor retains href/children/anchor props/ref, drops prefetch/scroll/onNavigate, and reports pending:false. Stories configure pathname/params/query and router callback receipts while actual own UI/hooks render. |
 | `test/browser-engines/course-reading-handoff.test.ts`: `next/link` → the same anchor, `next/navigation` → `test/support/course-reading-router.ts` | Own UI runs with actual window/popstate and a controlled ready promise as its framework input. |
 
+The coordinator's integration decision on 2026-11-17 (`msg_712cfa4e643a`, under #2292) adds
+exactly one existing alias from merged PR #2296: `test/browser-engines/owner-fact-announcements.test.ts`
+maps `next/navigation` to `file-preview/next-navigation.ts` (Git blob
+`67be42599debdbc5f59762e379bd49113fc87d8a`). Its five exports are `ReadonlyURLSearchParams`,
+`usePathname`, `useParams`, `useRouter` and `useSearchParams`. Pathname/search come from the window,
+params are empty, back/forward call window history, push/replace load a document, prefetch resolves
+a Promise and refresh does nothing. Actual query hooks, QueryClient and Rules/Promotions panels
+prove fact reads/refresh for sibling observers and independent caches. They do not prove Next
+navigation, PPR, prefetch, refresh or framework lifecycle. This alias permits no other consumer or
+direct adapter import. The existing file preview is unchanged and is not newly scanned as a test
+context; the default checker additionally inspects only this adapter's accepted exports/body.
+
+Keep the counts separate: external non-Node framework aliases are five entries/four adapters/three
+contexts; including the three Node cache/marker aliases gives eight entries/six adapters/five
+contexts. These counts do not include `vi.mock` or observational spy registrations.
+
 These ports do not prove actual Next navigation, history delivery, PPR, prefetch, pending state or
 framework lifecycle. Keep the real production Next/Navigation scenarios. The checker fixes exact
 alias targets, resolved adapter paths and owning contexts, and checks their known exports/body AST
 without comments or source positions. Adding API or behaviour requires updating the owning decision
-and negative fixtures; these are five explicit framework adapters, including the Node cache/marker,
+and negative fixtures; these are six explicit framework adapters, including the Node cache/marker,
 not an own-module baseline. The handoff shim stays out of production and module contexts. Review
 and independent verification still assess the semantic limits; the checker does not infer them.
 

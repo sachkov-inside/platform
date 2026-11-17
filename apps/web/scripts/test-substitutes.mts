@@ -32,6 +32,20 @@ const modules = new Map<string, Module>();
 // AST fingerprints ignore comments, quotes and positions; API/body changes need a new decision.
 const frameworkAdapters = new Map([
   [
+    "file-preview/next-navigation.ts",
+    {
+      exports: [
+        "ReadonlyURLSearchParams",
+        "useParams",
+        "usePathname",
+        "useRouter",
+        "useSearchParams",
+      ],
+      fingerprint:
+        "98278692f97e28cc664a0f8bb6fc05374d2c1cc74f1a0b39fd6fc677ce5f4d5b",
+    },
+  ],
+  [
     ".storybook/mocks/next-link.tsx",
     {
       exports: ["default", "useLinkStatus"],
@@ -80,6 +94,10 @@ const frameworkAdapters = new Map([
   ],
 ]);
 const frameworkAliasContexts = new Map([
+  [
+    "test/browser-engines/owner-fact-announcements.test.ts",
+    new Map([["next/navigation", "file-preview/next-navigation.ts"]]),
+  ],
   [
     ".storybook/main.ts",
     new Map([

@@ -1561,6 +1561,7 @@ const substituteRoots =
         ".storybook",
         "vitest.config.mts",
         "vitest.smoke.config.mts",
+        "file-preview/next-navigation.ts",
       ].map((root) => path.resolve(webRoot, root))
     : scanRoots;
 for (const file of new Set(
