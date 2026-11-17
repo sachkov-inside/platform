@@ -1,3 +1,4 @@
+// @ts-check
 // Same navigation entities appear in collections, sales, Materials and global search (#2335).
 // Keep their identity/metadata here; each HTTP adapter owns its commands and state transitions.
 export const authoringScenario = Object.freeze({
