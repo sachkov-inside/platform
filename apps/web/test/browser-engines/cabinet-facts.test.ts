@@ -38,6 +38,48 @@ async function state(page: Page, value: string) {
       value,
     );
 }
+/** Observe consumption at the HTTP boundary, then its browser microtask checkpoint. */
+function observeFirstRead(path: string) {
+  const fetch = window.fetch.bind(window);
+  let observed = false;
+  window.fetch = async (input, options) => {
+    const matches =
+      new URL(
+        input instanceof Request ? input.url : String(input),
+        location.href,
+      ).pathname === path;
+    const first = matches && !observed;
+    if (first) observed = true;
+    const response = await fetch(input, options);
+    if (!first) return response;
+    const json = response.json.bind(response);
+    response.json = async () => {
+      const value: unknown = await json();
+      const checkpoint = new MessageChannel();
+      checkpoint.port1.onmessage = () => {
+        document.documentElement.dataset["oldResponseConsumed"] = "yes";
+        checkpoint.port1.close();
+        checkpoint.port2.close();
+      };
+      checkpoint.port2.postMessage(null);
+      return value;
+    };
+    return response;
+  };
+}
+async function inspectAfterOldRead(page: Page, value: string) {
+  await browserExpect(page.locator("html")).toHaveAttribute(
+    "data-old-response-consumed",
+    "yes",
+  );
+  // A fresh render reads the production hook again, including notifications still batched by React.
+  await page.getByRole("button", { name: "Inspect readers" }).click();
+  await browserExpect(
+    page.getByLabel("Inspection", { exact: true }),
+  ).toHaveText("1");
+  await state(page, value);
+}
+
 for (const engine of ["chromium", "webkit"]) {
   test(`${engine}: billing observers share the initial buyer state`, async () => {
     const browser = running.browsers.get(engine);
@@ -63,7 +105,6 @@ for (const engine of ["chromium", "webkit"]) {
     const context = await browser.newContext();
     const held = Promise.withResolvers<undefined>();
     const started = Promise.withResolvers<undefined>();
-    const delivered = Promise.withResolvers<undefined>();
     let reads = 0;
     try {
       const writer = await context.newPage();
@@ -73,19 +114,16 @@ for (const engine of ["chromium", "webkit"]) {
       await writer.goto(running.url);
       await state(writer, "Old product");
       const reader = await context.newPage();
+      await reader.addInitScript(observeFirstRead, "/api/account/billing");
       await reader.route("**/api/account/billing", async (route) => {
         const current = ++reads;
         if (current === 1) {
           started.resolve(undefined);
           await held.promise;
         }
-        try {
-          await route.fulfill({
-            json: billing(current === 1 ? "Old product" : "Fresh product"),
-          });
-        } finally {
-          if (current === 1) delivered.resolve(undefined);
-        }
+        await route.fulfill({
+          json: billing(current === 1 ? "Old product" : "Fresh product"),
+        });
       });
       await reader.goto(running.url);
       await started.promise;
@@ -93,8 +131,7 @@ for (const engine of ["chromium", "webkit"]) {
       await state(reader, "Fresh product");
       expect(reads).toBe(2);
       held.resolve(undefined);
-      await delivered.promise;
-      await state(reader, "Fresh product");
+      await inspectAfterOldRead(reader, "Fresh product");
       expect(reads).toBe(2);
     } finally {
       held.resolve(undefined);
@@ -167,7 +204,6 @@ for (const engine of ["chromium", "webkit"]) {
     const context = await browser.newContext();
     const held = Promise.withResolvers<undefined>();
     const started = Promise.withResolvers<undefined>();
-    const delivered = Promise.withResolvers<undefined>();
     let reads = 0;
     try {
       const writer = await context.newPage();
@@ -177,22 +213,22 @@ for (const engine of ["chromium", "webkit"]) {
       await writer.goto(`${running.url}?kind=community`);
       await state(writer, "restricted");
       const reader = await context.newPage();
+      await reader.addInitScript(
+        observeFirstRead,
+        "/api/account/community-entry",
+      );
       await reader.route("**/api/account/community-entry?*", async (route) => {
         const current = ++reads;
         if (current === 1) {
           started.resolve(undefined);
           await held.promise;
         }
-        try {
-          await route.fulfill({
-            json: {
-              ok: true,
-              value: { kind: current === 1 ? "restricted" : "member" },
-            },
-          });
-        } finally {
-          if (current === 1) delivered.resolve(undefined);
-        }
+        await route.fulfill({
+          json: {
+            ok: true,
+            value: { kind: current === 1 ? "restricted" : "member" },
+          },
+        });
       });
       await reader.goto(`${running.url}?kind=community`);
       await started.promise;
@@ -200,8 +236,7 @@ for (const engine of ["chromium", "webkit"]) {
       await state(reader, "member");
       expect(reads).toBe(2);
       held.resolve(undefined);
-      await delivered.promise;
-      await state(reader, "member");
+      await inspectAfterOldRead(reader, "member");
       expect(reads).toBe(2);
     } finally {
       held.resolve(undefined);

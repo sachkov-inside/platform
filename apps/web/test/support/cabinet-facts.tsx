@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { z } from "zod";
 import {
   useProductCommunityEntry,
@@ -32,21 +33,13 @@ function Billing() {
 const kind = z
   .enum(["billing", "community"])
   .parse(parameters.get("kind") ?? "billing");
-function Community() {
+function Community({
+  productId = "60000000-0000-4000-8000-000000000001",
+}: {
+  readonly productId?: string;
+}) {
   const query = useProductCommunityEntry(
-    "60000000-0000-4000-8000-000000000001",
-    "60000000-0000-4000-8000-000000000002",
-    enabled,
-  );
-  return (
-    <span data-fetch-status={query.fetchStatus}>
-      {query.data?.ok === true ? query.data.value.kind : "Loading"}
-    </span>
-  );
-}
-function OtherCommunity() {
-  const query = useProductCommunityEntry(
-    "60000000-0000-4000-8000-000000000003",
+    productId,
     "60000000-0000-4000-8000-000000000002",
     enabled,
   );
@@ -58,6 +51,7 @@ function OtherCommunity() {
 }
 const Status = kind === "billing" ? Billing : Community;
 function App() {
+  const [inspection, setInspection] = useState(0);
   return (
     <QueryClientProvider client={client}>
       <button
@@ -69,6 +63,14 @@ function App() {
       >
         Announce write
       </button>
+      <button
+        onClick={() => {
+          setInspection((value) => value + 1);
+        }}
+      >
+        Inspect readers
+      </button>
+      <output aria-label="Inspection">{inspection}</output>
       <output aria-label="Primary">
         <Status />
       </output>
@@ -77,7 +79,7 @@ function App() {
       </output>
       {parameters.has("other") ? (
         <output aria-label="Other Product">
-          <OtherCommunity />
+          <Community productId="60000000-0000-4000-8000-000000000003" />
         </output>
       ) : null}
       {parameters.has("secondary") ? (
