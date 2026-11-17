@@ -854,3 +854,34 @@ for (const name of ["chromium", "webkit"] as const)
       await context.close();
     }
   }, 30_000);
+
+for (const name of ["chromium", "webkit"] as const)
+  test(`${name} waits for Task related Material progress layout before restoring the reading position`, async () => {
+    const context = await browserFor(name).newContext();
+    try {
+      const page = await context.newPage();
+      await page.goto(`${baseURL}/products/course/tasks/start`);
+      await page.waitForFunction(() => "readerHistoryReady" in window);
+      await scrollReaderTo(page, 600);
+      await page.locator("#save-current").dispatchEvent("click");
+      await page.locator("#defer-progress").dispatchEvent("click");
+      await page.locator("#project").dispatchEvent("click", { button: 0 });
+      await page.locator("#return").dispatchEvent("click", { button: 0 });
+      await browserExpect(
+        page.locator("[data-task-related-material]"),
+      ).toHaveAttribute("aria-busy", "true");
+      await browserExpect
+        .poll(() =>
+          page.locator("main").evaluate((element) => element.scrollTop),
+        )
+        .toBe(0);
+      await page.locator("#ready-progress").dispatchEvent("click");
+      await browserExpect
+        .poll(() =>
+          page.locator("main").evaluate((element) => element.scrollTop),
+        )
+        .toBe(600);
+    } finally {
+      await context.close();
+    }
+  }, 30_000);

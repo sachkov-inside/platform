@@ -19,6 +19,7 @@
       const context =
         "?from=%2Fproducts%2Fcourse%2Fprogramme&anchor=task%3Astart";
       let deferredChapter = false;
+      let deferredProgress = false;
       let listenerReady = true;
       let requestedChapter;
       let stopTracking;
@@ -46,7 +47,7 @@
         const ownership = location.search.includes("localFrame=1")
           ? "data-course-reading"
           : "data-course-reading-host";
-        document.body.innerHTML = `<section hidden><aside data-course-chapter="stale"><div data-course-rail-scroll></div></aside></section><div data-reader-history-root ${ownership} ${confirmedNoCourse && !supplementary ? 'data-reader-history-rail="none"' : ""}><h1>${location.pathname}</h1>${missingRail && !supplementary ? "" : railMarkup(supplementary)}<main data-material-id="current" data-application-content style="height:400px;overflow:auto"><div style="height:1600px"><a id="project" href="/materials/project${context}">Project</a> <a id="brief" href="/materials/brief${context}">Brief</a> <a id="return" href="${readerOriginHref(source) ?? source}">Return</a><p>Document body</p><button id="defer-chapter">Wait for the next chapter</button><button id="ready-chapter">Commit the requested chapter</button><button id="defer-listener">Wait for the chapter subscription</button><button id="connect-listener">Connect the chapter subscription</button><button id="disconnect-tracker">Disconnect the reader</button><button id="forget-chapter">Use remaining chapters</button><button id="hide-rail">Hide the optional rail</button><button id="early-deleted">The remaining rail is ready before the reader</button><button id="missing-rail">Wait for the rail to mount</button><button id="mount-rail">Mount the rail</button><button id="no-course">The reader no longer has a course</button><button id="save-current">Remember the current view</button><button id="register-remaining">Connect the remaining chapters</button><button id="disconnect-ready">Disconnect chapter availability</button><button id="restore-current">Restore this entry again</button></div></main></div>`;
+        document.body.innerHTML = `<section hidden><aside data-course-chapter="stale"><div data-course-rail-scroll></div></aside></section><div data-reader-history-root ${ownership} ${confirmedNoCourse && !supplementary ? 'data-reader-history-rail="none"' : ""}><h1>${location.pathname}</h1>${missingRail && !supplementary ? "" : railMarkup(supplementary)}<main data-material-id="current" data-application-content style="height:400px;overflow:auto">${!supplementary && deferredProgress ? '<a data-task-related-material aria-busy="true" style="display:block;height:66px">Pending Material progress</a>' : ""}<div style="height:1600px"><a id="project" href="/materials/project${context}">Project</a> <a id="brief" href="/materials/brief${context}">Brief</a> <a id="return" href="${readerOriginHref(source) ?? source}">Return</a><p>Document body</p><button id="defer-progress">Wait for Material progress</button><button id="ready-progress">Commit Material progress</button><button id="defer-chapter">Wait for the next chapter</button><button id="ready-chapter">Commit the requested chapter</button><button id="defer-listener">Wait for the chapter subscription</button><button id="connect-listener">Connect the chapter subscription</button><button id="disconnect-tracker">Disconnect the reader</button><button id="forget-chapter">Use remaining chapters</button><button id="hide-rail">Hide the optional rail</button><button id="early-deleted">The remaining rail is ready before the reader</button><button id="missing-rail">Wait for the rail to mount</button><button id="mount-rail">Mount the rail</button><button id="no-course">The reader no longer has a course</button><button id="save-current">Remember the current view</button><button id="register-remaining">Connect the remaining chapters</button><button id="disconnect-ready">Disconnect chapter availability</button><button id="restore-current">Restore this entry again</button></div></main></div>`;
         if (signalBeforeEnter)
           stopRail = historyLifecycle.readerHistoryRailReady?.(
             document.querySelector("[data-reader-history-root]"),
@@ -77,6 +78,19 @@
         const currentRoot = document.querySelector(
           "[data-reader-history-root]",
         );
+        if (event.target.closest("#defer-progress")) {
+          deferredProgress = true;
+          return;
+        }
+        if (event.target.closest("#ready-progress")) {
+          const progress = currentRoot.querySelector(
+            "[data-task-related-material]",
+          );
+          progress.style.height = "44px";
+          progress.textContent = "Material progress is ready";
+          progress.setAttribute("aria-busy", "false");
+          return;
+        }
         if (event.target.closest("#save-current")) {
           saveReaderHistoryView(currentRoot);
           return;
