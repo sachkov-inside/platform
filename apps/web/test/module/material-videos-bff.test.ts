@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import * as auth from "@/shared/auth/index.server";
+import * as optionalSession from "@/shared/auth/optional-platform-access-token.server";
 import {
   interceptBackendHttp,
   expectSingleBackendRequest,
@@ -92,7 +92,10 @@ describe("Material Video playback BFF", () => {
   });
 
   it("rejects cross-origin capability issuance before identity or backend work", async () => {
-    const tokenReads = vi.spyOn(auth, "getOptionalPlatformAccessToken");
+    const tokenReads = vi.spyOn(
+      optionalSession,
+      "getOptionalPlatformAccessToken",
+    );
     const response = await handleVideoPlaybackSessionRequest(
       playbackRequest("https://attacker.example.test"),
     );
@@ -160,7 +163,10 @@ describe("Material Video playback BFF", () => {
   });
 
   it("rejects an oversized optional-auth body before identity or backend work", async () => {
-    const tokenReads = vi.spyOn(auth, "getOptionalPlatformAccessToken");
+    const tokenReads = vi.spyOn(
+      optionalSession,
+      "getOptionalPlatformAccessToken",
+    );
     const request = playbackRequest("https://inside.example.test");
     request.headers.set("content-length", "2097153");
 
