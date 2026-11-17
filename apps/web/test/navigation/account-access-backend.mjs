@@ -19,13 +19,22 @@ const product = {
 const expiresAt = "2099-01-01T00:00:00.000Z";
 const deepLink = "https://t.me/inside_test_bot?start=account_lifetime";
 
+/** @returns {{ entered: PromiseWithResolvers<void>, release: PromiseWithResolvers<void> }} */
+function hold() {
+  return {
+    entered: Promise.withResolvers(),
+    release: Promise.withResolvers(),
+  };
+}
+
 const state = () => ({
   begun: new Set(),
   linked: new Set(),
   confirms: /** @type {{linkRef: string, account: string}[]} */ ([]),
   activation: "pending",
-  begin: /** @type {PromiseWithResolvers<void> | null} */ (null),
-  confirm: /** @type {PromiseWithResolvers<void> | null} */ (null),
+  activationReads: 0,
+  begin: /** @type {ReturnType<typeof hold> | null} */ (null),
+  confirm: /** @type {ReturnType<typeof hold> | null} */ (null),
   confirmation: "pending",
 });
 let fixture = state();
@@ -37,31 +46,42 @@ export async function accountAccessRoute(request, url) {
     status,
     value,
   });
-  if (pathname === "/__account-access" && request.method === "GET")
+  if (pathname === "/__account-access" && request.method === "GET") {
+    const checkpoint = url.searchParams.get("checkpoint");
+    if (checkpoint === "activation") return json(fixture.activationReads);
+    if (checkpoint === "begin" || checkpoint === "confirm") {
+      const gate = fixture[checkpoint];
+      if (gate === null) return json(null, 409);
+      await gate.entered.promise;
+    }
     return json(fixture.confirms);
+  }
   if (pathname === "/__account-access" && request.method === "POST") {
     switch (url.searchParams.get("action")) {
       case "reset":
-        fixture.begin?.resolve();
-        fixture.confirm?.resolve();
+        fixture.begin?.release.resolve();
+        fixture.confirm?.release.resolve();
         fixture = state();
         break;
       case "hold-begin":
-        fixture.begin = Promise.withResolvers();
+        fixture.begin = hold();
         break;
       case "release-begin":
-        fixture.begin?.resolve();
+        fixture.begin?.release.resolve();
         fixture.begin = null;
         break;
       case "hold-confirm":
-        fixture.confirm = Promise.withResolvers();
+        fixture.confirm = hold();
         break;
       case "release-confirm":
-        fixture.confirm?.resolve();
+        fixture.confirm?.release.resolve();
         fixture.confirm = null;
         break;
       case "linked":
         fixture.confirmation = "linked";
+        break;
+      case "confirm-unavailable":
+        fixture.confirmation = "unavailable";
         break;
       case "active":
         fixture.activation = "active";
@@ -102,8 +122,10 @@ export async function accountAccessRoute(request, url) {
     pathname === "/accounts/current/telegram-link" &&
     request.method === "POST"
   ) {
-    fixture.begun.add(account);
-    await fixture.begin?.promise;
+    const current = fixture;
+    current.begin?.entered.resolve();
+    await current.begin?.release.promise;
+    current.begun.add(account);
     return json({ deepLink, expiresAt, linkRef, status: "pending" });
   }
   const confirmation =
@@ -114,11 +136,15 @@ export async function accountAccessRoute(request, url) {
     current.confirms.push({ account, linkRef: submitted });
     if (submitted !== linkRef || !current.begun.has(account))
       return json(null, 403);
-    await current.confirm?.promise;
+    current.confirm?.entered.resolve();
+    await current.confirm?.release.promise;
+    if (current.confirmation === "unavailable") return json(null, 503);
     if (current.confirmation === "linked") current.linked.add(account);
     return json({ expiresAt, linkRef, status: current.confirmation });
   }
-  if (pathname === `/accounts/current/telegram-activation/${attemptId}`)
+  if (pathname === `/accounts/current/telegram-activation/${attemptId}`) {
+    fixture.activationReads++;
     return json({ product, state: fixture.activation });
+  }
   return null;
 }

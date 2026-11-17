@@ -1,4 +1,10 @@
-import { expect, test, type BrowserContext, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type BrowserContext,
+  type Page,
+} from "@playwright/test";
 
 const backendPort = process.env["FAKE_BACKEND_PORT"];
 if (backendPort === undefined) throw new Error("FAKE_BACKEND_PORT is required");
@@ -64,8 +70,76 @@ async function showHome(page: Page) {
   await expect(retainedAccount).toBeHidden();
 }
 
+const confirmed = { account: `Bearer ${token}`, linkRef };
+
+async function control(request: APIRequestContext, action: string) {
+  expect((await request.post(`${fixture}?action=${action}`)).ok()).toBe(true);
+}
+
+async function entered(request: APIRequestContext, phase: "begin" | "confirm") {
+  const response = await request.get(`${fixture}?checkpoint=${phase}`);
+  expect(response.ok()).toBe(true);
+  return response.json() as Promise<unknown>;
+}
+
+async function browserTurn(page: Page) {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        const channel = new MessageChannel();
+        channel.port1.onmessage = () => {
+          channel.port1.close();
+          channel.port2.close();
+          resolve();
+        };
+        channel.port2.postMessage(null);
+      }),
+  );
+}
+
+/** Deliver a specific native event to the real application, with controlled tab visibility. */
+async function returnEvents(
+  page: Page,
+  visibility: "visible" | "hidden",
+  events: readonly ("focus" | "visibilitychange")[],
+) {
+  await page.evaluate(
+    ({ events, visibility }) => {
+      Object.defineProperty(document, "visibilityState", {
+        configurable: true,
+        value: visibility,
+      });
+      try {
+        for (const type of events) {
+          const target = type === "focus" ? window : document;
+          target.dispatchEvent(new Event(type));
+        }
+      } finally {
+        Reflect.deleteProperty(document, "visibilityState");
+      }
+    },
+    { events, visibility },
+  );
+  await browserTurn(page);
+}
+
+async function beginTelegram(page: Page, context: BrowserContext) {
+  const popupReady = context.waitForEvent("page");
+  await telegram(page)
+    .getByRole("button", { name: "Подключить", exact: true })
+    .click();
+  const popup = await popupReady;
+  await expect(
+    popup.getByRole("heading", { name: "Тестовый бот Telegram" }),
+  ).toBeVisible();
+  await expect(
+    telegram(page).getByText("Проверяем подключение…"),
+  ).toBeVisible();
+  return popup;
+}
+
 test.beforeEach(async ({ request }) => {
-  expect((await request.post(`${fixture}?action=reset`)).ok()).toBe(true);
+  await control(request, "reset");
 });
 
 test("account disclosure follows the initial hash and hash changes while allowing manual closing", async ({
@@ -104,59 +178,40 @@ test("returning from the Telegram window confirms one current Account payload an
   await signIn(context, baseURL);
   await page.goto("/account");
   const section = telegram(page);
-  const popupReady = context.waitForEvent("page");
-  await section
-    .getByRole("button", { name: "Подключить", exact: true })
-    .click();
-  const popup = await popupReady;
-  await expect(
-    popup.getByRole("heading", { name: "Тестовый бот Telegram" }),
-  ).toBeVisible();
+  const popup = await beginTelegram(page, context);
   expect(await popup.evaluate(() => window.opener === null)).toBe(true);
-  await expect(section.getByText("Проверяем подключение…")).toBeVisible();
 
-  await page.evaluate(() => {
-    Object.defineProperty(document, "visibilityState", {
-      configurable: true,
-      value: "hidden",
-    });
-    try {
-      document.dispatchEvent(new Event("visibilitychange"));
-      window.dispatchEvent(new Event("focus"));
-    } finally {
-      Reflect.deleteProperty(document, "visibilityState");
-    }
+  const browserConfirmations: string[] = [];
+  page.on("request", (entry) => {
+    if (entry.url().endsWith("/api/account/telegram-link/confirm"))
+      browserConfirmations.push(entry.url());
   });
+  await returnEvents(page, "hidden", ["visibilitychange", "focus"]);
+  expect(browserConfirmations).toHaveLength(0);
 
-  expect((await request.post(`${fixture}?action=hold-confirm`)).ok()).toBe(
-    true,
-  );
-  const confirmation = page.waitForRequest((entry) =>
-    entry.url().endsWith("/api/account/telegram-link/confirm"),
-  );
-  await page.evaluate(() => {
-    Object.defineProperty(document, "visibilityState", {
-      configurable: true,
-      value: "visible",
-    });
-    try {
-      document.dispatchEvent(new Event("visibilitychange"));
-      window.dispatchEvent(new Event("focus"));
-      document.dispatchEvent(new Event("visibilitychange"));
-    } finally {
-      Reflect.deleteProperty(document, "visibilityState");
-    }
-  });
-  expect((await confirmation).postDataJSON()).toEqual({ linkRef });
-  expect((await request.post(`${fixture}?action=release-confirm`)).ok()).toBe(
-    true,
-  );
-  await expect(
-    section.getByRole("button", { name: "Проверить подключение" }),
-  ).toBeEnabled();
-  expect(await (await request.get(fixture)).json()).toEqual([
-    { account: `Bearer ${token}`, linkRef },
-  ]);
+  const returnSignals = ["focus", "visibilitychange"] as const;
+  for (const [index, returnedBy] of returnSignals.entries()) {
+    await control(request, "hold-confirm");
+    const confirmation = page.waitForRequest((entry) =>
+      entry.url().endsWith("/api/account/telegram-link/confirm"),
+    );
+    await returnEvents(page, "visible", [returnedBy]);
+    expect((await confirmation).postDataJSON()).toEqual({ linkRef });
+    expect(await entered(request, "confirm")).toEqual(
+      Array(index + 1).fill(confirmed),
+    );
+    await returnEvents(page, "visible", [
+      "visibilitychange",
+      "focus",
+      "visibilitychange",
+    ]);
+    expect(browserConfirmations).toHaveLength(index + 1);
+    await control(request, "release-confirm");
+    await expect(
+      section.getByRole("button", { name: "Проверить подключение" }),
+    ).toBeEnabled();
+  }
+
   await expect(
     section.getByRole("link", { name: "Открыть Telegram" }),
   ).toHaveAttribute("href", bot);
@@ -176,24 +231,24 @@ test("returning from the Telegram window confirms one current Account payload an
   }
 
   await showHome(page);
-  await page.evaluate(() => {
-    window.dispatchEvent(new Event("focus"));
-    document.dispatchEvent(new Event("visibilitychange"));
-  });
+  await returnEvents(page, "visible", ["focus", "visibilitychange"]);
+  expect(browserConfirmations).toHaveLength(2);
   await page.goBack();
   await expect(
     section.getByRole("link", { name: "Открыть Telegram" }),
   ).toBeVisible();
   expect(await (await request.get(fixture)).json()).toEqual([
-    { account: `Bearer ${token}`, linkRef },
+    confirmed,
+    confirmed,
   ]);
 
-  expect((await request.post(`${fixture}?action=linked`)).ok()).toBe(true);
+  await control(request, "linked");
   await section.getByRole("button", { name: "Проверить подключение" }).click();
   await expect(section.getByText("Telegram подключён")).toBeVisible();
   expect(await (await request.get(fixture)).json()).toEqual([
-    { account: `Bearer ${token}`, linkRef },
-    { account: `Bearer ${token}`, linkRef },
+    confirmed,
+    confirmed,
+    confirmed,
   ]);
 });
 
@@ -205,7 +260,7 @@ test("leaving the Account before Telegram begin settles closes its blank popup",
 }) => {
   await signIn(context, baseURL);
   await page.goto("/account");
-  expect((await request.post(`${fixture}?action=hold-begin`)).ok()).toBe(true);
+  await control(request, "hold-begin");
   const popupReady = context.waitForEvent("page");
   const result = page.waitForResponse((entry) =>
     entry.url().endsWith("/api/account/telegram-link/begin"),
@@ -214,24 +269,57 @@ test("leaving the Account before Telegram begin settles closes its blank popup",
     .getByRole("button", { name: "Подключить", exact: true })
     .click();
   const popup = await popupReady;
+  const popupOrResponse = Promise.race([
+    popup.waitForEvent("close").then(() => "popup closed"),
+    result.then(() => "begin responded"),
+  ]);
   await expect(popup).toHaveURL("about:blank");
+  await entered(request, "begin");
   await showHome(page);
+  expect(await popupOrResponse).toBe("popup closed");
   await page.goBack();
   const section = telegram(page);
-  await expect(
-    section.getByRole("heading", { name: "Telegram" }),
-  ).toBeVisible();
-  expect((await request.post(`${fixture}?action=release-begin`)).ok()).toBe(
-    true,
-  );
-  expect((await result).ok()).toBe(true);
-  await expect.poll(() => popup.isClosed()).toBe(true);
+  await expect(section.getByText("Telegram не подключён")).toBeVisible();
+  await control(request, "release-begin");
+  expect(await (await result).json()).toMatchObject({
+    kind: "received",
+    state: { linkRef, status: "pending" },
+  });
   await expect(
     section.getByRole("button", { name: "Проверить подключение" }),
   ).toBeEnabled();
   await expect(
     section.getByRole("link", { name: "Открыть Telegram" }),
   ).toHaveCount(0);
+});
+
+test("a late confirmation failure does not replace the current Account screen", async ({
+  baseURL,
+  context,
+  page,
+  request,
+}) => {
+  await signIn(context, baseURL);
+  await page.goto("/account");
+  await beginTelegram(page, context);
+  await control(request, "hold-confirm");
+  await control(request, "confirm-unavailable");
+  const result = page.waitForResponse((entry) =>
+    entry.url().endsWith("/api/account/telegram-link/confirm"),
+  );
+  await returnEvents(page, "visible", ["focus"]);
+  expect(await entered(request, "confirm")).toEqual([confirmed]);
+  await showHome(page);
+  await page.goBack();
+  const section = telegram(page);
+  await expect(section.getByText("Подключаем Telegram")).toBeVisible();
+  await control(request, "release-confirm");
+  expect(await (await result).json()).toMatchObject({ kind: "unavailable" });
+  await expect(
+    section.getByRole("button", { name: "Проверить подключение" }),
+  ).toBeEnabled();
+  await browserTurn(page);
+  await expect(section.getByRole("alert")).toHaveCount(0);
 });
 
 test("a pending Telegram continuation polls and replaces its address with the active programme", async ({
@@ -242,16 +330,40 @@ test("a pending Telegram continuation polls and replaces its address with the ac
 }) => {
   await signIn(context, baseURL);
   // Run the browser's actual interval under controlled time.
-  await page.clock.install();
+  await page.clock.install({ time: new Date("2030-01-01T00:00:00Z") });
+  await page.clock.pauseAt(new Date("2030-01-01T00:01:00Z"));
+  await page.goto("/");
   const path = `/telegram/continue?attempt=${attemptId}`;
+  const pending = page.waitForResponse((entry) =>
+    entry.url().endsWith(`/api/account/telegram-activation/${attemptId}`),
+  );
   await page.goto(path);
+  expect(await (await pending).json()).toMatchObject({ state: "pending" });
+  await browserTurn(page);
+  await page.clock.runFor(1);
   await expect(
     page.getByText("Проверяем доступ к выбранному курсу…"),
   ).toBeVisible();
-  expect((await request.post(`${fixture}?action=active`)).ok()).toBe(true);
-  await page.clock.runFor(1000);
+  await control(request, "active");
+  const reads = () =>
+    request
+      .get(`${fixture}?checkpoint=activation`)
+      .then((response) => response.json());
+  await page.clock.runFor(998);
+  await browserTurn(page);
+  expect(await reads()).toBe(1);
+  const activation = page.waitForResponse((entry) =>
+    entry.url().endsWith(`/api/account/telegram-activation/${attemptId}`),
+  );
+  await page.clock.runFor(1);
+  expect(await (await activation).json()).toMatchObject({ state: "active" });
+  expect(await reads()).toBe(2);
+  await browserTurn(page);
+  await page.clock.runFor(1);
   await expect(page).toHaveURL(/\/products\/navigation-proof\/programme$/u);
   await expect(
     page.getByRole("heading", { name: /Проверочный продукт/u }).first(),
   ).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(/\/$/u);
 });
