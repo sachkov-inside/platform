@@ -123,6 +123,10 @@ normal path and the separate real-BFF rejection of malformed backend data. This 
 fault injection, not an own-module substitute or proof of real network corruption; unexpected
 requests fail. A generic transport contract may configure a synthetic operation through the real
 factory and handler's declared callback port, without replacing a product operation or session.
+The two existing Telegram 503 diagnostic tests may add only `x-correlation-id: read-reference`
+after checking and consuming the real failure, preserving its bytes, status and other headers.
+Keep each ordinary failure without that header. This named metadata fault tests the browser's
+diagnostic forwarding; the current BFF does not forward that header.
 
 [Waiting in tests](../../CODING_STANDARDS.md#waiting-in-tests) holds the rules for barriers.
 
