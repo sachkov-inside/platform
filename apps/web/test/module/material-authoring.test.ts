@@ -1,20 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import { renderToStaticMarkup } from "react-dom/server";
 
-const authMocks = vi.hoisted(() => ({
-  getPlatformAccessToken: vi.fn(),
-  getPlatformAccessTokenRsc: vi.fn(),
-}));
-
-vi.mock("@/shared/auth/session-adapter.server", () => ({
-  sessionAdapter: { accessToken: authMocks.getPlatformAccessTokenRsc },
-  LogtoSessionUnavailableError: class extends Error {},
-}));
-
-import {
-  executeCreateMaterialDraft,
-  type MaterialDraftWorkflowDependencies,
-} from "@/_pages/material-authoring/api/create-material-draft";
+import { executeCreateMaterialDraft } from "@/_pages/material-authoring/api/create-material-draft";
 import {
   createMaterialDraftInputSchema,
   type CreateMaterialDraftInput,
@@ -24,22 +12,15 @@ import {
   type SaveMaterialInput,
 } from "@/_pages/material-authoring/model/save-material";
 import { getCurrentMaterialPreview } from "@/_pages/material-authoring/api/get-current-material-preview";
-import {
-  getCurrentMaterial,
-  type CurrentMaterialDependencies,
-} from "@/_pages/material-authoring/api/get-current-material";
+import { getCurrentMaterial } from "@/_pages/material-authoring/api/get-current-material";
 import { mapCurrentMaterialPreview } from "@/_pages/material-authoring/api/material-preview-mapper";
-import {
-  executeSaveMaterial,
-  type SaveMaterialDependencies,
-} from "@/_pages/material-authoring/api/save-material";
+import { executeSaveMaterial } from "@/_pages/material-authoring/api/save-material";
 import { CurrentMaterialAuthoringPage } from "@/_pages/material-authoring/ui/current-material-authoring-page";
 import { MaterialCurrentPreviewPage } from "@/_pages/material-authoring/ui/material-current-preview-page";
-import { LogtoSessionUnavailableError } from "@/shared/auth/index.server";
-import {
-  BackendConnectionError,
-  type requestMaterialPreview,
-} from "@/shared/api/backend/index.server";
+import { sessionAdapter } from "@/shared/auth/session-adapter.server";
+import { realBffSession } from "../support/real-bff-session";
+import { configureWebRuntime } from "../support/web-runtime";
+import { interceptBackendHttp } from "../support/backend-http";
 
 const materialId = "94000000-0000-4000-8000-000000000010";
 const submissionId = "94000000-0000-4000-8000-000000000011";
@@ -49,36 +30,105 @@ const tagId = "94000000-0000-4000-8000-000000000014";
 const productId = "94000000-0000-4000-8000-000000000015";
 const videoId = "94000000-0000-4000-8000-000000000016";
 
+interface BackendReply {
+  readonly method: string;
+  readonly path: string;
+  readonly response: Response | Error;
+  request?: Request;
+}
+let replies: BackendReply[];
+const backend = vi.fn<(request: Request) => Promise<Response>>();
+beforeEach(() => {
+  configureWebRuntime();
+  vi.setSystemTime(new Date("2026-11-16T12:00:00.000Z"));
+  replies = [];
+  backend.mockReset();
+  backend.mockImplementation((request) => {
+    const reply = replies.find(
+      (candidate) =>
+        candidate.request === undefined &&
+        candidate.method === request.method &&
+        request.url === `https://platform-api.example.test${candidate.path}`,
+    );
+    if (reply !== undefined) reply.request = request;
+    return reply === undefined
+      ? Promise.reject(new Error("Unexpected external request"))
+      : reply.response instanceof Error
+        ? Promise.reject(reply.response)
+        : Promise.resolve(reply.response);
+  });
+  interceptBackendHttp(backend);
+});
+afterEach(() => {
+  try {
+    expect(backend).toHaveBeenCalledTimes(replies.length);
+    replies.forEach((reply) => {
+      const request = reply.request;
+      if (request === undefined) throw new Error("Expected backend request");
+      expect(request.method).toBe(reply.method);
+      expect(request.url).toBe(
+        `https://platform-api.example.test${reply.path}`,
+      );
+      expect(request.headers.get("authorization")).toBe("Bearer access-token");
+      if (reply.method === "GET") expect(request.body).toBeNull();
+    });
+  } finally {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  }
+});
+function respond(method: string, path: string, body: unknown, status = 200) {
+  replies.push({ method, path, response: Response.json(body, { status }) });
+}
+function created() {
+  respond("POST", "/authoring/materials", createdDraft(), 201);
+}
+function saved() {
+  respond("PUT", `/authoring/materials/${materialId}`, savedMaterial());
+}
+function references() {
+  respond("GET", "/authoring/materials/references", referenceFacts());
+}
+async function requestBody(index = 0) {
+  const request = backend.mock.calls[index]?.[0];
+  if (request === undefined) throw new Error("Expected backend request");
+  return request.json() as Promise<unknown>;
+}
+function requestKey(index = 0) {
+  return backend.mock.calls[index]?.[0].headers.get("idempotency-key");
+}
+
 describe("Material Authoring action workflow", () => {
   it("uses the read-only Logto reader while rendering existing Material routes", async () => {
-    authMocks.getPlatformAccessToken.mockClear();
-    authMocks.getPlatformAccessTokenRsc.mockRejectedValue(
-      new LogtoSessionUnavailableError(),
+    const scope = await realBffSession(null);
+    const sessionRead = vi.spyOn(sessionAdapter, "accessToken");
+    const editor = await scope(() =>
+      CurrentMaterialAuthoringPage({
+        materialId,
+        returnHref: "/authoring/materials?state=draft",
+      }),
     );
-
-    await CurrentMaterialAuthoringPage({
-      materialId,
-      returnHref: "/authoring/materials?state=draft",
-    });
-    await MaterialCurrentPreviewPage({
-      materialId,
-      returnHref: "/authoring/materials?state=draft",
-    });
-
-    expect(authMocks.getPlatformAccessTokenRsc).toHaveBeenCalledTimes(2);
-    expect(authMocks.getPlatformAccessTokenRsc).toHaveBeenCalledWith("rsc");
-    expect(authMocks.getPlatformAccessToken).not.toHaveBeenCalled();
+    const preview = await scope(() =>
+      MaterialCurrentPreviewPage({
+        materialId,
+        returnHref: "/authoring/materials?state=draft",
+      }),
+    );
+    for (const rendered of [editor, preview])
+      expect(renderToStaticMarkup(rendered)).toContain(
+        'name="returnTo" value="/authoring/materials?state=draft"',
+      );
+    expect(sessionRead).toHaveBeenCalledTimes(2);
+    expect(sessionRead).toHaveBeenNthCalledWith(1, "rsc");
+    expect(sessionRead).toHaveBeenNthCalledWith(2, "rsc");
+    expect(backend).not.toHaveBeenCalled();
   });
 
   it("creates one idempotent draft without post-commit reads", async () => {
-    const dependencies = successfulDependencies();
+    created();
 
     await expect(
-      executeCreateMaterialDraft(
-        validDraftInput(),
-        "access-token",
-        dependencies,
-      ),
+      executeCreateMaterialDraft(validDraftInput(), "access-token"),
     ).resolves.toMatchObject({
       kind: "created",
       draft: {
@@ -87,100 +137,97 @@ describe("Material Authoring action workflow", () => {
       },
     });
 
-    expect(dependencies.create).toHaveBeenCalledOnce();
-    expect(dependencies.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        formatId,
-        idempotencyKey: `web-create-${submissionId}`,
-        productIds: [productId],
-        tagIds: [tagId],
-        topicId,
-      }),
-      "access-token",
+    expect(backend).toHaveBeenCalledOnce();
+    expect(requestKey()).toBe(
+      "web-create-94000000-0000-4000-8000-000000000011",
     );
+    expect(await requestBody()).toMatchObject({
+      body: { schemaVersion: 1 },
+      metadata: { formatId, productIds: [productId], tagIds: [tagId], topicId },
+    });
   });
 
   it("rejects a malformed document before the Nest mutation", async () => {
-    const dependencies = successfulDependencies();
     const input = validDraftInput({ document: { type: "paragraph" } });
 
     await expect(
-      executeCreateMaterialDraft(input, "access-token", dependencies),
+      executeCreateMaterialDraft(input, "access-token"),
     ).resolves.toMatchObject({
       kind: "invalid_input",
       issues: [{ path: "/document" }],
     });
-    expect(dependencies.create).not.toHaveBeenCalled();
+    expect(backend).not.toHaveBeenCalled();
   });
 
   it("returns the typed unauthorized state for a denied author", async () => {
-    const dependencies = {
-      ...successfulDependencies(),
-      create: vi.fn().mockResolvedValue({
-        ok: false,
-        problem: { code: "forbidden", status: 403 },
-        response: Response.json({}, { status: 403 }),
-      }),
-    } satisfies MaterialDraftWorkflowDependencies;
+    respond(
+      "POST",
+      "/authoring/materials",
+      { code: "forbidden", status: 403 },
+      403,
+    );
 
     await expect(
-      executeCreateMaterialDraft(
-        validDraftInput(),
-        "access-token",
-        dependencies,
-      ),
+      executeCreateMaterialDraft(validDraftInput(), "access-token"),
     ).resolves.toEqual({ kind: "forbidden" });
   });
 
-  it("keeps an infrastructure failure retryable with the same submission key", async () => {
-    const dependencies = {
-      ...successfulDependencies(),
-      create: vi.fn().mockRejectedValue(new TypeError("connection refused")),
-    } satisfies MaterialDraftWorkflowDependencies;
-
+  it("keeps an invalid draft receipt retryable with the same submission key", async () => {
+    respond("POST", "/authoring/materials", {}, 201);
     await expect(
-      executeCreateMaterialDraft(
-        validDraftInput(),
-        "access-token",
-        dependencies,
-      ),
+      executeCreateMaterialDraft(validDraftInput(), "access-token"),
     ).resolves.toEqual({
       kind: "unexpected_error",
       reference: "unexpected-authoring-error",
     });
-    expect(dependencies.create).toHaveBeenCalledWith(
-      expect.objectContaining({ idempotencyKey: `web-create-${submissionId}` }),
-      "access-token",
+    expect(requestKey()).toBe(
+      "web-create-94000000-0000-4000-8000-000000000011",
+    );
+  });
+
+  // Newly adopted implementation-derived preservation criterion, not a historical product contract:
+  // https://github.com/sachkov-inside/platform/issues/2292#issuecomment-6940196888
+  it("keeps external backend loss retryable with the same draft key", async () => {
+    replies.push({
+      method: "POST",
+      path: "/authoring/materials",
+      response: new Error("External backend offline"),
+    });
+    await expect(
+      executeCreateMaterialDraft(validDraftInput(), "access-token"),
+    ).resolves.toEqual({ kind: "unexpected_error", reference: "unavailable" });
+    expect(requestKey()).toBe(
+      "web-create-94000000-0000-4000-8000-000000000011",
     );
   });
 
   it("models a missing current Preview as an expected domain state", async () => {
+    respond(
+      "GET",
+      `/authoring/materials/${materialId}/preview`,
+      { code: "material_not_found", status: 404 },
+      404,
+    );
+    references();
     await expect(
-      getCurrentMaterialPreview(materialId, "access-token", {
-        preview: vi.fn().mockResolvedValue({
-          ok: false,
-          problem: { code: "material_not_found", status: 404 },
-          response: Response.json({}, { status: 404 }),
-        }),
-        references: successfulReferences(),
-      }),
+      getCurrentMaterialPreview(materialId, "access-token"),
     ).resolves.toEqual({ kind: "not_found" });
   });
 
   it("keeps a transient current Preview failure retryable", async () => {
+    respond(
+      "GET",
+      `/authoring/materials/${materialId}/preview`,
+      {
+        code: "dependency_unavailable",
+        correlationId: "preview-request",
+        status: 503,
+      },
+      503,
+    );
+    references();
     await expect(
-      getCurrentMaterialPreview(materialId, "access-token", {
-        preview: vi.fn().mockResolvedValue({
-          ok: false,
-          problem: {
-            code: "dependency_unavailable",
-            correlationId: "preview-request",
-            status: 503,
-          },
-          response: Response.json({}, { status: 503 }),
-        }),
-        references: successfulReferences(),
-      }),
+      getCurrentMaterialPreview(materialId, "access-token"),
     ).resolves.toEqual({
       kind: "unexpected_error",
       reference: "preview-request",
@@ -188,62 +235,61 @@ describe("Material Authoring action workflow", () => {
   });
 
   it("loads the complete current Material into the production editor presentation", async () => {
-    const dependencies = {
-      load: vi.fn().mockResolvedValue({
-        ok: true,
+    respond(
+      "GET",
+      `/authoring/materials/${materialId}`,
+      {
         body: {
-          body: {
-            doc: {
-              content: [
-                {
-                  content: [{ text: "Saved body", type: "text" }],
-                  type: "paragraph",
-                },
-              ],
-              type: "doc",
-            },
-            schemaVersion: 1,
-          },
-          contentVersion: 7,
-          cover: null,
-          firstPublishedAt: "2026-08-30T08:00:00.000Z",
-          materialId,
-          metadata: {
-            access: "closed",
-            difficulty: "intermediate",
-            outcomes: [
-              "Провести задачу до мержа",
-              "Назвать место, где она застревает",
+          doc: {
+            content: [
+              {
+                content: [{ text: "Saved body", type: "text" }],
+                type: "paragraph",
+              },
             ],
-            formatId,
-            productMemberships: [{ ordinal: 4, productId }],
-            slug: "saved-material",
-            summary: "Saved summary",
-            tagIds: [tagId],
-            title: "Saved Material",
-            topicId,
+            type: "doc",
           },
-          publicationState: "published",
-          inFeed: false,
-          latestVideoDeletion: null,
-          unselectedVideoUpload: {
-            origin: "platform_upload",
-            protected: true,
-            state: "processing",
-            title: "Незавершённая загрузка",
-            videoId: "70000000-0000-4000-8000-000000000001",
-          },
-          primaryVideo: null,
-          primaryVideoId: null,
-          publishedAt: "2026-08-30T08:00:00.000Z",
+          schemaVersion: 1,
         },
-        response: Response.json({}),
-      }),
-      references: successfulReferences(),
-    } satisfies CurrentMaterialDependencies;
+        contentVersion: 7,
+        cover: null,
+        firstPublishedAt: "2026-08-30T08:00:00.000Z",
+        materialId,
+        metadata: {
+          access: "closed",
+          difficulty: "intermediate",
+          outcomes: [
+            "Провести задачу до мержа",
+            "Назвать место, где она застревает",
+          ],
+          formatId,
+          productMemberships: [{ ordinal: 4, productId }],
+          slug: "saved-material",
+          summary: "Saved summary",
+          tagIds: [tagId],
+          title: "Saved Material",
+          topicId,
+        },
+        publicationState: "published",
+        inFeed: false,
+        latestVideoDeletion: null,
+        unselectedVideoUpload: {
+          origin: "platform_upload",
+          protected: true,
+          state: "processing",
+          title: "Незавершённая загрузка",
+          videoId: "70000000-0000-4000-8000-000000000001",
+        },
+        primaryVideo: null,
+        primaryVideoId: null,
+        publishedAt: "2026-08-30T08:00:00.000Z",
+      },
+      200,
+    );
+    references();
 
     await expect(
-      getCurrentMaterial(materialId, "access-token", dependencies),
+      getCurrentMaterial(materialId, "access-token"),
     ).resolves.toMatchObject({
       draft: {
         access: "closed",
@@ -264,62 +310,57 @@ describe("Material Authoring action workflow", () => {
         references: { products: [{ label: "Build", value: productId }] },
       },
     });
-    expect(dependencies.load).toHaveBeenCalledWith(materialId, "access-token");
+    expect(backend).toHaveBeenCalledTimes(2);
   });
 
   it("rejects malformed Current Material document and Product payloads at the adapter boundary", async () => {
-    const malformedCurrent = {
-      load: vi.fn().mockResolvedValue({
-        ok: true,
-        body: {
-          body: { doc: { type: 42 }, schemaVersion: 1 },
-          contentVersion: 7,
-          firstPublishedAt: null,
-          materialId,
-          metadata: {
-            access: "free",
-            difficulty: null,
-            outcomes: [],
-            formatId: null,
-            productMemberships: [],
-            slug: null,
-            summary: null,
-            tagIds: [],
-            title: null,
-            topicId: null,
-          },
-          publicationState: "draft",
-          primaryVideoId: null,
-          publishedAt: null,
+    respond(
+      "GET",
+      `/authoring/materials/${materialId}`,
+      {
+        body: { doc: { type: 42 }, schemaVersion: 1 },
+        contentVersion: 7,
+        firstPublishedAt: null,
+        materialId,
+        metadata: {
+          access: "free",
+          difficulty: null,
+          outcomes: [],
+          formatId: null,
+          productMemberships: [],
+          slug: null,
+          summary: null,
+          tagIds: [],
+          title: null,
+          topicId: null,
         },
-        response: Response.json({}),
-      }),
-      references: successfulReferences(),
-    } satisfies CurrentMaterialDependencies;
+        publicationState: "draft",
+        primaryVideoId: null,
+        publishedAt: null,
+      },
+      200,
+    );
+    references();
 
     await expect(
-      getCurrentMaterial(materialId, "access-token", malformedCurrent),
+      getCurrentMaterial(materialId, "access-token"),
     ).rejects.toThrow("Malformed Current Material response");
 
-    const preview = successfulPreview();
-    const response = await preview(materialId, "access-token");
-    if (!response.ok) throw new Error("Preview fixture must succeed");
+    const preview = previewFacts();
     const malformedPreview = z
       .looseObject({
         metadata: z.looseObject({ productMemberships: z.array(z.unknown()) }),
       })
-      .parse(structuredClone(response.body));
+      .parse(structuredClone(preview));
     malformedPreview.metadata.productMemberships = [{ ordinal: 0, productId }];
     expect(mapCurrentMaterialPreview(malformedPreview).ok).toBe(false);
   });
 
-  it("maps the complete rendered Preview block vocabulary", async () => {
-    const preview = successfulPreview();
-    const response = await preview(materialId, "access-token");
-    if (!response.ok) throw new Error("Preview fixture must succeed");
+  it("maps the complete rendered Preview block vocabulary", () => {
+    const preview = previewFacts();
     const representativePreview = z
       .looseObject({ body: z.looseObject({ blocks: z.array(z.unknown()) }) })
-      .parse(structuredClone(response.body));
+      .parse(structuredClone(preview));
     representativePreview.body.blocks.push(
       {
         kind: "table",
@@ -366,34 +407,28 @@ describe("Material Authoring action workflow", () => {
   it.each([true, false])(
     "preserves an explicit Telegram author choice %s through the save adapter",
     async (enabled) => {
-      const dependencies = successfulSaveDependencies();
+      saved();
       const input = validSaveInput({ notifyTelegram: enabled });
-      await executeSaveMaterial(input, "access-token", dependencies);
-      expect(dependencies.save).toHaveBeenCalledWith(
-        expect.objectContaining({ notifyTelegram: enabled }),
-        "access-token",
-      );
+      await executeSaveMaterial(input, "access-token");
+      expect(await requestBody()).toMatchObject({ notifyTelegram: enabled });
     },
   );
 
   it("sends one full-state Save and returns the next idempotency key only after success", async () => {
-    const dependencies = successfulSaveDependencies();
+    saved();
 
     await expect(
-      executeSaveMaterial(validSaveInput(), "access-token", dependencies),
+      executeSaveMaterial(validSaveInput(), "access-token"),
     ).resolves.toMatchObject({
       contentVersion: 4,
       kind: "saved",
       publicationState: "published",
     });
-    expect(dependencies.save).toHaveBeenCalledOnce();
-    expect(dependencies.save).toHaveBeenCalledWith(
-      {
-        access: "closed",
-        deleteVideoId: null,
-        detachVideoIds: [],
-        difficulty: "basic",
-        document: {
+    expect(backend).toHaveBeenCalledOnce();
+    expect(requestKey()).toBe("web-save-94000000-0000-4000-8000-000000000011");
+    expect(await requestBody()).toEqual({
+      body: {
+        doc: {
           content: [
             {
               content: [{ text: "Local full state", type: "text" }],
@@ -402,71 +437,67 @@ describe("Material Authoring action workflow", () => {
           ],
           type: "doc",
         },
-        expectedContentVersion: 3,
+        schemaVersion: 1,
+      },
+      deleteVideoId: null,
+      detachVideoIds: [],
+      expectedContentVersion: 3,
+      metadata: {
+        access: "closed",
+        difficulty: "basic",
         formatId,
         outcomes: [
           "Собрать один production path",
           "Проверить его одним прогоном",
         ],
-        idempotencyKey: `web-save-${submissionId}`,
-        materialId,
-        publicationState: "published",
-        primaryVideoId: null,
         productIds: [productId],
         summary: "Saved summary",
         tagIds: [tagId],
         title: "Saved Material",
         topicId,
       },
-      "access-token",
-    );
+      publicationState: "published",
+      primaryVideoId: null,
+    });
   });
 
   it("passes explicit Video deletion intent only as part of the full-state Save", async () => {
-    const dependencies = successfulSaveDependencies();
+    saved();
     const input = validSaveInput({ deleteVideoId: videoId });
 
-    await executeSaveMaterial(input, "access-token", dependencies);
+    await executeSaveMaterial(input, "access-token");
 
-    expect(dependencies.save).toHaveBeenCalledWith(
-      expect.objectContaining({ deleteVideoId: videoId }),
-      "access-token",
-    );
+    expect(await requestBody(0)).toMatchObject({ deleteVideoId: videoId });
   });
 
   it("passes every Video the author removed as part of the full-state Save", async () => {
-    const dependencies = successfulSaveDependencies();
+    saved();
     const replacementId = "30000000-0000-4000-8000-000000000009";
     const input = validSaveInput({
       detachVideoIds: [videoId, replacementId],
     });
 
-    await executeSaveMaterial(input, "access-token", dependencies);
+    await executeSaveMaterial(input, "access-token");
 
-    expect(dependencies.save).toHaveBeenCalledWith(
-      expect.objectContaining({ detachVideoIds: [videoId, replacementId] }),
-      "access-token",
-    );
+    expect(await requestBody(0)).toMatchObject({
+      detachVideoIds: [videoId, replacementId],
+    });
   });
 
   it("maps a stale Save to conflict without validating or replacing local input", async () => {
-    const dependencies = {
-      ...successfulSaveDependencies(),
-      save: vi.fn().mockResolvedValue({
-        ok: false,
-        problem: {
-          code: "stale_content_version",
-          currentContentVersion: 4,
-          status: 409,
-        },
-        response: Response.json({}, { status: 409 }),
-      }),
-    } satisfies SaveMaterialDependencies;
+    respond(
+      "PUT",
+      `/authoring/materials/${materialId}`,
+      {
+        code: "stale_content_version",
+        currentContentVersion: 4,
+        status: 409,
+      },
+      409,
+    );
     const input = validSaveInput();
 
-    await expect(
-      executeSaveMaterial(input, "access-token", dependencies),
-    ).resolves.toEqual({
+    await expect(executeSaveMaterial(input, "access-token")).resolves.toEqual({
       currentContentVersion: 4,
       kind: "conflict",
       staleContentVersion: 3,
@@ -476,25 +507,23 @@ describe("Material Authoring action workflow", () => {
   });
 
   it("explains source ownership mismatches in Save", async () => {
-    const refused = {
-      ...successfulSaveDependencies(),
-      save: vi.fn().mockResolvedValue({
-        ok: false,
-        problem: {
-          code: "invalid_reference",
-          issues: [
-            {
-              code: "material_source_mismatch",
-              path: "/metadata/productIds/0",
-            },
-          ],
-          status: 422,
-        },
-        response: Response.json({}, { status: 422 }),
-      }),
-    } satisfies SaveMaterialDependencies;
+    respond(
+      "PUT",
+      `/authoring/materials/${materialId}`,
+      {
+        code: "invalid_reference",
+        issues: [
+          {
+            code: "material_source_mismatch",
+            path: "/metadata/productIds/0",
+          },
+        ],
+        status: 422,
+      },
+      422,
+    );
     await expect(
-      executeSaveMaterial(validSaveInput(), "access-token", refused),
+      executeSaveMaterial(validSaveInput(), "access-token"),
     ).resolves.toEqual({
       kind: "invalid_input",
       issues: [
@@ -508,73 +537,59 @@ describe("Material Authoring action workflow", () => {
   });
 
   it("asks to confirm a removal from a bought product and sends the confirmed products", async () => {
-    const products = [
-      { productId: productId, holders: 2, name: "Купленный продукт" },
-    ];
-    const refused = {
-      ...successfulSaveDependencies(),
-      save: vi.fn().mockResolvedValue({
-        ok: false,
-        problem: {
-          code: "product_removal_confirmation_required",
-          products,
-          status: 409,
-        },
-        response: Response.json({}, { status: 409 }),
-      }),
-    } satisfies SaveMaterialDependencies;
+    const products = [{ productId, holders: 2, name: "Купленный продукт" }];
+    respond(
+      "PUT",
+      `/authoring/materials/${materialId}`,
+      {
+        code: "product_removal_confirmation_required",
+        products,
+        status: 409,
+      },
+      409,
+    );
     await expect(
-      executeSaveMaterial(validSaveInput(), "access-token", refused),
+      executeSaveMaterial(validSaveInput(), "access-token"),
     ).resolves.toEqual({ products, kind: "removal_confirmation_required" });
 
-    const dependencies = successfulSaveDependencies();
+    saved();
     const input = validSaveInput({ confirmedProductRemovals: [productId] });
-    await executeSaveMaterial(input, "access-token", dependencies);
-    expect(dependencies.save).toHaveBeenCalledWith(
-      expect.objectContaining({ confirmedProductRemovals: [productId] }),
-      "access-token",
-    );
+    await executeSaveMaterial(input, "access-token");
+    expect(await requestBody(1)).toMatchObject({
+      confirmedProductRemovals: [productId],
+    });
   });
 
   it("retries dependency failure with the same idempotency key", async () => {
-    const dependencies = {
-      ...successfulSaveDependencies(),
-      save: vi.fn().mockResolvedValue({
-        ok: false,
-        problem: { code: "dependency_unavailable", status: 503 },
-        response: Response.json({}, { status: 503 }),
-      }),
-    } satisfies SaveMaterialDependencies;
-
-    await executeSaveMaterial(validSaveInput(), "access-token", dependencies);
-    await executeSaveMaterial(validSaveInput(), "access-token", dependencies);
-
-    expect(dependencies.save).toHaveBeenCalledTimes(2);
-    expect(dependencies.save).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({ idempotencyKey: `web-save-${submissionId}` }),
-      "access-token",
+    respond(
+      "PUT",
+      `/authoring/materials/${materialId}`,
+      { code: "dependency_unavailable", status: 503 },
+      503,
     );
-    expect(dependencies.save).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({ idempotencyKey: `web-save-${submissionId}` }),
-      "access-token",
+
+    respond(
+      "PUT",
+      `/authoring/materials/${materialId}`,
+      { code: "dependency_unavailable", status: 503 },
+      503,
     );
+    await executeSaveMaterial(validSaveInput(), "access-token");
+    await executeSaveMaterial(validSaveInput(), "access-token");
+
+    expect(backend).toHaveBeenCalledTimes(2);
+    expect(requestKey(0)).toBe("web-save-94000000-0000-4000-8000-000000000011");
+    expect(requestKey(1)).toBe("web-save-94000000-0000-4000-8000-000000000011");
   });
 
   it("throws protocol failures into the route error boundary", async () => {
-    const dependencies = {
-      ...successfulSaveDependencies(),
-      save: vi
-        .fn()
-        .mockRejectedValue(
-          new BackendConnectionError("invalid-response", "Malformed response"),
-        ),
-    } satisfies SaveMaterialDependencies;
-
+    respond("PUT", `/authoring/materials/${materialId}`, savedMaterial(), 201);
     await expect(
-      executeSaveMaterial(validSaveInput(), "access-token", dependencies),
-    ).rejects.toThrow("Malformed response");
+      executeSaveMaterial(validSaveInput(), "access-token"),
+    ).rejects.toMatchObject({
+      name: "BackendConnectionError",
+      code: "invalid-response",
+    });
   });
 });
 
@@ -605,71 +620,57 @@ function validDraftInput(
   } satisfies CreateMaterialDraftInput);
 }
 
-function successfulDependencies(): MaterialDraftWorkflowDependencies {
+function createdDraft() {
   return {
-    create: vi.fn().mockResolvedValue({
-      ok: true,
-      body: {
-        contentVersion: 1,
-        materialId,
-        publicationState: "draft",
-        publishedAt: null,
-      },
-      response: Response.json({}, { status: 201 }),
-    }),
+    contentVersion: 1,
+    materialId,
+    publicationState: "draft",
+    publishedAt: null,
   };
 }
 
-function successfulPreview(): typeof requestMaterialPreview {
-  return vi.fn().mockResolvedValue({
-    ok: true,
+function previewFacts() {
+  return {
     body: {
-      body: {
-        blocks: [
-          {
-            kind: "paragraph",
-            content: [
-              { kind: "text", marks: [], text: "Current из PostgreSQL." },
-            ],
-          },
-        ],
-        schemaVersion: 1,
-      },
-      cacheScope: "private-no-store",
-      contentVersion: 1,
-      materialId,
-      metadata: {
-        access: "free",
-        difficulty: "intermediate",
-        outcomes: [
-          "Understand the saved lesson",
-          "Apply the documented workflow",
-        ],
-        formatId,
-        productMemberships: [],
-        slug: "one-production-path",
-        summary: "Проверяем create, validation и current Preview.",
-        tagIds: [tagId],
-        title: "Один production path",
-        topicId,
-      },
-      publicationState: "draft",
+      blocks: [
+        {
+          kind: "paragraph",
+          content: [
+            { kind: "text", marks: [], text: "Current из PostgreSQL." },
+          ],
+        },
+      ],
+      schemaVersion: 1,
     },
-    response: Response.json({}),
-  });
+    cacheScope: "private-no-store",
+    contentVersion: 1,
+    materialId,
+    metadata: {
+      access: "free",
+      difficulty: "intermediate",
+      outcomes: [
+        "Understand the saved lesson",
+        "Apply the documented workflow",
+      ],
+      formatId,
+      productMemberships: [],
+      slug: "one-production-path",
+      summary: "Проверяем create, validation и current Preview.",
+      tagIds: [tagId],
+      title: "Один production path",
+      topicId,
+    },
+    publicationState: "draft",
+  };
 }
 
-function successfulReferences() {
-  return vi.fn().mockResolvedValue({
-    ok: true,
-    body: {
-      formats: [{ archived: false, id: formatId, name: "Гайд" }],
-      products: [{ archived: false, id: productId, name: "Build" }],
-      tags: [{ archived: false, id: tagId, name: "delivery" }],
-      topics: [{ archived: false, id: topicId, name: "Platform" }],
-    },
-    response: Response.json({}),
-  });
+function referenceFacts() {
+  return {
+    formats: [{ archived: false, id: formatId, name: "Гайд" }],
+    products: [{ archived: false, id: productId, name: "Build" }],
+    tags: [{ archived: false, id: tagId, name: "delivery" }],
+    topics: [{ archived: false, id: topicId, name: "Platform" }],
+  };
 }
 
 function validSaveInput(
@@ -705,17 +706,11 @@ function validSaveInput(
   } satisfies SaveMaterialInput);
 }
 
-function successfulSaveDependencies(): SaveMaterialDependencies {
+function savedMaterial() {
   return {
-    save: vi.fn().mockResolvedValue({
-      body: {
-        contentVersion: 4,
-        materialId,
-        publicationState: "published",
-        publishedAt: "2026-08-30T08:00:00.000Z",
-      },
-      ok: true,
-      response: Response.json({}),
-    }),
+    contentVersion: 4,
+    materialId,
+    publicationState: "published",
+    publishedAt: "2026-08-30T08:00:00.000Z",
   };
 }
