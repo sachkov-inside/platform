@@ -1,34 +1,21 @@
-import { beforeEach, expect, it, vi } from "vitest";
-const fakes = vi.hoisted(() => ({
-  token: vi.fn(),
-  states: vi.fn(),
-  save: vi.fn(),
-}));
-vi.mock("@/shared/api/backend/index.server", () => ({
-  requestReadingStates: fakes.states,
-  requestSetReadingState: fakes.save,
-}));
-vi.mock("@/shared/auth/platform-access-token.server", () => ({
-  getPlatformAccessToken: fakes.token,
-  LogtoSessionUnavailableError: class extends Error {},
-}));
-vi.mock("@/shared/auth/logto-bff-config.server", () => ({
-  readLogtoBffConfig: () => ({ baseUrl: "https://inside.example.test" }),
-}));
-vi.mock("@/shared/auth/index.server", async () => {
-  const handlers =
-    await import("@/shared/auth/authenticated-mutation-handler.server");
-  return {
-    handleAuthenticatedMutation: handlers.handleAuthenticatedMutation,
-    handleMutationOperation: handlers.handleMutationOperation,
-    handleOptionalMutationOperation: handlers.handleOptionalMutationOperation,
-  };
-});
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { learningScenario as facts } from "../../../../scenarios/learning.mjs";
+import { sessionAdapter } from "@/shared/auth/session-adapter.server";
+import { realBffSession } from "../support/real-bff-session";
+const backend = vi.fn<(request: Request) => Promise<Response>>();
+let session: Awaited<ReturnType<typeof realBffSession>>;
+
 import {
-  handleReadingStates,
-  handleSetReadingState,
+  handleReadingStates as realHandleReadingStates,
+  handleSetReadingState as realHandleSetReadingState,
 } from "@/features/reading-progress.server";
-const materialId = "10000000-0000-4000-8000-000000000001";
+const handleReadingStates = (request: Request) =>
+  session(() => realHandleReadingStates(request));
+const handleSetReadingState = (request: Request) =>
+  session(() => realHandleSetReadingState(request));
+const materialId = facts.lessons.find((lesson) => lesson.key === "intro")?.id;
+if (materialId === undefined)
+  throw new Error("Missing canonical introduction lesson");
 const commandId = "20000000-0000-4000-8000-000000000001";
 const state = {
   materialId,
@@ -48,25 +35,29 @@ function request(
     body,
   });
 }
-beforeEach(() => {
-  vi.clearAllMocks();
-  fakes.token.mockResolvedValue("trusted-token");
+beforeEach(async () => {
+  backend.mockReset();
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date(facts.fixtureDate));
+  session = await realBffSession();
+  vi.stubGlobal("fetch", backend);
 });
+afterEach(() => vi.useRealTimers());
+
 it("rejects cross-origin writes before authentication or backend calls", async () => {
+  const tokenReads = vi.spyOn(sessionAdapter, "accessToken");
   const response = await handleSetReadingState(
     request({ materialId }, "https://outside.test"),
   );
   expect(response.status).toBe(403);
-  expect(fakes.token).not.toHaveBeenCalled();
-  expect(fakes.save).not.toHaveBeenCalled();
+  expect(tokenReads).not.toHaveBeenCalled();
+  expect(backend).not.toHaveBeenCalled();
   expect(response.headers.get("cache-control")).toBe("no-store, private");
 });
 it("preserves the idempotency command and authenticates independently of posted identity", async () => {
-  fakes.save.mockResolvedValue({
-    ok: true,
-    body: { state, changed: false, replayed: true },
-    response: new Response(),
-  });
+  backend.mockResolvedValueOnce(
+    Response.json({ state, changed: false, replayed: true }),
+  );
   const response = await handleSetReadingState(
     request({
       materialId,
@@ -76,10 +67,12 @@ it("preserves the idempotency command and authenticates independently of posted 
       accountId: "untrusted",
     }),
   );
-  expect(fakes.save).toHaveBeenCalledWith(
-    { materialId, commandId, expectedVersion: 2, isRead: true },
-    "trusted-token",
-  );
+  expect(
+    await expectBackendRequest(
+      "PUT",
+      `/reading-activity/materials/${materialId}`,
+    ).json(),
+  ).toEqual({ commandId, expectedVersion: 2, isRead: true });
   expect(await response.json()).toEqual({
     kind: "saved",
     state,
@@ -88,24 +81,18 @@ it("preserves the idempotency command and authenticates independently of posted 
   expect(response.headers.get("vary")).toBe("cookie");
 });
 it("returns current conflict state without claiming a successful write", async () => {
-  fakes.save.mockResolvedValue({
-    ok: false,
-    problem: { code: "stale_version", current: state },
-    response: new Response(null, { status: 409 }),
-  });
+  backend.mockResolvedValueOnce(
+    Response.json({ code: "stale_version", current: state }, { status: 409 }),
+  );
   const response = await handleSetReadingState(
     request({ materialId, commandId, expectedVersion: 1, isRead: false }),
   );
   expect(await response.json()).toEqual({ kind: "conflict", current: state });
 });
 it("does not report success for transport failures or malformed success bodies", async () => {
-  fakes.save
+  backend
     .mockRejectedValueOnce(new Error("lost response"))
-    .mockResolvedValueOnce({
-      ok: true,
-      body: { state: { isRead: true } },
-      response: new Response(),
-    });
+    .mockResolvedValueOnce(Response.json({ state: { isRead: true } }));
   for (let i = 0; i < 2; i++)
     expect(
       await (
@@ -129,16 +116,17 @@ it("bounds batch reads and returns private state, with an unseen update note, wi
     },
     openedParts: 2,
   };
-  fakes.states.mockResolvedValue({
-    ok: true,
-    body: [listed],
-    response: new Response(),
-  });
+  backend.mockResolvedValueOnce(Response.json([listed]));
   const response = await handleReadingStates(
     request({ materialIds: [materialId] }),
   );
   expect(await response.json()).toEqual({ kind: "ready", states: [listed] });
-  expect(fakes.states).toHaveBeenCalledWith([materialId], "trusted-token");
+  expect(
+    await expectBackendRequest(
+      "POST",
+      "/reading-activity/materials/query",
+    ).json(),
+  ).toEqual({ materialIds: [materialId] });
   const body = JSON.stringify({
     materialIds: Array.from({ length: 101 }, () => materialId),
   });
@@ -156,5 +144,15 @@ it("bounds batch reads and returns private state, with an unseen update note, wi
       )
     ).json(),
   ).toEqual({ kind: "invalid_input" });
-  expect(fakes.states).toHaveBeenCalledTimes(1);
+  expect(backend).toHaveBeenCalledTimes(1);
 });
+
+function expectBackendRequest(method: string, path: string): Request {
+  expect(backend).toHaveBeenCalledOnce();
+  const request = backend.mock.calls[0]?.[0];
+  if (request === undefined) throw new Error("Expected backend request");
+  expect(request.method).toBe(method);
+  expect(request.url).toBe(`https://platform-api.example.test${path}`);
+  expect(request.headers.get("authorization")).toBe("Bearer trusted-token");
+  return request;
+}

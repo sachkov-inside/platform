@@ -1,27 +1,19 @@
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-const fakes = vi.hoisted(() => ({
-  token: vi.fn(),
-  read: vi.fn(),
-  record: vi.fn(),
-  LogtoSessionUnavailableError: class extends Error {},
-}));
-vi.mock("@/shared/api/backend/index.server", () => ({
-  requestExerciseAttempts: fakes.read,
-  requestRecordExerciseAttempt: fakes.record,
-}));
-vi.mock("@/shared/auth/session-adapter.server", () => ({
-  sessionAdapter: {
-    accessToken: fakes.token,
-    baseUrl: () => "https://inside.example.test",
-  },
-  LogtoSessionUnavailableError: fakes.LogtoSessionUnavailableError,
-}));
+import { sessionAdapter } from "@/shared/auth/session-adapter.server";
+import { realBffSession } from "../support/real-bff-session";
+const backend = vi.fn<(request: Request) => Promise<Response>>();
+let session: Awaited<ReturnType<typeof realBffSession>>;
 
 import {
-  handleExerciseAttempts,
-  handleRecordExerciseAttempt,
+  handleExerciseAttempts as realHandleExerciseAttempts,
+  handleRecordExerciseAttempt as realHandleRecordExerciseAttempt,
 } from "@/features/exercise-attempts.server";
+
+const handleExerciseAttempts = (request: Request) =>
+  session(() => realHandleExerciseAttempts(request));
+const handleRecordExerciseAttempt = (request: Request) =>
+  session(() => realHandleRecordExerciseAttempt(request));
 
 const materialId = "6d155605-f852-461a-bdeb-df68b0b441c4";
 const attempt = {
@@ -51,12 +43,18 @@ const recordBody = {
   answer: { kind: "options", optionIds: ["prompt"] },
 };
 
-beforeEach(() => {
-  vi.clearAllMocks();
-  fakes.token.mockResolvedValue("trusted-token");
+beforeEach(async () => {
+  backend.mockReset();
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-16T10:00:00Z"));
+  session = await realBffSession();
+  vi.stubGlobal("fetch", backend);
 });
 
+afterEach(() => vi.useRealTimers());
+
 it("rejects a cross-origin attempt before authentication or backend calls", async () => {
+  const tokenReads = vi.spyOn(sessionAdapter, "accessToken");
   const response = await handleRecordExerciseAttempt(
     request(
       "/api/exercise-attempts/attempt",
@@ -65,16 +63,12 @@ it("rejects a cross-origin attempt before authentication or backend calls", asyn
     ),
   );
   expect(response.status).toBe(403);
-  expect(fakes.token).not.toHaveBeenCalled();
-  expect(fakes.record).not.toHaveBeenCalled();
+  expect(tokenReads).not.toHaveBeenCalled();
+  expect(backend).not.toHaveBeenCalled();
 });
 
 it("records the answer for the session's Account and drops posted results and identities", async () => {
-  fakes.record.mockResolvedValue({
-    ok: true,
-    body: attempt,
-    response: new Response(),
-  });
+  backend.mockResolvedValueOnce(Response.json(attempt));
   const response = await handleRecordExerciseAttempt(
     request("/api/exercise-attempts/attempt", {
       ...recordBody,
@@ -82,7 +76,12 @@ it("records the answer for the session's Account and drops posted results and id
       accountId: "untrusted",
     }),
   );
-  expect(fakes.record).toHaveBeenCalledWith(recordBody, "trusted-token");
+  expect(
+    await expectBackendRequest(
+      "POST",
+      `/exercise-attempts/materials/${materialId}/exercises/rag-wrong-platform`,
+    ).json(),
+  ).toEqual({ answer: { kind: "options", optionIds: ["prompt"] } });
   expect(await response.json()).toEqual({ kind: "ready", attempt });
 });
 
@@ -96,7 +95,7 @@ it("refuses an answer outside the shape without a backend call", async () => {
     );
     expect(await response.json()).toEqual({ kind: "invalid_input" });
   }
-  expect(fakes.record).not.toHaveBeenCalled();
+  expect(backend).not.toHaveBeenCalled();
 });
 
 it("maps backend refusals of an attempt to rejected, sign-in and unavailable outcomes", async () => {
@@ -107,11 +106,7 @@ it("maps backend refusals of an attempt to rejected, sign-in and unavailable out
     [401, "unauthorized"],
     [503, "unavailable"],
   ] as const) {
-    fakes.record.mockResolvedValueOnce({
-      ok: false,
-      problem: null,
-      response: new Response(null, { status }),
-    });
+    backend.mockResolvedValueOnce(new Response(null, { status }));
     const response = await handleRecordExerciseAttempt(
       request("/api/exercise-attempts/attempt", recordBody),
     );
@@ -120,24 +115,26 @@ it("maps backend refusals of an attempt to rejected, sign-in and unavailable out
 });
 
 it("reads the latest attempts of one Material and reports a failed backend as unavailable", async () => {
-  fakes.read.mockResolvedValueOnce({
-    ok: true,
-    body: { items: [attempt] },
-    response: new Response(),
-  });
+  backend.mockResolvedValueOnce(Response.json({ items: [attempt] }));
   const ready = await handleExerciseAttempts(
     request("/api/exercise-attempts/query", { materialId }),
   );
-  expect(fakes.read).toHaveBeenCalledWith(materialId, "trusted-token");
+  expectBackendRequest("GET", `/exercise-attempts/materials/${materialId}`);
   expect(await ready.json()).toEqual({ kind: "ready", attempts: [attempt] });
 
-  fakes.read.mockResolvedValueOnce({
-    ok: false,
-    problem: null,
-    response: new Response(null, { status: 503 }),
-  });
+  backend.mockResolvedValueOnce(new Response(null, { status: 503 }));
   const failed = await handleExerciseAttempts(
     request("/api/exercise-attempts/query", { materialId }),
   );
   expect(await failed.json()).toEqual({ kind: "unavailable" });
 });
+
+function expectBackendRequest(method: string, path: string): Request {
+  expect(backend).toHaveBeenCalledOnce();
+  const request = backend.mock.calls[0]?.[0];
+  if (request === undefined) throw new Error("Expected backend request");
+  expect(request.method).toBe(method);
+  expect(request.url).toBe(`https://platform-api.example.test${path}`);
+  expect(request.headers.get("authorization")).toBe("Bearer trusted-token");
+  return request;
+}
