@@ -174,12 +174,20 @@ export const TracksContentWidthWithoutViewportResize: Story = {
     const fade = frame.querySelector("[data-table-fade='end']");
     if (fade === null) throw new Error("Missing table end fade");
     await waitFor(() => expect(getComputedStyle(fade).opacity).toBe("1"));
+    const grown = geometry();
     await userEvent.click(
       canvas.getByRole("button", { name: "Изменить столбцы" }),
     );
-    await waitFor(() => expect(frame).toHaveAttribute("data-overflow", "none"));
-    await expect(scroller.scrollWidth).toBeLessThanOrEqual(
-      scroller.clientWidth,
+    await waitFor(() =>
+      expect(scroller.scrollWidth).toBeLessThanOrEqual(scroller.clientWidth),
+    );
+    await expect(scroller.clientWidth).toBe(initial.clientWidth);
+    await expect(scroller.clientHeight).toBe(initial.clientHeight);
+    await waitFor(() =>
+      expect(
+        frame,
+        JSON.stringify({ initial, grown, now: geometry() }),
+      ).toHaveAttribute("data-overflow", "none"),
     );
     await waitFor(() => expect(getComputedStyle(fade).opacity).toBe("0"));
   },
