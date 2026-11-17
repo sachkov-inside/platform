@@ -20,11 +20,7 @@ function readStoredChoice(): string | null | undefined {
 function readCollapsed(): boolean {
   const stored = readStoredChoice();
   if (unsavedChoice !== null) {
-    if (
-      stored === undefined ||
-      unsavedChoice.stored === undefined ||
-      stored === unsavedChoice.stored
-    )
+    if (stored === undefined || stored === unsavedChoice.stored)
       return unsavedChoice.collapsed;
     unsavedChoice = null;
   }
