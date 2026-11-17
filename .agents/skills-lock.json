@@ -94,17 +94,17 @@
     },
     ".agents/skills/implement": {
       "provider": "agent-kit",
-      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
+      "ref": "1d4415445e3686b53110fd10a013fae6344e95cb",
       "skill": "implement",
       "destination": ".agents/skills/implement",
-      "sha256": "1a64bcce3d12ee1fe9a04877ec75afc2602077a078aa7087727c652d4b6e34e9"
+      "sha256": "6be3af2fa6f1745941746344bdaf30d9932ed1b725a5142a8d66e604f4e17659"
     },
     ".agents/skills/implement-spec": {
       "provider": "agent-kit",
-      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
+      "ref": "1d4415445e3686b53110fd10a013fae6344e95cb",
       "skill": "implement-spec",
       "destination": ".agents/skills/implement-spec",
-      "sha256": "842f98d61e909fe68fbd43ab2d5381ade74fd4ec44e31b891a7d9e63060682f2"
+      "sha256": "d8008dade04aea4e6b2d528f03c88aa037e23431ee596fe0ec9247c66c1e77bb"
     },
     ".agents/skills/improve-codebase-architecture": {
       "provider": "agent-kit",
@@ -115,10 +115,10 @@
     },
     ".agents/skills/pr": {
       "provider": "agent-kit",
-      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
+      "ref": "1d4415445e3686b53110fd10a013fae6344e95cb",
       "skill": "pr",
       "destination": ".agents/skills/pr",
-      "sha256": "9ca49ce2a1ec8b9e065254dcf87500985621b3cb9fb6a0d52bec642ca5ee4728"
+      "sha256": "5376a94dccd593aa70d9fa2f221330f32c23bc2234bff3bc4f17c6d909134fb9"
     },
     ".agents/skills/setup-matt-pocock-skills": {
       "provider": "agent-kit",
@@ -129,10 +129,10 @@
     },
     ".agents/skills/ship": {
       "provider": "agent-kit",
-      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
+      "ref": "1d4415445e3686b53110fd10a013fae6344e95cb",
       "skill": "ship",
       "destination": ".agents/skills/ship",
-      "sha256": "2dafe2d080a9d92ff5392fe891a1c164c98a242c3cb29109db2604db70675e04"
+      "sha256": "c27a62992056705638fe168b5897fc76651132c9bdfb5f84acfac528983abfb8"
     },
     ".agents/skills/tdd": {
       "provider": "agent-kit",

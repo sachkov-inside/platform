@@ -15,4 +15,6 @@ Follow the project's review/commit order. For commit-first review, commit the as
 
 Run `code-review` once, then make one fix pass for blocking defects within the assignment. Optional suggestions may be left with a one-line reason. Rerun affected checks and freeze the corrected content under that same project order; retain the review report and correction evidence for delivery.
 
+After corrections, follow [independent verification](VERIFICATION.md) when the target requires it; retain observed outcomes and limits separately from test/review results.
+
 Follow root `AGENTS.md` delivery pointers for the verified result.

@@ -18,6 +18,7 @@ function runningBrowser(): Browser {
   return browser;
 }
 const accountA = "00000000-0000-4000-8000-000000000001";
+const accountB = "00000000-0000-4000-8000-000000000002";
 const materialId = "10000000-0000-4000-8000-000000000001";
 const material = {
   materialId,
@@ -34,6 +35,59 @@ const material = {
   topic: "Архитектура",
   topicSlug: "architecture",
 };
+
+test("returning Account reads its own bookmark after another session answered under its former key", async () => {
+  const context = await runningBrowser().newContext();
+  let session = accountA;
+  try {
+    const page = await context.newPage();
+    await page.clock.install({ time: new Date("2026-11-16T12:00:00Z") });
+    await page.route("**/api/bookmarks/states", (route) =>
+      route.fulfill({
+        json: {
+          kind: "ready",
+          states: [
+            {
+              materialId,
+              bookmarked: session === accountA,
+              bookmarkedAt:
+                session === accountA ? "2026-11-16T11:00:00Z" : null,
+            },
+          ],
+        },
+      }),
+    );
+    await page.goto(`${baseURL}?identity=1`);
+    await browserExpect(
+      page.getByRole("button", { name: "Сохранено", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    session = accountB;
+    await page.clock.fastForward(31_000);
+    await page.evaluate(() => {
+      document.dispatchEvent(new Event("visibilitychange", { bubbles: true }));
+    });
+    await browserExpect(
+      page.getByRole("button", { name: "Сохранить", exact: true }),
+    ).toHaveAttribute("aria-pressed", "false");
+    await page.getByRole("button", { name: "Account B", exact: true }).click();
+    await browserExpect(page.getByLabel("Confirmed Account")).toHaveText(
+      accountB,
+    );
+    await browserExpect(
+      page.getByRole("button", { name: "Сохранить", exact: true }),
+    ).toHaveAttribute("aria-disabled", "false");
+    session = accountA;
+    await page.getByRole("button", { name: "Account A", exact: true }).click();
+    await browserExpect(page.getByLabel("Confirmed Account")).toHaveText(
+      accountA,
+    );
+    await browserExpect(
+      page.getByRole("button", { name: "Сохранено", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+  } finally {
+    await context.close();
+  }
+}, 30_000);
 
 function readingFixture() {
   const state = { isRead: false, version: 0 };

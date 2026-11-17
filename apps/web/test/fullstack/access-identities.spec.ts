@@ -443,9 +443,11 @@ test("two separate Accounts cannot read or change each other's progress and book
 }) => {
   const owner = await openAs(browser, "READER_A");
   const stranger = await openAs(browser, "READER_B");
+  const heldAuth = Promise.withResolvers<undefined>();
   try {
     const ownerAccountId = await accountIdOf(owner.page);
-    expect(await accountIdOf(stranger.page)).not.toBe(ownerAccountId);
+    const strangerAccountId = await accountIdOf(stranger.page);
+    expect(strangerAccountId).not.toBe(ownerAccountId);
 
     await openMaterial(owner.page, publishedMaterial.slug, "available");
     const materialId = await owner.page
@@ -548,6 +550,7 @@ test("two separate Accounts cannot read or change each other's progress and book
     ]);
     expect(await reading(owner.page)).toEqual(ownerReading);
     // В браузере владелец видит свою отметку, чужой Account — нет.
+    await owner.page.clock.install({ time: new Date("2026-11-16T12:00:00Z") });
     for (const [viewer, pressed] of [
       [owner.page, "true"],
       [stranger.page, "false"],
@@ -564,7 +567,67 @@ test("two separate Accounts cannot read or change each other's progress and book
         action.getByRole("button", { name: "Изучено", exact: true }),
       ).toHaveAttribute("aria-pressed", pressed);
     }
+    const actions = owner.page.getByRole("navigation", {
+      name: "Действия материала",
+      exact: true,
+    });
+    const bookmarkAction = actions.locator(
+      "[data-bookmark-action-state]:visible",
+    );
+    const readingAction = actions.locator(
+      "[data-reading-action-state]:visible",
+    );
+    await expect(
+      bookmarkAction.getByRole("button", { name: "Сохранено", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await owner.page.route("**/auth/status", async (route) => {
+      const response = await route.fetch();
+      await heldAuth.promise;
+      await route.fulfill({ response });
+    });
+    await owner.page.clock.fastForward(31_000);
+    await signInFullStack(owner.context, "READER_B");
+    await owner.page.bringToFront();
+    await owner.page.evaluate(() => {
+      document.dispatchEvent(new Event("visibilitychange", { bubbles: true }));
+      window.dispatchEvent(new Event("focus"));
+    });
+    // The new session answers personal reads while the shell still knows the former Account (#2284).
+    await expect(
+      bookmarkAction.getByRole("button", { name: "Сохранить", exact: true }),
+    ).toHaveAttribute("aria-pressed", "false");
+    await expect(
+      readingAction.getByRole("button", { name: "Изучено", exact: true }),
+    ).toHaveAttribute("aria-pressed", "false");
+    const confirmedAccount = owner.page.waitForResponse((response) =>
+      response.url().endsWith("/auth/status"),
+    );
+    const newAccountReading = owner.page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/reading-progress/states") &&
+        response.ok(),
+    );
+    heldAuth.resolve(undefined);
+    expect(await (await confirmedAccount).json()).toMatchObject({
+      accountId: strangerAccountId,
+    });
+    await newAccountReading;
+    await expect(readingAction).toHaveAttribute(
+      "data-reading-action-state",
+      "ready",
+    );
+    await owner.page.unroute("**/auth/status");
+    await signInFullStack(owner.context, "READER_A");
+    await owner.page.bringToFront();
+    await owner.page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect(
+      readingAction.getByRole("button", { name: "Изучено", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(
+      bookmarkAction.getByRole("button", { name: "Сохранено", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
   } finally {
+    heldAuth.resolve(undefined);
     await owner.context.close();
     await stranger.context.close();
   }

@@ -12,8 +12,8 @@ no real person. The product has one permission, `platform:admin`: no separate au
 | Role | Who | Take it for | Sign in |
 |---|---|---|---|
 | `owner` | «Владелец Тестов», `platform:admin` | authoring and every admin page | `O open "$(V address owner /authoring)"` |
-| `holder` | «Покупатель Тестов», holds «Создание Platform Inside» | what a buyer sees after the purchase | `H open "$(V address holder /account)"` |
-| `learner` | «Участник Тестов», a ready profile, no products | an ordinary member | `L open "$(V address learner /account)"` |
+| `holder` | «Покупатель Тестов», holds the demonstration and synthetic learning Products | what a buyer sees after the purchase | `H open "$(V address holder /account)"` |
+| `learner` | «Участник Тестов», no paid access, synthetic Telegram linked, pending purchase and active waiting-list membership | an unpaid member | `L open "$(V address learner /account)"` |
 | `newcomer` | no name, terms not accepted, no profile row | the first sign-in | `N open "$(V address newcomer /account)"` |
 | `guest` | nobody signed in | public pages | `G open "$(V address web /)"` |
 
@@ -27,24 +27,23 @@ no equivalent of `newcomer`. Purchase setup and order are in
 
 ## What a light instance does not run
 
-- Payments, the bank double, mail, notifications and background workers. The purchase offer can be
-  viewed up to «Оплатить»; continuing, a receipt address, a mailed code and a publication
-  announcement need the shared stand.
-- Telegram: «Подключить» does not answer, and group membership does not follow product access.
-  The seeded roles have no Telegram connection.
+- Payment confirmation and fulfillment, mailed codes, notifications and background workers need
+  the shared stand. The light seed creates only a pending purchase against its owned loopback bank.
+- Real Telegram Bot API, group membership and message delivery. The learner is linked through an
+  owned synthetic protocol provider; other roles are not linked by the seed.
 - Real sign-in and sign-out at the identity provider. Sign-out lands on a notice «Локальная сессия
   завершена, но глобальный выход не подтверждён…»: the synthetic identity has no provider session.
 - Video: the provider runs in test mode, so upload and playback prove nothing.
 
 ## Data that must exist beforehand
 
-- The seed has one closed material, «Developer Pipeline без потери контекста», in «Создание
-  Platform Inside». Granting any other product opens nothing new to read.
-- The owner's lists name a person by Telegram or email, never by the profile name, so the holder,
-  the learner and the newcomer are three rows «Без имени и email» (#2222). Search the list by
-  `V account <role>` and wait until one row is left: a text wait returns before the list is
-  filtered, and a click by name takes the first row. History lines name the acting owner
-  «Аккаунт без имени и email» too.
+- The [light instance runbook](../../../docs/runbooks/local-stand.md#light-instance-per-agent)
+  lists the current populated scenarios and their limits. Resolve persistence IDs through the
+  running API or `V account <role>`; preview IDs and dates are separate projections.
+- The owner's lists name a person by Telegram or verified Billing Contact email, never by the profile name. A private Sign-in Email qualifies a person for the list but is not its displayed email. Only
+  the learner has a seeded Telegram profile. Search the list by `V account <role>` and wait until
+  one row is left: a text wait returns before filtering finishes, and a click by name takes the
+  first row.
 - On the shared stand, when «Ученик без доступа» already holds the product, report the scenario
   as not exercised; granting or revoking to make room is the owner's call. Close the Telegram
   connection dialog if it appears: a local purchase does not need it.

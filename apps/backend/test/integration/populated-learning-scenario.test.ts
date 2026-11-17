@@ -27,6 +27,13 @@ import { scenarioRoles } from "../../../../scenarios/roles.mjs";
 import { seedLegacyMaterialAssets } from "../../../../scenarios/seed-legacy-assets.mjs";
 import { seedLocalDevelopment } from "../../src/development/seed-local-development.js";
 import { materialSchema } from "../../src/modules/materials/adapters/nest/material-authoring-http.js";
+import { startIsolatedTelegramProvider } from "../../src/development/start-isolated-telegram-provider.js";
+import { seedCommerceScenario } from "../../../../scenarios/seed-commerce.mjs";
+import { createIsolatedProductIntake } from "../../src/development/create-isolated-product-intake.js";
+import { reservePort } from "../../../../scripts/smoke-stand.mjs";
+import { startLocalBankDouble } from "../../src/development/bank-double/start-local-bank-double.js";
+import { localTbankConfig } from "../../src/config/tbank-config.js";
+import { fullStackOfflineServices } from "../../../../scripts/full-stack-environment.mjs";
 
 registerFixedClock();
 let database: TestDatabase;
@@ -46,6 +53,7 @@ let api: string;
 let ownerToken: string;
 let holderToken: string;
 let seeded: Awaited<ReturnType<typeof seedLearningScenario>>;
+let telegram: Awaited<ReturnType<typeof startIsolatedTelegramProvider>>;
 const cleanups: (() => Promise<unknown>)[] = [];
 beforeAll(async () => {
   database = await createMigratedTestDatabase();
@@ -85,6 +93,25 @@ beforeAll(async () => {
     "platform:admin",
   );
   ownerToken = await identity.sign(scenarioRoles.owner.subject);
+  telegram = await startIsolatedTelegramProvider({
+    databaseName: new URL(database.url).pathname.slice(1),
+  });
+  cleanups.push(() => telegram.close());
+  const apiPort = await reservePort();
+  const bankPort = await reservePort();
+  const bankEnvironment = {
+    TBANK_PROVIDER_MODE: "test",
+    TBANK_TEST_API_BASE_URL: `http://127.0.0.1:${String(bankPort)}/v2`,
+    TBANK_TEST_PUBLIC_ORIGIN: `http://127.0.0.1:${String(bankPort)}`,
+    TBANK_TEST_NOTIFICATION_URL: `http://127.0.0.1:${String(apiPort)}/billing/tbank/notification`,
+    TBANK_TEST_RETURN_URL: `http://127.0.0.1:${String(apiPort)}/payment/return`,
+  };
+  const bank = await startLocalBankDouble({
+    config: localTbankConfig(bankEnvironment),
+    host: "127.0.0.1",
+    port: bankPort,
+  });
+  cleanups.push(() => bank.close());
   app = await createApiApplication(
     parsePlatformConfig({
       OBJECT_STORAGE_ENDPOINT: storageEndpoint,
@@ -101,12 +128,15 @@ beforeAll(async () => {
       LOGTO_JWKS_URL: identity.jwksUrl,
       IDENTITY_EMAIL_FINGERPRINT_KEY:
         "synthetic-learning-email-fingerprint-key",
+      ...telegram.environment,
+      ...fullStackOfflineServices,
+      ...bankEnvironment,
     }),
     { logger: false },
   );
   cleanups.push(() => app.close());
 
-  await app.listen(0, "127.0.0.1");
+  await app.listen(apiPort, "127.0.0.1");
   api = await app.getUrl();
   holderToken = await identity.sign(scenarioRoles.holder.subject, {
     inside_verified_email: "light-holder@inside.test",
@@ -120,6 +150,129 @@ beforeAll(async () => {
     databaseName: new URL(database.url).pathname.slice(1),
     ownerToken,
     holderToken,
+  });
+});
+
+test("the unpaid learner has real linked contacts, explicit waitlist membership and a pending purchase", async () => {
+  const token = await identity.sign(scenarioRoles.learner.subject, {
+    inside_verified_email: "light-learner@inside.test",
+  });
+  const commerce = await seedCommerceScenario({
+    api,
+    databaseName: new URL(database.url).pathname.slice(1),
+    ownerToken,
+    productId: seeded.productId,
+    buyerToken: token,
+    completeTelegramLink: async (deepLink) => {
+      const completed = await fetch(
+        new URL(
+          "/__scenario/complete",
+          telegram.environment.TELEGRAM_LINKING_ENDPOINT,
+        ),
+        {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${telegram.environment.TELEGRAM_LINKING_SECRET}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ deepLink }),
+        },
+      );
+      expect(completed.status).toBe(200);
+    },
+    createIntake: () =>
+      createIsolatedProductIntake({
+        databaseUrl: database.url,
+        productId: seeded.productId,
+      }),
+  });
+  const people = await fetch(
+    `${api}/authoring/people?query=light-learner%40inside.test`,
+    {
+      headers: { authorization: `Bearer ${ownerToken}` },
+    },
+  );
+  expect(people.status).toBe(200);
+  expect(await people.json()).toMatchObject({
+    items: [
+      {
+        displayName: "Участник Тестов",
+        username: "synthetic_learner",
+        email: null,
+        contactsState: "complete",
+        telegram: "linked",
+      },
+    ],
+  });
+  const receipt = await fetch(
+    `${api}/billing/admin/payments/${commerce.purchaseRef}/order-email`,
+    {
+      headers: { authorization: `Bearer ${ownerToken}` },
+    },
+  );
+  expect(receipt.status).toBe(200);
+  expect(await receipt.json()).toEqual({ email: "light-learner@inside.test" });
+  const contact = await fetch(`${api}/accounts/current/billing/contact`, {
+    headers: { authorization: `Bearer ${token}` },
+  });
+  expect(contact.status).toBe(200);
+  expect(await contact.json()).toMatchObject({ ok: true, contact: null });
+  const searched = await fetch(
+    `${api}/authoring/people?query=%40synthetic_learner`,
+    {
+      headers: { authorization: `Bearer ${ownerToken}` },
+    },
+  );
+  expect(searched.status).toBe(200);
+  expect(await searched.json()).toMatchObject({
+    nameSearch: "available",
+    items: [{ displayName: "Участник Тестов", username: "synthetic_learner" }],
+  });
+  const intake = await fetch(
+    `${api}/product-waitlists/${seeded.productId}/intake`,
+  );
+  expect(intake.status).toBe(200);
+  expect(await intake.json()).toEqual({
+    intakeId: "97000000-0000-4000-8000-000000000301",
+    name: "Учебный набор: следующий проект",
+  });
+  const membership = await fetch(
+    `${api}/product-waitlists/${seeded.productId}/membership`,
+    {
+      headers: { authorization: `Bearer ${token}` },
+    },
+  );
+  expect(membership.status).toBe(200);
+  expect(await membership.json()).toEqual({
+    intakeId: "97000000-0000-4000-8000-000000000301",
+    name: "Учебный набор: следующий проект",
+    active: true,
+  });
+  const payments = await fetch(`${api}/billing/admin`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${ownerToken}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      operationId: "97000000-0000-4000-8000-000000000601",
+      operation: "payments.list",
+      productId: seeded.productId,
+    }),
+  });
+  expect(payments.status).toBe(200);
+  expect(await payments.json()).toMatchObject({
+    result: {
+      outcome: "payments",
+      items: [
+        {
+          amountKopecks: 1_490_000,
+          state: "pending",
+          access: "awaiting_payment",
+          snapshot: { product: { name: "Учебный курс: от идеи к выпуску" } },
+        },
+      ],
+    },
   });
 });
 afterAll(async () => {
@@ -544,6 +697,37 @@ test.each([
         databaseName,
         ownerToken: "unused",
         holderToken: "unused",
+      }),
+    ).rejects.toThrow(message);
+    await expect(
+      seedCommerceScenario({
+        api: target,
+        databaseName,
+        ownerToken: "unused",
+        buyerToken: "unused",
+        productId: seeded.productId,
+        createIntake: () =>
+          createIsolatedProductIntake({
+            databaseUrl: database.url,
+            productId: seeded.productId,
+          }),
+        completeTelegramLink: async (deepLink) => {
+          const response = await fetch(
+            new URL(
+              "/__scenario/complete",
+              telegram.environment.TELEGRAM_LINKING_ENDPOINT,
+            ),
+            {
+              method: "POST",
+              headers: {
+                authorization: `Bearer ${telegram.environment.TELEGRAM_LINKING_SECRET}`,
+                "content-type": "application/json",
+              },
+              body: JSON.stringify({ deepLink }),
+            },
+          );
+          expect(response.status).toBe(200);
+        },
       }),
     ).rejects.toThrow(message);
     await expect(
