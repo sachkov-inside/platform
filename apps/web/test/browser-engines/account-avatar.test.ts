@@ -8,6 +8,7 @@ import {
 import { afterAll, beforeAll, test } from "vitest";
 import { z } from "zod";
 
+import { parsePrivateProfile } from "@/entities/account-profile";
 import { createOwnedBrowserFixture } from "../support/owned-browser-fixture";
 
 const fixture = createOwnedBrowserFixture("account-avatar");
@@ -21,6 +22,18 @@ const receiptsSchema = z.array(
     released: z.boolean(),
   }),
 );
+const uploadResponse = {
+  profile: {
+    avatar: { avatarId: "00000000-0000-4000-8000-000000000239" },
+    bio: null,
+    createdAt: "2026-11-16T12:00:00.000Z",
+    displayName: "Проверка аватара",
+    status: "active",
+    updatedAt: "2026-11-16T12:00:00.000Z",
+    version: 2,
+  },
+} as const;
+parsePrivateProfile(uploadResponse);
 let browsers: ReadonlyMap<string, Browser> = new Map();
 let url = "";
 beforeAll(async () => {
@@ -247,15 +260,7 @@ for (const engine of ["chromium", "webkit"]) {
       delete pending.route;
       await route.fulfill({
         status: 200,
-        json: {
-          avatar: { avatarId: "00000000-0000-4000-8000-000000000239" },
-          bio: null,
-          createdAt: "2026-11-16T12:00:00.000Z",
-          displayName: "Проверка аватара",
-          status: "active",
-          updatedAt: "2026-11-16T12:00:00.000Z",
-          version: 2,
-        },
+        json: uploadResponse,
       });
       await ui(dialog).toBeHidden();
       await ui(
