@@ -71,7 +71,7 @@ export function salesProductFacts(channel) {
   ];
 }
 
-/** Same promotions, preserving raw date/label/scope/revision variants at the data owner. */
+/** Different fixtures exercise different wire values; sharing must retain both variants (#2334). */
 const promotionCases = {
   autumn: {
     common: {
