@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { realBffSession } from "../support/real-bff-session";
+import { routeBrowserMutations } from "../support/mutation-operation-route";
+import { useProductionRuntimeImage } from "../support/web-runtime";
+import { DELETE, PUT } from "../../app/account/avatar/route";
 import { sessionAdapter } from "@/shared/auth/session-adapter.server";
 
 import {
@@ -14,6 +17,7 @@ import {
 
 const backendFetch = vi.fn<(request: Request) => Promise<Response>>();
 let session: Awaited<ReturnType<typeof realBffSession>>;
+let avatarWire: ReturnType<typeof routeBrowserMutations>;
 
 import { proxyProfileAvatarMutation as realProxyProfileAvatarMutation } from "@/_pages/account/api/profile-avatar-bff.server";
 
@@ -32,80 +36,149 @@ const profile = {
 } as const satisfies PrivateAccountProfile;
 
 describe("Profile Avatar browser mutation", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+  let cleanupImage: () => void;
+  let submittedAvatar: FormData | undefined;
+  beforeEach(async () => {
+    backendFetch.mockReset();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2030-03-01T12:00:00Z"));
+    cleanupImage = useProductionRuntimeImage();
+    session = await realBffSession("access-token");
     FakeXMLHttpRequest.latest = undefined;
     vi.stubGlobal("XMLHttpRequest", FakeXMLHttpRequest);
+    submittedAvatar = undefined;
+    backendFetch.mockImplementation(async (request) => {
+      if (request.method === "PUT") submittedAvatar = await request.formData();
+      else await request.arrayBuffer();
+      return Response.json({ profile });
+    });
+    avatarWire = routeBrowserMutations(
+      { "/account/avatar": { DELETE, PUT } },
+      "https://inside.example.test",
+      { run: (handler) => session(handler), externalFetch: backendFetch },
+    );
+  });
+  afterEach(async () => {
+    cleanupImage();
+    vi.unstubAllGlobals();
+    for (const [request] of backendFetch.mock.calls) {
+      expect(request.url).toBe(
+        "https://platform-api.example.test/account/profile/avatar",
+      );
+      expect(request.headers.get("authorization")).toBe("Bearer access-token");
+      expect(["DELETE", "PUT"]).toContain(request.method);
+      if (!request.bodyUsed) await request.body?.cancel();
+    }
+    for (const request of avatarWire.requests) {
+      expect(request.url).toBe("https://inside.example.test/account/avatar");
+      expect(["DELETE", "PUT"]).toContain(request.method);
+    }
   });
 
   it("maps Problem Details from the capability route", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          Response.json(
-            { code: "conflict", currentVersion: 4, status: 409 },
-            { status: 409 },
-          ),
-        ),
+    backendFetch.mockResolvedValueOnce(
+      Response.json(
+        { code: "conflict", currentVersion: 4, status: 409 },
+        { status: 409 },
+      ),
     );
-
     const promise = mutateProfileAvatar({ kind: "remove", profile }, vi.fn());
     await expect(promise).rejects.toBeInstanceOf(AvatarMutationError);
     await expect(promise).rejects.toMatchObject({ code: "conflict" });
+    expect(backendFetch).toHaveBeenCalledOnce();
+    expect(backendFetch.mock.calls[0]?.[0].method).toBe("DELETE");
+    expect(avatarWire.statuses).toEqual([409]);
+    expect(await avatarWire.requests[0]?.json()).toEqual({
+      expectedVersion: 3,
+    });
   });
 
-  it("rejects a malformed success payload", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(Response.json({ profile: { version: 4 } })),
+  it("rejects a malformed success payload forwarded from the external backend", async () => {
+    backendFetch.mockResolvedValueOnce(
+      Response.json({ profile: { version: 4 } }),
     );
-
     await expect(
       mutateProfileAvatar({ kind: "remove", profile }, vi.fn()),
     ).rejects.toThrow("Profile response does not match the API contract");
+    expect(backendFetch).toHaveBeenCalledOnce();
+    expect(avatarWire.statuses).toEqual([200]);
   });
 
   it("reports XHR upload progress and validates a successful response", async () => {
     const onProgress = vi.fn();
     const promise = startUpload(onProgress);
     const request = await currentUploadRequest();
-
     request.upload.emit("progress", {
       lengthComputable: true,
       loaded: 4,
       total: 10,
     });
     request.upload.emit("load");
-    request.respond(200, { profile });
-
-    await expect(promise).resolves.toEqual(profile);
+    await request.deliverRealResponse();
+    await expect(promise).resolves.toEqual({
+      avatar: null,
+      bio: "Строю платформу.",
+      createdAt: "2026-08-30T10:00:00.000Z",
+      displayName: "Кирилл",
+      status: "active",
+      updatedAt: "2026-08-30T10:00:00.000Z",
+      version: 3,
+    });
     expect(onProgress.mock.calls).toEqual([[0.4], [1]]);
     expect(request.method).toBe("PUT");
     expect(request.url).toBe("/account/avatar");
     expect(request.sentBody).toBeInstanceOf(FormData);
+    expect(backendFetch).toHaveBeenCalledOnce();
+    expect(backendFetch.mock.calls[0]?.[0].method).toBe("PUT");
+    expect(backendFetch.mock.calls[0]?.[0].headers.get("content-type")).toMatch(
+      /^multipart\/form-data; boundary=/u,
+    );
+    expect(avatarWire.statuses).toEqual([200]);
+    const sent = request.sentBody;
+    if (!(sent instanceof FormData))
+      throw new Error("Expected an avatar multipart request");
+    expect(sent.get("expectedVersion")).toBe("3");
+    expect(sent.get("crop")).toBe('{"centerX":0.5,"centerY":0.5,"zoom":1}');
+    expect(sent.get("declaredSize")).toBe("6");
+    expect(submittedAvatar?.get("expectedVersion")).toBe("3");
+    expect(submittedAvatar?.get("crop")).toBe(
+      '{"centerX":0.5,"centerY":0.5,"zoom":1}',
+    );
+    expect(submittedAvatar?.get("declaredSize")).toBe("6");
+    const forwardedFile = submittedAvatar?.get("file");
+    expect(forwardedFile).toBeInstanceOf(File);
+    if (!(forwardedFile instanceof File))
+      throw new Error("Backend did not receive an avatar file");
+    expect(forwardedFile.name).toBe("avatar.png");
+    expect(forwardedFile.type).toBe("image/png");
+    expect(await forwardedFile.text()).toBe("avatar");
   });
 
   it("maps an XHR upload Problem response", async () => {
+    backendFetch.mockResolvedValueOnce(
+      Response.json(
+        { code: "invalid_avatar", reason: "crop_out_of_bounds" },
+        { status: 422 },
+      ),
+    );
     const promise = startUpload(vi.fn());
     const request = await currentUploadRequest();
-
-    request.respond(422, {
-      code: "invalid_avatar",
-      reason: "crop_out_of_bounds",
-    });
-
+    await request.deliverRealResponse();
     await expect(promise).rejects.toMatchObject({
       code: "invalid_avatar",
       reason: "crop_out_of_bounds",
     });
+    expect(backendFetch).toHaveBeenCalledOnce();
+    expect(avatarWire.statuses).toEqual([422]);
   });
 
-  it("rejects malformed XHR success and network failure", async () => {
+  it("rejects malformed XHR success and named synthetic interrupted delivery", async () => {
+    backendFetch.mockResolvedValueOnce(
+      Response.json({ profile: { version: 4 } }),
+    );
     const malformedPromise = startUpload(vi.fn());
     const malformedRequest = await currentUploadRequest();
-    malformedRequest.respond(200, { profile: { version: 4 } });
+    await malformedRequest.deliverRealResponse();
     await expect(malformedPromise).rejects.toThrow(
       "Profile response does not match the API contract",
     );
@@ -113,8 +186,11 @@ describe("Profile Avatar browser mutation", () => {
     FakeXMLHttpRequest.latest = undefined;
     const networkPromise = startUpload(vi.fn());
     const networkRequest = await currentUploadRequest();
-    networkRequest.emit("error");
+    await networkRequest.interruptDeliveryAfterRealSuccess();
     await expect(networkPromise).rejects.toThrow("network");
+    expect(networkRequest.validatedNetworkFault).toBe(true);
+    expect(backendFetch).toHaveBeenCalledTimes(2);
+    expect(avatarWire.statuses).toEqual([200, 200]);
   });
 });
 
@@ -344,13 +420,49 @@ class FakeXMLHttpRequest extends FakeEventTarget {
     this.url = url;
   }
 
-  respond(status: number, response: unknown): void {
-    this.response = response;
-    this.status = status;
+  private deliveredResponse: Promise<Response> | undefined;
+  validatedNetworkFault = false;
+
+  async deliverRealResponse(): Promise<void> {
+    if (this.deliveredResponse === undefined)
+      throw new Error("XHR has not sent a request");
+    const response = await this.deliveredResponse;
+    this.response = await response.json();
+    this.status = response.status;
     this.emit("load");
+  }
+
+  async interruptDeliveryAfterRealSuccess(): Promise<void> {
+    if (this.deliveredResponse === undefined)
+      throw new Error("XHR has not sent a request");
+    const response = await this.deliveredResponse;
+    expect(this.method).toBe("PUT");
+    expect(this.url).toBe("/account/avatar");
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      profile: {
+        avatar: null,
+        bio: "Строю платформу.",
+        createdAt: "2026-08-30T10:00:00.000Z",
+        displayName: "Кирилл",
+        status: "active",
+        updatedAt: "2026-08-30T10:00:00.000Z",
+        version: 3,
+      },
+    });
+    expect(response.bodyUsed).toBe(true);
+    this.validatedNetworkFault = true;
+    this.emit("error");
   }
 
   send(body?: Document | XMLHttpRequestBodyInit | null): void {
     this.sentBody = body;
+    if (!(body instanceof FormData))
+      throw new Error("Expected an avatar FormData upload");
+    // deterministic-test-allow unit-io: #2292, audit2 worker 7e1496b5; the Node XHR event adapter dispatches the real PUT handler in process, without a response producer.
+    this.deliveredResponse = avatarWire.fetch("/account/avatar", {
+      method: "PUT",
+      body,
+    });
   }
 }
