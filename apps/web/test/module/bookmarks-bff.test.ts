@@ -1,5 +1,6 @@
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
+import { sessionAdapter } from "@/shared/auth/session-adapter.server";
 import { realBffSession } from "../support/real-bff-session";
 
 const backend = vi.fn<(request: Request) => Promise<Response>>();
@@ -57,16 +58,23 @@ function mutation(
 }
 
 beforeEach(async () => {
-  vi.clearAllMocks();
+  backend.mockReset();
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2030-03-01T12:00:00Z"));
   session = await realBffSession();
   vi.stubGlobal("fetch", backend);
 });
 
+afterEach(() => vi.useRealTimers());
+
 it("rejects cross-origin writes before authentication or backend calls", async () => {
+  const tokenReads = vi.spyOn(sessionAdapter, "accessToken");
+  session = await realBffSession(null);
   const response = await handleSetBookmark(
     mutation({ materialId, bookmarked: true }, "https://outside.test"),
   );
   expect(response.status).toBe(403);
+  expect(tokenReads).not.toHaveBeenCalled();
   expect(backend).not.toHaveBeenCalled();
   expect(response.headers.get("cache-control")).toBe("no-store, private");
 });
@@ -80,12 +88,17 @@ it("routes the desired bookmark state to add or remove without trusting posted i
   const added = await handleSetBookmark(
     mutation({ materialId, bookmarked: true, accountId: "untrusted" }),
   );
-  expectBackendRequest(0, "PUT", `/bookmarks/materials/${materialId}`);
+  expect(
+    expectBackendRequest(0, "PUT", `/bookmarks/materials/${materialId}`).body,
+  ).toBeNull();
   expect(await added.json()).toEqual({ kind: "ready", state });
   const removed = await handleSetBookmark(
-    mutation({ materialId, bookmarked: false }),
+    mutation({ materialId, bookmarked: false, accountId: "untrusted" }),
   );
-  expectBackendRequest(1, "DELETE", `/bookmarks/materials/${materialId}`);
+  expect(
+    expectBackendRequest(1, "DELETE", `/bookmarks/materials/${materialId}`)
+      .body,
+  ).toBeNull();
   expect(await removed.json()).toEqual({
     kind: "ready",
     state: { materialId, bookmarked: false, bookmarkedAt: null },
