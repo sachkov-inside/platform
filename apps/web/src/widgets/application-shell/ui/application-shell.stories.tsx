@@ -154,3 +154,44 @@ export const RetainedHeader: Story = {
     }
   },
 };
+
+export const IndependentHeaders: Story = {
+  render: () => (
+    <>
+      <RetainedShell />
+      <ApplicationShell
+        currentPath="/bookmarks"
+        mobileNavigationItems={publicMobileNavigationItems}
+        navigationItems={publicNavigationItems}
+      >
+        <div className="min-h-[3000px]">Содержимое второй оболочки</div>
+      </ApplicationShell>
+    </>
+  ),
+  play: async ({ canvasElement }) => {
+    const headers = [
+      ...canvasElement.querySelectorAll<HTMLElement>("[data-mobile-header]"),
+    ];
+    const first = headers[0];
+    const second = headers[1];
+    if (first === undefined || second === undefined)
+      throw new Error("Missing two public headers");
+    const offset = (header: HTMLElement) =>
+      new DOMMatrixReadOnly(getComputedStyle(header).transform).m42;
+    try {
+      await scrollDocument(0);
+      await scrollDocument(600);
+      await waitFor(() => {
+        expect(offset(first)).toBeLessThan(0);
+        expect(offset(second)).toBeLessThan(0);
+      });
+      within(first)
+        .getByRole("link", { name: "sachkov.dev, Главная" })
+        .focus({ preventScroll: true });
+      await waitFor(() => expect(offset(first)).toBe(0));
+      await expect(offset(second)).toBeLessThan(0);
+    } finally {
+      await scrollDocument(0);
+    }
+  },
+};
