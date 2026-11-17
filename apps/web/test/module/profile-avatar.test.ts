@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import type * as BackendModule from "@/shared/api/backend/index.server";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { realBffSession } from "../support/real-bff-session";
+import { sessionAdapter } from "@/shared/auth/session-adapter.server";
 
 import {
   AvatarMutationError,
@@ -11,48 +12,14 @@ import {
   MAX_PROFILE_AVATAR_MUTATION_BYTES,
 } from "@/shared/api/mutation-limits";
 
-const fakes = vi.hoisted(() => {
-  class SessionUnavailableError extends Error {}
-  return {
-    getAccessToken: vi.fn(),
-    requestMutation: vi.fn(),
-    SessionUnavailableError,
-  };
-});
+const backendFetch = vi.fn<(request: Request) => Promise<Response>>();
+let session: Awaited<ReturnType<typeof realBffSession>>;
 
-vi.mock("@/shared/auth/platform-access-token.server", () => ({
-  getPlatformAccessToken: fakes.getAccessToken,
-  LogtoSessionUnavailableError: fakes.SessionUnavailableError,
-}));
+import { proxyProfileAvatarMutation as realProxyProfileAvatarMutation } from "@/_pages/account/api/profile-avatar-bff.server";
 
-vi.mock("@/shared/auth/logto-bff-config.server", () => ({
-  readLogtoBffConfig: () => ({ baseUrl: "https://inside.example.test" }),
-}));
-
-vi.mock("@/shared/auth/same-origin-mutation.server", () => ({
-  isSameOriginMutation: (request: Request, baseUrl: string) =>
-    request.headers.get("origin") === new URL(baseUrl).origin,
-}));
-
-vi.mock("@/shared/auth/index.server", async () => {
-  const handler =
-    await import("@/shared/auth/authenticated-mutation-handler.server");
-  return {
-    handleAuthenticatedMutation: handler.handleAuthenticatedMutation,
-    handleMutationOperation: handler.handleMutationOperation,
-    handleOptionalMutationOperation: handler.handleOptionalMutationOperation,
-  };
-});
-
-vi.mock("@/shared/api/backend/index.server", async (importOriginal) => {
-  const original = await importOriginal<typeof BackendModule>();
-  return {
-    ...original,
-    requestProfileAvatarMutation: fakes.requestMutation,
-  };
-});
-
-import { proxyProfileAvatarMutation } from "@/_pages/account/api/profile-avatar-bff.server";
+const proxyProfileAvatarMutation = (request: Request) =>
+  session(() => realProxyProfileAvatarMutation(request));
+afterEach(() => vi.useRealTimers());
 
 const profile = {
   avatar: null,
@@ -152,10 +119,15 @@ describe("Profile Avatar browser mutation", () => {
 });
 
 describe("Profile Avatar capability route", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    fakes.getAccessToken.mockResolvedValue("access-token");
-    fakes.requestMutation.mockResolvedValue(
+  beforeEach(async () => {
+    backendFetch.mockReset();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2030-03-01T12:00:00Z"));
+    session = await realBffSession("access-token");
+    vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) =>
+      backendFetch(new Request(input, init)),
+    );
+    backendFetch.mockImplementation(async () =>
       Response.json(
         { profile },
         { headers: { "content-type": "application/json" } },
@@ -164,6 +136,7 @@ describe("Profile Avatar capability route", () => {
   });
 
   it("rejects cross-origin requests before session or backend work", async () => {
+    const tokenReads = vi.spyOn(sessionAdapter, "accessToken");
     const response = await proxyProfileAvatarMutation(
       removeRequest({ origin: "https://attacker.example.test" }),
     );
@@ -173,25 +146,25 @@ describe("Profile Avatar capability route", () => {
     await expect(response.json()).resolves.toMatchObject({
       code: "cross_origin_request",
     });
-    expect(fakes.getAccessToken).not.toHaveBeenCalled();
-    expect(fakes.requestMutation).not.toHaveBeenCalled();
+    expect(tokenReads).not.toHaveBeenCalled();
+    expect(backendFetch).not.toHaveBeenCalled();
   });
 
   it("distinguishes a missing session from an identity outage", async () => {
-    fakes.getAccessToken.mockRejectedValueOnce(
-      new fakes.SessionUnavailableError(),
-    );
+    session = await realBffSession(null);
     const missingSession = await proxyProfileAvatarMutation(removeRequest());
     expect(missingSession.status).toBe(401);
     await expect(missingSession.json()).resolves.toMatchObject({
       code: "authentication_required",
     });
 
-    fakes.getAccessToken.mockRejectedValueOnce(
-      new Error("identity unavailable"),
-    );
+    session = await realBffSession({ refreshToken: "provider-refresh" });
+    backendFetch.mockRejectedValueOnce(new Error("identity unavailable"));
     const unavailable = await proxyProfileAvatarMutation(removeRequest());
     expect(unavailable.status).toBe(503);
+    expect(backendFetch.mock.calls[0]?.[0].url).toBe(
+      "https://identity.example.test/oidc/.well-known/openid-configuration",
+    );
     await expect(unavailable.json()).resolves.toMatchObject({
       code: "identity_unavailable",
     });
@@ -204,6 +177,14 @@ describe("Profile Avatar capability route", () => {
       removeRequest({ contentLength: MAX_PROFILE_AVATAR_MUTATION_BYTES }),
     );
     expect(accepted.status).toBe(200);
+    const sent = backendFetch.mock.calls[0]?.[0];
+    expect(sent?.url).toBe(
+      "https://platform-api.example.test/account/profile/avatar",
+    );
+    expect(sent?.method).toBe("DELETE");
+    expect(sent?.headers.get("authorization")).toBe("Bearer access-token");
+    expect(sent?.headers.get("content-type")).toBe("application/json");
+    expect(await sent?.json()).toEqual({ expectedVersion: 3 });
 
     const rejected = await proxyProfileAvatarMutation(
       removeRequest({ contentLength: MAX_PROFILE_AVATAR_MUTATION_BYTES + 1 }),
@@ -212,16 +193,14 @@ describe("Profile Avatar capability route", () => {
     await expect(rejected.json()).resolves.toMatchObject({
       code: "body_too_large",
     });
-    expect(fakes.requestMutation).toHaveBeenCalledTimes(1);
+    expect(backendFetch).toHaveBeenCalledTimes(1);
   });
 
   it("enforces the boundary while streaming a body without Content-Length", async () => {
-    fakes.requestMutation.mockImplementationOnce(
-      async ({ body }: { readonly body: ReadableStream<Uint8Array> }) => {
-        await new Response(body).arrayBuffer();
-        return Response.json({ profile });
-      },
-    );
+    backendFetch.mockImplementationOnce(async (request) => {
+      await request.arrayBuffer();
+      return Response.json({ profile });
+    });
     const body = new Uint8Array(MAX_PROFILE_AVATAR_MUTATION_BYTES + 1);
     const request = new Request("https://inside.example.test/account/avatar", {
       body,
@@ -249,9 +228,7 @@ describe("Profile Avatar capability route", () => {
       code: "invalid_avatar",
     });
 
-    fakes.requestMutation.mockRejectedValueOnce(
-      new Error("backend unavailable"),
-    );
+    backendFetch.mockRejectedValueOnce(new Error("backend unavailable"));
     const unavailable = await proxyProfileAvatarMutation(removeRequest());
     expect(unavailable.status).toBe(503);
     expect(unavailable.headers.get("vary")).toBe("cookie");
@@ -261,7 +238,7 @@ describe("Profile Avatar capability route", () => {
   });
 
   it("preserves backend Problem status and selected headers", async () => {
-    fakes.requestMutation.mockResolvedValueOnce(
+    backendFetch.mockResolvedValueOnce(
       Response.json(
         { code: "conflict", currentVersion: 4, status: 409 },
         {
