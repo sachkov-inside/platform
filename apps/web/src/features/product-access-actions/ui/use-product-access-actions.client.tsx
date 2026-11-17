@@ -51,7 +51,7 @@ export interface ProductAccessActionsInput {
   readonly personTitle: string;
   /** Продукты по карточке; `null`, если блок продуктов не прочитался. */
   readonly products: readonly AccessCardProduct[] | null;
-  /** Передаёт ID принятой записи для общего перечитывания карточки и списка (#2379). */
+  /** Передаёт ID объявления о принятой записи для общего перечитывания (#2379). */
   readonly onWritten: (announcementId: string) => void;
   /** «Обновить данные» после конфликта ревизии: страница перечитывает карточку. */
   readonly onRefresh: () => Promise<unknown>;
