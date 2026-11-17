@@ -659,6 +659,9 @@ export const FocusInCurrentTopicInstance: Story = {
       canvasElement.querySelector<HTMLElement>("[data-live-topics]");
     if (currentRoot === null) throw new Error("Missing current topic instance");
     const current = within(currentRoot);
+    await expect(
+      canvas.getByRole("button", { name: "Открыть второй экземпляр" }),
+    ).toHaveFocus();
     await userEvent.click(current.getByRole("button", { name: "Все темы" }));
     await expect(current.getByRole("link", { name: topic.name })).toHaveFocus();
     await userEvent.click(current.getByRole("link", { name: topic.name }));
@@ -668,5 +671,41 @@ export const FocusInCurrentTopicInstance: Story = {
     await expect(
       current.getByRole("heading", { level: 1, name: topic.name }).id,
     ).not.toBe(previousHeading.id);
+  },
+};
+
+export const MissingRowDoesNotFocusAnotherTopic: Story = {
+  beforeEach: () => {
+    mocked(useSearchParams).mockReturnValue(
+      new ReadonlyURLSearchParams(`search=Legacy&topic=${topic.id}`),
+    );
+  },
+  render: (args) => <RetainedTopicPages {...args} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const cachedHeading = canvas.getByRole("heading", {
+      level: 1,
+      name: topic.name,
+    });
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Открыть второй экземпляр" }),
+    );
+    const currentRoot =
+      canvasElement.querySelector<HTMLElement>("[data-live-topics]");
+    if (currentRoot === null) throw new Error("Missing current topic instance");
+    const current = within(currentRoot);
+    const currentHeading = current.getByRole("heading", {
+      level: 1,
+      name: topic.name,
+    });
+    await userEvent.click(current.getByRole("button", { name: "Все темы" }));
+    const otherTopic = current.getByRole("link", { name: "Legacy topic" });
+    await expect(otherTopic).toBeVisible();
+    await expect(
+      current.queryByRole("link", { name: topic.name }),
+    ).not.toBeInTheDocument();
+    await expect(otherTopic).not.toHaveFocus();
+    await expect(cachedHeading).not.toHaveFocus();
+    await expect(currentHeading).not.toHaveFocus();
   },
 };
