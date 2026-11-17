@@ -229,3 +229,43 @@ export const UpdatedDocument: Story = {
     ).toBe(firstTable);
   },
 };
+
+export const SingleAfterEmptyComparison: Story = {
+  args: { blocks: [inner, inner], comparison: { at: 0, labels: [] } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getAllByRole("region")).toHaveLength(1);
+    await expect(canvas.getByRole("region")).toHaveAccessibleName(
+      "Таблица в материале",
+    );
+    await expect(canvas.getByRole("table")).toHaveAccessibleName(
+      "Таблица в материале",
+    );
+  },
+};
+
+export const TablesInComparedContent: Story = {
+  args: {
+    blocks: [
+      { kind: "callout", title: "Модель A", tone: "note", content: [outer] },
+      inner,
+      inner,
+    ],
+    comparison: { at: 0, labels: ["A", "Пропущенная карточка"] },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const regions = canvas.getAllByRole("region", { name: /^Таблица /u });
+    await expect(regions).toHaveLength(3);
+    const tables = canvas.getAllByRole("table");
+    for (const [index, name] of [
+      "Таблица 1 в материале",
+      "Таблица 2 в материале",
+      "Таблица 3 в материале",
+    ].entries()) {
+      await expect(regions[index]).toHaveAccessibleName(name);
+      await expect(tables[index]).toHaveAccessibleName(name);
+    }
+    await expect(canvas.getAllByRole("button")).toHaveLength(1);
+  },
+};
