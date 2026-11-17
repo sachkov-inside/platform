@@ -957,6 +957,7 @@ describe("sequence settings", () => {
     expect(required(dialog.menu).text).toContain("Вход");
     expect(required(dialog.menu).text).toContain("Отложенных сообщений нет");
     dialog.click("Изменить сообщение");
+    expect(dialog.kinds()).toEqual(["menu"]);
     expect(dialog.state.composing?.destination).toMatchObject({
       kind: "sequence",
       id: uuid(800),

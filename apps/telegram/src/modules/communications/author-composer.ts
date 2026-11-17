@@ -66,7 +66,11 @@ export function beginComposer(
       ? { content: structuredClone(content) }
       : { prompt: "capture" as const }),
   };
-  if (content) return show(t, true);
+  if (content)
+    return show(
+      t,
+      destination.kind !== "sequence" || !hasText(destination.partId),
+    );
   t.reply(
     "Пришлите сообщение или альбом для выбранной рассылки или блока воронки. Для альбома дождитесь загрузки и отправьте /done. После просмотра подтвердите добавление. Первую копию, присланную ботом при сохранении, нужно оставить в переписке. Поздние образцы можно удалять. /cancel, вернуться без изменений.",
     cancel,
