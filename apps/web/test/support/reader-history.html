@@ -23,11 +23,31 @@
       let requestedChapter;
       let stopTracking;
       let hiddenRail = false;
+      let missingRail = false;
+      let signalBeforeEnter = false;
+      let availableChapters = ["first", "second"];
+      let stopRail;
+      function commitChapter(id) {
+        const root = document.querySelector("[data-reader-history-root]");
+        root.querySelector("[data-course-chapter]").dataset.courseChapter = id;
+        root.querySelector("[data-course-rail-scroll] > div").style.height =
+          "600px";
+      }
+      function railMarkup(supplementary) {
+        return `<aside ${hiddenRail ? "hidden" : ""} data-course-chapter="${!supplementary && deferredChapter ? "first" : "second"}"><div data-course-rail-scroll style="height:80px;overflow:auto"><div style="height:${!supplementary && deferredChapter ? "60" : "600"}px">Rail</div></div></aside>`;
+      }
       function render() {
         stopTracking?.();
         stopTracking = undefined;
+        stopRail?.();
+        stopRail = undefined;
         const supplementary = location.pathname.startsWith("/materials/");
-        document.body.innerHTML = `<section hidden><aside data-course-chapter="stale"><div data-course-rail-scroll></div></aside></section><div data-reader-history-root data-course-reading-host><h1>${location.pathname}</h1><aside ${hiddenRail ? "hidden" : ""} data-course-chapter="${!supplementary && deferredChapter ? "first" : "second"}"><div data-course-rail-scroll style="height:80px;overflow:auto"><div style="height:${!supplementary && deferredChapter ? "60" : "600"}px">Rail</div></div></aside><main data-material-id="current" data-application-content style="height:400px;overflow:auto"><div style="height:1600px"><a id="project" href="/materials/project${context}">Project</a> <a id="brief" href="/materials/brief${context}">Brief</a> <a id="return" href="${readerOriginHref(source) ?? source}">Return</a><p>Document body</p><button id="defer-chapter">Wait for the next chapter</button><button id="ready-chapter">Commit the requested chapter</button><button id="defer-listener">Wait for the chapter subscription</button><button id="connect-listener">Connect the chapter subscription</button><button id="disconnect-tracker">Disconnect the reader</button><button id="forget-chapter">Use remaining chapters</button><button id="hide-rail">Hide the optional rail</button></div></main></div>`;
+        document.body.innerHTML = `<section hidden><aside data-course-chapter="stale"><div data-course-rail-scroll></div></aside></section><div data-reader-history-root data-course-reading-host><h1>${location.pathname}</h1>${missingRail && !supplementary ? "" : railMarkup(supplementary)}<main data-material-id="current" data-application-content style="height:400px;overflow:auto"><div style="height:1600px"><a id="project" href="/materials/project${context}">Project</a> <a id="brief" href="/materials/brief${context}">Brief</a> <a id="return" href="${readerOriginHref(source) ?? source}">Return</a><p>Document body</p><button id="defer-chapter">Wait for the next chapter</button><button id="ready-chapter">Commit the requested chapter</button><button id="defer-listener">Wait for the chapter subscription</button><button id="connect-listener">Connect the chapter subscription</button><button id="disconnect-tracker">Disconnect the reader</button><button id="forget-chapter">Use remaining chapters</button><button id="hide-rail">Hide the optional rail</button><button id="early-deleted">The remaining rail is ready before the reader</button><button id="missing-rail">Wait for the rail to mount</button><button id="mount-rail">Mount the rail</button></div></main></div>`;
+        if (signalBeforeEnter)
+          stopRail = historyLifecycle.readerHistoryRailReady?.(
+            document.querySelector("[data-reader-history-root]"),
+            availableChapters,
+          );
         // Model a streamed intermediate document whose links arrive before its Tracker.
         if (!(
           location.pathname === "/materials/project" &&
@@ -50,6 +70,32 @@
           );
       }
       document.addEventListener("click", (event) => {
+        if (event.target.closest("#early-deleted")) {
+          signalBeforeEnter = true;
+          deferredChapter = true;
+          availableChapters = ["first"];
+          return;
+        }
+        if (event.target.closest("#missing-rail")) {
+          missingRail = true;
+          listenerReady = false;
+          deferredChapter = true;
+          return;
+        }
+        if (event.target.closest("#mount-rail")) {
+          missingRail = false;
+          const root = document.querySelector("[data-reader-history-root]");
+          const template = document.createElement("template");
+          template.innerHTML = railMarkup(false);
+          root.insertBefore(template.content, root.querySelector("main"));
+          listenerReady = true;
+          deferredChapter = false;
+          stopRail = historyLifecycle.readerHistoryRailReady?.(
+            root,
+            availableChapters,
+          );
+          return;
+        }
         if (event.target.closest("#hide-rail")) {
           hiddenRail = true;
           document.querySelector(
@@ -90,11 +136,7 @@
         }
         if (event.target.closest("#ready-chapter")) {
           deferredChapter = false;
-          const root = document.querySelector("[data-reader-history-root]");
-          root.querySelector("[data-course-chapter]").dataset.courseChapter =
-            requestedChapter ?? "second";
-          root.querySelector("[data-course-rail-scroll] > div").style.height =
-            "600px";
+          commitChapter(requestedChapter ?? "second");
           return;
         }
         prepareReaderHistory(
@@ -123,14 +165,15 @@
       window.addEventListener("popstate", render);
       // The rail selects the restored chapter; record it where the test can read it.
       window.addEventListener("inside-reader-history-restore", (event) => {
-        if (!listenerReady || typeof event.detail !== "string") return;
+        if (
+          !listenerReady ||
+          typeof event.detail !== "string" ||
+          !availableChapters.includes(event.detail)
+        )
+          return;
         requestedChapter = event.detail;
         if (!deferredChapter) {
-          const root = document.querySelector("[data-reader-history-root]");
-          root.querySelector("[data-course-chapter]").dataset.courseChapter =
-            event.detail;
-          root.querySelector("[data-course-rail-scroll] > div").style.height =
-            "600px";
+          commitChapter(event.detail);
         }
         document.documentElement.dataset.restoredChapter = event.detail;
       });

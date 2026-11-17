@@ -582,3 +582,96 @@ for (const name of ["chromium", "webkit"] as const)
       await context.close();
     }
   }, 30_000);
+
+for (const name of ["chromium", "webkit"] as const)
+  test(`${name} retains an already mounted rail's available chapters before the reader enters`, async () => {
+    const context = await browserFor(name).newContext();
+    try {
+      const page = await context.newPage();
+      await page.addInitScript(() => {
+        window.requestAnimationFrame = () => 0;
+        window.cancelAnimationFrame = () => undefined;
+      });
+      const source = `${baseURL}/products/course/tasks/start`;
+      await page.goto(source);
+      await page.waitForFunction(() => "readerHistoryReady" in window);
+      await page.locator("main").evaluate((element) => {
+        element.scrollTop = 600;
+      });
+      await page.locator("#project").dispatchEvent("click", { button: 0 });
+      await page
+        .getByRole("button", {
+          name: "The remaining rail is ready before the reader",
+        })
+        .dispatchEvent("click");
+      await page.locator("#return").click();
+      await browserExpect(page).toHaveURL(source);
+      await browserExpect(
+        page.locator("[data-reader-history-root] [data-course-chapter]"),
+      ).toHaveAttribute("data-course-chapter", "first");
+      await browserExpect
+        .poll(() =>
+          page.locator("main").evaluate((element) => element.scrollTop),
+        )
+        .toBe(600);
+    } finally {
+      await context.close();
+    }
+  }, 30_000);
+
+for (const name of ["chromium", "webkit"] as const)
+  test(`${name} waits for a missing requested rail to mount before completing the saved view`, async () => {
+    const context = await browserFor(name).newContext();
+    try {
+      const page = await context.newPage();
+      await page.addInitScript(() => {
+        window.requestAnimationFrame = () => 0;
+        window.cancelAnimationFrame = () => undefined;
+      });
+      const source = `${baseURL}/products/course/tasks/start`;
+      await page.goto(source);
+      await page.waitForFunction(() => "readerHistoryReady" in window);
+      await page.locator("main").evaluate((element) => {
+        element.scrollTop = 600;
+      });
+      await page
+        .locator("[data-reader-history-root] [data-course-rail-scroll]")
+        .evaluate((element) => {
+          element.scrollTop = 100;
+        });
+      await page.locator("#project").dispatchEvent("click", { button: 0 });
+      await page
+        .getByRole("button", { name: "Wait for the rail to mount" })
+        .dispatchEvent("click");
+      await page.locator("#return").click();
+      await browserExpect(page).toHaveURL(source);
+      await browserExpect(
+        page.locator("[data-reader-history-root] [data-course-chapter]"),
+      ).toHaveCount(0);
+      await browserExpect
+        .poll(() =>
+          page.locator("main").evaluate((element) => element.scrollTop),
+        )
+        .toBe(0);
+      await page
+        .getByRole("button", { name: "Mount the rail" })
+        .dispatchEvent("click");
+      await browserExpect(
+        page.locator("[data-reader-history-root] [data-course-chapter]"),
+      ).toHaveAttribute("data-course-chapter", "second");
+      await browserExpect
+        .poll(() =>
+          page.locator("main").evaluate((element) => element.scrollTop),
+        )
+        .toBe(600);
+      await browserExpect
+        .poll(() =>
+          page
+            .locator("[data-reader-history-root] [data-course-rail-scroll]")
+            .evaluate((element) => element.scrollTop),
+        )
+        .toBe(100);
+    } finally {
+      await context.close();
+    }
+  }, 30_000);
