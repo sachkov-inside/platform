@@ -477,7 +477,7 @@ function BodyTable({
   );
 }
 
-/** Only the next prose paragraph is previewed; never look past media, an exercise or a gate. */
+/** Keep the continuation visible without exposing exercise answers (platform-v1.md, step reveal). */
 function lessonTextPreview(
   blocks: readonly RenderedBlock[],
   from: number,
