@@ -1,15 +1,24 @@
 import { z } from "zod";
+import { realBffSession } from "../support/real-bff-session";
+let scope: Awaited<ReturnType<typeof realBffSession>>;
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readInlineArtifactReference } from "@/features/product-artifacts/model/inline-artifact";
-import { downloadInlineArtifact } from "@/features/product-artifacts/api/inline-artifact-file-bff.server";
-import { ReaderInlineArtifact } from "@/features/product-artifacts/ui/reader-inline-artifact.server";
+import { downloadInlineArtifact as realDownloadInlineArtifact } from "@/features/product-artifacts/api/inline-artifact-file-bff.server";
+import { ReaderInlineArtifact as RealReaderInlineArtifact } from "@/features/product-artifacts/ui/reader-inline-artifact.server";
 
-vi.mock("next/server", () => ({ connection: () => Promise.resolve() }));
-
-vi.mock("@/shared/auth/index.server", () => ({
-  getOptionalPlatformAccessToken: () => Promise.resolve("reader-token"),
-}));
+const downloadInlineArtifact = (
+  request: Request,
+  input: Parameters<typeof realDownloadInlineArtifact>[1],
+) =>
+  scope(() => {
+    if (scope.cookieHeader !== null)
+      request.headers.set("cookie", scope.cookieHeader);
+    return realDownloadInlineArtifact(request, input);
+  });
+const ReaderInlineArtifact = (
+  props: Parameters<typeof RealReaderInlineArtifact>[0],
+) => scope(() => RealReaderInlineArtifact(props));
 const productId = "72000000-0000-4000-8000-000000000101";
 const sourceId = "inside-content:aie-customer-brief";
 const href = `/api/products/${productId}/artifact-sources/${encodeURIComponent(sourceId)}/file`;
@@ -30,10 +39,13 @@ const artifact = {
 };
 
 describe("Inline artifact binding and current protected download", () => {
-  beforeEach(() =>
-    vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test"),
-  );
+  beforeEach(async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-16T10:00:00Z"));
+    scope = await realBffSession("reader-token");
+  });
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
   });
