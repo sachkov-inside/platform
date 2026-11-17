@@ -161,7 +161,26 @@ it("joins exercise statistics and rating counts for an author", async () => {
   expectBackendRequest("GET", `/authoring/materials/${materialId}/ratings`);
   expect(await response.json()).toEqual({
     kind: "ready",
-    exercises: statistics.exercises,
+    exercises: [
+      {
+        exerciseId: "rag-wrong-platform",
+        kind: "quiz",
+        versions: [
+          {
+            fingerprint: "669258ca11c32c41",
+            firstAnsweredAt: "2026-11-13T09:00:00.000Z",
+            respondents: 4,
+            firstTryCorrect: 1,
+            firstTryDontKnow: 1,
+            mostFrequentMistake: {
+              kind: "options",
+              optionIds: ["embed"],
+              count: 2,
+            },
+          },
+        ],
+      },
+    ],
     ratings: { likes: 3, dislikes: 1 },
   });
 });

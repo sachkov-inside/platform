@@ -18,6 +18,14 @@ const handleRecordExerciseAttempt = (request: Request) =>
 
 const materialId = lessonInteractions.materialId;
 const attempt = lessonInteractions.attempt;
+const expectedAttempt = {
+  exerciseId: "rag-wrong-platform",
+  fingerprint: "669258ca11c32c41",
+  answer: { kind: "options", optionIds: ["prompt"] },
+  result: "correct",
+  firstForVersion: true,
+  attemptedAt: "2026-11-13T09:00:00.000Z",
+};
 
 function request(
   path: string,
@@ -76,7 +84,10 @@ it("records the answer for the session's Account and drops posted results and id
       `/exercise-attempts/materials/${materialId}/exercises/rag-wrong-platform`,
     ).json(),
   ).toEqual({ answer: { kind: "options", optionIds: ["prompt"] } });
-  expect(await response.json()).toEqual({ kind: "ready", attempt });
+  expect(await response.json()).toEqual({
+    kind: "ready",
+    attempt: expectedAttempt,
+  });
 });
 
 it("refuses an answer outside the shape without a backend call", async () => {
@@ -114,7 +125,10 @@ it("reads the latest attempts of one Material and reports a failed backend as un
     request("/api/exercise-attempts/query", { materialId }),
   );
   expectBackendRequest("GET", `/exercise-attempts/materials/${materialId}`);
-  expect(await ready.json()).toEqual({ kind: "ready", attempts: [attempt] });
+  expect(await ready.json()).toEqual({
+    kind: "ready",
+    attempts: [expectedAttempt],
+  });
 
   backend.mockResolvedValueOnce(new Response(null, { status: 503 }));
   const failed = await handleExerciseAttempts(
