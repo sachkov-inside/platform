@@ -40,7 +40,7 @@ function RetainedFigure() {
 }
 
 const meta = {
-  title: "Features/Material assets/Lifetime",
+  title: "Components/Material assets/Lifetime",
   component: RetainedFigure,
 } satisfies Meta<typeof RetainedFigure>;
 export default meta;
