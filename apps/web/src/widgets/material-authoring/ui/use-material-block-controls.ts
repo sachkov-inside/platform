@@ -123,7 +123,7 @@ export function useMaterialBlockControls(
   );
 
   useEffect(() => {
-    if (!editor) return;
+    if (!editor || editor.isDestroyed) return;
     const follow = (transaction?: Transaction) => {
       if (editor.isDestroyed) return;
       if (frozen) {
