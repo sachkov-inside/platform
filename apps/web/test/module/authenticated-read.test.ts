@@ -1,18 +1,25 @@
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { sessionAdapter } from "@/shared/auth/session-adapter.server";
+import { realBffSession } from "../support/real-bff-session";
+import {
+  interceptIdentityOutage,
+  expectIdentityOutage,
+} from "../support/identity-http";
+let scope: Awaited<ReturnType<typeof realBffSession>>;
+import { handleAuthenticatedRead as realHandleAuthenticatedRead } from "@/shared/auth/authenticated-read.server";
 
-const session = vi.hoisted(() => ({ accessToken: vi.fn() }));
-vi.mock("@/shared/auth/session-adapter.server", () => ({
-  sessionAdapter: { accessToken: session.accessToken },
-  LogtoSessionUnavailableError: class extends Error {},
-}));
-import { handleAuthenticatedRead } from "@/shared/auth/authenticated-read.server";
-
-beforeEach(() => {
-  vi.clearAllMocks();
-  session.accessToken.mockResolvedValue("reader-token");
+const handleAuthenticatedRead = (
+  ...args: Parameters<typeof realHandleAuthenticatedRead>
+) => scope(() => realHandleAuthenticatedRead(...args));
+beforeEach(async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-16T10:00:00Z"));
+  scope = await realBffSession("reader-token");
 });
+afterEach(() => vi.useRealTimers());
 
 it("keeps a reader response private while preserving its body, status and correlation reference", async () => {
+  const tokenReads = vi.spyOn(sessionAdapter, "accessToken");
   const response = await handleAuthenticatedRead((token) => {
     expect(token).toBe("reader-token");
     return Promise.resolve(
@@ -34,7 +41,7 @@ it("keeps a reader response private while preserving its body, status and correl
   expect(response.headers.get("cache-control")).toBe("no-store, private");
   expect(response.headers.get("vary")).toBe("accept, cookie");
   expect(response.headers.get("x-correlation-id")).toBe("reader-42");
-  expect(session.accessToken).toHaveBeenCalledWith("route");
+  expect(tokenReads).toHaveBeenCalledWith("route");
 });
 
 it.each([
@@ -43,13 +50,12 @@ it.each([
 ] as const)(
   "classifies %s before calling the backend",
   async (kind, status) => {
-    const { LogtoSessionUnavailableError } =
-      await import("@/shared/auth/session-adapter.server");
-    session.accessToken.mockRejectedValue(
+    scope = await realBffSession(
       kind === "authentication_required"
-        ? new LogtoSessionUnavailableError()
-        : new Error("private provider detail"),
+        ? null
+        : { refreshToken: "failed-reader-identity" },
     );
+    const identity = interceptIdentityOutage();
     const execute = vi.fn();
     const response = await handleAuthenticatedRead(execute);
     expect(response.status).toBe(status);
@@ -57,6 +63,8 @@ it.each([
     expect(response.headers.get("cache-control")).toBe("no-store, private");
     expect(response.headers.get("vary")).toBe("cookie");
     expect(execute).not.toHaveBeenCalled();
+    if (kind === "identity_unavailable") expectIdentityOutage(identity);
+    else expect(identity).not.toHaveBeenCalled();
   },
 );
 
@@ -91,18 +99,21 @@ it.each([401, 503])(
 it("selects the render session mode and leaves prefetch interruption outside failure mapping", async () => {
   const { readAuthenticatedSession } =
     await import("@/shared/auth/authenticated-read.server");
-  expect(await readAuthenticatedSession("rsc")).toEqual({
+  const tokenReads = vi.spyOn(sessionAdapter, "accessToken");
+  expect(await scope(() => readAuthenticatedSession("rsc"))).toEqual({
     kind: "ready",
     value: "reader-token",
   });
-  expect(session.accessToken).toHaveBeenCalledWith("rsc");
+  expect(tokenReads).toHaveBeenCalledWith("rsc");
   const interruption = new Error("prefetch stopped");
   vi.spyOn(await import("next/server"), "connection").mockRejectedValueOnce(
     interruption,
   );
-  session.accessToken.mockClear();
-  await expect(readAuthenticatedSession("rsc")).rejects.toBe(interruption);
-  expect(session.accessToken).not.toHaveBeenCalled();
+  tokenReads.mockClear();
+  await expect(scope(() => readAuthenticatedSession("rsc"))).rejects.toBe(
+    interruption,
+  );
+  expect(tokenReads).not.toHaveBeenCalled();
 });
 
 it("replaces body metadata when normalizing a backend failure", async () => {
