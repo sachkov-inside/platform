@@ -1,4 +1,5 @@
 // @ts-check
+import { courseReferenceFacts } from "../../../../scenarios/course-references.mjs";
 import {
   readingProduct,
   navigationReadingTopic,
@@ -270,8 +271,8 @@ const referenceLessons = [
     slug: `reference-lesson-${String(index + 1)}`,
     title: `Урок ${String(index + 1)}`,
   })),
-  { slug: "aie-project", title: "Описание проекта" },
-  { slug: "aie-product-brief", title: "Бриф заказчика" },
+  courseReferenceFacts.project,
+  courseReferenceFacts.brief,
   ...Array.from({ length: 4 }, (_, index) => ({
     slug: `reference-extra-${String(index + 1)}`,
     title: `Дополнение ${String(index + 1)}`,
@@ -366,7 +367,12 @@ function body(lesson, entitled) {
               {
                 kind: "text",
                 text: "проект из текста",
-                marks: [{ kind: "link", href: "/materials/aie-project" }],
+                marks: [
+                  {
+                    kind: "link",
+                    href: `/materials/${courseReferenceFacts.project.slug}`,
+                  },
+                ],
               },
               { kind: "text", text: ", ", marks: [] },
               {
@@ -391,7 +397,7 @@ function body(lesson, entitled) {
           },
         ]
       : // Справочный документ курса ссылается на шаг программы.
-        lesson.slug === "aie-project"
+        lesson.slug === courseReferenceFacts.project.slug
         ? [
             {
               kind: "paragraph",
