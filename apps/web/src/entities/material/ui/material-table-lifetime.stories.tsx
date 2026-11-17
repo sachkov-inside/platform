@@ -165,10 +165,6 @@ export const TracksContentWidthWithoutViewportResize: Story = {
     await expect(scroller.querySelector("table")).toBe(table);
     await expect(scroller.clientWidth).toBe(initial.clientWidth);
     await expect(scroller.clientHeight).toBe(initial.clientHeight);
-    console.info(
-      "TABLE_WIDTH_DIAG",
-      JSON.stringify({ initial, now: geometry() }),
-    );
     await waitFor(() =>
       expect(
         frame,
@@ -187,10 +183,6 @@ export const TracksContentWidthWithoutViewportResize: Story = {
     );
     await expect(scroller.clientWidth).toBe(initial.clientWidth);
     await expect(scroller.clientHeight).toBe(initial.clientHeight);
-    console.info(
-      "TABLE_WIDTH_DIAG",
-      JSON.stringify({ initial, grown, now: geometry() }),
-    );
     await waitFor(() =>
       expect(
         frame,
