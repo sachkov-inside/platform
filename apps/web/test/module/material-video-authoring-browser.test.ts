@@ -121,10 +121,13 @@ async function expectAttachmentRequest() {
 }
 
 describe("Material Video authoring browser contract", () => {
-  it.each(["upload_not_authorized", "upload_outcome_unknown"])(
+  it.each([
+    ["upload_not_authorized", 503],
+    ["upload_outcome_unknown", 409],
+  ] as const)(
     "preserves %s instead of suggesting a generic retry",
-    async (kind) => {
-      backendReply = { status: 409, body: { code: kind } };
+    async (kind, status) => {
+      backendReply = { status, body: { code: kind } };
       expect(await initMaterialVideoUpload(uploadInput)).toEqual({ kind });
       await expectUploadRequest();
     },
