@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useIsMutating } from "@tanstack/react-query";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, spyOn, userEvent, waitFor, within } from "storybook/test";
 import { AutosaveActivity } from "@/storybook/autosave-activity";
@@ -122,20 +123,34 @@ export const SelectionChangesDuringAttachment: Story = {
     ).toBeVisible();
   },
 };
+function AttachmentActivity(
+  args: Parameters<typeof MaterialVideoAuthoring>[0],
+) {
+  const pending = useIsMutating();
+  return (
+    <>
+      <output aria-label="Video mutations">{pending}</output>
+      <AutosaveActivity>
+        <MaterialVideoAuthoring {...args} />
+      </AutosaveActivity>
+    </>
+  );
+}
 export const HiddenAttachmentCannotSelect: Story = {
-  render: (args) => (
-    <AutosaveActivity>
-      <MaterialVideoAuthoring {...args} />
-    </AutosaveActivity>
-  ),
+  render: (args) => <AttachmentActivity {...args} />,
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
     await startAttachment(canvasElement);
+    await expect(canvas.getByLabelText("Video mutations")).toHaveTextContent(
+      "1",
+    );
     await userEvent.click(
       canvas.getByRole("button", { name: "Скрыть Activity" }),
     );
     answer.resolve(Response.json({ kind: "ready", value: attached }));
-    await answer.promise;
+    await waitFor(() =>
+      expect(canvas.getByLabelText("Video mutations")).toHaveTextContent("0"),
+    );
     await userEvent.click(
       canvas.getByRole("button", { name: "Вернуть Activity" }),
     );

@@ -27,6 +27,8 @@ import {
   type MaterialVideoAuthoringPhase,
 } from "../model/video";
 
+const VIDEO_RECONCILIATION_POLL_INTERVAL_MILLISECONDS = 5_000;
+
 export interface VideoAuthoringSelection {
   readonly access: "free" | "closed";
   readonly materialId: string | null;
@@ -71,6 +73,7 @@ export function createVideoAuthoringSession(
   const serverSnapshot = snapshot;
   const listeners = new Set<() => void>();
   let operation = 0;
+  let deletionFactsRevision = 0;
   let uploadAttempt: BrowserVideoUploadAttempt | null = null;
   let uploadTransfer: Promise<ResumableVideoUpload | null> | null = null;
   let uploadLifetime: AbortController | null = null;
@@ -111,6 +114,13 @@ export function createVideoAuthoringSession(
     patch({ recoveredVideoId });
   };
   const setDeletionVideo = (deletionVideo: Snapshot["deletionVideo"]) => {
+    // Equal refreshed props do not invalidate a command. A different target or state does,
+    // including changing away and back before the old command settles.
+    if (
+      snapshot.deletionVideo?.videoId !== deletionVideo?.videoId ||
+      snapshot.deletionVideo?.state !== deletionVideo?.state
+    )
+      deletionFactsRevision += 1;
     patch({ deletionVideo });
   };
 
@@ -306,7 +316,7 @@ export function createVideoAuthoringSession(
           ? undefined
           : window.setTimeout(() => {
               void reconcile(videoId, () => active);
-            }, 5_000);
+            }, VIDEO_RECONCILIATION_POLL_INTERVAL_MILLISECONDS);
       return {
         inputs,
         cancel: () => {
@@ -437,8 +447,13 @@ export function createVideoAuthoringSession(
       if (snapshot.deletionVideo === null) return;
       const target = snapshot.deletionVideo;
       const revision = operation;
+      const deletionRevision = deletionFactsRevision;
       void retryDeletion({ videoId: target.videoId }).then((result) => {
-        if (revision !== operation || snapshot.deletionVideo !== target) return;
+        if (
+          revision !== operation ||
+          deletionFactsRevision !== deletionRevision
+        )
+          return;
         applyVideoResult(result);
       });
     },

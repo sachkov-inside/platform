@@ -281,12 +281,15 @@ function isTimerCallback(handler: TimerHandler): handler is () => void {
 function RefreshDeletionTarget(
   args: Parameters<typeof MaterialVideoAuthoring>[0],
 ) {
+  const pending = useIsMutating();
   const [target, setTarget] = useState(args.latestVideoDeletion);
   return (
     <>
+      <output aria-label="Video mutations">{pending}</output>
       <button
         onClick={() => {
-          setTarget({ ...deletingVideo });
+          if (args.latestVideoDeletion !== null)
+            setTarget({ ...args.latestVideoDeletion });
         }}
       >
         Обновить тот же объект
@@ -380,5 +383,35 @@ export const RetargetWhileDeletionRetryIsPending: Story = {
     );
     await expect(canvas.getByText(/Другой урок/u)).toBeVisible();
     await expect(canvas.queryByText(/удалено из Kinescope/u)).toBeNull();
+  },
+};
+
+export const RefreshSameDeletionWhileRetryIsPending: Story = {
+  args: { latestVideoDeletion: { ...deletingVideo, state: "delete_failed" } },
+  render: (args) => <RefreshDeletionTarget {...args} />,
+  play: async ({ canvasElement }) => {
+    if (polling === undefined) throw new Error("Polling clock is required");
+    const clock = polling;
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Повторить удаление" }),
+    );
+    await waitFor(() => expect(clock.request).toHaveBeenCalledTimes(1));
+    await expect(canvas.getByLabelText("Video mutations")).toHaveTextContent(
+      "1",
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Обновить тот же объект" }),
+    );
+    clock.respond(0, "deleting");
+    await waitFor(() =>
+      expect(canvas.getByLabelText("Video mutations")).toHaveTextContent("0"),
+    );
+    await expect(
+      canvas.getByText("«Удаляемый урок» удаляется из Kinescope.", {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await waitFor(() => expect(clock.timers.size).toBe(1));
   },
 };
