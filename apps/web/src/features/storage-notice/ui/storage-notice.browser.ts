@@ -22,7 +22,7 @@ function notify() {
 }
 
 function onStorage(event: StorageEvent) {
-  if (event.key === storageNoticeKey) notify();
+  if (event.key === storageNoticeKey || event.key === null) notify();
 }
 
 /** Native storage remains authoritative; failed persistence lasts only in this document. */
