@@ -4,6 +4,8 @@ import {
 } from "../support/web-runtime";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
+// This fixture asserts immediate HTTP/rate/log outcomes only, not deferred persistence.
+// web-telemetry-forwarding.test.ts retains and runs the actual deferred callback.
 vi.mock("next/server", () => ({ after: () => undefined }));
 
 import {
@@ -73,7 +75,7 @@ beforeEach(() => {
   vi.spyOn(console, "info").mockImplementation(() => undefined);
 });
 
-it("обычная страница шлёт один отчёт на скрытие вкладки и не попадает ни под один предел", async () => {
+it("немедленный протокол и журнал: обычная страница шлёт один отчёт на скрытие вкладки и не попадает ни под один предел", async () => {
   const page = stubPage();
   const { queueWebVital } = await import("@/features/client-telemetry");
 
@@ -109,7 +111,7 @@ it("обычная страница шлёт один отчёт на скрыт
   expect(answers).toEqual([204, 204]);
 });
 
-it("загруженная минута обычных посещений со всей площадки проходит потолок журнала", async () => {
+it("немедленный протокол и журнал: загруженная минута обычных посещений со всей площадки проходит потолок журнала", async () => {
   vi.spyOn(console, "error").mockImplementation(() => undefined);
   const { handleRenderErrorReport, handleWebVitalsReport } =
     await import("@/features/client-telemetry.server");
