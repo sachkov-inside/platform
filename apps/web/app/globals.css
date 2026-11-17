@@ -432,7 +432,6 @@ body:has([data-public-shell]) {
  * элементы. Тогда страница сама держит отступ под вырез экрана сверху и место под кнопку снизу.
  */
 @media (max-width: 63.999rem) {
-  body[data-hide-mobile-navigation] .mobile-navigation,
   body:has(
       [data-hide-mobile-navigation-marker]:not([style*="display: none"]):not(
           [style*="display: none"] *
@@ -441,7 +440,6 @@ body:has([data-public-shell]) {
     .mobile-navigation {
     display: none;
   }
-  body[data-hide-mobile-navigation] #content > .public-page-container,
   body:has(
       [data-hide-mobile-navigation-marker]:not([style*="display: none"]):not(
           [style*="display: none"] *
@@ -486,7 +484,6 @@ body:has([data-public-shell]) {
   }
 }
 /* Страница убирает подвал с документами компонентом `HidePublicFooter`. */
-body[data-hide-public-footer] .public-footer-slot,
 body:has(
     [data-hide-public-footer-marker]:not([style*="display: none"]):not(
         [style*="display: none"] *
