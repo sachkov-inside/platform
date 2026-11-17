@@ -2,14 +2,9 @@
 
 import { ChevronUp, type LucideIcon } from "lucide-react";
 import type { Route } from "next";
-import {
-  useId,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useId, type ReactNode } from "react";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
+import { mountCourseNavigationSpace } from "./course-navigation-bar.browser";
 import styles from "./course-navigation-bar.module.css";
 
 /** Compact navigation belongs to learning, never to the course landing page. */
@@ -25,34 +20,18 @@ export function CourseNavigationBar({
   /** The lesson dock is wider, stays on tablets and gives previous/next their own surfaces. */
   readonly layout?: "sections" | "lesson";
 }) {
-  const bar = useRef<HTMLElement>(null);
-  const [space, setSpace] = useState(0);
-  useLayoutEffect(() => {
-    const element = bar.current;
-    if (!reserveSpace || element === null) return;
-    const measure = () => {
-      const height = element.getBoundingClientRect().height;
-      const bottom = Number.parseFloat(getComputedStyle(element).bottom);
-      setSpace(height === 0 ? 0 : height + bottom + 12);
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(element);
-    return () => {
-      observer.disconnect();
-    };
-  }, [reserveSpace]);
   return (
     <>
       {reserveSpace ? (
         <div
           aria-hidden="true"
+          data-course-navigation-space
           className={styles["space"]}
-          style={{ height: space }}
+          style={{ height: 0 }}
         />
       ) : null}
       <nav
-        ref={bar}
+        ref={reserveSpace ? mountCourseNavigationSpace : undefined}
         aria-label={label}
         className={styles["bar"]}
         data-layout={layout}
