@@ -98,3 +98,24 @@ test("storage notice reserves its rendered height across responsive changes and 
   await page.reload();
   await expect(notice).toBeHidden();
 });
+
+test("persisted storage events remain authoritative after a normal acknowledgement", async ({
+  page,
+  context,
+}) => {
+  await page.goto("/legal/privacy");
+  const notice = page.getByRole("region", { name: "Хранение в браузере" });
+  await expect(notice).toBeVisible();
+  await notice.getByRole("button", { name: "Понятно" }).click();
+  await expect(notice).toBeHidden();
+  const other = await context.newPage();
+  try {
+    await other.goto("/legal/terms");
+    await other.evaluate((key) => {
+      localStorage.setItem(key, "prior-edition");
+    }, noticeKey);
+    await expect(notice).toBeVisible();
+  } finally {
+    await other.close();
+  }
+});
