@@ -2,13 +2,15 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleAlert } from "lucide-react";
-import { useEffect, useId, useState, type SubmitEvent } from "react";
+import { useId, useState, type SubmitEvent } from "react";
 
 import {
   BillingReadError,
   type BillingFailureCode,
 } from "@/entities/subscription";
 import { useRepeatableOperations } from "@/shared/lib/repeatable-operations.client";
+import { useAnnouncedRefresh } from "@/shared/api/use-announced-refresh.client";
+import { refreshAnnouncedQueries } from "@/shared/api/announced-query-refresh";
 import { StateBadge } from "@/shared/ui/admin";
 import { Button } from "@/shared/ui/button";
 
@@ -73,16 +75,7 @@ export function CourseActivationRulesPanel({
     // Отказ закрытым кодом не исправится повтором; повтор остаётся кнопкой.
     retry: false,
   });
-  useEffect(
-    () =>
-      activationRulesChanged.subscribe(() => {
-        void cache.invalidateQueries(
-          { queryKey: rulesQueryKey },
-          { cancelRefetch: false },
-        );
-      }),
-    [cache],
-  );
+  useAnnouncedRefresh(activationRulesChanged, rulesQueryKey);
   const save = useMutation({
     mutationFn: (input: {
       readonly slot: string;
@@ -107,8 +100,8 @@ export function CourseActivationRulesPanel({
             ? "Правило опубликовано."
             : "Правило приостановлено.",
         );
-      void cache.invalidateQueries({ queryKey: rulesQueryKey });
-      activationRulesChanged.announce();
+      const announcementId = activationRulesChanged.announce();
+      void refreshAnnouncedQueries(cache, rulesQueryKey, announcementId);
     },
     onError: () => {
       setFailure("lost");
