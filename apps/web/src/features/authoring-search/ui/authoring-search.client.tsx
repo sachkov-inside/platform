@@ -6,17 +6,16 @@ import { useRouter } from "next/navigation";
 import {
   createContext,
   Fragment,
-  useCallback,
   useContext,
-  useEffect,
   useId,
-  useRef,
   useState,
   useSyncExternalStore,
   type ReactNode,
 } from "react";
 
 import { useLiveSearchValue } from "@/shared/lib/use-live-search-value.client";
+
+import { useAuthoringSearchDialog } from "../model/use-authoring-search-dialog.client";
 
 import { requestAuthoringSearch } from "../api/authoring-search.browser";
 import {
@@ -48,36 +47,11 @@ export function AuthoringSearchRoot({
 }: {
   readonly children: ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (
-        (event.metaKey || event.ctrlKey) &&
-        !event.altKey &&
-        !event.shiftKey &&
-        event.key.toLowerCase() === "k"
-      ) {
-        event.preventDefault();
-        setOpen(true);
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, []);
-  const openSearch = useCallback(() => {
-    setOpen(true);
-  }, []);
+  const search = useAuthoringSearchDialog();
   return (
-    <SearchContext.Provider value={openSearch}>
+    <SearchContext.Provider value={search.openSearch}>
       {children}
-      <AuthoringSearchDialog
-        onClose={() => {
-          setOpen(false);
-        }}
-        open={open}
-      />
+      <AuthoringSearchDialog search={search} />
     </SearchContext.Provider>
   );
 }
@@ -124,42 +98,22 @@ export function AuthoringSearchTrigger() {
 }
 
 function AuthoringSearchDialog({
-  onClose,
-  open,
+  search,
 }: {
-  readonly onClose: () => void;
-  readonly open: boolean;
+  readonly search: ReturnType<typeof useAuthoringSearchDialog>;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  const [text, setText] = useState("");
-  useEffect(() => {
-    const node = dialog.current;
-    if (node === null) return;
-    if (open && !node.open) node.showModal();
-    if (!open && node.open) node.close();
-  }, [open]);
+  const { open, closeSearch, text, setText, dialog } = search;
   return (
     <dialog
       aria-label="Поиск по админке"
       className="authoring-search-dialog"
       onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        if (event.target === event.currentTarget) closeSearch();
       }}
-      onClose={() => {
-        setText("");
-        onClose();
-      }}
-      onKeyDown={(event) => {
-        // Synthetic and assistive Escape presses do not always reach the native cancel.
-        if (event.key === "Escape") {
-          event.preventDefault();
-          onClose();
-        }
-      }}
-      ref={dialog}
+      {...dialog}
     >
       {open ? (
-        <SearchPanel onClose={onClose} onTextChange={setText} text={text} />
+        <SearchPanel onClose={closeSearch} onTextChange={setText} text={text} />
       ) : null}
     </dialog>
   );
