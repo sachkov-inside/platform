@@ -1,28 +1,8 @@
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { realBffSession } from "../support/real-bff-session";
 
 import { AudienceBoundLogtoClient } from "@/shared/auth/audience-bound-logto-client.server";
 import { parseLogtoBffConfig } from "@/shared/auth/index.server";
-
-/**
- * Настоящий SDK Logto без подмены: регрессию #766 пропустила проверка, которая подменяла SDK и
- * видела только наш `createNodeClient`, а `@logto/next` создаёт клиент обратного вызова в
- * обход него. Здесь подменены только граница cookie Next.js и сеть. Discovery SDK кеширует в памяти
- * модуля по адресу провайдера, поэтому другой ответ discovery требует другого `endpoint`.
- */
-const cookieJar = vi.hoisted(() => new Map<string, string>());
-
-vi.mock("next/headers", () => ({
-  cookies: () =>
-    Promise.resolve({
-      get: (name: string) => {
-        const value = cookieJar.get(name);
-        return value === undefined ? undefined : { name, value };
-      },
-      set: (name: string, value: string) => {
-        cookieJar.set(name, value);
-      },
-    }),
-}));
 
 const endpoint = "https://identity.example.test";
 const audience = "https://api.example.test";
@@ -54,42 +34,65 @@ const discovery = {
   jwks_uri: `${endpoint}/oidc/jwks`,
 };
 
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2030-03-01T12:00:00Z"));
+});
 afterEach(() => {
-  cookieJar.clear();
+  vi.useRealTimers();
 });
 
 it("обмен кода на обратном вызове просит токен для API Platform", async () => {
-  const tokenRequests: URLSearchParams[] = [];
+  const tokenRequests: { request: Request; body: URLSearchParams }[] = [];
+  const unexpectedRequests: string[] = [];
+  const discoveryRequests: Request[] = [];
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const request = new Request(input, init);
       const url = new URL(request.url);
-      if (url.pathname === "/oidc/.well-known/openid-configuration")
-        return Promise.resolve(Response.json(discovery));
-      if (url.pathname === "/oidc/token") {
-        expect(request.method).toBe("POST");
-        tokenRequests.push(new URLSearchParams(await request.text()));
-        // Тело запроса уже записано; дальше обмен не нужен, и SDK получает отказ провайдера.
+      if (
+        url.href === `${endpoint}/oidc/.well-known/openid-configuration` &&
+        request.method === "GET"
+      ) {
+        discoveryRequests.push(request);
+        return Response.json(discovery);
+      }
+      if (url.href === `${endpoint}/oidc/token` && request.method === "POST") {
+        tokenRequests.push({
+          request,
+          body: new URLSearchParams(await request.text()),
+        });
         return Promise.resolve(
           Response.json({ error: "invalid_grant" }, { status: 400 }),
         );
       }
-      return Promise.resolve(new Response(null, { status: 404 }));
+      unexpectedRequests.push(`${request.method} ${request.url}`);
+      throw new Error("Unexpected external identity request");
     }),
   );
-  const client = new AudienceBoundLogtoClient(config);
-  const redirectUri = `${webBaseUrl}/callback`;
-  const { url } = await client.handleSignIn({ redirectUri });
-  const state = new URL(url).searchParams.get("state");
-  if (state === null) throw new Error("Вход не записал сессию со state");
-  const callback = new URL(redirectUri);
-  callback.searchParams.set("code", "opaque");
-  callback.searchParams.set("state", state);
+  const scope = await realBffSession(null);
+  await scope(async () => {
+    const client = new AudienceBoundLogtoClient(config);
+    const redirectUri = `${webBaseUrl}/callback`;
+    const { url } = await client.handleSignIn({ redirectUri });
+    const state = new URL(url).searchParams.get("state");
+    if (state === null) throw new Error("Вход не записал сессию со state");
+    const callback = new URL(redirectUri);
+    callback.searchParams.set("code", "opaque");
+    callback.searchParams.set("state", state);
 
-  await expect(client.handleSignInCallback(callback.href)).rejects.toThrow();
+    await expect(client.handleSignInCallback(callback.href)).rejects.toThrow();
+  });
+
+  expect(unexpectedRequests).toEqual([]);
+  expect(discoveryRequests).toHaveLength(1);
 
   expect(tokenRequests).toHaveLength(1);
-  expect(tokenRequests[0]?.get("grant_type")).toBe("authorization_code");
-  expect(tokenRequests[0]?.get("resource")).toBe(audience);
+  expect(tokenRequests[0]?.request.url).toBe(
+    "https://identity.example.test/oidc/token",
+  );
+  expect(tokenRequests[0]?.request.method).toBe("POST");
+  expect(tokenRequests[0]?.body.get("grant_type")).toBe("authorization_code");
+  expect(tokenRequests[0]?.body.get("resource")).toBe(audience);
 });
