@@ -1,4 +1,29 @@
 // @ts-check
+const taskDefinition = {
+  schemaVersion: 1,
+  situation:
+    "Команда учебного проекта хочет проверить, что первый результат можно повторить.",
+  result: [
+    "Участник показывает первый результат.",
+    "Другой участник повторяет проверку.",
+  ],
+  freedom: "Участник сам выбирает инструменты и способ показать результат.",
+  criteria: [
+    {
+      id: "result",
+      level: "required",
+      requirement: "Первый результат виден и проверен.",
+      acceptableEvidence: ["Наблюдаемый результат проверки."],
+    },
+    {
+      id: "repeat",
+      level: "required",
+      requirement: "Проверку может повторить другой участник.",
+      acceptableEvidence: ["Пошаговая инструкция проверки."],
+    },
+  ],
+};
+
 /** Synthetic learning state shared by fixtures and isolated-application setup. */
 export const learningScenario = {
   fixtureDate: "2026-11-16T10:00:00.000Z",
@@ -14,6 +39,12 @@ export const learningScenario = {
     id: "97000000-0000-4000-8000-000000000002",
     name: "Учебные примеры",
     slug: "synthetic-learning",
+    summary: "Синтетические сценарии обучения.",
+  },
+  reading: {
+    openingHeading: "Первый шаг",
+    checkHeading: "Проверка результата",
+    checkInstruction: "Покажи результат учебного шага и повтори проверку.",
   },
   lessons: [
     {
@@ -76,6 +107,9 @@ export const learningScenario = {
   artifact: {
     id: "97000000-0000-4000-8000-000000000201",
     sourceId: "synthetic-scenarios:result",
+    reference: "result",
+    material: "reference",
+    downloadLabel: "Скачать шаблон результата (.txt)",
     title: "Учебный пример: шаблон результата",
     purpose: "Образец результата учебного проекта.",
     access: "free",
@@ -106,30 +140,12 @@ export const learningScenario = {
     currentVersion: 2,
     chapter: "start",
     after: "project",
-    definition: {
-      schemaVersion: 1,
-      situation:
-        "Команда учебного проекта хочет проверить, что первый результат можно повторить.",
-      result: [
-        "Участник показывает первый результат.",
-        "Другой участник повторяет проверку.",
-      ],
-      freedom: "Участник сам выбирает инструменты и способ показать результат.",
-      criteria: [
-        {
-          id: "result",
-          level: "required",
-          requirement: "Первый результат виден и проверен.",
-          acceptableEvidence: ["Наблюдаемый результат проверки."],
-        },
-        {
-          id: "repeat",
-          level: "required",
-          requirement: "Проверку может повторить другой участник.",
-          acceptableEvidence: ["Пошаговая инструкция проверки."],
-        },
-      ],
+    definition: taskDefinition,
+    outdatedDefinition: {
+      ...taskDefinition,
+      criteria: taskDefinition.criteria.slice(0, 1),
     },
+    relatedMaterials: ["reference"],
     outdatedSubmissionNote: "Первая учебная попытка до изменения задания.",
     submission: {
       note: "Учебный результат проверен по инструкции.",

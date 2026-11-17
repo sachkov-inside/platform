@@ -33,3 +33,14 @@ export function learningInterceptionCatalog() {
     totalCount: facts.lessons.length,
   };
 }
+
+/** A browser route may replace the external file response, never an own web module. */
+export function learningInterceptionFile() {
+  return {
+    body: facts.artifact.text,
+    contentType: facts.artifact.contentType,
+    headers: {
+      "content-disposition": `attachment; filename="${facts.artifact.filename}"`,
+    },
+  };
+}

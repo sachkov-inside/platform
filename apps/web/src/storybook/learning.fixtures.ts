@@ -2,6 +2,10 @@ import { learningScenario as facts } from "../../../../scenarios/learning.mjs";
 import type { MaterialPreview } from "@/entities/material";
 import type { PublishedProductResult } from "@/features/library-discovery";
 import type { ReaderProductArtifactsResult } from "@/features/product-artifacts.reader";
+import type {
+  MaterialReaderMetadata,
+  ReaderBlock,
+} from "@/_pages/material-reader/model/material-reader-view";
 
 function lessonId(key: string): string {
   const lesson = facts.lessons.find((candidate) => candidate.key === key);
@@ -101,3 +105,74 @@ export const learningContinuation = {
   materialSlug: `synthetic-${facts.learning.started}`,
   label: "Продолжить чтение",
 };
+
+/** Preview of the supplementary reader, with its own presentation projection. */
+export function learningReferenceReader(): {
+  material: MaterialReaderMetadata;
+  body: readonly ReaderBlock[];
+} {
+  const index = facts.lessons.findIndex(
+    (lesson) => lesson.key === facts.artifact.material,
+  );
+  const lesson = facts.lessons[index];
+  if (lesson === undefined) throw new Error("Missing learning reference");
+  return {
+    material: {
+      materialId: lesson.id,
+      contentVersion: 1,
+      cover: null,
+      difficulty: "basic",
+      outcomes: [],
+      format: facts.format,
+      publishedAt: facts.fixtureDate,
+      access: lesson.access,
+      productMemberships: [{ ordinal: index + 1, product: facts.product }],
+      slug: lesson.slug,
+      summary: lesson.summary,
+      tags: [],
+      title: lesson.title,
+      topic: facts.topic,
+    },
+    body: [
+      {
+        kind: "heading",
+        level: 2,
+        content: [
+          { kind: "text", text: facts.reading.openingHeading, marks: [] },
+        ],
+      },
+      {
+        kind: "paragraph",
+        content: [{ kind: "text", text: lesson.summary, marks: [] }],
+      },
+      {
+        kind: "heading",
+        level: 2,
+        content: [
+          { kind: "text", text: facts.reading.checkHeading, marks: [] },
+        ],
+      },
+      {
+        kind: "paragraph",
+        content: [
+          { kind: "text", text: facts.reading.checkInstruction, marks: [] },
+        ],
+      },
+      {
+        kind: "paragraph",
+        content: [
+          {
+            kind: "text",
+            text: facts.artifact.downloadLabel,
+            marks: [
+              {
+                kind: "link",
+                href: `/api/products/${facts.product.id}/artifact-sources/${encodeURIComponent(facts.artifact.sourceId)}/file`,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}

@@ -1,6 +1,16 @@
 import { expect, test } from "vitest";
-import { learningHttpProduct } from "../../../../scenarios/learning-http.mjs";
+import {
+  learningHttpProduct,
+  learningHttpReader,
+  learningHttpArtifacts,
+} from "../../../../scenarios/learning-http.mjs";
 import { mapLibraryDiscoveryResult } from "@/features/library-discovery/api/map-library-discovery-result";
+import { renderedMaterialBodySchema } from "@/entities/material.model";
+import { readInlineArtifactReference } from "@/features/product-artifacts.reader";
+import { readerProductArtifactListSchema } from "@/features/product-artifacts/model/reader-product-artifacts";
+import { learningReferenceReader } from "@/storybook/learning.fixtures";
+import { learningInterceptionFile } from "../support/learning-interception";
+import { z } from "zod";
 
 test("the real Product mapper retains populated chapters, access and practice placement", () => {
   const result = mapLibraryDiscoveryResult(
@@ -54,4 +64,55 @@ test("the real Product mapper retains populated chapters, access and practice pl
       { availability: "available" },
     ],
   });
+});
+
+test("independent reader projections retain the declared inline file and exact bytes", () => {
+  const response = z
+    .object({ kind: z.literal("available"), body: renderedMaterialBodySchema })
+    .parse(learningHttpReader("synthetic-reference", "holder"));
+  const preview = learningReferenceReader();
+  for (const blocks of [response.body.blocks, preview.body]) {
+    const link = blocks
+      .flatMap((block) => (block.kind === "paragraph" ? block.content : []))
+      .find((text) => text.text === "Скачать шаблон результата (.txt)");
+    expect(link).toMatchObject({
+      marks: [
+        {
+          kind: "link",
+          href: "/api/products/97000000-0000-4000-8000-000000000001/artifact-sources/synthetic-scenarios%3Aresult/file",
+        },
+      ],
+    });
+  }
+  expect(
+    readInlineArtifactReference(
+      "/api/products/97000000-0000-4000-8000-000000000001/artifact-sources/synthetic-scenarios%3Aresult/file",
+    ),
+  ).toEqual({
+    productId: "97000000-0000-4000-8000-000000000001",
+    sourceId: "synthetic-scenarios:result",
+  });
+  expect(
+    readerProductArtifactListSchema.parse(learningHttpArtifacts()).artifacts,
+  ).toMatchObject([
+    {
+      sourceId: "synthetic-scenarios:result",
+      content: { kind: "file", filename: "synthetic-result.txt" },
+      availability: "available",
+    },
+  ]);
+  expect(learningInterceptionFile()).toEqual({
+    body: "Учебный результат: первый шаг и повторяемая проверка.\n",
+    contentType: "text/plain",
+    headers: {
+      "content-disposition": 'attachment; filename="synthetic-result.txt"',
+    },
+  });
+  expect(learningHttpReader("synthetic-project", "learner")).toMatchObject({
+    kind: "teaser",
+    access: { availability: "locked" },
+  });
+  expect(learningHttpReader("synthetic-project", "learner")).not.toHaveProperty(
+    "body",
+  );
 });
