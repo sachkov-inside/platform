@@ -16,6 +16,12 @@ export const learningScenario: {
     readonly id: string;
     readonly name: string;
     readonly slug: string;
+    readonly summary: string;
+  };
+  readonly reading: {
+    readonly openingHeading: string;
+    readonly checkHeading: string;
+    readonly checkInstruction: string;
   };
   readonly lessons: readonly {
     readonly key: LearningLessonKey;
@@ -35,6 +41,9 @@ export const learningScenario: {
   readonly artifact: {
     readonly id: string;
     readonly sourceId: string;
+    readonly reference: string;
+    readonly material: LearningLessonKey;
+    readonly downloadLabel: string;
     readonly title: string;
     readonly purpose: string;
     readonly access: "free";
@@ -64,6 +73,8 @@ export const learningScenario: {
     readonly currentVersion: number;
     readonly chapter: string;
     readonly after: LearningLessonKey;
+    readonly relatedMaterials: readonly LearningLessonKey[];
+    readonly outdatedDefinition: LearningTaskDefinition;
     readonly definition: {
       readonly schemaVersion: 1;
       readonly situation: string;
@@ -81,3 +92,5 @@ export const learningScenario: {
     readonly feedback: { readonly comment: string; readonly reviewed: boolean };
   };
 };
+
+type LearningTaskDefinition = typeof learningScenario.task.definition;

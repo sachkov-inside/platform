@@ -91,7 +91,7 @@ const cover = {
  * }} Product
  * @typedef {(typeof lessons)[number]} Lesson
  * @typedef {{ status: number; value: unknown; contentType?: undefined }} JsonResult
- * @typedef {{ status: number; value: Buffer; contentType: string }} ImageResult
+ * @typedef {{ status: number; value: Buffer; contentType: string; headers?: Record<string, string> }} ImageResult
  */
 
 const archivedProductSlug = "navigation-archive";
@@ -1564,6 +1564,7 @@ const server = createServer(async (request, response) => {
     response.writeHead(result.status, {
       "cache-control": "public, max-age=31536000, immutable",
       "content-type": result.contentType,
+      ...result.headers,
     });
     response.end(result.value);
     return;

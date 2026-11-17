@@ -1,6 +1,12 @@
 // @ts-check
 import { learningScenario as facts } from "./learning.mjs";
 
+const topic = {
+  id: facts.topic.id,
+  name: facts.topic.name,
+  slug: facts.topic.slug,
+};
+
 /** @param {string} key */
 function lessonId(key) {
   const lesson = facts.lessons.find((candidate) => candidate.key === key);
@@ -22,7 +28,7 @@ export function learningHttpProduct(role) {
       introduction: null,
       productPage: null,
     },
-    topics: [{ ...facts.topic, cover: null }],
+    topics: [{ ...topic, cover: null }],
     relatedProduct: [],
     chapters: facts.chapters.map((chapter) => ({
       id: chapter.id,
@@ -71,7 +77,104 @@ export function learningHttpProduct(role) {
         },
       ],
       tags: [],
-      topic: { ...facts.topic },
+      topic: { ...topic },
     })),
+  };
+}
+
+/** Reader HTTP adapter; the wire body is independent of the Storybook projection.
+ * @param {string} slug @param {"holder" | "learner"} role
+ */
+export function learningHttpReader(slug, role) {
+  const projection = learningHttpProduct(role).items.find(
+    (item) => item.slug === slug,
+  );
+  if (projection === undefined) return undefined;
+  if (projection.availability === "locked")
+    return {
+      kind: "teaser",
+      cacheScope: "private-no-store",
+      projection,
+      access: { availability: "locked", subscriptionOffered: false },
+    };
+  return {
+    kind: "available",
+    cacheScope: projection.access === "free" ? "public" : "private-no-store",
+    projection,
+    primaryVideo: null,
+    glossaryTerms: [],
+    lessonTerms: [],
+    body: {
+      schemaVersion: 1,
+      blocks: [
+        {
+          kind: "heading",
+          level: 2,
+          content: [
+            { kind: "text", text: facts.reading.openingHeading, marks: [] },
+          ],
+        },
+        {
+          kind: "paragraph",
+          content: [{ kind: "text", text: projection.summary, marks: [] }],
+        },
+        {
+          kind: "heading",
+          level: 2,
+          content: [
+            { kind: "text", text: facts.reading.checkHeading, marks: [] },
+          ],
+        },
+        {
+          kind: "paragraph",
+          content: [
+            { kind: "text", text: facts.reading.checkInstruction, marks: [] },
+          ],
+        },
+        ...(facts.lessons.find((item) => item.key === facts.artifact.material)
+          ?.slug === slug
+          ? [
+              {
+                kind: "paragraph",
+                content: [
+                  {
+                    kind: "text",
+                    text: facts.artifact.downloadLabel,
+                    marks: [
+                      {
+                        kind: "link",
+                        href: `/api/products/${facts.product.id}/artifact-sources/${encodeURIComponent(facts.artifact.sourceId)}/file`,
+                      },
+                    ],
+                  },
+                ],
+              },
+            ]
+          : []),
+      ],
+    },
+  };
+}
+
+/** Current file metadata, as exposed by the real Products API. */
+export function learningHttpArtifacts() {
+  return {
+    artifacts: [
+      {
+        artifactId: facts.artifact.id,
+        sourceId: facts.artifact.sourceId,
+        title: facts.artifact.title,
+        purpose: facts.artifact.purpose,
+        availability: "available",
+        content: {
+          kind: "file",
+          filename: facts.artifact.filename,
+          contentType: facts.artifact.contentType,
+          size: new TextEncoder().encode(facts.artifact.text).length,
+        },
+        updatedAt: facts.fixtureDate,
+        version: 1,
+      },
+    ],
   };
 }

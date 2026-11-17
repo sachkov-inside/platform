@@ -3,6 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { learningScenario } from "./learning.mjs";
 import { isolatedScenarioApi } from "./isolated-api.mjs";
+import { convertMarkdown } from "../tools/authoring/markdown.mjs";
 
 const collection = z.object({ id: z.uuid() }).loose();
 const receipt = z
@@ -29,7 +30,7 @@ export async function seedLearningScenario({
       kind: "topic",
       name: facts.topic.name,
       slug: facts.topic.slug,
-      summary: "Синтетические сценарии обучения.",
+      summary: facts.topic.summary,
     }),
   );
   const product = collection.parse(
@@ -63,37 +64,32 @@ export async function seedLearningScenario({
       tagIds: [],
       productIds: [product.id],
     };
-    const body = {
-      schemaVersion: 1,
-      doc: {
-        type: "doc",
-        content: [
-          {
-            type: "heading",
-            attrs: { level: 2 },
-            content: [{ type: "text", text: "Первый шаг" }],
-          },
-          {
-            type: "paragraph",
-            content: [{ type: "text", text: lesson.summary }],
-          },
-          {
-            type: "heading",
-            attrs: { level: 2 },
-            content: [{ type: "text", text: "Проверка результата" }],
-          },
-          {
-            type: "paragraph",
-            content: [
-              {
-                type: "text",
-                text: "Покажи результат учебного шага и повтори проверку.",
-              },
-            ],
-          },
-        ],
+    const markdown = [
+      `## ${facts.reading.openingHeading}`,
+      lesson.summary,
+      `## ${facts.reading.checkHeading}`,
+      facts.reading.checkInstruction,
+      ...(lesson.key === facts.artifact.material
+        ? [
+            `[${facts.artifact.downloadLabel}](artifact:${facts.artifact.reference})`,
+          ]
+        : []),
+    ].join("\n\n");
+    const body = convertMarkdown(markdown, {
+      sourcePath: source.path,
+      sourceId: source.id,
+      link: (href) => {
+        if (
+          href !== `artifact:${facts.artifact.reference}` ||
+          lesson.key !== facts.artifact.material
+        )
+          throw new Error(`Undeclared learning artifact reference ${href}`);
+        return `/api/products/${product.id}/artifact-sources/${encodeURIComponent(facts.artifact.sourceId)}/file`;
       },
-    };
+      image: () => {
+        throw new Error("Learning scenario declares no images");
+      },
+    });
     const published = receipt.parse(
       await request("POST", "/authoring/import/materials/apply", {
         source,
@@ -198,7 +194,9 @@ export async function seedLearningScenario({
     position: 1,
     title: facts.task.title,
     access: facts.task.access,
-    relatedMaterialSourceIds: ["synthetic-scenarios:reference"],
+    relatedMaterialSourceIds: facts.task.relatedMaterials.map(
+      (key) => `synthetic-scenarios:${key}`,
+    ),
     afterMaterialSourceId: `synthetic-scenarios:${facts.task.after}`,
     publicationState: "published",
     provenance: {
@@ -213,10 +211,7 @@ export async function seedLearningScenario({
   const first = version.parse(
     await request("POST", "/authoring/import/tasks/apply", {
       ...task,
-      definition: {
-        ...facts.task.definition,
-        criteria: facts.task.definition.criteria.slice(0, 1),
-      },
+      definition: facts.task.outdatedDefinition,
       expectedRevision: null,
     }),
   );
