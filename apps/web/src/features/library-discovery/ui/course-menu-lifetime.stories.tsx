@@ -150,12 +150,27 @@ export const KeepsUnpersistedChoiceAcrossRetention: Story = {
       await expect(expand).toBeVisible();
       await expect(expand).toHaveFocus();
       await expect(localStorage.getItem(courseMenuStorageKey)).toBeNull();
+      await expect(
+        document.documentElement.getAttribute(courseMenuAttribute),
+        "after rejected write before retention",
+      ).toBe("collapsed");
       await userEvent.click(
         canvas.getByRole("button", { name: "Скрыть страницу курса" }),
       );
       await waitFor(() => expect(expand).not.toBeVisible());
       await userEvent.click(
         canvas.getByRole("button", { name: "Вернуть страницу курса" }),
+      );
+      await waitFor(() =>
+        expect({
+          phase: "after retained return",
+          connected: expand.isConnected,
+          choice: document.documentElement.getAttribute(courseMenuAttribute),
+        }).toEqual({
+          phase: "after retained return",
+          connected: true,
+          choice: "collapsed",
+        }),
       );
       await waitFor(() => expect(expand).toBeVisible());
       await expect(
