@@ -1,7 +1,6 @@
 /**
- * Модульные проверки вызывают обработчики вне запроса Next.js, где у кеша нет хранилища и
- * `revalidateTag` бросает инвариант. Сами обращения к кешу проверяются там, где их можно
- * подменить по имени: `vi.mock("@/shared/api/catalog-cache.server")`.
+ * Node module tests observe Next cache requests without a compiled cache store.
+ * Own catalog policy stays real; the API/context limits live in docs/agents/testing.md.
  */
 export const cacheLife = (): void => undefined;
 export const cacheTag = (): void => undefined;
