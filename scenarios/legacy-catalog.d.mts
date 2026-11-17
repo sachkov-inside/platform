@@ -3,6 +3,7 @@ export const legacyCatalogueScenario: {
     readonly name: string;
     readonly slug: string;
     readonly summary: string;
+    readonly programmeSummary: string;
   };
   readonly offer: {
     readonly name: string;

@@ -88,7 +88,7 @@ const result = {
   reference: {
     name: legacyCatalogueScenario.product.name,
     slug: legacyCatalogueScenario.product.slug,
-    summary: "От продуктовой идеи до работающего приложения.",
+    summary: legacyCatalogueScenario.product.programmeSummary,
   },
   items: materials,
   relatedProduct: [],

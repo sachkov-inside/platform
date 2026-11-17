@@ -7,6 +7,7 @@ export const legacyCatalogueScenario = {
     name: "Создание Platform Inside",
     slug: "platform-inside",
     summary: "Путь от продуктовой идеи до работающей Platform.",
+    programmeSummary: "От продуктовой идеи до работающего приложения.",
   },
   offer: {
     name: "Руководство «Создание Platform Inside»",

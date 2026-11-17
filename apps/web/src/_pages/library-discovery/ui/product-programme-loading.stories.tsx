@@ -76,7 +76,7 @@ const result = {
     id: "72000000-0000-4000-8000-000000000670",
     name: legacyCatalogueScenario.product.name,
     slug: legacyCatalogueScenario.product.slug,
-    summary: "От продуктовой идеи до работающего приложения.",
+    summary: legacyCatalogueScenario.product.programmeSummary,
   },
   items: materials,
   relatedProduct: [],
