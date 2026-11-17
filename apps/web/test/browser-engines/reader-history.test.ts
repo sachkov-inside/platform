@@ -1,60 +1,27 @@
-import { readFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
-import {
-  chromium,
-  webkit,
-  expect as browserExpect,
-  type Browser,
-} from "@playwright/test";
-import { createServer, type ViteDevServer } from "vite";
+import { expect as browserExpect, type Browser } from "@playwright/test";
+import { createOwnedBrowserFixture } from "../support/owned-browser-fixture";
 import { afterAll, beforeAll, test } from "vitest";
 
-let server: ViteDevServer | undefined;
+const fixture = createOwnedBrowserFixture("reader-history");
+let browsers: ReadonlyMap<string, Browser> = new Map();
 let baseURL = "";
 beforeAll(async () => {
-  const html = await readFile(
-    new URL("../support/reader-history.html", import.meta.url),
-    "utf8",
-  );
-  server = await createServer({
-    configFile: false,
-    root: fileURLToPath(new URL("../../", import.meta.url)),
-    server: { host: "127.0.0.1", port: 0 },
-    plugins: [
-      {
-        name: "reader-history-pages",
-        configureServer(vite) {
-          vite.middlewares.use((request, response, next) => {
-            if (
-              request.url?.startsWith("/materials/") !== true &&
-              request.url?.startsWith("/products/") !== true
-            ) {
-              next();
-              return;
-            }
-            response.setHeader("content-type", "text/html");
-            response.end(html);
-          });
-        },
-      },
-    ],
-  });
-  await server.listen();
-  const address = server.httpServer?.address();
-  if (address === undefined || address === null || typeof address === "string")
-    throw new Error("Reader history fixture has no address");
-  baseURL = `http://127.0.0.1:${String(address.port)}`;
-});
-afterAll(async () => {
-  await server?.close();
-});
+  const started = await fixture.start();
+  browsers = started.browsers;
+  baseURL = new URL(started.url).origin;
+}, 30_000);
+afterAll(() => fixture.close(), 30_000);
 
-for (const engine of [chromium, webkit])
-  test(`${engine.name()} restores the originating entry through nested documents, reload and explicit return without leaking to another tab`, async () => {
-    let browser: Browser | undefined;
+function browserFor(name: string): Browser {
+  const browser = browsers.get(name);
+  if (browser === undefined) throw new Error(`Missing fixture browser ${name}`);
+  return browser;
+}
+
+for (const name of ["chromium", "webkit"] as const)
+  test(`${name} restores the originating entry through nested documents, reload and explicit return without leaking to another tab`, async () => {
+    const context = await browserFor(name).newContext();
     try {
-      browser = await engine.launch();
-      const context = await browser.newContext();
       const page = await context.newPage();
       const source = `${baseURL}/products/course/tasks/start?attemptsAfter=older#submission`;
       await page.goto(source);
@@ -116,15 +83,15 @@ for (const engine of [chromium, webkit])
         )
         .toBe(100);
     } finally {
-      await browser?.close();
+      await context.close();
     }
   }, 30_000);
 
-for (const engine of [chromium, webkit])
-  test(`${engine.name()} retains the origin when an intermediate reference has not activated its Tracker`, async () => {
-    const browser = await engine.launch();
+for (const name of ["chromium", "webkit"] as const)
+  test(`${name} retains the origin when an intermediate reference has not activated its Tracker`, async () => {
+    const context = await browserFor(name).newContext();
     try {
-      const page = await browser.newPage();
+      const page = await context.newPage();
       const source = `${baseURL}/products/course/tasks/start`;
       await page.goto(source);
       await page.waitForFunction(() => "readerHistoryReady" in window);
@@ -158,15 +125,15 @@ for (const engine of [chromium, webkit])
         )
         .toBe(600);
     } finally {
-      await browser.close();
+      await context.close();
     }
   }, 30_000);
 
-for (const engine of [chromium, webkit])
-  test(`${engine.name()} restores a ready reading view while animation frames are suspended`, async () => {
-    const browser = await engine.launch({ timeout: 30_000 });
+for (const name of ["chromium", "webkit"] as const)
+  test(`${name} restores a ready reading view while animation frames are suspended`, async () => {
+    const context = await browserFor(name).newContext();
     try {
-      const page = await browser.newPage();
+      const page = await context.newPage();
       // Time is the substitute: an already committed document needs no frame-count barrier.
       await page.addInitScript(() => {
         window.requestAnimationFrame = () => 0;
@@ -206,15 +173,15 @@ for (const engine of [chromium, webkit])
         "second",
       );
     } finally {
-      await browser.close();
+      await context.close();
     }
   }, 30_000);
 
-for (const engine of [chromium, webkit])
-  test(`${engine.name()} waits for the requested chapter DOM before restoring its rail`, async () => {
-    const browser = await engine.launch({ timeout: 30_000 });
+for (const name of ["chromium", "webkit"] as const)
+  test(`${name} waits for the requested chapter DOM before restoring its rail`, async () => {
+    const context = await browserFor(name).newContext();
     try {
-      const page = await browser.newPage();
+      const page = await context.newPage();
       await page.addInitScript(() => {
         window.requestAnimationFrame = () => 0;
         window.cancelAnimationFrame = () => undefined;
@@ -271,15 +238,15 @@ for (const engine of [chromium, webkit])
         )
         .toBe(100);
     } finally {
-      await browser.close();
+      await context.close();
     }
   }, 30_000);
 
-for (const engine of [chromium, webkit])
-  test(`${engine.name()} delivers a pending chapter restoration to a newly connected rail`, async () => {
-    const browser = await engine.launch({ timeout: 30_000 });
+for (const name of ["chromium", "webkit"] as const)
+  test(`${name} delivers a pending chapter restoration to a newly connected rail`, async () => {
+    const context = await browserFor(name).newContext();
     try {
-      const page = await browser.newPage();
+      const page = await context.newPage();
       await page.addInitScript(() => {
         window.requestAnimationFrame = () => 0;
         window.cancelAnimationFrame = () => undefined;
@@ -336,15 +303,15 @@ for (const engine of [chromium, webkit])
         )
         .toBe(100);
     } finally {
-      await browser.close();
+      await context.close();
     }
   }, 30_000);
 
-for (const engine of [chromium, webkit])
-  test(`${engine.name()} cancels the reader's pending observation before later chapter changes`, async () => {
-    const browser = await engine.launch({ timeout: 30_000 });
+for (const name of ["chromium", "webkit"] as const)
+  test(`${name} cancels the reader's pending observation before later chapter changes`, async () => {
+    const context = await browserFor(name).newContext();
     try {
-      const page = await browser.newPage();
+      const page = await context.newPage();
       await page.addInitScript(() => {
         const active = new Set<MutationObserver>();
         const NativeObserver = window.MutationObserver;
@@ -422,15 +389,15 @@ for (const engine of [chromium, webkit])
         )
         .toBe(0);
     } finally {
-      await browser.close();
+      await context.close();
     }
   }, 30_000);
 
-for (const engine of [chromium, webkit])
-  test(`${engine.name()} restores the reading position when the saved chapter no longer exists`, async () => {
-    const browser = await engine.launch({ timeout: 30_000 });
+for (const name of ["chromium", "webkit"] as const)
+  test(`${name} restores the reading position when the saved chapter no longer exists`, async () => {
+    const context = await browserFor(name).newContext();
     try {
-      const page = await browser.newPage();
+      const page = await context.newPage();
       await page.addInitScript(() => {
         window.requestAnimationFrame = () => 0;
         window.cancelAnimationFrame = () => undefined;
@@ -474,15 +441,15 @@ for (const engine of [chromium, webkit])
         )
         .toBe(0);
     } finally {
-      await browser.close();
+      await context.close();
     }
   }, 30_000);
 
-for (const engine of [chromium, webkit])
-  test(`${engine.name()} waits while the pending reader is hidden and restores when visible`, async () => {
-    const browser = await engine.launch({ timeout: 30_000 });
+for (const name of ["chromium", "webkit"] as const)
+  test(`${name} waits while the pending reader is hidden and restores when visible`, async () => {
+    const context = await browserFor(name).newContext();
     try {
-      const page = await browser.newPage();
+      const page = await context.newPage();
       await page.addInitScript(() => {
         window.requestAnimationFrame = () => 0;
         window.cancelAnimationFrame = () => undefined;
@@ -532,15 +499,15 @@ for (const engine of [chromium, webkit])
         )
         .toBe(100);
     } finally {
-      await browser.close();
+      await context.close();
     }
   }, 30_000);
 
-for (const engine of [chromium, webkit])
-  test(`${engine.name()} discards a pending position when another browser history entry wins`, async () => {
-    const browser = await engine.launch({ timeout: 30_000 });
+for (const name of ["chromium", "webkit"] as const)
+  test(`${name} discards a pending position when another browser history entry wins`, async () => {
+    const context = await browserFor(name).newContext();
     try {
-      const page = await browser.newPage();
+      const page = await context.newPage();
       await page.addInitScript(() => {
         window.requestAnimationFrame = () => 0;
         window.cancelAnimationFrame = () => undefined;
@@ -575,15 +542,15 @@ for (const engine of [chromium, webkit])
         )
         .toBe(37);
     } finally {
-      await browser.close();
+      await context.close();
     }
   }, 30_000);
 
-for (const engine of [chromium, webkit])
-  test(`${engine.name()} restores a visible reader when its optional chapter rail is hidden`, async () => {
-    const browser = await engine.launch({ timeout: 30_000 });
+for (const name of ["chromium", "webkit"] as const)
+  test(`${name} restores a visible reader when its optional chapter rail is hidden`, async () => {
+    const context = await browserFor(name).newContext();
     try {
-      const page = await browser.newPage();
+      const page = await context.newPage();
       await page.addInitScript(() => {
         window.requestAnimationFrame = () => 0;
         window.cancelAnimationFrame = () => undefined;
@@ -612,6 +579,6 @@ for (const engine of [chromium, webkit])
         )
         .toBe(600);
     } finally {
-      await browser.close();
+      await context.close();
     }
   }, 30_000);
