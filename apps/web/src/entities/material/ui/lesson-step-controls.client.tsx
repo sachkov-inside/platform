@@ -46,9 +46,11 @@ export function LessonCut({ part }: { readonly part: number }) {
 export function LessonGateControl({
   gate,
   ordinal,
+  preview,
 }: {
   readonly gate: LessonGate;
   readonly ordinal: number;
+  readonly preview?: string | undefined;
 }) {
   const steps = useLessonSteps();
   if (steps === null) return null;
@@ -65,16 +67,27 @@ export function LessonGateControl({
         passed ? (
           <LessonReply label={gate.label} />
         ) : waiting ? (
-          <div className={cn("mt-10 flex justify-center", styles["control"])}>
-            <button
-              className="min-h-11 max-w-[90%] rounded-full bg-lesson-graphite px-5 py-2.5 text-center font-medium text-lesson-graphite-foreground shadow-sm transition-colors duration-(--motion-duration-fast) hover:bg-lesson-graphite-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
-              onClick={() => {
-                steps.openThrough(ordinal + 1, "reply");
-              }}
-              type="button"
-            >
-              {gate.label}
-            </button>
+          <div className={cn("mt-10", styles["control"])}>
+            {preview !== undefined && preview.trim() !== "" ? (
+              <p
+                aria-hidden="true"
+                className="mb-6 line-clamp-3 whitespace-pre-wrap break-words text-foreground"
+                data-lesson-preview
+              >
+                {preview.slice(0, 240).trimEnd()}…
+              </p>
+            ) : null}
+            <div className="flex justify-center">
+              <button
+                className="min-h-11 max-w-[90%] rounded-full bg-lesson-graphite px-5 py-2.5 text-center font-medium text-lesson-graphite-foreground shadow-sm transition-colors duration-(--motion-duration-fast) hover:bg-lesson-graphite-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
+                onClick={() => {
+                  steps.openThrough(ordinal + 1, "reply");
+                }}
+                type="button"
+              >
+                {gate.label}
+              </button>
+            </div>
           </div>
         ) : null
       ) : waiting ? (

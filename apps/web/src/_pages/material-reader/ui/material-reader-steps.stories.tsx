@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 import { z } from "zod";
 
+import { productPurchaseHref } from "@/shared/routing/subscription-route";
 import { chooseInSelect } from "@/storybook/select-choice";
 
 import type { RenderedBlock } from "@inside/material-blocks";
@@ -14,6 +15,7 @@ import { getQueryClient } from "@/shared/api/query-client";
 import { accountPresentationResponse } from "@/storybook/account.fixtures";
 import { fetchBeforeRender } from "@/storybook/mutation-mock";
 import { publicPageEnvironment } from "@/storybook/story-environment";
+import { FreeLessonPurchaseCallView } from "./free-lesson-purchase-call";
 import { MaterialReaderView } from "./material-reader-view";
 
 const materialId = "02000000-0000-4000-8000-000000002122";
@@ -610,5 +612,80 @@ export const SavedCountAboveParts: Story = {
       canvas.getByRole("region", { name: "Термины урока" }),
     ).toBeVisible();
     await expect(saved).toEqual([]);
+  },
+};
+
+/** A closed lesson shows the start of the next text before offering to open it. */
+export const TextPreviewBeforeQuestion: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const preview = canvasElement.querySelector<HTMLElement>(
+      "[data-lesson-preview]",
+    );
+    if (preview === null)
+      throw new Error("The continuation preview is missing");
+    await expect(preview).toBeVisible();
+    await expect(preview).toHaveTextContent(
+      "Проверка начинается с наблюдаемого поведения.",
+    );
+    const button = canvas.getByRole("button", {
+      name: "А как проверить результат?",
+    });
+    await expect(preview.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+      button.getBoundingClientRect().top,
+    );
+    await userEvent.click(button);
+    await expect(preview).not.toBeInTheDocument();
+  },
+};
+export const TextPreviewBeforeQuestionMobile: Story = {
+  ...TextPreviewBeforeQuestion,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+/** The locked next step and purchase action wait for every part, including exercise gates. */
+export const PurchaseWaitsForWholeLesson: Story = {
+  args: {
+    purchaseCall: (
+      <FreeLessonPurchaseCallView
+        call={{
+          action: {
+            kind: "purchase",
+            href: productPurchaseHref("ai-engineering"),
+          },
+          lockedNext: "Следующий урок",
+        }}
+      />
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const call = canvasElement.querySelector("[data-free-lesson-call]");
+    if (call === null) throw new Error("The purchase call is missing");
+    await expect(call).not.toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "А как проверить результат?" }),
+    );
+    await expect(call).not.toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Пропустить" }));
+    await expect(call).not.toBeVisible();
+    await userEvent.click(canvas.getByRole("button", { name: "Готово!" }));
+    await expect(call).toBeVisible();
+  },
+};
+
+/** The video-first layout that used to look like the end of the article. */
+export const VideoContinuationPreview: Story = {
+  args: {
+    primaryVideo: {
+      state: "ready",
+      durationSeconds: 754,
+      title: "Пример урока",
+      videoId: "03000000-0000-4000-8000-000000000001",
+    },
+    body: [
+      { kind: "step_break", label: "А как проверить результат?" },
+      ...body.slice(3),
+    ],
   },
 };
