@@ -82,13 +82,13 @@
     },
     {
       "provider": "agent-kit",
-      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
+      "ref": "1d4415445e3686b53110fd10a013fae6344e95cb",
       "skill": "implement",
       "destination": ".agents/skills/implement"
     },
     {
       "provider": "agent-kit",
-      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
+      "ref": "1d4415445e3686b53110fd10a013fae6344e95cb",
       "skill": "implement-spec",
       "destination": ".agents/skills/implement-spec"
     },
@@ -100,7 +100,7 @@
     },
     {
       "provider": "agent-kit",
-      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
+      "ref": "1d4415445e3686b53110fd10a013fae6344e95cb",
       "skill": "pr",
       "destination": ".agents/skills/pr"
     },
@@ -112,7 +112,7 @@
     },
     {
       "provider": "agent-kit",
-      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
+      "ref": "1d4415445e3686b53110fd10a013fae6344e95cb",
       "skill": "ship",
       "destination": ".agents/skills/ship"
     },

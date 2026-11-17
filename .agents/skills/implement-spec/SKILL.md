@@ -54,6 +54,13 @@ A native subagent is not an independently assigned application session.
    suggestions may be left with a one-line reason. Rerun affected checks and freeze
    the corrected revision. Retain the full-diff review report and correction evidence.
    Invoke a named skill through the client's mechanism or read its `SKILL.md` and relevant references; a literal Skill tool is not required.
-8. Follow root delivery pointers for the verified result, reusing existing drafts.
+8. After corrections, run fresh independent verification where the target requires it. Supply
+   the task's scenarios and expected results, immutable corrected head, original review findings,
+   dispositions and post-review changes. The verifier observes the result through the target's
+   user/public interface and returns inspected artifacts, expected/observed outcomes and limits.
+   Apply target freshness and independent red-proof rules; unavailable coverage is not a pass.
+   Keep required scenarios unmet until evidenced. Technical fixes receive affected checks and
+   verification without another review round unless the target requires it.
+   Follow root delivery pointers for the verified result, reusing existing drafts.
 9. Clean only owned, integrated child resources with no active writer or unsaved work.
    Follow project rules for retained acceptance trees and unintegrated results.

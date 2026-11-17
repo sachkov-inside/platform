@@ -62,6 +62,8 @@ List every check actually run on the delivered result in the detailed table, inc
 
 For a bug, show how the reproduction or regression test fails before the fix and passes after it, when observed. For changed assertions, explain old/new expectations and the requirement that changed them. For visual changes, provide real screenshots or recordings when they demonstrate the changed property. Label examples and proposed experiments as unexecuted.
 
+Use the verifier's actual observed outcomes and artifacts when supplied; add no claim beyond them. Keep the owner-facing result brief and understandable without code. Tests and review establish only their exercised scope; retain independent verification as a separate result when required by the target.
+
 Link findings to their disposition. Explain a rejected finding or deferred item rather than hiding it in a green summary. A passing check confirms only what it exercised; a screenshot does not establish a backend permission rule.
 
 Follow the project's human-check policy instead of generating a generic checklist. An owner's task list records their required actions; mark an action complete only from their recorded result. Keep readiness, acceptance, and merge authority distinct.
