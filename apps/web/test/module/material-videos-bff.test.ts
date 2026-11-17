@@ -1,98 +1,121 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const fakes = vi.hoisted(() => ({
-  getAccessToken: vi.fn(),
-  getOptionalAccessToken: vi.fn(),
-  requestAttach: vi.fn(),
-  requestPlayback: vi.fn(),
-  requestProgress: vi.fn(),
-  requestRetryDeletion: vi.fn(),
-  requestReconcile: vi.fn(),
-  requestUpload: vi.fn(),
-}));
-
-vi.mock("@/shared/api/backend/index.server", () => ({
-  requestVideoAttach: fakes.requestAttach,
-  requestVideoPlayback: fakes.requestPlayback,
-  requestVideoProgress: fakes.requestProgress,
-  requestVideoDeletionRetry: fakes.requestRetryDeletion,
-  requestVideoReconcile: fakes.requestReconcile,
-  requestVideoUploadInit: fakes.requestUpload,
-}));
-
-vi.mock("@/shared/auth/platform-access-token.server", () => ({
-  getPlatformAccessToken: fakes.getAccessToken,
-  LogtoSessionUnavailableError: class extends Error {},
-}));
-
-vi.mock("@/shared/auth/optional-platform-access-token.server", () => ({
-  getOptionalPlatformAccessToken: fakes.getOptionalAccessToken,
-}));
-
-vi.mock("@/shared/auth/logto-bff-config.server", () => ({
-  readLogtoBffConfig: () => ({ baseUrl: "https://inside.example.test" }),
-}));
-
-vi.mock("@/shared/auth/same-origin-mutation.server", () => ({
-  isSameOriginMutation: (request: Request, baseUrl: string) =>
-    request.headers.get("origin") === new URL(baseUrl).origin,
-}));
-
-vi.mock("@/shared/auth/index.server", async () => {
-  const handler =
-    await import("@/shared/auth/authenticated-mutation-handler.server");
-  return {
-    handleAuthenticatedMutation: handler.handleAuthenticatedMutation,
-    handleMutationOperation: handler.handleMutationOperation,
-    handleOptionalMutationOperation: handler.handleOptionalMutationOperation,
-  };
-});
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as auth from "@/shared/auth/index.server";
+import {
+  interceptBackendHttp,
+  expectSingleBackendRequest,
+} from "../support/backend-http";
+import { realBffSession } from "../support/real-bff-session";
+const backend = vi.fn<(request: Request) => Promise<Response>>();
+let session: Awaited<ReturnType<typeof realBffSession>>;
 
 import {
-  handleVideoAttachmentRequest,
-  handleVideoDeletionRetryRequest,
-  handleVideoReconciliationRequest,
-  handleVideoUploadRequest,
+  handleVideoAttachmentRequest as realHandleVideoAttachmentRequest,
+  handleVideoDeletionRetryRequest as realHandleVideoDeletionRetryRequest,
+  handleVideoReconciliationRequest as realHandleVideoReconciliationRequest,
+  handleVideoUploadRequest as realHandleVideoUploadRequest,
 } from "@/features/material-video/api/video-authoring-route.server";
 import {
-  handleVideoPlaybackSessionRequest,
-  handleVideoProgressSaveRequest,
+  handleVideoPlaybackSessionRequest as realHandleVideoPlaybackSessionRequest,
+  handleVideoProgressSaveRequest as realHandleVideoProgressSaveRequest,
 } from "@/features/material-video/api/video-playback-route.server";
-import { MAX_BROWSER_MUTATION_BYTES } from "@/shared/api/mutation-limits";
+
+const handleVideoAttachmentRequest = (
+  ...args: Parameters<typeof realHandleVideoAttachmentRequest>
+) => session(() => realHandleVideoAttachmentRequest(...args));
+const handleVideoDeletionRetryRequest = (
+  ...args: Parameters<typeof realHandleVideoDeletionRetryRequest>
+) => session(() => realHandleVideoDeletionRetryRequest(...args));
+const handleVideoReconciliationRequest = (
+  ...args: Parameters<typeof realHandleVideoReconciliationRequest>
+) => session(() => realHandleVideoReconciliationRequest(...args));
+const handleVideoUploadRequest = (
+  ...args: Parameters<typeof realHandleVideoUploadRequest>
+) => session(() => realHandleVideoUploadRequest(...args));
+const handleVideoPlaybackSessionRequest = (
+  ...args: Parameters<typeof realHandleVideoPlaybackSessionRequest>
+) => session(() => realHandleVideoPlaybackSessionRequest(...args));
+const handleVideoProgressSaveRequest = (
+  ...args: Parameters<typeof realHandleVideoProgressSaveRequest>
+) => session(() => realHandleVideoProgressSaveRequest(...args));
 
 const materialId = "10000000-0000-4000-8000-000000000001";
 const videoId = "20000000-0000-4000-8000-000000000001";
 
+beforeEach(async () => {
+  backend.mockReset();
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-16T10:00:00Z"));
+  session = await realBffSession();
+  interceptBackendHttp(backend);
+});
+afterEach(() => vi.useRealTimers());
+
 describe("Material Video playback BFF", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    fakes.getAccessToken.mockResolvedValue("access-token");
-    fakes.getOptionalAccessToken.mockResolvedValue("optional-access-token");
+  it("allows guest playback without a Bearer and requires identity for saving progress", async () => {
+    session = await realBffSession(null);
+    backend.mockResolvedValueOnce(
+      Response.json({
+        drmAuthToken: null,
+        embedLocator: "https://kinescope.io/embed/provider-video",
+        progressScope: "anonymous",
+        resumeSeconds: null,
+        videoId,
+      }),
+    );
+    const playback = await handleVideoPlaybackSessionRequest(
+      playbackRequest("https://inside.example.test"),
+    );
+    expect(playback.status).toBe(200);
+    expect(await playback.json()).toEqual({
+      drmAuthToken: null,
+      embedLocator: "https://kinescope.io/embed/provider-video",
+      progressScope: "anonymous",
+      resumeSeconds: null,
+      videoId: "20000000-0000-4000-8000-000000000001",
+    });
+    expectSingleBackendRequest(
+      backend,
+      "POST",
+      `/materials/${materialId}/videos/${videoId}/playback`,
+      null,
+    );
+    backend.mockClear();
+    const progress = await handleVideoProgressSaveRequest(
+      operationRequest(
+        "/api/material-video-progress",
+        { durationSeconds: 120, materialId, positionSeconds: 37, videoId },
+        "PUT",
+      ),
+    );
+    expect(progress.status).toBe(401);
+    expect(backend).not.toHaveBeenCalled();
   });
 
   it("rejects cross-origin capability issuance before identity or backend work", async () => {
+    const tokenReads = vi.spyOn(auth, "getOptionalPlatformAccessToken");
     const response = await handleVideoPlaybackSessionRequest(
       playbackRequest("https://attacker.example.test"),
     );
 
     expect(response.status).toBe(403);
     expect(response.headers.get("cache-control")).toBe("no-store, private");
-    expect(fakes.getOptionalAccessToken).not.toHaveBeenCalled();
-    expect(fakes.requestPlayback).not.toHaveBeenCalled();
+    expect(tokenReads).not.toHaveBeenCalled();
+    expect(backend).not.toHaveBeenCalled();
   });
 
   it("returns only the validated private session after the backend access decision", async () => {
-    fakes.requestPlayback.mockResolvedValue({
-      body: {
-        drmAuthToken: null,
-        embedLocator: "https://kinescope.io/embed/provider-video",
-        progressScope: "anonymous",
-        resumeSeconds: null,
-        videoId,
-      },
-      ok: true,
-      response: Response.json({}),
-    });
+    backend.mockResolvedValueOnce(
+      Response.json(
+        {
+          drmAuthToken: null,
+          embedLocator: "https://kinescope.io/embed/provider-video",
+          progressScope: "anonymous",
+          resumeSeconds: null,
+          videoId,
+        },
+        { status: 200 },
+      ),
+    );
 
     const response = await handleVideoPlaybackSessionRequest(
       playbackRequest("https://inside.example.test"),
@@ -104,54 +127,54 @@ describe("Material Video playback BFF", () => {
       drmAuthToken: null,
       videoId,
     });
-    expect(fakes.requestPlayback).toHaveBeenCalledWith(
-      { materialId, preview: false, videoId },
-      "optional-access-token",
-    );
+    expect(
+      expectSingleBackendRequest(
+        backend,
+        "POST",
+        `/materials/${materialId}/videos/${videoId}/playback`,
+      ).body,
+    ).toBeNull();
   });
 
   it("asks for an author preview session only when the preview page says so", async () => {
-    fakes.requestPlayback.mockResolvedValue({
-      ok: false,
-      problem: { code: "access_denied" },
-      response: Response.json({}, { status: 403 }),
-    });
+    backend.mockResolvedValueOnce(
+      Response.json({ code: "access_denied" }, { status: 403 }),
+    );
 
     await handleVideoPlaybackSessionRequest(
       playbackRequest("https://inside.example.test", true),
     );
-    expect(fakes.requestPlayback).toHaveBeenLastCalledWith(
-      { materialId, preview: true, videoId },
-      "optional-access-token",
-    );
+    expect(
+      expectSingleBackendRequest(
+        backend,
+        "POST",
+        `/materials/${materialId}/videos/${videoId}/playback?preview=true`,
+      ).body,
+    ).toBeNull();
 
     const response = await handleVideoPlaybackSessionRequest(
       playbackRequest("https://inside.example.test", "yes"),
     );
     expect(response.status).toBe(404);
-    expect(fakes.requestPlayback).toHaveBeenCalledTimes(1);
+    expect(backend).toHaveBeenCalledTimes(1);
   });
 
   it("rejects an oversized optional-auth body before identity or backend work", async () => {
+    const tokenReads = vi.spyOn(auth, "getOptionalPlatformAccessToken");
     const request = playbackRequest("https://inside.example.test");
-    request.headers.set(
-      "content-length",
-      String(MAX_BROWSER_MUTATION_BYTES + 1),
-    );
+    request.headers.set("content-length", "2097153");
 
     const response = await handleVideoPlaybackSessionRequest(request);
 
     expect(response.status).toBe(413);
-    expect(fakes.getOptionalAccessToken).not.toHaveBeenCalled();
-    expect(fakes.requestPlayback).not.toHaveBeenCalled();
+    expect(tokenReads).not.toHaveBeenCalled();
+    expect(backend).not.toHaveBeenCalled();
   });
 
   it("preserves fail-closed backend status without returning provider facts", async () => {
-    fakes.requestPlayback.mockResolvedValue({
-      ok: false,
-      problem: { code: "access_denied" },
-      response: Response.json({}, { status: 403 }),
-    });
+    backend.mockResolvedValueOnce(
+      Response.json({ code: "access_denied" }, { status: 403 }),
+    );
 
     const response = await handleVideoPlaybackSessionRequest(
       playbackRequest("https://inside.example.test"),
@@ -165,19 +188,12 @@ describe("Material Video playback BFF", () => {
 });
 
 describe("Material Video named authoring BFF mutations", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    fakes.getAccessToken.mockResolvedValue("access-token");
-  });
-
   it.each(["upload_not_authorized", "upload_outcome_unknown"])(
     "preserves the known upload failure %s without provider details",
     async (code) => {
-      fakes.requestUpload.mockResolvedValue({
-        ok: false,
-        problem: { code, secret: "provider-detail" },
-        response: Response.json({}, { status: 503 }),
-      });
+      backend.mockResolvedValueOnce(
+        Response.json({ code, secret: "provider-detail" }, { status: 503 }),
+      );
       const response = await handleVideoUploadRequest(
         operationRequest(
           "/api/authoring/material-video-uploads",
@@ -197,14 +213,15 @@ describe("Material Video named authoring BFF mutations", () => {
   );
 
   it("maps upload init through its exact capability request", async () => {
-    fakes.requestUpload.mockResolvedValue({
-      body: {
-        uploadEndpoint: "https://uploads.invalid/video",
-        video: { videoId },
-      },
-      ok: true,
-      response: Response.json({}),
-    });
+    backend.mockResolvedValueOnce(
+      Response.json(
+        {
+          uploadEndpoint: "https://uploads.invalid/video",
+          video: { videoId },
+        },
+        { status: 201 },
+      ),
+    );
     const response = await handleVideoUploadRequest(
       operationRequest(
         "/api/authoring/material-video-uploads",
@@ -222,30 +239,27 @@ describe("Material Video named authoring BFF mutations", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({ kind: "ready" });
-    expect(fakes.requestUpload).toHaveBeenCalledWith(
-      {
-        access: "free",
-        byteSize: 1024,
-        filename: "lesson.mp4",
-        idempotencyKey: "web-video-30000000-0000-4000-8000-000000000001",
-        materialId,
-        title: "Lesson",
-      },
-      "access-token",
+    const outgoing = expectSingleBackendRequest(
+      backend,
+      "POST",
+      `/authoring/materials/${materialId}/videos/uploads`,
     );
+    expect(outgoing.headers.get("idempotency-key")).toBe(
+      "web-video-30000000-0000-4000-8000-000000000001",
+    );
+    expect(await outgoing.json()).toEqual({
+      access: "free",
+      byteSize: 1024,
+      filename: "lesson.mp4",
+      title: "Lesson",
+    });
   });
 
   it("keeps attach and reconcile as separate literal mutations", async () => {
-    fakes.requestAttach.mockResolvedValue({
-      body: { videoId },
-      ok: true,
-      response: Response.json({}),
-    });
-    fakes.requestReconcile.mockResolvedValue({
-      body: { state: "ready", videoId },
-      ok: true,
-      response: Response.json({}),
-    });
+    backend.mockResolvedValueOnce(Response.json({ videoId }, { status: 201 }));
+    backend.mockResolvedValueOnce(
+      Response.json({ state: "ready", videoId }, { status: 200 }),
+    );
 
     const attached = await handleVideoAttachmentRequest(
       operationRequest(
@@ -264,26 +278,34 @@ describe("Material Video named authoring BFF mutations", () => {
 
     await expect(attached.json()).resolves.toMatchObject({ kind: "ready" });
     await expect(reconciled.json()).resolves.toMatchObject({ kind: "ready" });
-    expect(fakes.requestAttach).toHaveBeenCalledWith(
-      {
-        access: "closed",
-        materialId,
-        providerVideoId: "provider-video",
-      },
-      "access-token",
+    expect(backend).toHaveBeenCalledTimes(2);
+    const attachedRequest = backend.mock.calls[0]?.[0];
+    const reconciledRequest = backend.mock.calls[1]?.[0];
+    expect(attachedRequest?.method).toBe("POST");
+    expect(attachedRequest?.url).toBe(
+      `https://platform-api.example.test/authoring/materials/${materialId}/videos/attach`,
     );
-    expect(fakes.requestReconcile).toHaveBeenCalledWith(
-      videoId,
-      "access-token",
+    expect(attachedRequest?.headers.get("authorization")).toBe(
+      "Bearer trusted-token",
     );
+    expect(await attachedRequest?.json()).toEqual({
+      access: "closed",
+      providerVideoId: "provider-video",
+    });
+    expect(reconciledRequest?.method).toBe("POST");
+    expect(reconciledRequest?.url).toBe(
+      `https://platform-api.example.test/authoring/videos/${videoId}/reconcile`,
+    );
+    expect(reconciledRequest?.headers.get("authorization")).toBe(
+      "Bearer trusted-token",
+    );
+    expect(reconciledRequest?.body).toBeNull();
   });
 
   it("retries a failed deletion through its named mutation", async () => {
-    fakes.requestRetryDeletion.mockResolvedValue({
-      body: { state: "deletion_requested", videoId },
-      ok: true,
-      response: Response.json({}),
-    });
+    backend.mockResolvedValueOnce(
+      Response.json({ state: "deletion_requested", videoId }, { status: 200 }),
+    );
 
     const response = await handleVideoDeletionRetryRequest(
       operationRequest(
@@ -294,10 +316,13 @@ describe("Material Video named authoring BFF mutations", () => {
     );
 
     await expect(response.json()).resolves.toMatchObject({ kind: "ready" });
-    expect(fakes.requestRetryDeletion).toHaveBeenCalledWith(
-      videoId,
-      "access-token",
-    );
+    expect(
+      expectSingleBackendRequest(
+        backend,
+        "POST",
+        `/authoring/videos/${videoId}/deletion-retries`,
+      ).body,
+    ).toBeNull();
   });
 
   it("refuses an upload body with an unknown field before any backend call", async () => {
@@ -319,14 +344,11 @@ describe("Material Video named authoring BFF mutations", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ kind: "invalid_input" });
-    expect(fakes.requestUpload).not.toHaveBeenCalled();
+    expect(backend).not.toHaveBeenCalled();
   });
 
   it("saves progress through the authenticated PUT capability", async () => {
-    fakes.requestProgress.mockResolvedValue({
-      ok: true,
-      response: new Response(null, { status: 204 }),
-    });
+    backend.mockResolvedValueOnce(new Response(null, { status: 204 }));
     const response = await handleVideoProgressSaveRequest(
       operationRequest(
         "/api/material-video-progress",
@@ -337,15 +359,13 @@ describe("Material Video named authoring BFF mutations", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ kind: "saved" });
-    expect(fakes.requestProgress).toHaveBeenCalledWith(
-      {
-        durationSeconds: 120,
-        materialId,
-        positionSeconds: 37,
-        videoId,
-      },
-      "access-token",
-    );
+    expect(
+      await expectSingleBackendRequest(
+        backend,
+        "PUT",
+        `/materials/${materialId}/videos/${videoId}/progress`,
+      ).json(),
+    ).toEqual({ durationSeconds: 120, positionSeconds: 37 });
   });
 });
 
@@ -354,7 +374,13 @@ function playbackRequest(origin: string, preview?: unknown): Request {
     "https://inside.example.test/api/material-video-playback-sessions",
     {
       body: JSON.stringify({ materialId, videoId, preview }),
-      headers: { "content-type": "application/json", origin },
+      headers: {
+        "content-type": "application/json",
+        origin,
+        ...(session.cookieHeader === null
+          ? {}
+          : { cookie: session.cookieHeader }),
+      },
       method: "POST",
     },
   );
