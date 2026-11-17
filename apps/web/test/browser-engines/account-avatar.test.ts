@@ -1,3 +1,4 @@
+import { writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import {
   expect as ui,
@@ -7,6 +8,8 @@ import {
 } from "@playwright/test";
 import { afterAll, beforeAll, test } from "vitest";
 import { z } from "zod";
+
+import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 
 import { parsePrivateProfile } from "@/entities/account-profile";
 import { createOwnedBrowserFixture } from "../support/owned-browser-fixture";
@@ -53,6 +56,44 @@ async function inspect(page: Page) {
     button.click();
   });
   return receipts(page);
+}
+
+async function captureState(page: Page, engine: string, state: string) {
+  if (process.env["CAPTURE_AVATAR_EVIDENCE"] !== "1") return;
+  const directory = await prepareEvidenceDirectory("issue-2393", {
+    NODE_ENV: "test",
+  });
+  await page.screenshot({
+    path: `${directory}/${engine}-${state}.png`,
+    fullPage: true,
+  });
+  const browserState = await page.evaluate(() => {
+    const dialog = document.querySelector("dialog");
+    const image = dialog?.querySelector("img");
+    return {
+      url: location.href,
+      dialog:
+        dialog instanceof HTMLDialogElement
+          ? {
+              connected: dialog.isConnected,
+              open: dialog.open,
+              modal: dialog.matches(":modal"),
+            }
+          : null,
+      preview:
+        image instanceof HTMLImageElement
+          ? { complete: image.complete, width: image.naturalWidth }
+          : null,
+    };
+  });
+  await writeFile(
+    `${directory}/${engine}-${state}.json`,
+    JSON.stringify(
+      { ...browserState, resources: await receipts(page) },
+      null,
+      2,
+    ) + "\n",
+  );
 }
 
 async function chooseAvatar(page: Page) {
@@ -116,6 +157,7 @@ for (const engine of ["chromium", "webkit"]) {
       await zoom.press("End");
       await ui(zoom).toHaveValue("4");
       const previousUrl = await preview.getAttribute("src");
+      await captureState(page, engine, "crop-before-hide");
       await page.locator("#hide").evaluate((button: HTMLButtonElement) => {
         button.click();
       });
@@ -131,6 +173,7 @@ for (const engine of ["chromium", "webkit"]) {
         }),
       ).toEqual({ connected: true, open: false, modal: false });
       ui((await receipts(page)).every((entry) => entry.released)).toBe(true);
+      await captureState(page, engine, "crop-hidden");
       await page.locator("#show").click();
       await ui(dialog).toBeVisible();
       ui(
@@ -154,9 +197,11 @@ for (const engine of ["chromium", "webkit"]) {
           return response.ok && (await response.arrayBuffer()).byteLength > 0;
         }),
       ).toBe(true);
+      await captureState(page, engine, "crop-returned");
       await dialog.getByRole("button", { name: "Отмена", exact: true }).click();
       await ui(dialog).toBeHidden();
       ui((await inspect(page)).every((entry) => entry.released)).toBe(true);
+      await captureState(page, engine, "crop-cancelled");
     } finally {
       await page.close();
     }

@@ -198,6 +198,7 @@ export function ProfileAvatarEditor({
   };
 
   const remove = () => {
+    imageReader.current?.cancel();
     setClientError(null);
     avatarMutation.mutate({
       input: { kind: "remove", profile },
