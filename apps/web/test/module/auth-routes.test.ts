@@ -1,4 +1,5 @@
 import "next/dist/server/node-environment";
+// deterministic-test-allow unit-io: #2292, audit2 worker 7e1496b5 owns this real SDK JWKS adapter contract; the server binds only owned loopback, uses the test budget and closes in afterAll.
 import { createServer } from "node:http";
 import { generateKeyPairSync, sign } from "node:crypto";
 import { PersistKey, wrapSession } from "@logto/node";
