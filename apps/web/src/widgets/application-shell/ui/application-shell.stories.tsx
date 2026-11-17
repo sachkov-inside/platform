@@ -212,9 +212,9 @@ export const RetainedShellOwnership: Story = {
         expect(second.getBoundingClientRect().top).toBeGreaterThanOrEqual(0),
       );
       canvas.getByRole("button", { name: "Вернуть оболочку" }).click();
-      await waitFor(() => {
-        expect(first).toBeVisible();
-        expect(second).not.toBeVisible();
+      await waitFor(async () => {
+        await expect(first).toBeVisible();
+        await expect(second).not.toBeVisible();
       });
       await waitFor(() =>
         expect(first.getBoundingClientRect().bottom).toBeLessThanOrEqual(0),
