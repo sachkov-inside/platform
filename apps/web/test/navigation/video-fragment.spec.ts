@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { installVideoProvider } from "./video-provider.fixture";
 
 declare global {
   interface Window {
@@ -53,12 +54,7 @@ test("a Reader refresh keeps the player and cannot erase a native video fragment
       },
     });
   });
-  await page.route("https://kinescope.io/**", (route) =>
-    route.fulfill({
-      contentType: "text/html",
-      body: "<title>Test video</title>",
-    }),
-  );
+  await installVideoProvider(page);
   await page.addInitScript(() => {
     const ledger: Record<string, unknown>[] = [];
     const captured = Promise.withResolvers<undefined>();
@@ -146,36 +142,16 @@ test("a Reader refresh keeps the player and cannot erase a native video fragment
     window.addEventListener("popstate", () =>
       ledger.push({ event: "popstate", live: location.href }),
     );
-    Object.defineProperty(window, "Kinescope", {
-      value: {
-        IframePlayer: {
-          version: "1.0.0",
-          create: (mount: HTMLElement, options: { url: string }) => {
-            players += 1;
-            const iframe = document.createElement("iframe");
-            iframe.src = options.url;
-            mount.append(iframe);
-            const player = {
-              Events: { TimeUpdate: "time", Pause: "pause", Ended: "ended" },
-              destroy: () => {
-                iframe.remove();
-                return Promise.resolve();
-              },
-              getDuration: () => Promise.resolve(600),
-              on: () => undefined,
-              off: () => undefined,
-              seekTo: (seconds: number) => {
-                ledger.push({ seek: seconds, live: location.href });
-                iframe.dataset["seekSeconds"] = String(seconds);
-                return Promise.resolve();
-              },
-            };
-            return Promise.resolve(player);
-          },
-        },
-      },
+    window.addEventListener("video-provider-observation", (event) => {
+      if (!(event instanceof CustomEvent)) return;
+      const data: unknown = event.detail;
+      if (typeof data !== "object" || data === null) return;
+      if ("ready" in data && data.ready === true) players += 1;
+      if ("position" in data && typeof data.position === "number")
+        ledger.push({ seek: data.position, live: location.href });
     });
   });
+
   try {
     await page.goto("/materials/navigation-video-fragment");
     const frame = page.locator("[data-video-player-mount] iframe");
@@ -262,75 +238,19 @@ for (const failed of [false, true]) {
           },
         }),
       );
-      await page.route("https://kinescope.io/**", (route) =>
-        route.fulfill({
-          contentType: "text/html",
-          body: "<title>Test video</title>",
-        }),
-      );
-      await page.addInitScript((holdDuration: boolean) => {
-        let attempts = 0;
-        Object.defineProperty(window, "Kinescope", {
-          value: {
-            IframePlayer: {
-              version: "1.0.0",
-              create: (mount: HTMLElement, options: { url: string }) => {
-                const iframe = document.createElement("iframe");
-                iframe.src = options.url;
-                mount.replaceWith(iframe);
-                const retry = attempts++ > 0;
-                let duration = retry ? 600 : 0;
-                let durationReads = 0;
-                let releaseDuration: ((value: number) => void) | undefined;
-                const listeners = new Map<string, () => void>();
-                const player = {
-                  Events: {
-                    Loaded: "loaded",
-                    DurationChange: "duration",
-                    Error: "error",
-                    TimeUpdate: "time",
-                    Pause: "pause",
-                    Ended: "ended",
-                  },
-                  destroy: () => {
-                    iframe.remove();
-                    return Promise.resolve();
-                  },
-                  getDuration: () => {
-                    iframe.dataset["durationRequested"] = "true";
-                    iframe.dataset["durationReads"] = String(++durationReads);
-                    if (holdDuration && !retry)
-                      return new Promise<number>((resolve) => {
-                        releaseDuration = resolve;
-                      });
-                    return Promise.resolve(duration);
-                  },
-                  on: (event: string, listener: () => void) => {
-                    listeners.set(event, listener);
-                  },
-                  off: (event: string) => {
-                    listeners.delete(event);
-                  },
-                  seekTo: (seconds: number) => {
-                    iframe.dataset["seekSeconds"] = String(seconds);
-                    return Promise.resolve();
-                  },
-                };
-                // This is the provider boundary: metadata arrives after create()/getDuration().
-                Object.defineProperty(window, "__releaseVideoMetadata", {
-                  configurable: true,
-                  value: (phase: "loaded" | "duration" | "error") => {
-                    if (phase === "duration") duration = 600;
-                    listeners.get(phase)?.();
-                    if (phase === "error") releaseDuration?.(0);
-                  },
-                });
-                return Promise.resolve(player);
-              },
-            },
-          },
-        });
-      }, failed);
+      await installVideoProvider(page, { metadata: failed ? "held" : "zero" });
+      await page.addInitScript(() => {
+        window.__releaseVideoMetadata = (phase) => {
+          document
+            .querySelector<HTMLIFrameElement>(
+              "[data-video-player-mount] iframe",
+            )
+            ?.contentWindow?.postMessage(
+              { type: "video-provider-stimulus", event: "metadata", phase },
+              "https://kinescope.io",
+            );
+        };
+      });
       await page.goto("/materials/navigation-video-fragment#t=3");
       const frame = page.locator("[data-video-id] iframe");
       await expect(frame).toHaveAttribute("data-duration-requested", "true");
@@ -392,41 +312,16 @@ test("a provider script failure offers a retry that requests the script anew", a
       },
     }),
   );
-  await page.route("https://kinescope.io/**", (route) =>
-    route.fulfill({
-      contentType: "text/html",
-      body: "<title>Test video</title>",
-    }),
-  );
+  await installVideoProvider(page);
   const scriptRequests: string[] = [];
   let available = false;
   // The real loader runs; only the provider's script response is replaced.
   await page.route("https://player.kinescope.io/**", (route) => {
     scriptRequests.push(route.request().url());
     if (!available) return route.abort("connectionfailed");
-    return route.fulfill({
-      contentType: "application/javascript",
-      body: `
-        window.Kinescope = { IframePlayer: { version: "1.0.0", create: (mount, options) => {
-          const iframe = document.createElement("iframe");
-          iframe.src = options.url;
-          mount.append(iframe);
-          return Promise.resolve({
-            Events: { Loaded: "loaded", DurationChange: "duration", Error: "error",
-              TimeUpdate: "time", Pause: "pause", Ended: "ended" },
-            destroy: () => { iframe.remove(); return Promise.resolve(); },
-            getDuration: () => Promise.resolve(600),
-            on: () => undefined,
-            off: () => undefined,
-            seekTo: () => Promise.resolve(),
-          });
-        } } };
-        window.KinescopeIframeApiReadyHandlers = {
-          push: (handler) => handler(window.Kinescope.IframePlayer),
-        };
-      `,
-    });
+    return route.fallback();
   });
+
   await page.goto("/materials/navigation-video-fragment");
   const retry = page.getByRole("button", { name: "Повторить", exact: true });
   await expect(retry).toBeVisible();

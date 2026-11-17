@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 
 import { expect, test } from "@playwright/test";
+import { installVideoProvider } from "./video-provider.fixture";
 
 import { observeAppShellPrefetch } from "../support/app-shell-prefetch";
 
@@ -58,9 +59,7 @@ for (const outcome of [
         },
       });
     });
-    await page.route("https://kinescope.io/**", (route) =>
-      route.fulfill({ contentType: "text/html", body: "<title>Video</title>" }),
-    );
+    await installVideoProvider(page);
     await page.route("**/api/content-covers/**", (route) =>
       route.fulfill({
         contentType: "image/webp",
@@ -71,80 +70,32 @@ for (const outcome of [
     );
     await page.addInitScript(() => {
       let players = 0;
-      let handlers = new Map<string, Set<(event: unknown) => void>>();
+      const send = (data: Record<string, unknown>) => {
+        document
+          .querySelector<HTMLIFrameElement>("[data-video-player-mount] iframe")
+          ?.contentWindow?.postMessage(
+            { type: "video-provider-stimulus", ...data },
+            "https://kinescope.io",
+          );
+      };
+      window.addEventListener("video-provider-observation", (event) => {
+        if (
+          event instanceof CustomEvent &&
+          typeof event.detail === "object" &&
+          event.detail !== null &&
+          Reflect.get(event.detail, "ready") === true
+        )
+          players += 1;
+      });
       window.__playerProbe = {
         emit: (event, currentTime = 0) => {
-          for (const handler of handlers.get(event) ?? [])
-            handler({ data: { currentTime } });
+          send({ event: event === "time" ? "timeupdate" : event, currentTime });
         },
         preferences: (volume, playbackRate) => {
-          for (const handler of handlers.get("volume") ?? [])
-            handler({ data: { volume, muted: false } });
-          for (const handler of handlers.get("rate") ?? [])
-            handler({ data: { playbackRate } });
+          send({ event: "preferences", volume, rate: playbackRate });
         },
         players: () => players,
       };
-      Object.defineProperty(window, "Kinescope", {
-        value: {
-          IframePlayer: {
-            version: "1.0.0",
-            create: (mount: HTMLElement, options: { url: string }) => {
-              players += 1;
-              const own = new Map<string, Set<(event: unknown) => void>>();
-              handlers = own;
-              const iframe = document.createElement("iframe");
-              iframe.src = options.url;
-              iframe.dataset["volume"] = "1";
-              iframe.dataset["rate"] = "1";
-              iframe.dataset["player"] = String(players);
-              mount.append(iframe);
-              return Promise.resolve({
-                Events: {
-                  VolumeChange: "volume",
-                  PlaybackRateChange: "rate",
-                  Ended: "ended",
-                  Error: "error",
-                  Pause: "pause",
-                  Play: "play",
-                  TimeUpdate: "time",
-                },
-                on: (event: string, handler: (event: unknown) => void) => {
-                  const set = own.get(event) ?? new Set();
-                  set.add(handler);
-                  own.set(event, set);
-                },
-                off: (event: string, handler: (event: unknown) => void) => {
-                  own.get(event)?.delete(handler);
-                },
-                mute: () => Promise.resolve(),
-                unmute: () => Promise.resolve(),
-                setVolume: (volume: number) => {
-                  iframe.dataset["volume"] = String(volume);
-                  return Promise.resolve();
-                },
-                setPlaybackRate: (rate: number) => {
-                  iframe.dataset["rate"] = String(rate);
-                  return Promise.resolve();
-                },
-                getDuration: () => Promise.resolve(600),
-                seekTo: (seconds: number) => {
-                  iframe.dataset["position"] = String(seconds);
-                  return Promise.resolve();
-                },
-                play: () => {
-                  iframe.dataset["playing"] = "true";
-                  return Promise.resolve();
-                },
-                destroy: () => {
-                  iframe.remove();
-                  return Promise.resolve();
-                },
-              });
-            },
-          },
-        },
-      });
     });
 
     const programmePrefetch = await observeAppShellPrefetch(
@@ -257,3 +208,50 @@ for (const outcome of [
     }
   });
 }
+
+test("leaving a retained Reader removes an iframe before provider connection settles", async ({
+  page,
+}) => {
+  await installVideoProvider(page);
+  await page.route("**/api/material-video-playback-sessions", (route) =>
+    route.fulfill({
+      json: {
+        drmAuthToken: null,
+        embedLocator: "https://kinescope.io/embed/late-connection",
+        progressScope: "anonymous",
+        resumeSeconds: 37,
+        videoId: "44444444-4444-4444-8444-444444444444",
+      },
+    }),
+  );
+  const requested = Promise.withResolvers<undefined>();
+  const release = Promise.withResolvers<undefined>();
+  await page.route(
+    "https://kinescope.io/embed/late-connection**",
+    async (route) => {
+      requested.resolve(undefined);
+      await release.promise;
+      await route.fallback();
+    },
+  );
+  const prefetch = await observeAppShellPrefetch(
+    page,
+    "/products/navigation-proof/programme",
+  );
+  try {
+    await page.goto("/materials/navigation-video-cover");
+    await requested.promise;
+    const iframe = page.locator("[data-video-player-mount] iframe");
+    await expect(iframe).toHaveCount(1);
+    const back = page.getByRole("link", { name: "Назад", exact: true }).last();
+    await back.scrollIntoViewIfNeeded();
+    await back.hover();
+    await prefetch.ready();
+    await back.click();
+    await expect(page).toHaveURL(/programme/u);
+    // Count includes retained hidden DOM. Visibility alone would miss the orphaned resource.
+    await expect(iframe).toHaveCount(0);
+  } finally {
+    release.resolve(undefined);
+  }
+});

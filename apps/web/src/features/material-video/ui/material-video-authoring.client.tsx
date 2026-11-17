@@ -9,7 +9,13 @@ import {
   Video,
 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import { usePendingUploadGuard } from "@/shared/lib/autosave/use-autosave";
 import { Button } from "@/shared/ui/button";
@@ -19,32 +25,13 @@ import {
   initMaterialVideoUpload,
   reconcileMaterialVideo,
   retryMaterialVideoDeletion,
-  type VideoMutationResult,
 } from "../api/video-authoring.browser";
-import {
-  clearBrowserVideoUploadAttempt,
-  clearBrowserVideoUploadAttemptsForVideo,
-  getOrCreateBrowserVideoUploadAttempt,
-  recordBrowserVideoUploadAttempt,
-  type BrowserVideoUploadAttempt,
-} from "../api/video-upload-attempt.browser";
-import {
-  startResumableVideoUpload,
-  type ResumableVideoUpload,
-} from "../api/video-upload-transfer.browser";
-import {
-  awaitsReconciliation,
-  phaseForReconciledVideo,
-  phaseForVideo,
-  replacedUploadToDetach,
-  resolveInitialVideoAuthoring,
-  type MaterialAuthoringVideo,
-  type MaterialVideo,
-  type MaterialVideoAuthoringPhase,
+import { createVideoAuthoringSession } from "./video-authoring-session.browser";
+import type {
+  MaterialAuthoringVideo,
+  MaterialVideoAuthoringPhase,
 } from "../model/video";
 import { dragLeftElement } from "@/shared/lib/drag-left-element";
-
-const VIDEO_RECONCILIATION_POLL_INTERVAL_MILLISECONDS = 5_000;
 
 export function MaterialVideoAuthoring({
   access,
@@ -69,48 +56,6 @@ export function MaterialVideoAuthoring({
   readonly primaryVideo: MaterialAuthoringVideo | null;
   readonly unselectedUpload: MaterialAuthoringVideo | null;
 }) {
-  const operation = useRef(0);
-  const pendingReconciliations = useRef(new Map<string, Promise<undefined>>());
-  const uploadAttempt = useRef<BrowserVideoUploadAttempt | null>(null);
-  const uploadTransfer = useRef<Promise<ResumableVideoUpload | null> | null>(
-    null,
-  );
-  useEffect(
-    () => () => {
-      operation.current += 1;
-      void uploadTransfer.current
-        ?.then((transfer) => transfer?.abort(false))
-        .catch(() => undefined);
-    },
-    [],
-  );
-  const [providerVideoId, setProviderVideoId] = useState("");
-  const [initial] = useState(() =>
-    resolveInitialVideoAuthoring({ primaryVideo, unselectedUpload }),
-  );
-  const [recoveredVideoId, setRecoveredVideoId] = useState(
-    initial.recoveredVideoId,
-  );
-  const [video, setVideo] = useState<MaterialAuthoringVideo | null>(
-    initial.video,
-  );
-  const [deletionVideo, setDeletionVideo] =
-    useState<MaterialAuthoringVideo | null>(latestVideoDeletion);
-  const [observedDeletion, setObservedDeletion] = useState(latestVideoDeletion);
-  if (observedDeletion !== latestVideoDeletion) {
-    setObservedDeletion(latestVideoDeletion);
-    setDeletionVideo(latestVideoDeletion);
-  }
-  const [phase, setPhase] = useState<MaterialVideoAuthoringPhase>(
-    initial.phase,
-  );
-  // Only this tab's own transfer can be lost by leaving. An adopted upload is Kinescope's work
-  // and must not hold the author on the page.
-  usePendingUploadGuard(
-    phase === "uploading" ||
-      (phase === "processing" && video?.videoId !== recoveredVideoId),
-  );
-  const [progress, setProgress] = useState(0);
   const { mutateAsync: uploadVideo } = useMutation({
     mutationFn: initMaterialVideoUpload,
   });
@@ -123,217 +68,73 @@ export function MaterialVideoAuthoring({
   const { mutateAsync: retryDeletion } = useMutation({
     mutationFn: retryMaterialVideoDeletion,
   });
-
-  const latestOnChange = useRef(onChange);
-  const latestSelection = useRef({ deleteVideoId, primaryVideo });
-  useEffect(() => {
-    latestOnChange.current = onChange;
-    latestSelection.current = { deleteVideoId, primaryVideo };
-  });
-
-  const applyVideoResult = useCallback(
-    (result: VideoMutationResult<MaterialVideo>) => {
-      if (result.kind !== "ready") {
-        setPhase("error");
-        return;
-      }
-      if (isDeletionState(result.value.state)) {
-        setDeletionVideo(result.value);
-        return;
-      }
-      setVideo(result.value);
-      const next = phaseForReconciledVideo(result.value, recoveredVideoId);
-      if (next === "ready") {
-        if (uploadAttempt.current?.videoId === result.value.videoId) {
-          clearBrowserVideoUploadAttempt(uploadAttempt.current);
-          uploadAttempt.current = null;
-        }
-        uploadTransfer.current = null;
-        setRecoveredVideoId(null);
-        latestOnChange.current(result.value, deleteVideoId, null);
-      }
-      setPhase(next);
-    },
-    [deleteVideoId, recoveredVideoId],
+  const [session] = useState(() =>
+    createVideoAuthoringSession(
+      {
+        access,
+        deleteVideoId,
+        latestVideoDeletion,
+        materialId,
+        onChange,
+        primaryVideo,
+        unselectedUpload,
+      },
+      { uploadVideo, attachVideo, reconcileVideo, retryDeletion },
+    ),
   );
-
-  const reconcile = useCallback(
-    async (videoId: string, isCurrent: () => boolean = () => true) => {
-      const revision = operation.current;
-      // Activity and refreshed server props restart effects without ending an outstanding read.
-      // Wait for the previous lifetime, discard its answer, then make a fresh current read.
-      let previous = pendingReconciliations.current.get(videoId);
-      while (previous !== undefined) {
-        await previous;
-        if (revision !== operation.current || !isCurrent()) return;
-        previous = pendingReconciliations.current.get(videoId);
-      }
-      if (revision !== operation.current || !isCurrent()) return;
-      const completed = Promise.withResolvers<undefined>();
-      pendingReconciliations.current.set(videoId, completed.promise);
-      try {
-        const targetIsDeletion = deletionVideo?.videoId === videoId;
-        if (!targetIsDeletion) setPhase("processing");
-        const result = await reconcileVideo({ videoId });
-        if (revision !== operation.current || !isCurrent()) return;
-        if (targetIsDeletion) {
-          if (result.kind === "ready" && isDeletionState(result.value.state)) {
-            setDeletionVideo(result.value);
-          }
-          return;
-        }
-        applyVideoResult(result);
-      } finally {
-        pendingReconciliations.current.delete(videoId);
-        completed.resolve(undefined);
-      }
-    },
-    [applyVideoResult, deletionVideo?.videoId, reconcileVideo],
+  const subscribe = useCallback(
+    (listener: () => void) =>
+      session.subscribe(listener, {
+        access,
+        deleteVideoId,
+        latestVideoDeletion,
+        materialId,
+        onChange,
+        primaryVideo,
+        unselectedUpload,
+      }),
+    [
+      session,
+      access,
+      deleteVideoId,
+      latestVideoDeletion,
+      materialId,
+      onChange,
+      primaryVideo,
+      unselectedUpload,
+    ],
   );
-
-  useEffect(() => {
-    if (!awaitsReconciliation({ materialId, phase, video }) || video === null)
-      return;
-    const timer = window.setTimeout(() => {
-      void reconcile(video.videoId);
-    }, VIDEO_RECONCILIATION_POLL_INTERVAL_MILLISECONDS);
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [materialId, phase, reconcile, video]);
-
-  useEffect(() => {
-    if (
-      deletionVideo === null ||
-      (deletionVideo.state !== "deletion_requested" &&
-        deletionVideo.state !== "deleting")
-    )
-      return;
-    let active = true;
-    let timer: number | undefined;
-    const poll = async () => {
-      await reconcile(deletionVideo.videoId, () => active);
-      if (active)
-        timer = window.setTimeout(() => {
-          void poll();
-        }, VIDEO_RECONCILIATION_POLL_INTERVAL_MILLISECONDS);
-    };
-    timer = window.setTimeout(() => {
-      void poll();
-    }, VIDEO_RECONCILIATION_POLL_INTERVAL_MILLISECONDS);
-    return () => {
-      active = false;
-      window.clearTimeout(timer);
-    };
-  }, [deletionVideo, reconcile]);
-
-  if (materialId === null) {
+  const {
+    video,
+    recoveredVideoId,
+    deletionVideo,
+    phase,
+    progress,
+    providerVideoId,
+  } = useSyncExternalStore(
+    subscribe,
+    session.getSnapshot,
+    session.getServerSnapshot,
+  );
+  // This lifetime owns the actual TUS transfer, including acquisition after cleanup.
+  // A props/subscription refresh must never abort an ongoing upload.
+  useEffect(
+    () => () => {
+      session.stopUpload();
+    },
+    [session],
+  );
+  usePendingUploadGuard(
+    phase === "uploading" ||
+      (phase === "processing" && video?.videoId !== recoveredVideoId),
+  );
+  if (materialId === null)
     return (
       <p className="mt-3 rounded-xl bg-muted px-4 py-3 text-sm leading-6 text-muted-foreground">
-        Введите название — черновик сохранится автоматически, и можно будет
+        Введите название, черновик сохранится автоматически, и можно будет
         добавить видео.
       </p>
     );
-  }
-
-  // Runs after a request resolves, so the selection comes from the latest render, not the closure.
-  const detachReplacedUpload = (
-    replaced: MaterialAuthoringVideo | null,
-    startedVideoId: string,
-  ) => {
-    const {
-      deleteVideoId: currentDeleteVideoId,
-      primaryVideo: currentPrimary,
-    } = latestSelection.current;
-    const detachedVideoId = replacedUploadToDetach({
-      primaryVideoId: currentPrimary?.videoId ?? null,
-      replaced,
-      startedVideoId,
-    });
-    if (detachedVideoId !== null)
-      latestOnChange.current(
-        currentPrimary,
-        currentDeleteVideoId,
-        detachedVideoId,
-      );
-  };
-
-  const upload = async (file: File) => {
-    const revision = ++operation.current;
-    const replaced = video;
-    setPhase("uploading");
-    setRecoveredVideoId(null);
-    setProgress(0);
-    const browserAttempt = await getOrCreateBrowserVideoUploadAttempt(
-      materialId,
-      file,
-    );
-    uploadAttempt.current = browserAttempt;
-    const initialized = await uploadVideo({
-      access,
-      byteSize: file.size,
-      filename: file.name,
-      materialId,
-      submissionId: browserAttempt.submissionId,
-      title: file.name.replace(/\.[^.]+$/u, ""),
-    });
-    if (revision !== operation.current) return;
-    if (initialized.kind !== "ready") {
-      if (initialized.kind === "upload_not_authorized") {
-        clearBrowserVideoUploadAttempt(browserAttempt);
-        uploadAttempt.current = null;
-      }
-      setPhase(initialized.kind === "unavailable" ? "error" : initialized.kind);
-      return;
-    }
-    uploadAttempt.current = {
-      ...browserAttempt,
-      videoId: initialized.value.video.videoId,
-    };
-    recordBrowserVideoUploadAttempt(
-      browserAttempt,
-      initialized.value.video.videoId,
-    );
-    detachReplacedUpload(replaced, initialized.value.video.videoId);
-    setVideo(initialized.value.video);
-    if (
-      new URL(initialized.value.uploadEndpoint).hostname.endsWith(".invalid")
-    ) {
-      setProgress(100);
-      await reconcile(initialized.value.video.videoId);
-      return;
-    }
-    const transfer = startResumableVideoUpload({
-      file,
-      onError: () => {
-        if (revision !== operation.current) return;
-        setPhase("error");
-      },
-      onProgress: (sent, total) => {
-        if (revision !== operation.current) return;
-        setProgress(Math.round((sent / total) * 100));
-      },
-      onSuccess: () => {
-        if (revision !== operation.current) return;
-        void reconcile(initialized.value.video.videoId);
-      },
-      uploadUrl: initialized.value.uploadEndpoint,
-    });
-    uploadTransfer.current = transfer;
-    await transfer;
-  };
-
-  const attach = async () => {
-    const revision = ++operation.current;
-    const replaced = video;
-    setPhase("processing");
-    const result = await attachVideo({ access, materialId, providerVideoId });
-    if (revision !== operation.current) return;
-    if (result.kind === "ready")
-      detachReplacedUpload(replaced, result.value.videoId);
-    applyVideoResult(result);
-  };
-
   const activeVideo = video ?? primaryVideo;
   return (
     <MaterialVideoAuthoringView
@@ -343,65 +144,19 @@ export function MaterialVideoAuthoring({
       deletionVideo={deletionVideo}
       disabled={disabled}
       onAttach={() => {
-        void attach();
+        void session.attach();
       }}
-      onDeleteOwned={async () => {
-        if (activeVideo === null) return;
-        operation.current += 1;
-        const transfer = await uploadTransfer.current;
-        uploadTransfer.current = null;
-        await transfer?.abort(true).catch(() => undefined);
-        if (uploadAttempt.current?.videoId === activeVideo.videoId) {
-          clearBrowserVideoUploadAttempt(uploadAttempt.current);
-          uploadAttempt.current = null;
-        }
-        const retainedVideo =
-          primaryVideo?.videoId === activeVideo.videoId ? null : primaryVideo;
-        setDeletionVideo(activeVideo);
-        setVideo(retainedVideo);
-        setRecoveredVideoId(null);
-        setPhase(phaseForVideo(retainedVideo));
-        onChange(retainedVideo, activeVideo.videoId, null);
-      }}
+      onDeleteOwned={session.deleteOwned}
       onFileSelected={(file) => {
-        const revision = operation.current + 1;
-        void upload(file).catch(() => {
-          if (revision === operation.current) setPhase("error");
-        });
+        void session.upload(file);
       }}
-      onProviderVideoIdChange={setProviderVideoId}
+      onProviderVideoIdChange={session.setProviderVideoId}
       recovered={
         activeVideo !== null && activeVideo.videoId === recoveredVideoId
       }
-      onReconcile={() => {
-        if (activeVideo !== null) void reconcile(activeVideo.videoId);
-      }}
-      onRemove={() => {
-        operation.current += 1;
-        const transfer = uploadTransfer.current;
-        uploadTransfer.current = null;
-        void transfer
-          ?.then((upload) => upload?.abort(false))
-          .catch(() => undefined);
-        if (uploadAttempt.current)
-          clearBrowserVideoUploadAttempt(uploadAttempt.current);
-        if (activeVideo !== null)
-          clearBrowserVideoUploadAttemptsForVideo(
-            materialId,
-            activeVideo.videoId,
-          );
-        uploadAttempt.current = null;
-        setVideo(null);
-        setRecoveredVideoId(null);
-        setPhase("idle");
-        onChange(null, null, activeVideo?.videoId ?? null);
-      }}
-      onRetryDeletion={() => {
-        if (deletionVideo === null) return;
-        void retryDeletion({ videoId: deletionVideo.videoId }).then(
-          applyVideoResult,
-        );
-      }}
+      onReconcile={session.reconcile}
+      onRemove={session.remove}
+      onRetryDeletion={session.retryDeletion}
       phase={phase}
       progress={progress}
       providerVideoId={providerVideoId}
@@ -753,13 +508,4 @@ function phaseLabel(
   if (phase === "error") return "Нужна повторная попытка";
   if (phase === "ready") return "Видео готово";
   return "Перетащите видео или вставьте из буфера";
-}
-
-function isDeletionState(state: MaterialVideo["state"]): boolean {
-  return (
-    state === "deletion_requested" ||
-    state === "deleting" ||
-    state === "deleted" ||
-    state === "delete_failed"
-  );
 }
