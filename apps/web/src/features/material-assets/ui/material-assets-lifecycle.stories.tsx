@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { Activity, useState } from "react";
+import { act, Activity, useState } from "react";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 import { MaterialSvgFigure } from "./material-svg-figure.client";
 
@@ -135,10 +135,13 @@ function ChangingSource() {
   );
 }
 
+let lateBodyRead = Promise.withResolvers<string>();
+
 /** An old, already delivered HTTP response must not enter the DOM after a source/version change. */
 export const LateSvgSource: Story = {
   render: () => <ChangingSource />,
   beforeEach: () => {
+    lateBodyRead = Promise.withResolvers<string>();
     const original = window.fetch;
     window.fetch = async (input, init) => {
       const address = input instanceof Request ? input.url : String(input);
@@ -157,7 +160,12 @@ export const LateSvgSource: Story = {
             { once: true },
           );
         });
-        document.documentElement.dataset["heldSvg"] = "released";
+        const readText = response.text.bind(response);
+        response.text = () => {
+          const reading = readText();
+          void reading.then(lateBodyRead.resolve, lateBodyRead.reject);
+          return reading;
+        };
       }
       return response;
     };
@@ -179,11 +187,11 @@ export const LateSvgSource: Story = {
     await waitFor(() =>
       expect(host.querySelector("svg")?.id).toBe("fig-agent-loop-tall"),
     );
-    window.dispatchEvent(new Event("release-held-svg"));
-    await waitFor(() =>
-      expect(document.documentElement.dataset["heldSvg"]).toBe("released"),
-    );
-    await userEvent.tab();
+    await act(async () => {
+      window.dispatchEvent(new Event("release-held-svg"));
+      // Await actual body consumption, then let React flush the consuming continuation.
+      await lateBodyRead.promise;
+    });
     await expect(host.querySelector("svg")?.id).toBe("fig-agent-loop-tall");
     await expect(
       canvasElement.querySelector("#fig-agent-loop-wide"),

@@ -14,14 +14,9 @@ export async function readSvgFigure(
     if (!response.ok) return null;
     const checked = checkInlineSvgMarkup(await response.text());
     if (!checked.ok) return null;
-    const parsed = new DOMParser().parseFromString(
-      checked.value.markup,
-      SVG_CONTENT_TYPE,
-    );
-    return parsed.getElementsByTagName("parsererror").length === 0 &&
-      parsed.documentElement instanceof SVGSVGElement
-      ? checked.value.markup
-      : null;
+    return parseSvg(checked.value.markup) === null
+      ? null
+      : checked.value.markup;
   } catch {
     return null;
   }
@@ -33,13 +28,8 @@ export function mountSvgFigure(
   markup: string,
   playback: { markup: string | null; playing: boolean },
 ): () => void {
-  const parsed = new DOMParser().parseFromString(markup, SVG_CONTENT_TYPE);
-  const root = parsed.documentElement;
-  if (
-    parsed.getElementsByTagName("parsererror").length !== 0 ||
-    !(root instanceof SVGSVGElement)
-  )
-    throw new Error("Expected checked SVG markup");
+  const root = parseSvg(markup);
+  if (root === null) throw new Error("Expected checked SVG markup");
   const svg = document.importNode(root, true);
   svg.setAttribute("aria-hidden", "true");
   element.replaceChildren(svg);
@@ -102,4 +92,13 @@ export function createSvgViewer() {
     },
     close,
   };
+}
+
+function parseSvg(markup: string): SVGSVGElement | null {
+  const parsed = new DOMParser().parseFromString(markup, SVG_CONTENT_TYPE);
+  const root = parsed.documentElement;
+  return parsed.getElementsByTagName("parsererror").length === 0 &&
+    root instanceof SVGSVGElement
+    ? root
+    : null;
 }
