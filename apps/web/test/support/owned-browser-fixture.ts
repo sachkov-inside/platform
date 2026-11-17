@@ -12,7 +12,12 @@ import { createServer, type ViteDevServer } from "vite";
 import { z } from "zod";
 import { spawnOwned, stopOwned } from "../../../../scripts/owned-process.mjs";
 
-const fixtureName = z.enum(["term-deck", "body-fragments", "reader-history"]);
+const fixtureName = z.enum([
+  "term-deck",
+  "body-fragments",
+  "reader-history",
+  "cabinet-facts",
+]);
 const budget = z.number().int().positive().max(30_000);
 const configuration = z.object({
   name: fixtureName,
@@ -267,7 +272,7 @@ async function runHost(config: Configuration) {
             ],
       root: webRoot,
       cacheDir: `node_modules/.cache/${config.name}-browser`,
-      ...(config.name === "body-fragments"
+      ...(config.name === "body-fragments" || config.name === "cabinet-facts"
         ? { define: { "process.env": "{}" } }
         : {}),
       resolve: {
