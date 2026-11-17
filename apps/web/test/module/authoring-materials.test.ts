@@ -637,7 +637,6 @@ describe("Authoring Materials server adapter", () => {
       method: "GET",
       path: "/authoring/materials?page=1",
       token: "access-token",
-      // A non-contract success status makes the real transport raise invalid-response.
       response: Response.json({}, { status: 201 }),
     });
     await expect(
