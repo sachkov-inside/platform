@@ -1,15 +1,11 @@
+import {
+  configureWebRuntime,
+  useProductionRuntimeImage,
+} from "../support/web-runtime";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { telemetryRoute } from "@/features/client-telemetry/model/client-telemetry-wire";
 
 vi.mock("next/server", () => ({ after: () => undefined }));
-
-vi.mock("@/shared/auth/index.server", async () => {
-  const origin = await import("@/shared/auth/same-origin-mutation.server");
-  return {
-    isSameOriginMutation: origin.isSameOriginMutation,
-    readLogtoBffConfig: () => ({ baseUrl: "https://inside.example.test" }),
-  };
-});
 
 let handleRenderErrorReport: (request: Request) => Promise<Response>;
 let handleWebVitalsReport: (request: Request) => Promise<Response>;
@@ -54,6 +50,7 @@ function loggedEvents(
 }
 
 beforeEach(async () => {
+  configureWebRuntime();
   // Потолок журнала живёт на уровне процесса: каждый тест начинает со свежего модуля и пустого окна.
   vi.resetModules();
   ({ handleRenderErrorReport, handleWebVitalsReport } =
@@ -199,7 +196,9 @@ describe("общий потолок журнала для отчётов бра�
     route: "/",
   };
 
+  let restoreImage: (() => void) | undefined;
   beforeEach(() => {
+    restoreImage = useProductionRuntimeImage();
     vi.stubEnv("NODE_ENV", "production");
     vi.useFakeTimers({
       now: Date.parse("2026-09-25T09:00:00Z"),
@@ -208,6 +207,7 @@ describe("общий потолок журнала для отчётов бра�
   });
 
   afterEach(() => {
+    restoreImage?.();
     vi.useRealTimers();
   });
 
