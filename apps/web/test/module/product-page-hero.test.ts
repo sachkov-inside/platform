@@ -10,19 +10,15 @@ import {
 describe("Home hero of a product", () => {
   it("reads the product's first screen and fills a missing badge", () => {
     expect(
-      readProductPageHero(
-        { lead: "Освой AI", highlights: ["Гайды"] },
-        "test",
-        vi.fn(),
-      ),
+      readProductPageHero({ lead: "Освой AI", highlights: ["Гайды"] }, "test"),
     ).toEqual({ badge: "", lead: "Освой AI", highlights: ["Гайды"] });
   });
 
   it("shows nothing and warns when the stored hero is newer than the site", () => {
-    const warn = vi.fn();
-    expect(readProductPageHero({ lead: 1 }, "test", warn)).toBeNull();
+    const warn = vi.spyOn(console, "warn");
+    expect(readProductPageHero({ lead: 1 }, "test")).toBeNull();
     expect(warn).toHaveBeenCalledOnce();
-    expect(readProductPageHero(null, "test", warn)).toBeNull();
+    expect(readProductPageHero(null, "test")).toBeNull();
   });
 });
 
