@@ -1,7 +1,7 @@
 "use client";
 import { ProductOverviewTab } from "@/features/admin-overview";
 import { Archive, RotateCcw } from "lucide-react";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { ProductArtifactsPanel } from "@/features/product-artifacts";
 import { ProductEditorPageFrame } from "./product-editor-page-frame";
 import { HomeProductPin, ProductOrderPanel } from "@/features/product-order";
@@ -12,6 +12,7 @@ import {
   PRODUCT_INTRODUCTION_FIELD_MAX,
   type ContentCollection,
 } from "../model/content-collections";
+import { createContentCollectionState } from "../model/content-collection-state";
 import { PRODUCT_INTRODUCTION_FIELDS } from "../model/product-introduction-fields";
 import { useCollectionDraft } from "../model/use-collection-draft.client";
 import { MutationNotice } from "./collection-mutation-notice";
@@ -44,7 +45,15 @@ function AuthoredProductEditor({
 }: {
   readonly initialCollection: ContentCollection;
 }) {
-  const [collection, setCollection] = useState(initialCollection);
+  const [collectionState] = useState(() =>
+    createContentCollectionState([initialCollection]),
+  );
+  useSyncExternalStore(
+    collectionState.subscribe,
+    collectionState.getSnapshot,
+    collectionState.getSnapshot,
+  );
+  const collection = collectionState.collection(initialCollection.id);
   const {
     name,
     setName,
@@ -58,13 +67,9 @@ function AuthoredProductEditor({
     update,
     archive,
     autosave,
-  } = useCollectionDraft(
-    collection,
-    (result) => {
-      if (result.kind === "saved") setCollection(result.collection);
-    },
-    { editsIntroduction: true },
-  );
+  } = useCollectionDraft(collection, collectionState, {
+    editsIntroduction: true,
+  });
   return (
     <ProductEditorPageFrame>
       <ProductPageNavigation>
