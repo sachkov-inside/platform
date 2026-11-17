@@ -1,3 +1,4 @@
+import { legacyCatalogueScenario } from "../../../../../../scenarios/legacy-catalog.mjs";
 import {
   AutosaveActivity,
   autosaveWhileHidden,
@@ -95,10 +96,10 @@ const meta = {
           title: "Как устроена база знаний",
         },
       ],
-      name: "Создание Platform Inside",
+      name: legacyCatalogueScenario.product.name,
       options: [
         {
-          label: "Создание Platform Inside",
+          label: legacyCatalogueScenario.product.name,
           value: "95000000-0000-4000-8000-000000000010",
         },
       ],
@@ -507,7 +508,7 @@ export const RemovalConfirmation: Story = {
             {
               productId: "95000000-0000-4000-8000-000000000010",
               holders: 3,
-              name: "Создание Platform Inside",
+              name: legacyCatalogueScenario.product.name,
             },
           ],
           kind: "removal_confirmation_required",

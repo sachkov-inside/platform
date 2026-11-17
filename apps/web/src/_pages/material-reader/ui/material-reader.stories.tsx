@@ -1,3 +1,4 @@
+import { legacyCatalogueScenario } from "../../../../../../scenarios/legacy-catalog.mjs";
 import { TaskSubmissionWorkspace } from "@/features/product-task-submission";
 import {
   openProductTask,
@@ -92,8 +93,8 @@ const material = {
       ordinal: 5,
       product: {
         id: "72000000-0000-4000-8000-000000000005",
-        name: "Создание Platform Inside",
-        slug: "platform-inside",
+        name: legacyCatalogueScenario.product.name,
+        slug: legacyCatalogueScenario.product.slug,
       },
     },
   ],
@@ -459,7 +460,7 @@ const readyVideo = {
 } as const;
 
 const playlistReturnTarget = parseMaterialReaderReturnTarget(
-  "/products/platform-inside",
+  "/products/" + legacyCatalogueScenario.product.slug,
 );
 
 const environment = publicPageEnvironment(`/materials/${material.slug}`);
@@ -924,8 +925,8 @@ export const PlaylistReturn: Story = {
         title: "Сначала границы",
       },
       product: {
-        href: productProgrammeHref("platform-inside"),
-        name: "Создание Platform Inside",
+        href: productProgrammeHref(legacyCatalogueScenario.product.slug),
+        name: legacyCatalogueScenario.product.name,
       },
       totalMaterials: 3,
     },
@@ -1107,7 +1108,7 @@ export const FreeLessonGuest: Story = {
       signedIn={false}
       returnTo={materialReaderHref(
         material.slug,
-        productProgrammeHref("platform-inside"),
+        productProgrammeHref(legacyCatalogueScenario.product.slug),
       )}
       material={{ ...material, access: "free" }}
       readingAction={accessReadingAction()}

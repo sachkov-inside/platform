@@ -1,3 +1,4 @@
+import { legacyCatalogueScenario } from "../../../../../../scenarios/legacy-catalog.mjs";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ReadonlyURLSearchParams, useSearchParams } from "next/navigation";
 import { useState, type ComponentProps } from "react";
@@ -73,8 +74,8 @@ const materials = titles.map((title, index): MaterialPreview => ({
   tags: [],
   productMemberships: [
     {
-      name: "Создание Platform Inside",
-      slug: "platform-inside",
+      name: legacyCatalogueScenario.product.name,
+      slug: legacyCatalogueScenario.product.slug,
       ordinal: index + 1,
     },
   ],
@@ -85,8 +86,8 @@ const result = {
   kind: "ready",
   hasNext: false,
   reference: {
-    name: "Создание Platform Inside",
-    slug: "platform-inside",
+    name: legacyCatalogueScenario.product.name,
+    slug: legacyCatalogueScenario.product.slug,
     summary: "От продуктовой идеи до работающего приложения.",
   },
   items: materials,
@@ -119,7 +120,7 @@ const resume = {
 const register = () => () => undefined;
 const refresh = () => Promise.resolve();
 const environment = publicPageEnvironment(
-  "/products/platform-inside/programme",
+  "/products/" + legacyCatalogueScenario.product.slug + "/programme",
 );
 /** Прогресс читателя: история передаёт его программе контекстом, а не свойством. */
 type ProgrammeStoryArgs = ComponentProps<typeof ProductProgrammeView> & {

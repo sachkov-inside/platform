@@ -1,3 +1,4 @@
+import { legacyCatalogueScenario } from "../../../../../../scenarios/legacy-catalog.mjs";
 import type { Decorator, Meta, StoryObj } from "@storybook/react-vite";
 import { Suspense } from "react";
 import { expect, userEvent, waitFor } from "storybook/test";
@@ -52,12 +53,11 @@ function material(
       : { primaryVideoDurationSeconds: durationSeconds }),
     productMemberships: [],
     slug,
-    summary:
-      "Практический разбор: от понятных границ к работающему приложению.",
+    summary: legacyCatalogueScenario.illustrated.materialSummary,
     tags: [],
     title,
-    topic: "Архитектура",
-    topicSlug: "platform",
+    topic: legacyCatalogueScenario.illustrated.primaryTopic.name,
+    topicSlug: legacyCatalogueScenario.illustrated.primaryTopic.slug,
   };
 }
 
@@ -66,17 +66,17 @@ const product = { name: "Гайд", slug: "guide" } as const;
 const savedMaterials = [
   material(
     5,
-    "produkt-i-inzhenernyy-kontekst",
-    "Продукт и инженерный контекст",
+    legacyCatalogueScenario.videos.productContext.slugVariants.illustrated,
+    legacyCatalogueScenario.videos.productContext.title,
     video,
-    754,
+    legacyCatalogueScenario.videos.productContext.durationSeconds,
   ),
   material(
     6,
-    "glubokie-moduli-na-praktike",
-    "Глубокие модули на практике",
+    legacyCatalogueScenario.videos.deepModules.slugVariants.illustrated,
+    legacyCatalogueScenario.videos.deepModules.title,
     video,
-    481,
+    legacyCatalogueScenario.videos.deepModules.durationSeconds,
   ),
   material(1, "granitsy-moduley", "Границы модулей без лишних слоёв", product),
 ];

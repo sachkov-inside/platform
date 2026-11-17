@@ -1,3 +1,4 @@
+import { legacyCatalogueScenario } from "../../../../../../scenarios/legacy-catalog.mjs";
 import {
   AutosaveActivity,
   autosaveWhileHidden,
@@ -472,7 +473,7 @@ const removalRequired = {
     {
       productId: materialAuthoringPresentation.draft.productIds[0],
       holders: 12,
-      name: "Создание Platform Inside",
+      name: legacyCatalogueScenario.product.name,
     },
   ],
   kind: "removal_confirmation_required",
