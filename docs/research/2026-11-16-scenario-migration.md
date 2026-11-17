@@ -2,6 +2,74 @@
 
 Задача [#2246](https://github.com/sachkov-inside/platform/issues/2246), решение №1 из [#2244](https://github.com/sachkov-inside/platform/issues/2244). Здесь записаны поддерживающие шаги audit1, не закрытие всего audit1 или audit2.
 
+
+## Конечный inventory audit1
+
+Эта таблица заменяет прежние промежуточные списки остатка ниже, но не заменяет итоговую живую проверку. Граница inventory зафиксирована исходными четырьмя семействами: 20 fixture-файлов Storybook (из них 17 в `src/storybook` на исходной ревизии), три прежних local seed, основной Navigation backend и четыре выбранных E2E interception-потребителя. Дополнительно разобраны их фактические эквивалентные потребители, включая inline Story inputs, выделенные HTTP adapters, histories/overview/sales/reference/authoring. Число файлов и строк описывает размер исходников, не число дубликатов. Поиск одинаковых строк сам по себе не расширяет набор синтетических сущностей.
+
+`migrated` означает, что существовавший эквивалентный потребитель читает общий факт через свой адаптер. `independent` означает другой учебный случай, событие, авторский текст либо самостоятельное тестовое ожидание. `not-applicable` означает, что эквивалентного потребителя в этом семействе не было. Наличие факта в `scenarios` отдельно от подключения потребителя не считается миграцией. Общий источник здесь означает владельцев синтетических фактов в `scenarios`, а не один огромный файл и не единое представление для всех транспортов.
+
+| Владелец фактов | Storybook | Изолированный seed и прежний CLI | Navigation HTTP | Playwright interception | Фактическая доставка |
+| --- | --- | --- | --- | --- | --- |
+| `reading.mjs`, 120 материалов и явный полностью открытый вариант | `product-journey-corpus.fixtures.ts`, migrated | `seed-reading-feed.mjs`, migrated: 120 через Content interfaces, вне Product, ADR-0043. Прежний CLI каталог имеет другую identity | `reading-http.mjs` и performance/Home consumers, migrated | `test/support/reading-interception.ts`, 18 видимых карточек, migrated | PR #2250 и #2304 merged |
+| `learning.mjs`, Product, главы, четыре урока, artifact, прогресс, закладка, task versions/submissions/feedback и словарь | `learning.fixtures.ts`, migrated | `seed-learning.mjs`, migrated через настоящие owning interfaces | `learning-http.mjs`, migrated | `test/support/learning-interception.ts`, migrated | PR #2260, #2295, #2304 merged |
+| `roles.mjs` | Account/People/commerce adapters, migrated | light role assembly, real Accounts resolution, migrated | synthetic actor labels, migrated | learning/commerce adapters, migrated | PR #2260 и #2283 merged. Subject роли не выдаётся за реальный Account UUID |
+| `commerce.mjs`, pending order, accepting Intake и явное вступление learner | `commerce.fixtures.ts`, migrated | `seed-commerce.mjs`, SalesFunnel interface и доверенный composition entrypoint, migrated | `commerce-http.mjs`, migrated | `test/support/commerce-interception.ts`, migrated | PR #2271 и #2283 merged. Нет auto-join, настоящего списания или отправки сообщений |
+| `people.mjs`, контакты, названия продуктов, directory/card/history и явные варианты | `people.fixtures.ts`, buyers в `owner-payments.fixtures.ts`, migrated | not-applicable: роли нового light имеют другие записи | `people-backend.mjs`, migrated | not-applicable: отдельного эквивалентного каталога нет | PR #2273 и #2332 merged |
+| `payments.mjs`, продукты и две матрицы платежей | `owner-payments.fixtures.ts`, migrated | independent: новый pending commerce order является другой записью | `sales-payments-backend.mjs`, migrated | not-applicable | PR #2273 merged. Story detail/refund histories самостоятельны |
+| `overview.mjs` и уже общие People labels | `admin-overview.fixtures.ts`, migrated | not-applicable: реальные агрегаты нового light не подменяются отчётной fixture | `authoring-overview-backend.mjs`, migrated | not-applicable | PR #2332 merged |
+| `legacy-catalog.mjs` и `legacy-assets.mjs` | `home`, `billing`, `buyer-journey` и соответствующие inline Story inputs, migrated | `seed-local-development.ts` и `seed-local-offer-catalog.ts`, migrated для того же каталога/asset markers. Новый light их не вызывает | metrics читает общее reading name; иной старый курс independent | not-applicable: URL/assertion literals являются ожиданиями | PR #2278 и #2314 merged. Общий CLI #2267 остаётся отдельным ограничением |
+| `lesson-interactions.mjs`, attempt/statistics/ratings и именованные варианты | `lesson-statistics.fixtures.ts`, migrated | not-applicable: fingerprint не превращён в полное Exercise definition | not-applicable | Отдельного E2E набора нет. Дополнительные реальные HTTP module consumers `exercise-attempts-bff` и `lesson-rating-bff` migrated другим владельцем | PR #2301 и #2310 merged; независимые literal expectations сохранены |
+| `legacy-task-submissions.mjs`, три reviewed snapshots и отдельный четвёртый HTTP variant | прежний публичный `task-submissions.fixtures.ts` adapter, migrated | independent: новый learning Task имеет другую identity/definition | `legacy-task-submissions-http.mjs`, migrated; прежний ручной JSON удалён после полного сравнения | not-applicable: существующие Nav tests обращаются к HTTP | PR #2325 merged. Дополнительные module consumers принадлежат audit2 |
+| `course-references.mjs`, два справочных Material slug/title | `course-reading.fixtures.ts` и inline MaterialReader Story input, migrated | not-applicable | `fake-backend.mjs` reference lessons, migrated | not-applicable: нет отдельного эквивалентного массива | PR #2340 merged |
+| `sales-catalogue.mjs`, 25 Product, три общих Promotion с вариантами, respondent names и anchors | `sales-catalog.fixtures.ts`, migrated | not-applicable: это прежний sales preview, другой pending commerce order | `sales-catalog-backend.mjs`, migrated | not-applicable | PR #2343 queued; actual merge pending |
+| `authoring.mjs`, те же c011 Products и review Material/Topic metadata | not-applicable: ProductSale Story имеет другой Product/название | not-applicable | `content-collections`, `product-sale`, `authoring-materials`, `authoring-search` adapters, migrated в этом срезе | not-applicable: отдельные route/URL assertions независимы | #2335, доставка и итоговая проверка pending |
+
+### Конечные исключения и уточнение 37 кандидатов
+
+Исходный список 37 совпадающих строк был вспомогательным поиском на ревизии `53df65c4`, а не доказательством 37 семантических дубликатов. Его категории уточнены по identity и владельцу события. Категория «факт уже общий, потребитель ещё ручной» закрыта фактическим подключением Overview/metrics в #2317/#2299; одно наличие прежнего `peopleScenario` этого не доказывало. Равное название `Инженерная практика` в `billing.supportOffer` обозначает подписку на материалы/поддержку/сообщество с другим Offer, а не тот же lifetime Product из People/Overview; этот billing пример independent.
+
+- `Архитектура приложения` в collections/search/sale относится к одному c011 Product и переносится в #2335. People/Overview c011…102 и отдельные счётчики доступа являются другим учебным состоянием, без объединения identity/цен/прав.
+- `Разработка с агентами` в Materials/search является общей Topic metadata (#2335). Product платежей с таким названием имеет другой вид сущности и остаётся independent.
+- People Anna `joinReminders.lastAt` 24 октября и `telegram.observedAt` 26 октября общие между Story и HTTP (#2317). Material publication и Overview purchase events в тот же час являются другими событиями. Sales link creation 26 октября отдельно принадлежит #2334. Action clock 27 октября общий между sales adapters, но равный ему `Funnel.generatedAt` сохранён отдельным временем отчёта.
+- `Поток весна 2027` у People practice Intake общий в #2317. Overview AI Intake, его active count и Product являются другим набором. Одного равного заголовка недостаточно для переноса.
+- Chapter `Продолжение` в Reader Story и Nav принадлежит разным главам/продуктам. Он independent. Справочные Material `aie-project`/`aie-product-brief` общие в #2333. CustomerBriefDownload имеет явный заголовок `Проект курса`, а `inside-content-aie-product-brief` обозначает другой artifact/content URL.
+- People manual histories сохраняют Story issue 11 июня, restore 20 августа, revision 3 и HTTP issue 2 сентября без restore, revision 2. Directory population и распределения, Overview ряды/периоды, respondent второй timestamp (+час против +дня), raw UTCZ/+03 даты и sales Promotion scope/usage/revision остаются явными вариантами, а не заново написанными копиями общего факта.
+- `product-task.fixtures.ts` хранит учебный snapshot программы 5 октября и versioned criteria. Review queue хранит другое короткое название/критерии для того же демонстрационного task code, новый learning Task имеет свою identity. Эти разные учебные состояния не заменяются друг другом. Историческая версия не вычисляется из текущего определения.
+- `ai-engineering-course.fixtures.ts` (#1909, принятый текст 31 октября) и `product-page.fixtures.ts` (#671) являются снимками авторского контента. Они independent, не новый synthetic dataset и не runtime-зависимость от соседнего checkout. `customer-brief.fixtures.ts` сохраняет отдельный download пример.
+- Account profile/avatar, notification preferences, billing contact, отдельные legal/error/retry fixtures, `payment-links.fixtures.ts` individual link и unique product-sale states являются самостоятельными контрактными случаями. Они не объявлены общими лишь по совпадению UUID, чисел, дат или UI labels. Действительные ссылки между Story fixtures уже используют import/spread исходного владельца.
+- Bookmarks module contracts остаются independent: `bookmarks-bff.test.ts` задаёт projection `bookmark-me`/`Закладка` с датой 7 сентября, `bookmarks-browser.test.ts` проверяет wrapper/account cache с датой 10 сентября без того же именованного Material. Равный opaque UUID не устанавливает общую Material identity. Learning/reading bookmark относится к другому Product. Эти файлы и их HTTP migration принадлежат audit2, в audit1 они не менялись.
+- Четыре исходных E2E interception consumers сохраняют самостоятельные protocol/auth/error/mobile cases. Повторяющиеся Offer101/Option201 в subscription return-from-bank и Story materials Offerf01 имеют разные identity/benefits. Learning, commerce и reading adapters подключены там, где это тот же именованный сценарий; независимые expected URLs/text/amounts не читают проверяемый mapper.
+- Настоящие backend-only unit/integration fixtures сохраняют независимые доменные данные. `seed-local-stand-accounts.ts` принимает настроенные subjects/issuer и выдаёт grants для найденных Products, а не содержит копию новых synthetic role profiles. Он не вызывается новым isolated light. Его общий CLI путь и #2267 этим переносом не объявлены исправленными.
+
+В этом конечном inventory не осталось назначенного ручного эквивалентного потребителя без владельца переноса. Два последних среза выше пока имеют отдельные delivery gates. Это утверждение относится к разобранным четырём семействам и конкретным эквивалентам, не к «нулю похожих литералов во всех тестах». Independent/not-applicable случаи перечислены явно. Новые каталоги ради совпавшего UUID или числа не создаются.
+
+### Счётчики и границы доказательств
+
+| Ограниченный состав | До | После переноса |
+| --- | --- | --- |
+| 120 reading Material | Три ручных массива Story/Nav/interception | Один владелец, отдельные адаптеры и открытый вариант; новый seed четвёртым потребителем |
+| People contacts, Product labels, payments | Два ручных каталога и два генератора; buyers повторялись отдельно | People owner и payments owner с явными вариантами; три потребителя контактов |
+| Legacy catalogue, 24 выбранных scalar fields | 88 объявлений в выбранном составе | 24 объявления владельца (#2299) |
+| Lesson interactions | Story и два module HTTP input набора | Один facts owner, три реально подключённых потребителя (#2298/#2310) |
+| Legacy reviewed submissions | Два ручных набора трёх snapshots и metadata | Один owner, отдельный четвёртый HTTP variant (#2313) |
+| People/overview, 26 выбранных fields | 72 объявления | 26 (#2317) |
+| Reference metadata, четыре поля | 15 объявлений | Четыре (#2333) |
+| Sales, 17 выбранных fields | 35 объявлений | 17 (#2334) |
+| Authoring metadata, девять выбранных fields | 24 объявления | Девять (#2335) |
+
+Счётчики не складываются в глобальный процент: составы и единицы разные, generic flags, явные варианты, чужие сущности и независимые assertions исключены. Структурные проверки 2880 assertion/locator nodes и 53 Reader play functions подтверждают сохранность кода ожиданий, но не заменяют реальные Story/Nav/HTTP/PostgreSQL запуски и fault RED/GREEN. Каждый supporting PR хранит собственные evidence и immutable SHA.
+
+Audit2 передан другому владельцу. Исходный AST baseline на `8f740ecf` равен 164 действительным direct calls, 135 internal и 124 shared; прежние 166/136/125 были текстовыми совпадениями с комментариями. Audit1 не мигрирует module mocks, его mock delta равна нулю. Итоговые after counts и исключения mock guardrail предоставляет audit2. Промежуточный снимок 133/104/94 на `20703bec` не выдаётся за итог.
+
+### Итоговая проверка после доставки
+
+Живая проверка итогового audit1 ещё требуется после actual merge всех implementation срезов на точном integrated main. Предыдущие 22 populated сценария #2297/PR #2304 от 17 ноября являются историческим доказательством своего HEAD и не включают unavailable. Новый manifest должен подтвердить свежую изолированную БД без legacy `db:seed` и fixed720 Product, роли, библиотеку/continuation/filters, paid/free lessons и extra Material/inline artifact, started/completed ProductAccess, bookmarks, task current/old versions/submission/AuthorFeedback, dictionary и owner People/payments/waitlist. Separate Story/Nav unavailable/empty/denied/outdated cases сохраняются; неподнятый outage не считается живой проверкой. Нужны role-appropriate screenshots/короткое видео, evidence manifest, наблюдённые побочные эффекты и очистка только собственных ресурсов. Исторические неизменные proof используются повторно с точной привязкой; изменённые или непокрытые границы проверяются заново. Whole-app/UI pilot и общий замер после интеграции audit1+audit2+frontend остаются у координатора.
+
+## История поддерживающих шагов
+
+Ниже сохранены состояния на момент каждого шага. Их слова «пока» и старые количества не являются текущим остатком; текущий inventory приведён выше.
+
 ## Четыре прежних источника
 
 | Источник | До первого шага | После первого шага |

@@ -1,4 +1,5 @@
 // @ts-check
+import { authoringScenario } from "../../../../scenarios/authoring.mjs";
 import { z } from "zod";
 
 /**
@@ -48,8 +49,8 @@ function initialCatalog() {
   return {
     prices: [
       {
-        productId: "c0110000-0000-4000-8000-000000000001",
-        name: "Архитектура приложения",
+        productId: authoringScenario.products.architecture.id,
+        name: authoringScenario.products.architecture.name,
         priceKopecks: 2_990_000,
         published: false,
         revision: 2,
@@ -58,7 +59,7 @@ function initialCatalog() {
     ],
     states: [
       {
-        productId: "c0110000-0000-4000-8000-000000000001",
+        productId: authoringScenario.products.architecture.id,
         name: "Первый поток",
         stage: "preorder",
         startsOn: "2027-02-01",
@@ -74,9 +75,9 @@ function initialCatalog() {
 let catalog = initialCatalog();
 /** Продукты подставной страницы «Продукты» (`content-collections-backend.mjs`). */
 const catalogProductIds = new Set([
-  "c0110000-0000-4000-8000-000000000001",
-  "c0110000-0000-4000-8000-000000000002",
-  "c0110000-0000-4000-8000-000000000003",
+  authoringScenario.products.architecture.id,
+  authoringScenario.products.database.id,
+  authoringScenario.products.legacy.id,
 ]);
 
 /** @param {Price} price */
