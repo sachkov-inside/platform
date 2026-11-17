@@ -269,3 +269,53 @@ export const TablesInComparedContent: Story = {
     await expect(canvas.getAllByRole("button")).toHaveLength(1);
   },
 };
+
+export const OrderStepTablesFollowShownOrder: Story = {
+  args: {
+    blocks: [
+      {
+        kind: "order",
+        id: "table-reading-order",
+        reveal: "none",
+        question: [
+          {
+            kind: "paragraph",
+            content: [
+              { kind: "text", text: "Расставь шаги по порядку.", marks: [] },
+            ],
+          },
+        ],
+        steps: [
+          {
+            id: "first-step",
+            content: [table(2)],
+            explanation: [
+              {
+                kind: "paragraph",
+                content: [{ kind: "text", text: "Первый шаг.", marks: [] }],
+              },
+            ],
+          },
+          {
+            id: "second-step",
+            content: [table(2)],
+            explanation: [
+              {
+                kind: "paragraph",
+                content: [{ kind: "text", text: "Второй шаг.", marks: [] }],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const regions = within(canvasElement).getAllByRole("region", {
+      name: /^Таблица /u,
+    });
+    await expect(regions).toHaveLength(2);
+    await expect(regions[0]).toHaveAccessibleName("Таблица 1 в материале");
+    await expect(regions[1]).toHaveAccessibleName("Таблица 2 в материале");
+  },
+};
