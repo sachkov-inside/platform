@@ -31,7 +31,11 @@ import {
   type ReactNode,
 } from "react";
 import { Breadcrumbs } from "@/shared/ui/breadcrumbs";
-import { readerHistoryRestoreEvent } from "@/shared/lib/reader-history";
+import {
+  readerHistoryRestoreEvent,
+  readerHistoryRoot,
+  readerHistoryRailReady,
+} from "@/shared/lib/reader-history";
 import { subscribeShellBreakpoint } from "@/shared/lib/shell-scroll";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import { useMaterialReading } from "@/entities/material";
@@ -142,7 +146,11 @@ export function CourseReadingLayout({
   }, [displayedContext, publish, supplementaryTitle]);
   if (displayedContext === null)
     return (
-      <div ref={content} className={styles["standalone"]}>
+      <div
+        ref={content}
+        className={styles["standalone"]}
+        data-reader-history-rail="none"
+      >
         {children}
       </div>
     );
@@ -367,10 +375,18 @@ export function CourseRail({
       });
     };
     window.addEventListener(readerHistoryRestoreEvent, restore);
+    const releaseReadiness =
+      variant === "rail" && rail.current !== null
+        ? readerHistoryRailReady(
+            readerHistoryRoot(rail.current),
+            context.chapters.map((chapter) => chapter.id),
+          )
+        : undefined;
     return () => {
+      releaseReadiness?.();
       window.removeEventListener(readerHistoryRestoreEvent, restore);
     };
-  }, [context.chapters, selectionKey, setSelection]);
+  }, [context.chapters, selectionKey, setSelection, variant]);
   // Reveal the current step before the host restores a reader-owned scroll position.
   useLayoutEffect(() => {
     const element = rail.current;

@@ -560,11 +560,15 @@ export const CourseLoadsInPlaceMobile: Story = {
 
 /** The existing Material store supplies known read/unread values and announces changed values to related links. */
 function RelatedProgressTask(
-  props: ProductTaskViewProps & { readonly unknown?: boolean },
+  props: ProductTaskViewProps & {
+    readonly unknown?: boolean;
+    readonly pending?: boolean;
+  },
 ) {
   const [readSecond, setReadSecond] = useState(false);
+  const [pending, setPending] = useState(props.pending === true);
   const states = new Map(
-    props.unknown === true
+    props.unknown === true || pending
       ? []
       : props.page.relatedMaterials.map((material, index) => [
           material.materialId,
@@ -588,6 +592,7 @@ function RelatedProgressTask(
           type="button"
           onClick={() => {
             setReadSecond(true);
+            setPending(false);
           }}
         >
           Обновить прогресс
@@ -957,5 +962,29 @@ export const RevokedWithSavedHistory: Story = {
     await expect(
       canvas.queryByRole("button", { name: "Отправить сдачу" }),
     ).not.toBeInTheDocument();
+  },
+};
+
+export const RelatedMaterialsProgressPending: Story = {
+  render: (args) => <RelatedProgressTask {...args} pending />,
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    const links = canvasElement.querySelectorAll(
+      "[data-task-related-material]",
+    );
+    await expect(links).toHaveLength(2);
+    for (const link of links)
+      await expect(link).toHaveAttribute("aria-busy", "true");
+    await expect(
+      page.getAllByText("Прогресс уточняется", { exact: true }),
+    ).toHaveLength(2);
+    await userEvent.click(
+      page.getByRole("button", { name: "Обновить прогресс" }),
+    );
+    for (const link of links)
+      await expect(link).toHaveAttribute("aria-busy", "false");
+    await expect(
+      page.queryByText("Прогресс уточняется", { exact: true }),
+    ).toBeNull();
   },
 };

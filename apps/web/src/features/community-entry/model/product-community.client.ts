@@ -1,7 +1,7 @@
 "use client";
-import { useEffect } from "react";
 import { factAnnouncement } from "@/shared/api/fact-announcement";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { useAnnouncedRefresh } from "@/shared/api/use-announced-refresh.client";
 import { readBillingEndpoint } from "@/entities/subscription";
 import { productCommunityQueryKey } from "./product-community-key";
 import { communityEntrySchema } from "./community-entry";
@@ -16,16 +16,10 @@ export function useProductCommunityEntry(
   accountId: string | null,
   enabled: boolean,
 ) {
-  const client = useQueryClient();
-  useEffect(
-    () =>
-      productCommunityChanged.subscribe(() => {
-        void client.invalidateQueries({
-          queryKey: ["account", "product-community"],
-        });
-      }),
-    [client],
-  );
+  useAnnouncedRefresh(productCommunityChanged, [
+    "account",
+    "product-community",
+  ]);
   return useQuery({
     queryKey: productCommunityQueryKey(accountId, productId),
     queryFn: () =>

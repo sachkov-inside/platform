@@ -1,4 +1,5 @@
 import type { ChildProcess } from "node:child_process";
+import { readFile } from "node:fs/promises";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import {
@@ -11,7 +12,13 @@ import { createServer, type ViteDevServer } from "vite";
 import { z } from "zod";
 import { spawnOwned, stopOwned } from "../../../../scripts/owned-process.mjs";
 
-const fixtureName = z.enum(["term-deck", "body-fragments", "course-film"]);
+const fixtureName = z.enum([
+  "term-deck",
+  "body-fragments",
+  "reader-history",
+  "cabinet-facts",
+  "course-film",
+]);
 const budget = z.number().int().positive().max(30_000);
 const configuration = z.object({
   name: fixtureName,
@@ -234,11 +241,41 @@ async function runHost(config: Configuration) {
   process.once("SIGTERM", stop);
   process.once("SIGINT", stop);
   try {
+    const historyPage =
+      config.name === "reader-history"
+        ? await readFile(
+            new URL("./reader-history.html", import.meta.url),
+            "utf8",
+          )
+        : undefined;
     server = await createServer({
       configFile: false,
+      plugins:
+        historyPage === undefined
+          ? []
+          : [
+              {
+                name: "reader-history-pages",
+                configureServer(vite) {
+                  vite.middlewares.use((request, response, next) => {
+                    if (
+                      request.url?.startsWith("/materials/") !== true &&
+                      request.url?.startsWith("/products/") !== true
+                    ) {
+                      next();
+                      return;
+                    }
+                    response.setHeader("content-type", "text/html");
+                    response.end(historyPage);
+                  });
+                },
+              },
+            ],
       root: webRoot,
       cacheDir: `node_modules/.cache/${config.name}-browser`,
-      ...(config.name === "body-fragments" || config.name === "course-film"
+      ...(config.name === "body-fragments" ||
+      config.name === "cabinet-facts" ||
+      config.name === "course-film"
         ? { define: { "process.env": "{}" } }
         : {}),
       resolve: {
