@@ -1,4 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { cookies } from "next/headers";
+import { describe, expect, it } from "vitest";
+import { realBffSession } from "../support/real-bff-session";
 import { z } from "zod";
 
 import {
@@ -19,16 +21,6 @@ const embeddedRuntimeIdentity = {
   release: "v7",
   sourceSha: "7".repeat(40),
 } as const;
-const cookieSet = vi.hoisted(() => vi.fn());
-
-vi.mock("@logto/next/server-actions", () => ({
-  getAccessToken: vi.fn(),
-}));
-
-vi.mock("next/headers", () => ({
-  cookies: vi.fn(() => Promise.resolve({ set: cookieSet })),
-}));
-
 describe("Logto BFF configuration", () => {
   it("pins one issuer, callback, audience and secure cookie boundary", () => {
     const config = parseLogtoBffConfig(
@@ -175,9 +167,17 @@ describe("Logto BFF configuration", () => {
   });
 
   it("clears the provider cookie through one security definition", async () => {
-    await clearLogtoSessionCookie({ appId: "inside-web", cookieSecure: true });
-
-    expect(cookieSet).toHaveBeenCalledWith("logto_inside-web", "", {
+    const scope = await realBffSession();
+    const cookie = await scope(async () => {
+      await clearLogtoSessionCookie({
+        appId: "inside-web",
+        cookieSecure: true,
+      });
+      return (await cookies()).get("logto_inside-web");
+    });
+    expect(cookie).toEqual({
+      name: "logto_inside-web",
+      value: "",
       httpOnly: true,
       path: "/",
       sameSite: "lax",
