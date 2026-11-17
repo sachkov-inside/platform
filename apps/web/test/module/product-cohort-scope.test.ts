@@ -1,19 +1,15 @@
-import { beforeEach, expect, it, vi } from "vitest";
+import { beforeEach, expect, it } from "vitest";
 
-const fakes = vi.hoisted(() => ({ cohorts: vi.fn() }));
-vi.mock("@/shared/api/backend/index.server", () => ({
-  requestProductSalesStates: fakes.cohorts,
-}));
-vi.mock("@/shared/auth/index.server", () => ({
-  getOptionalPlatformAccessToken: vi.fn(),
-}));
+import { catalogBackend } from "../support/catalog-backend";
+let catalog: ReturnType<typeof catalogBackend>;
+
 import {
   loadProductSalesState,
   loadProductSalesStates,
 } from "@/entities/subscription/api/billing-catalog.server";
 
 beforeEach(() => {
-  fakes.cohorts.mockReset();
+  catalog = catalogBackend();
 });
 
 it("requests the scoped cohort even when its Product is after the global hundred-row cap", async () => {
@@ -27,18 +23,28 @@ it("requests the scoped cohort even when its Product is after the global hundred
     nextEvent: "Launch",
     priceAfterStartKopecks: null,
   };
-  fakes.cohorts.mockImplementation((scope?: string) =>
-    Promise.resolve({
-      ok: true,
-      body: { items: scope === productId ? [cohort] : [], nextCursor: null },
-      response: new Response(),
-    }),
+  catalog.sales.mockImplementation((request) =>
+    Promise.resolve(
+      Response.json({
+        items:
+          new URL(request.url).searchParams.get("productId") === productId
+            ? [cohort]
+            : [],
+        nextCursor: null,
+      }),
+    ),
   );
+
   await expect(loadProductSalesState(productId)).resolves.toEqual({
     kind: "ready",
     cohort,
   });
-  expect(fakes.cohorts).toHaveBeenCalledWith(productId);
+  expect(catalog.sales).toHaveBeenCalledOnce();
+  expect(
+    new URL(catalog.sales.mock.calls[0]?.[0].url ?? "").searchParams.get(
+      "productId",
+    ),
+  ).toBe(productId);
 });
 
 it("completes the owner cohort list through the bounded continuation", async () => {
@@ -52,38 +58,38 @@ it("completes the owner cohort list through the bounded continuation", async () 
     startsOn: "2026-11-01",
     nextEvent: "Launch",
   });
-  fakes.cohorts
-    .mockResolvedValueOnce({
-      ok: true,
-      body: {
+  catalog.sales
+    .mockResolvedValueOnce(
+      Response.json({
         items: Array.from({ length: 100 }, (_, index) => cohort(index + 1)),
         nextCursor: id(100),
-      },
-    })
-    .mockResolvedValueOnce({
-      ok: true,
-      body: { items: [cohort(101)], nextCursor: null },
-    });
+      }),
+    )
+    .mockResolvedValueOnce(
+      Response.json({ items: [cohort(101)], nextCursor: null }),
+    );
   const result = await loadProductSalesStates();
   expect(result.kind).toBe("ready");
   if (result.kind !== "ready") throw new Error("Expected complete list");
   expect(result.cohorts).toHaveLength(101);
   expect(result.cohorts.at(-1)?.productId).toBe(id(101));
-  expect(fakes.cohorts).toHaveBeenLastCalledWith(undefined, id(100));
+  const last = catalog.sales.mock.calls.at(-1)?.[0];
+  expect(new URL(last?.url ?? "").searchParams.get("cursor")).toBe(id(100));
+  expect(new URL(last?.url ?? "").searchParams.has("productId")).toBe(false);
+  expect(catalog.sales).toHaveBeenCalledTimes(2);
 });
 
 it("rejects a global page missing its exhaustion or continuation field", async () => {
-  fakes.cohorts.mockResolvedValue({ ok: true, body: { items: [] } });
+  catalog.sales.mockResolvedValueOnce(Response.json({ items: [] }));
   await expect(loadProductSalesStates()).resolves.toEqual({
     kind: "unavailable",
   });
 });
 
 it("accepts explicit null as exhausted global cohort history", async () => {
-  fakes.cohorts.mockResolvedValue({
-    ok: true,
-    body: { items: [], nextCursor: null },
-  });
+  catalog.sales.mockResolvedValueOnce(
+    Response.json({ items: [], nextCursor: null }),
+  );
   await expect(loadProductSalesStates()).resolves.toEqual({
     kind: "ready",
     cohorts: [],

@@ -1,45 +1,45 @@
-import { productIdFromCapability } from "@inside/access-capabilities";
-import { beforeEach, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  expect,
+  it,
+  vi,
+  type MockInstance,
+} from "vitest";
 import { productWithSupportOffer } from "@/storybook/billing.fixtures";
 
-const boundary = vi.hoisted(() => ({
-  offers: vi.fn(),
-  cohorts: vi.fn(),
-  access: vi.fn(),
-  session: vi.fn(),
-}));
-vi.mock("server-only", () => ({}));
-vi.mock("next/cache", () => ({
-  cacheLife: vi.fn(),
-  cacheTag: vi.fn(),
-  revalidateTag: vi.fn(),
-}));
-vi.mock("@/shared/api/backend/index.server", () => ({
-  requestBillingOffers: boundary.offers,
-  requestProductSalesStates: boundary.cohorts,
-  requestProductAccess: boundary.access,
-}));
-vi.mock("@/shared/auth/index.server", () => ({
-  getOptionalPlatformAccessToken: boundary.session,
-}));
+import * as optionalSession from "@/shared/auth/optional-platform-access-token.server";
+let sessionReads: MockInstance<
+  typeof optionalSession.getOptionalPlatformAccessToken
+>;
+import { catalogBackend } from "../support/catalog-backend";
+let catalog: ReturnType<typeof catalogBackend>;
 
 import {
   readGuestProductSale,
   readViewerProductSale,
 } from "@/entities/subscription.sale.server";
 
-const capability = productWithSupportOffer.offer.benefits[0];
-const productId =
-  capability === undefined ? "" : (productIdFromCapability(capability) ?? "");
-const ok = (body: unknown) => ({ ok: true, body });
+const productId = productWithSupportOffer.product?.id;
+if (productId === undefined)
+  throw new Error("Missing canonical offered product");
+const ok = (body: unknown) => Response.json(body);
 beforeEach(() => {
-  vi.resetAllMocks();
-  boundary.offers.mockResolvedValue(
-    ok({ items: [productWithSupportOffer], nextCursor: null }),
+  catalog = catalogBackend();
+  catalog.prices.mockImplementation(() =>
+    Promise.resolve(ok({ items: [productWithSupportOffer], nextCursor: null })),
   );
-  boundary.cohorts.mockResolvedValue(ok({ items: [], nextCursor: null }));
-  boundary.access.mockResolvedValue(ok({ access: "open" }));
-  boundary.session.mockRejectedValue(new Error("Session must not be read"));
+  catalog.sales.mockImplementation(() =>
+    Promise.resolve(ok({ items: [], nextCursor: null })),
+  );
+  catalog.access.mockImplementation(() =>
+    Promise.resolve(ok({ access: "open" })),
+  );
+  sessionReads = vi.spyOn(optionalSession, "getOptionalPlatformAccessToken");
+});
+
+afterEach(() => {
+  expect(sessionReads).not.toHaveBeenCalled();
 });
 
 it("reads a guest sale without a session or a personal access request", async () => {
@@ -52,12 +52,9 @@ it("reads a guest sale without a session or a personal access request", async ()
     signedIn: false,
     terms: { materialsMonths: null, chatMonths: null, supportMonths: 3 },
   });
-  expect(boundary.offers).toHaveBeenCalledWith(
-    { productId, limit: 50 },
-    undefined,
-  );
-  expect(boundary.session).not.toHaveBeenCalled();
-  expect(boundary.access).not.toHaveBeenCalled();
+  expectPricesRequest(0);
+  expect(sessionReads).not.toHaveBeenCalled();
+  expect(catalog.access).not.toHaveBeenCalled();
 });
 
 it("passes the explicit viewer identity and keeps personal access out of the guest answer", async () => {
@@ -66,16 +63,20 @@ it("passes the explicit viewer identity and keeps personal access out of the gue
     access: "open",
     signedIn: true,
   });
-  expect(boundary.offers).toHaveBeenCalledWith(
-    { productId, limit: 50 },
-    "viewer-token",
+  expectPricesRequest(0, "viewer-token");
+  const accessRequest = catalog.access.mock.calls[0]?.[0];
+  expect(accessRequest?.url).toBe(
+    `https://platform-api.example.test/accounts/current/products/${productId}/access`,
   );
-  expect(boundary.access).toHaveBeenCalledWith(productId, "viewer-token");
+  expect(accessRequest?.headers.get("authorization")).toBe(
+    "Bearer viewer-token",
+  );
   expect(await readGuestProductSale(productId)).toMatchObject({
     access: "closed",
     signedIn: false,
   });
-  expect(boundary.session).not.toHaveBeenCalled();
+  expectPricesRequest(catalog.prices.mock.calls.length - 1);
+  expect(sessionReads).not.toHaveBeenCalled();
 });
 
 it.each([
@@ -91,11 +92,21 @@ it.each([
 ] as const)(
   "reports %s without inventing a stage or access",
   async (_name, offers, cohortKnown, access, sold) => {
-    boundary.offers.mockResolvedValue(ok({ items: offers, nextCursor: null }));
-    if (!cohortKnown) boundary.cohorts.mockResolvedValue({ ok: false });
-    if (access === "unknown") boundary.access.mockResolvedValue({ ok: false });
+    catalog.prices.mockImplementation(() =>
+      Promise.resolve(ok({ items: offers, nextCursor: null })),
+    );
+    if (!cohortKnown)
+      catalog.sales.mockImplementation(() =>
+        Promise.resolve(new Response(null, { status: 503 })),
+      );
+    if (access === "unknown")
+      catalog.access.mockImplementation(() =>
+        Promise.resolve(new Response(null, { status: 503 })),
+      );
     if (access === "closed")
-      boundary.access.mockResolvedValue(ok({ access: "closed" }));
+      catalog.access.mockImplementation(() =>
+        Promise.resolve(ok({ access: "closed" })),
+      );
     expect(
       await readViewerProductSale(productId, "viewer-token"),
     ).toMatchObject({
@@ -116,8 +127,10 @@ it("keeps subscriptions for a product and orders all payment variants by price",
       mode: "subscription",
     },
   };
-  boundary.offers.mockResolvedValue(
-    ok({ items: [productWithSupportOffer, subscription], nextCursor: null }),
+  catalog.prices.mockImplementation(() =>
+    Promise.resolve(
+      ok({ items: [productWithSupportOffer, subscription], nextCursor: null }),
+    ),
   );
   expect(await readViewerProductSale(productId, "invited-token")).toMatchObject(
     {
@@ -128,7 +141,9 @@ it("keeps subscriptions for a product and orders all payment variants by price",
 });
 
 it("reports a catalog failure instead of an unsold product", async () => {
-  boundary.offers.mockResolvedValue({ ok: false });
+  catalog.prices.mockImplementation(() =>
+    Promise.resolve(new Response(null, { status: 503 })),
+  );
   expect(await readGuestProductSale(productId)).toEqual({
     kind: "unavailable",
   });
@@ -142,17 +157,14 @@ it("caches only the guest terms after a personal sale read", async () => {
     kind: "ready",
     terms: { materialsMonths: null, chatMonths: null, supportMonths: 3 },
   });
-  expect(boundary.offers).toHaveBeenLastCalledWith(
-    { productId, limit: 50 },
-    undefined,
-  );
-  expect(boundary.session).not.toHaveBeenCalled();
+  expectPricesRequest(catalog.prices.mock.calls.length - 1);
+  expect(sessionReads).not.toHaveBeenCalled();
 });
 
 it("orders offers across catalog pages rather than truncating the guest terms", async () => {
   const cheaper = { ...productWithSupportOffer, firstPriceKopecks: 10_000 };
   const cursor = "00000000-0000-4000-8000-000000000001";
-  boundary.offers
+  catalog.prices
     .mockResolvedValueOnce(
       ok({ items: [productWithSupportOffer], nextCursor: cursor }),
     )
@@ -174,8 +186,8 @@ it.each(["announcement", "preorder", "running", "between"] as const)(
       startsOn: null,
       nextEvent: "Next lesson",
     };
-    boundary.cohorts.mockResolvedValue(
-      ok({ items: [cohort], nextCursor: null }),
+    catalog.sales.mockImplementation(() =>
+      Promise.resolve(ok({ items: [cohort], nextCursor: null })),
     );
     expect(await readGuestProductSale(productId)).toMatchObject({
       kind: "ready",
@@ -186,13 +198,32 @@ it.each(["announcement", "preorder", "running", "between"] as const)(
 );
 
 it("reports an incomplete catalog as unavailable rather than publishing partial terms", async () => {
-  boundary.offers.mockResolvedValue(
-    ok({
-      items: [productWithSupportOffer],
-      nextCursor: "00000000-0000-4000-8000-000000000001",
-    }),
+  catalog.prices.mockImplementation(() =>
+    Promise.resolve(
+      ok({
+        items: [productWithSupportOffer],
+        nextCursor: "00000000-0000-4000-8000-000000000001",
+      }),
+    ),
   );
   expect(await readGuestProductSale(productId)).toEqual({
     kind: "unavailable",
   });
 });
+
+function expectPricesRequest(index: number, token?: string) {
+  const request = catalog.prices.mock.calls[index]?.[0];
+  if (request === undefined)
+    throw new Error("Expected catalogue price request");
+  const url = new URL(request.url);
+  expect(url.origin + url.pathname).toBe(
+    "https://platform-api.example.test/billing/product-prices",
+  );
+  expect(Object.fromEntries(url.searchParams)).toEqual({
+    productId,
+    limit: "50",
+  });
+  expect(request.headers.get("authorization")).toBe(
+    token === undefined ? null : `Bearer ${token}`,
+  );
+}

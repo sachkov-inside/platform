@@ -1,28 +1,17 @@
-import { beforeEach, expect, it, vi } from "vitest";
+import { beforeEach, expect, it } from "vitest";
 import { productWithSupportOffer } from "@/storybook/billing.fixtures";
 
-const boundary = vi.hoisted(() => ({
-  offers: vi.fn(),
-  cohorts: vi.fn(),
-  access: vi.fn(),
-}));
-vi.mock("@/shared/api/backend/index.server", () => ({
-  requestBillingOffers: boundary.offers,
-  requestProductSalesStates: boundary.cohorts,
-  requestProductAccess: boundary.access,
-}));
-vi.mock("@/shared/auth/index.server", () => ({
-  getOptionalPlatformAccessToken: vi.fn(),
-}));
+import { catalogBackend } from "../support/catalog-backend";
+let catalog: ReturnType<typeof catalogBackend>;
+
 import { readPublicProductOfferTerms } from "@/features/billing-checkout.terms.server";
 
 const productId = "00000000-0000-4000-8000-000000000f01";
 beforeEach(() => {
-  vi.resetAllMocks();
-  boundary.cohorts.mockResolvedValue({
-    ok: true,
-    body: { items: [], nextCursor: null },
-  });
+  catalog = catalogBackend();
+  catalog.sales.mockImplementation(() =>
+    Promise.resolve(Response.json({ items: [], nextCursor: null })),
+  );
 });
 
 it("reads only the public cheapest-offer terms; cohort and private access cannot change those terms", async () => {
@@ -34,26 +23,35 @@ it("reads only the public cheapest-offer terms; cohort and private access cannot
       benefitPeriods: [{ capability: "support", months: 12 }],
     },
   };
-  boundary.offers.mockResolvedValue({
-    ok: true,
-    body: { items: [expensive, productWithSupportOffer], nextCursor: null },
-  });
+  catalog.prices.mockResolvedValueOnce(
+    Response.json({
+      items: [expensive, productWithSupportOffer],
+      nextCursor: null,
+    }),
+  );
   await expect(readPublicProductOfferTerms(productId)).resolves.toEqual({
     kind: "ready",
     terms: { materialsMonths: null, chatMonths: null, supportMonths: 3 },
   });
-  expect(boundary.offers).toHaveBeenCalledExactlyOnceWith(
-    { productId, limit: 50 },
-    undefined,
+  expect(catalog.prices).toHaveBeenCalledOnce();
+  const sent = catalog.prices.mock.calls[0]?.[0];
+  const url = new URL(sent?.url ?? "");
+  expect(url.origin + url.pathname).toBe(
+    "https://platform-api.example.test/billing/product-prices",
   );
-  expect(boundary.cohorts).not.toHaveBeenCalled();
-  expect(boundary.access).not.toHaveBeenCalled();
+  expect([...url.searchParams.entries()].sort()).toEqual([
+    ["limit", "50"],
+    ["productId", "00000000-0000-4000-8000-000000000f01"],
+  ]);
+  expect(sent?.headers.has("authorization")).toBe(false);
+  expect(catalog.sales).not.toHaveBeenCalled();
+  expect(catalog.access).not.toHaveBeenCalled();
 });
 
 it("keeps an exhausted empty sale distinct from an unavailable catalogue", async () => {
-  boundary.offers
-    .mockResolvedValueOnce({ ok: true, body: { items: [], nextCursor: null } })
-    .mockResolvedValueOnce({ ok: false });
+  catalog.prices
+    .mockResolvedValueOnce(Response.json({ items: [], nextCursor: null }))
+    .mockResolvedValueOnce(new Response(null, { status: 503 }));
   await expect(readPublicProductOfferTerms(productId)).resolves.toEqual({
     kind: "ready",
     terms: null,
@@ -61,5 +59,5 @@ it("keeps an exhausted empty sale distinct from an unavailable catalogue", async
   await expect(readPublicProductOfferTerms(productId)).resolves.toEqual({
     kind: "unavailable",
   });
-  expect(boundary.cohorts).not.toHaveBeenCalled();
+  expect(catalog.sales).not.toHaveBeenCalled();
 });
