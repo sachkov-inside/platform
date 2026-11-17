@@ -1,31 +1,34 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as auth from "@/shared/auth/index.server";
+import { realBffSession } from "../support/real-bff-session";
+import {
+  interceptBackendHttp,
+  expectSingleBackendRequest,
+} from "../support/backend-http";
+const backend = vi.fn<(request: Request) => Promise<Response>>();
+let scope: Awaited<ReturnType<typeof realBffSession>>;
+import { proxyProductTaskAssetDelivery as realProxyProductTaskAssetDelivery } from "@/_pages/product-task/api/task-assets-bff.server";
 
-const fakes = vi.hoisted(() => ({ token: vi.fn(), deliver: vi.fn() }));
-vi.mock("@/shared/auth/index.server", () => ({
-  getOptionalPlatformAccessToken: fakes.token,
-}));
-vi.mock("@/shared/api/backend/index.server", async () => {
-  const responses =
-    await import("@/shared/api/backend/backend-proxy-response.server");
-  const edge =
-    await import("@/shared/api/backend/storage-edge-delivery.server");
-  return {
-    ...responses,
-    isStorageEdgeRequest: edge.isStorageEdgeRequest,
-    requestProductTaskAssetDelivery: fakes.deliver,
-  };
+const proxyProductTaskAssetDelivery = (
+  ...args: Parameters<typeof realProxyProductTaskAssetDelivery>
+) =>
+  scope(() => {
+    if (scope.cookieHeader !== null)
+      args[0].headers.set("cookie", scope.cookieHeader);
+    return realProxyProductTaskAssetDelivery(...args);
+  });
+beforeEach(async () => {
+  backend.mockReset();
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-16T10:00:00Z"));
+  scope = await realBffSession("viewer-token");
+  interceptBackendHttp(backend);
 });
-
-import { proxyProductTaskAssetDelivery } from "@/_pages/product-task/api/task-assets-bff.server";
-
-beforeEach(() => {
-  vi.clearAllMocks();
-});
+afterEach(() => vi.useRealTimers());
 
 describe("Task asset delivery BFF (#1194)", () => {
   it("forwards the viewer token and preserves the authorized redirect without caching", async () => {
-    fakes.token.mockResolvedValue("viewer-token");
-    fakes.deliver.mockResolvedValue(
+    backend.mockResolvedValue(
       new Response(null, {
         status: 302,
         headers: {
@@ -40,14 +43,13 @@ describe("Task asset delivery BFF (#1194)", () => {
       ),
       { productSlug: "course", code: "task", assetId: "asset" },
     );
-    expect(fakes.deliver).toHaveBeenCalledWith(
-      expect.objectContaining({
-        accessToken: "viewer-token",
-        productSlug: "course",
-        code: "task",
-        assetId: "asset",
-      }),
+    const outgoing = expectSingleBackendRequest(
+      backend,
+      "GET",
+      "/library/products/course/tasks/task/assets/asset",
+      "viewer-token",
     );
+    expect(outgoing.redirect).toBe("manual");
     expect(response.status).toBe(302);
     expect(response.headers.get("location")).toBe(
       "https://assets.example.test/signed",
@@ -56,8 +58,8 @@ describe("Task asset delivery BFF (#1194)", () => {
   });
 
   it("keeps a refused Task asset delivery refused", async () => {
-    fakes.token.mockResolvedValue(undefined);
-    fakes.deliver.mockResolvedValue(
+    scope = await realBffSession(null);
+    backend.mockResolvedValue(
       new Response(JSON.stringify({ code: "asset_not_found" }), {
         status: 404,
       }),
@@ -69,11 +71,16 @@ describe("Task asset delivery BFF (#1194)", () => {
       { productSlug: "course", code: "task", assetId: "asset" },
     );
     expect(response.status).toBe(404);
+    expectSingleBackendRequest(
+      backend,
+      "GET",
+      "/library/products/course/tasks/task/assets/asset",
+      null,
+    );
     expect(await response.json()).toEqual({ code: "asset_not_found" });
   });
   it("forwards an image width without changing the viewer or private redirect", async () => {
-    fakes.token.mockResolvedValue("viewer-token");
-    fakes.deliver.mockResolvedValue(
+    backend.mockResolvedValue(
       new Response(null, {
         status: 302,
         headers: {
@@ -88,12 +95,14 @@ describe("Task asset delivery BFF (#1194)", () => {
       ),
       { productSlug: "course", code: "task", assetId: "asset" },
     );
-    expect(fakes.deliver).toHaveBeenCalledWith(
-      expect.objectContaining({
-        variantWidth: 480,
-        accessToken: "viewer-token",
-      }),
-    );
+    expect(
+      expectSingleBackendRequest(
+        backend,
+        "GET",
+        "/library/products/course/tasks/task/assets/asset?width=480",
+        "viewer-token",
+      ).redirect,
+    ).toBe("manual");
     expect(response.status).toBe(302);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
   });
@@ -101,6 +110,7 @@ describe("Task asset delivery BFF (#1194)", () => {
   it.each(["0", "-1", "NaN", "1.5", "10000", "", "480x", "0x1e0"])(
     "rejects malformed width %s before session/backend work",
     async (width) => {
+      const tokenReads = vi.spyOn(auth, "getOptionalPlatformAccessToken");
       const response = await proxyProductTaskAssetDelivery(
         new Request(
           `https://inside.example.test/api/products/course/tasks/task/assets/asset?width=${width}`,
@@ -108,8 +118,8 @@ describe("Task asset delivery BFF (#1194)", () => {
         { productSlug: "course", code: "task", assetId: "asset" },
       );
       expect(response.status).toBe(404);
-      expect(fakes.token).not.toHaveBeenCalled();
-      expect(fakes.deliver).not.toHaveBeenCalled();
+      expect(tokenReads).not.toHaveBeenCalled();
+      expect(backend).not.toHaveBeenCalled();
     },
   );
 });
