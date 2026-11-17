@@ -67,7 +67,7 @@ for (const name of ["term-deck", "reader-history"] as const)
           throw new Error("Missing SDK launch failure");
         expect(failure.message).toContain("Timeout 1000ms exceeded");
         expect(failure.message).toContain(executable);
-        // The pinned SDK records acquisition before the executable can write its own marker (#2349).
+        // The pinned SDK identifies the acquired process independently of its marker (#2349).
         const launched = /<launched> pid=(\d+)/u.exec(failure.message);
         pid = z.coerce.number().int().positive().parse(launched?.[1]);
         expect(isRunning(pid)).toBe(false);
