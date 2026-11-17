@@ -12,9 +12,9 @@ import {
 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 
-import { keepShellScrollAcrossBreakpoint } from "@/shared/lib/shell-scroll";
+import { mountApplicationShell } from "./application-shell.browser";
 import { cn } from "@/shared/lib/utils";
 import { InsideBrand } from "./inside-brand";
 import { PublicFooter } from "./public-footer";
@@ -59,8 +59,6 @@ export function ApplicationShell({
   mobileNavigationItems,
   onMobileNavigate,
 }: ApplicationShellProps) {
-  const content = useRef<HTMLElement>(null);
-  useEffect(() => keepShellScrollAcrossBreakpoint(content.current), []);
   return (
     <div
       className="flex min-h-svh flex-col bg-background text-foreground lg:h-svh lg:overflow-hidden"
@@ -111,7 +109,7 @@ export function ApplicationShell({
         onNavigate={onMobileNavigate}
       />
       <main
-        ref={content}
+        ref={mountApplicationShell}
         id="app:content"
         data-application-content
         tabIndex={-1}
@@ -175,20 +173,6 @@ function MobileTopNavigation({
   readonly accountSlot?: ReactNode;
   readonly onNavigate?: ((href: Route) => void) | undefined;
 }) {
-  const [hidden, setHidden] = useState(false);
-  useEffect(() => {
-    let previous = window.scrollY;
-    const onScroll = () => {
-      const current = Math.max(0, window.scrollY);
-      if (Math.abs(current - previous) < 4) return;
-      setHidden(current > 56 && current > previous);
-      previous = current;
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-    };
-  }, []);
   const home = items.find((item) => item.icon === "home");
   const sections = items.filter(
     (item) =>
@@ -203,13 +187,7 @@ function MobileTopNavigation({
         };
   return (
     <header
-      className={cn(
-        "mobile-navigation sticky top-0 z-40 border-b border-border bg-background/92 pt-[env(safe-area-inset-top)] backdrop-blur-xl lg:hidden motion-safe:transition-transform motion-safe:duration-200 focus-within:translate-y-0",
-        hidden && "-translate-y-full",
-      )}
-      onFocusCapture={() => {
-        setHidden(false);
-      }}
+      className="mobile-navigation sticky top-0 z-40 border-b border-border bg-background/92 pt-[env(safe-area-inset-top)] backdrop-blur-xl lg:hidden motion-safe:transition-transform motion-safe:duration-200 data-[scroll-hidden]:not-focus-within:-translate-y-full focus-within:translate-y-0"
       data-mobile-header
     >
       <div className="public-page-container mx-auto flex min-h-14 flex-wrap items-center justify-between gap-x-3">
