@@ -322,6 +322,7 @@ beforeEach(async () => {
   codeNonces.clear();
   accountMode = "ready";
   authoringAllowed = true;
+  jwksRequests.length = 0;
   identityRequests.length = 0;
   backendRequests.length = 0;
   tokenForms.length = 0;
