@@ -133,8 +133,10 @@ a link. Other comments that remain:
 - a link to the issue or decision whose constraint the code cannot express;
 - a tool directive with its reason.
 
-Review applies this to the lines a change adds. No check enforces it, and existing comments wait
-for their own cleanup task (owner decision, 2026-11-16).
+Review applies this to added lines. While changing a module, gradually move its existing invariants
+into tests or types and retain short reasons or source links. No check enforces comment shape;
+unrelated comments wait for their own cleanup task
+([owner decision, 2026-11-16](https://github.com/sachkov-inside/platform/issues/2244)).
 
 ## Text that describes the system
 

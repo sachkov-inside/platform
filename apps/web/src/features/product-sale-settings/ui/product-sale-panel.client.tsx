@@ -12,6 +12,7 @@ import {
   type ProductSalesState,
 } from "@/entities/subscription";
 import { formatRubles, parseRublesInput } from "@/shared/lib/moscow-format";
+import { refreshAnnouncedQueries } from "@/shared/api/announced-query-refresh";
 import { useRepeatableOperations } from "@/shared/lib/repeatable-operations.client";
 import {
   AdminRowMenu,
@@ -29,7 +30,6 @@ import {
   deriveSaleStatus,
   priceBounds,
   priceCommand,
-  productSaleQueryKey,
   saleFailureMessage,
   salesStageLabels,
   salesStateCommand,
@@ -39,7 +39,10 @@ import {
   type SalesStateDraft,
   type SalesStateErrors,
 } from "../model/product-sale";
-import { productSaleChanged } from "../model/product-sale-events";
+import {
+  productSaleChanged,
+  productSaleQueryRoot,
+} from "../model/product-sale-events";
 import { useProductSale } from "../model/use-product-sale.client";
 import { SaleConfirmDialog } from "./sale-confirm-dialog.client";
 
@@ -93,10 +96,10 @@ export function ProductSalePanel({
     setFailure(null);
     setNotice(done);
     setDialog(null);
-    void cache.invalidateQueries({ queryKey: productSaleQueryKey(productId) });
     // Остальные поверхности браузера перечитывают продажу по объявлению. Новая ревизия цены
     // меняет каталог цен: выбор цены для ссылки и скидки, колонку продажи и состояние ссылок.
-    productSaleChanged.announce();
+    const announcementId = productSaleChanged.announce();
+    void refreshAnnouncedQueries(cache, productSaleQueryRoot, announcementId);
     if (slot !== "state") ownerPriceCatalogChanged.announce();
     return true;
   };
