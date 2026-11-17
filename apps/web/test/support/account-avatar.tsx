@@ -76,7 +76,10 @@ function App() {
     } else {
       select(new File(["invalid"], "wrong.txt", { type: "text/plain" }));
     }
-    setReceipt(resourceState());
+    const immediate = resourceState();
+    flushSync(() => {
+      setReceipt(immediate);
+    });
   }
 
   return (
@@ -89,7 +92,10 @@ function App() {
           flushSync(() => {
             setVisible(false);
           });
-          setReceipt(resourceState());
+          const immediate = resourceState();
+          flushSync(() => {
+            setReceipt(immediate);
+          });
         }}
       >
         Скрыть страницу
@@ -110,7 +116,10 @@ function App() {
           flushSync(() => {
             setMounted(false);
           });
-          setReceipt(resourceState());
+          const immediate = resourceState();
+          flushSync(() => {
+            setReceipt(immediate);
+          });
         }}
       >
         Уйти со страницы
