@@ -1,9 +1,9 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 import { BillingReadError } from "@/entities/subscription";
+import { useAnnouncedRefresh } from "@/shared/api/use-announced-refresh.client";
 
 import { readOwnerProductPriceOperation } from "../api/read-owner-product-price.operation";
 import { readProductSalesStates } from "../api/product-sales-states.browser";
@@ -59,15 +59,5 @@ export function useProductSale(productId: string) {
 
 /** Подписка поверхности на записи продажи: сбрасывает все ключи `["product-sale", …]`. */
 export function useProductSaleAnnouncements() {
-  const queryClient = useQueryClient();
-  useEffect(
-    () =>
-      productSaleChanged.subscribe(() => {
-        void queryClient.invalidateQueries(
-          { queryKey: productSaleQueryRoot },
-          { cancelRefetch: false },
-        );
-      }),
-    [queryClient],
-  );
+  useAnnouncedRefresh(productSaleChanged, productSaleQueryRoot);
 }
