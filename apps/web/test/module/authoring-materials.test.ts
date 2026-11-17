@@ -1,19 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
-
-const session = vi.hoisted(() => ({ accessToken: vi.fn() }));
-vi.mock("@/shared/auth/session-adapter.server", () => ({
-  LogtoSessionUnavailableError: class extends Error {},
-  sessionAdapter: { accessToken: session.accessToken },
-}));
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   handleAuthoringMaterialFiltersRequest,
   materialFilterOptions,
 } from "@/_pages/authoring-materials/api/authoring-material-filters-route.server";
-import {
-  getAuthoringMaterials,
-  type AuthoringMaterialsDependencies,
-} from "@/_pages/authoring-materials/api/get-authoring-materials";
+import { getAuthoringMaterials } from "@/_pages/authoring-materials/api/get-authoring-materials";
 import type {
   AuthoringMaterialFilterOptions,
   AuthoringMaterialListItem,
@@ -44,11 +35,76 @@ import {
   parseAuthoringReturnHref,
   withAuthoringReturnHref,
 } from "@/shared/routing/authoring";
-import { BackendConnectionError } from "@/shared/api/backend/index.server";
+import { realBffSession } from "../support/real-bff-session";
+import { interceptBackendHttp } from "../support/backend-http";
 
 const materialId = "96000000-0000-4000-8000-000000000001";
 const submissionId = "96000000-0000-4000-8000-000000000004";
 const topicId = "96000000-0000-4000-8000-000000000020";
+
+interface BackendReply {
+  readonly method: string;
+  readonly path: string;
+  readonly token: string;
+  readonly response: Response | Error;
+}
+let scope: Awaited<ReturnType<typeof realBffSession>>;
+let replies: BackendReply[];
+const backend = vi.fn<(request: Request) => Promise<Response>>();
+function respond(
+  method: string,
+  path: string,
+  body: unknown,
+  status = 200,
+  token = "access-token",
+): void {
+  replies.push({
+    method,
+    path,
+    token,
+    response: Response.json(body, { status }),
+  });
+}
+function outgoing(index = 0): Request {
+  const request = backend.mock.calls[index]?.[0];
+  if (request === undefined)
+    throw new Error("Expected external backend request");
+  return request;
+}
+beforeEach(async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2030-03-01T12:00:00Z"));
+  scope = await realBffSession("author-token");
+  replies = [];
+  backend.mockReset();
+  backend.mockImplementation(() => {
+    const response = replies[backend.mock.calls.length - 1]?.response;
+    if (response === undefined)
+      return Promise.reject(new Error("Unexpected backend request"));
+    return response instanceof Error
+      ? Promise.reject(response)
+      : Promise.resolve(response);
+  });
+  interceptBackendHttp(backend);
+});
+afterEach(() => {
+  try {
+    expect(backend).toHaveBeenCalledTimes(replies.length);
+    replies.forEach((reply, index) => {
+      const request = outgoing(index);
+      expect(request.method).toBe(reply.method);
+      expect(request.url).toBe(
+        `https://platform-api.example.test${reply.path}`,
+      );
+      expect(request.headers.get("authorization")).toBe(
+        `Bearer ${reply.token}`,
+      );
+      if (reply.method === "GET") expect(request.body).toBeNull();
+    });
+  } finally {
+    vi.useRealTimers();
+  }
+});
 
 describe("Authoring Materials list address", () => {
   it("reads the Topic and format filters and drops values the server would reject", () => {
@@ -273,35 +329,48 @@ describe("Authoring Materials filter choices", () => {
   });
 
   it("answers the browser with private choices, a refusal or an unavailable read", async () => {
-    session.accessToken.mockResolvedValue("author-token");
-    const references = vi.fn().mockResolvedValue({
-      kind: "ready",
-      references: {
-        formats: [{ archived: false, label: "Гайд", value: "guide" }],
-        products: [{ archived: false, label: "Продукт", value: materialId }],
+    respond(
+      "GET",
+      "/authoring/materials/references",
+      {
+        formats: [{ archived: false, name: "Гайд", id: "guide" }],
+        products: [{ archived: false, name: "Продукт", id: materialId }],
         tags: [],
-        topics: [{ archived: false, label: "Platform", value: topicId }],
+        topics: [{ archived: false, name: "Platform", id: topicId }],
       },
-    });
-    const ready = await handleAuthoringMaterialFiltersRequest({ references });
+      200,
+      "author-token",
+    );
+    const ready = await scope(() => handleAuthoringMaterialFiltersRequest());
     expect(ready.status).toBe(200);
     expect(ready.headers.get("cache-control")).toContain("no-store");
-    expect(references).toHaveBeenCalledWith("author-token");
     expect(await ready.json()).toEqual({
       formats: [{ label: "Гайд", value: "guide" }],
       kind: "ready",
       topics: [{ label: "Platform", value: topicId }],
     });
 
-    const forbidden = await handleAuthoringMaterialFiltersRequest({
-      references: vi.fn().mockResolvedValue({ kind: "unauthorized" }),
-    });
+    respond(
+      "GET",
+      "/authoring/materials/references",
+      { code: "forbidden" },
+      403,
+      "author-token",
+    );
+    const forbidden = await scope(() =>
+      handleAuthoringMaterialFiltersRequest(),
+    );
     expect(forbidden.status).toBe(403);
-    const unavailable = await handleAuthoringMaterialFiltersRequest({
-      references: vi
-        .fn()
-        .mockResolvedValue({ kind: "unexpected_error", reference: "pg" }),
-    });
+    respond(
+      "GET",
+      "/authoring/materials/references",
+      { code: "dependency_unavailable" },
+      503,
+      "author-token",
+    );
+    const unavailable = await scope(() =>
+      handleAuthoringMaterialFiltersRequest(),
+    );
     expect(unavailable.status).toBe(503);
   });
 });
@@ -411,33 +480,31 @@ describe("Authoring Materials server adapter", () => {
   });
 
   it("maps one protected corpus page to the presentation contract", async () => {
-    const dependencies = {
-      list: vi.fn().mockResolvedValue({
-        body: {
-          items: [
-            {
-              canDelete: false,
-              contentVersion: 7,
-              format: { id: "guide", name: "Гайд" },
-              materialId,
-              publicationState: "published",
-              title: "Управляемый Material",
-              topic: {
-                id: "96000000-0000-4000-8000-000000000003",
-                name: "Platform",
-              },
-              updatedAt: "2026-08-30T10:00:00.000Z",
+    respond(
+      "GET",
+      "/authoring/materials?format=guide&topicId=96000000-0000-4000-8000-000000000020&search=%D0%A3%D0%BF%D1%80%D0%B0%D0%B2%D0%BB%D1%8F%D0%B5%D0%BC%D1%8B%D0%B9&publicationState=published&page=2",
+      {
+        items: [
+          {
+            canDelete: false,
+            contentVersion: 7,
+            format: { id: "guide", name: "Гайд" },
+            materialId,
+            publicationState: "published",
+            title: "Управляемый Material",
+            topic: {
+              id: "96000000-0000-4000-8000-000000000003",
+              name: "Platform",
             },
-          ],
-          page: 2,
-          pageSize: 20,
-          totalItems: 21,
-          totalPages: 2,
-        },
-        ok: true,
-        response: Response.json({}),
-      }),
-    } satisfies AuthoringMaterialsDependencies;
+            updatedAt: "2026-08-30T10:00:00.000Z",
+          },
+        ],
+        page: 2,
+        pageSize: 20,
+        totalItems: 21,
+        totalPages: 2,
+      },
+    );
 
     const result = await getAuthoringMaterials(
       {
@@ -448,7 +515,6 @@ describe("Authoring Materials server adapter", () => {
         topicId,
       },
       "access-token",
-      dependencies,
     );
     expect(result.kind).toBe("ready");
     if (result.kind !== "ready") return;
@@ -478,54 +544,32 @@ describe("Authoring Materials server adapter", () => {
       totalItems: 21,
       totalPages: 2,
     });
-    expect(dependencies.list).toHaveBeenCalledWith(
-      {
-        format: "guide",
-        page: 2,
-        publicationState: "published",
-        search: "Управляемый",
-        topicId,
-      },
-      "access-token",
-    );
   });
 
   it("assigns a fresh lifecycle submission key to each independent list response", async () => {
-    const dependencies = {
-      list: vi.fn().mockResolvedValue({
-        body: {
-          items: [
-            {
-              canDelete: true,
-              contentVersion: 1,
-              format: null,
-              materialId,
-              publicationState: "draft",
-              title: "Безопасный черновик",
-              topic: null,
-              updatedAt: "2026-08-30T10:00:00.000Z",
-            },
-          ],
-          page: 1,
-          pageSize: 20,
-          totalItems: 1,
-          totalPages: 1,
+    const page = {
+      items: [
+        {
+          canDelete: true,
+          contentVersion: 1,
+          format: null,
+          materialId,
+          publicationState: "draft",
+          title: "Безопасный черновик",
+          topic: null,
+          updatedAt: "2026-08-30T10:00:00.000Z",
         },
-        ok: true,
-        response: Response.json({}),
-      }),
-    } satisfies AuthoringMaterialsDependencies;
+      ],
+      page: 1,
+      pageSize: 20,
+      totalItems: 1,
+      totalPages: 1,
+    };
+    respond("GET", "/authoring/materials?page=1", page);
+    respond("GET", "/authoring/materials?page=1", page);
 
-    const first = await getAuthoringMaterials(
-      { page: 1 },
-      "access-token",
-      dependencies,
-    );
-    const second = await getAuthoringMaterials(
-      { page: 1 },
-      "access-token",
-      dependencies,
-    );
+    const first = await getAuthoringMaterials({ page: 1 }, "access-token");
+    const second = await getAuthoringMaterials({ page: 1 }, "access-token");
 
     expect(first.kind).toBe("ready");
     expect(second.kind).toBe("ready");
@@ -567,113 +611,95 @@ describe("Authoring Materials server adapter", () => {
   ])(
     "maps HTTP $status to $expected.kind",
     async ({ expected, problem, status }) => {
-      const dependencies = {
-        list: vi.fn().mockResolvedValue({
-          ok: false,
-          problem,
-          response: Response.json(problem, { status }),
-        }),
-      } satisfies AuthoringMaterialsDependencies;
+      respond("GET", "/authoring/materials?page=1", problem, status);
 
       await expect(
-        getAuthoringMaterials({ page: 1 }, "access-token", dependencies),
+        getAuthoringMaterials({ page: 1 }, "access-token"),
       ).resolves.toEqual(expected);
     },
   );
 
   it("fails closed for malformed success bodies and typed transport failures", async () => {
+    respond("GET", "/authoring/materials?page=1", { items: "not-an-array" });
     await expect(
-      getAuthoringMaterials({ page: 1 }, "access-token", {
-        list: vi.fn().mockResolvedValue({
-          body: { items: "not-an-array" },
-          ok: true,
-          response: Response.json({}),
-        }),
-      }),
+      getAuthoringMaterials({ page: 1 }, "access-token"),
     ).resolves.toEqual({ kind: "malformed_response" });
+    replies.push({
+      method: "GET",
+      path: "/authoring/materials?page=1",
+      token: "access-token",
+      response: new Error("external backend offline"),
+    });
     await expect(
-      getAuthoringMaterials({ page: 1 }, "access-token", {
-        list: vi
-          .fn()
-          .mockRejectedValue(
-            new BackendConnectionError("unavailable", "backend offline"),
-          ),
-      }),
+      getAuthoringMaterials({ page: 1 }, "access-token"),
     ).resolves.toEqual({ kind: "unavailable", reference: "unavailable" });
+    replies.push({
+      method: "GET",
+      path: "/authoring/materials?page=1",
+      token: "access-token",
+      response: Response.json({}, { status: 201 }),
+    });
     await expect(
-      getAuthoringMaterials({ page: 1 }, "access-token", {
-        list: vi
-          .fn()
-          .mockRejectedValue(
-            new BackendConnectionError("invalid-response", "bad json"),
-          ),
-      }),
+      getAuthoringMaterials({ page: 1 }, "access-token"),
     ).resolves.toEqual({ kind: "malformed_response" });
   });
 
   it("publishes from the list through one intent request", async () => {
-    const dependencies = lifecycleDependencies();
+    respond("PATCH", `/authoring/materials/${materialId}/publication`, {
+      contentVersion: 8,
+      materialId,
+      publicationState: "published",
+      publishedAt: "2026-08-30T11:00:00.000Z",
+    });
 
     await expect(
       executeTransitionMaterialPublication(
         publicationInput("published"),
         "access-token",
-        dependencies.transition,
       ),
     ).resolves.toMatchObject({
       contentVersion: 8,
       kind: "saved",
       publicationState: "published",
     });
-    expect(dependencies.transition).toHaveBeenCalledWith(
-      {
-        expectedContentVersion: 7,
-        idempotencyKey: `web-transition-material-publication-${submissionId}`,
-        materialId,
-        publicationState: "published",
-      },
-      "access-token",
+    expect(outgoing().headers.get("idempotency-key")).toBe(
+      `web-transition-material-publication-${submissionId}`,
     );
+    expect(await outgoing().json()).toEqual({
+      expectedContentVersion: 7,
+      publicationState: "published",
+    });
   });
 
   it("deletes a draft with the list version and preserves its key across retry", async () => {
-    const dependencies = lifecycleDependencies();
+    respond("DELETE", `/authoring/materials/${materialId}`, { materialId });
+    respond("DELETE", `/authoring/materials/${materialId}`, { materialId });
     const input = deletionInput();
 
     await expect(
-      executeDeleteMaterialDraft(input, "access-token", dependencies.delete),
+      executeDeleteMaterialDraft(input, "access-token"),
     ).resolves.toEqual({ kind: "deleted", materialId });
     await expect(
-      executeDeleteMaterialDraft(input, "access-token", dependencies.delete),
+      executeDeleteMaterialDraft(input, "access-token"),
     ).resolves.toEqual({ kind: "deleted", materialId });
-    expect(dependencies.delete).toHaveBeenCalledTimes(2);
-    expect(dependencies.delete).toHaveBeenNthCalledWith(
-      2,
-      {
-        deleteVideoId: null,
-        expectedContentVersion: 7,
-        idempotencyKey: `web-delete-material-draft-${submissionId}`,
-        materialId,
-      },
-      "access-token",
-    );
-    expect(dependencies.transition).not.toHaveBeenCalled();
+    expect(backend).toHaveBeenCalledTimes(2);
+    for (const [request] of backend.mock.calls)
+      expect(request.headers.get("idempotency-key")).toBe(
+        `web-delete-material-draft-${submissionId}`,
+      );
+    expect(await outgoing(1).json()).toEqual({
+      deleteVideoId: null,
+      expectedContentVersion: 7,
+    });
   });
 
   it("passes an explicitly selected owned Video through draft hard-delete", async () => {
-    const dependencies = lifecycleDependencies();
+    respond("DELETE", `/authoring/materials/${materialId}`, { materialId });
     const videoId = "96000000-0000-4000-8000-000000000009";
 
-    await executeDeleteMaterialDraft(
-      deletionInput(videoId),
-      "access-token",
-      dependencies.delete,
-    );
+    await executeDeleteMaterialDraft(deletionInput(videoId), "access-token");
 
-    expect(dependencies.delete).toHaveBeenCalledWith(
-      expect.objectContaining({ deleteVideoId: videoId }),
-      "access-token",
-    );
+    expect(await outgoing().json()).toMatchObject({ deleteVideoId: videoId });
   });
 
   it.each([
@@ -754,24 +780,23 @@ describe("Authoring Materials server adapter", () => {
       target: "delete" as const,
     },
   ])(
-    "maps $target $response.response.status to $expected.kind",
+    "maps $target $response.status to $expected.kind",
     async ({ expected, operation, response, target }) => {
-      const dependencies = lifecycleDependencies();
-      dependencies[target].mockResolvedValue(response);
+      respond(
+        target === "transition" ? "PATCH" : "DELETE",
+        `/authoring/materials/${materialId}${target === "transition" ? "/publication" : ""}`,
+        response.body,
+        response.status,
+      );
 
       await expect(
         operation === "delete"
-          ? executeDeleteMaterialDraft(
-              deletionInput(),
-              "access-token",
-              dependencies.delete,
-            )
+          ? executeDeleteMaterialDraft(deletionInput(), "access-token")
           : executeTransitionMaterialPublication(
               publicationInput(
                 operation === "publish" ? "published" : "unpublished",
               ),
               "access-token",
-              dependencies.transition,
             ),
       ).resolves.toEqual(expected);
     },
@@ -796,30 +821,6 @@ function deletionInput(deleteVideoId?: string) {
   });
 }
 
-function lifecycleDependencies() {
-  return {
-    delete: vi.fn().mockResolvedValue({
-      body: { materialId },
-      ok: true,
-      response: Response.json({}),
-    }),
-    transition: vi.fn().mockResolvedValue({
-      body: {
-        contentVersion: 8,
-        materialId,
-        publicationState: "published",
-        publishedAt: "2026-08-30T11:00:00.000Z",
-      },
-      ok: true,
-      response: Response.json({}),
-    }),
-  };
-}
-
 function problemResult(status: number, problem: Record<string, unknown>) {
-  return {
-    ok: false as const,
-    problem,
-    response: Response.json(problem, { status }),
-  };
+  return { status, body: problem };
 }
