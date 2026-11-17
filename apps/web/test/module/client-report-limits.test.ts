@@ -1,14 +1,11 @@
-import { beforeEach, expect, it, vi } from "vitest";
+import {
+  configureWebRuntime,
+  useProductionRuntimeImage,
+} from "../support/web-runtime";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 vi.mock("next/server", () => ({ after: () => undefined }));
 
-vi.mock("@/shared/auth/index.server", async () => {
-  const origin = await import("@/shared/auth/same-origin-mutation.server");
-  return {
-    isSameOriginMutation: origin.isSameOriginMutation,
-    readLogtoBffConfig: () => ({ baseUrl: "https://inside.example.test" }),
-  };
-});
 import {
   createEntryRateLimiter,
   limitEntryRequest,
@@ -66,7 +63,11 @@ async function deliver(
     : limited.status;
 }
 
+let restoreImage: (() => void) | undefined;
+afterEach(() => restoreImage?.());
 beforeEach(() => {
+  configureWebRuntime();
+  restoreImage = useProductionRuntimeImage();
   vi.resetModules();
   vi.stubEnv("NODE_ENV", "production");
   vi.spyOn(console, "info").mockImplementation(() => undefined);
