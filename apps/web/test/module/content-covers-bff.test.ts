@@ -1,69 +1,44 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import type * as BackendModule from "@/shared/api/backend/index.server";
-
-const fakes = vi.hoisted(() => {
-  class SessionUnavailableError extends Error {}
-  return {
-    getAccessToken: vi.fn(),
-    requestDelivery: vi.fn(),
-    requestRemoval: vi.fn(),
-    requestUpload: vi.fn(),
-    SessionUnavailableError,
-  };
-});
-
-vi.mock("@/shared/api/backend/index.server", async (importOriginal) => {
-  const original = await importOriginal<typeof BackendModule>();
-  return {
-    ...original,
-    requestContentCoverDelivery: fakes.requestDelivery,
-    requestContentCoverRemoval: fakes.requestRemoval,
-    requestContentCoverUpload: fakes.requestUpload,
-  };
-});
-
-vi.mock("@/shared/auth/platform-access-token.server", () => ({
-  getPlatformAccessToken: fakes.getAccessToken,
-  LogtoSessionUnavailableError: fakes.SessionUnavailableError,
-}));
-
-vi.mock("@/shared/auth/logto-bff-config.server", () => ({
-  readLogtoBffConfig: () => ({ baseUrl: "https://inside.example.test" }),
-}));
-
-vi.mock("@/shared/auth/same-origin-mutation.server", () => ({
-  isSameOriginMutation: (request: Request, baseUrl: string) =>
-    request.headers.get("origin") === new URL(baseUrl).origin,
-}));
-
-vi.mock("@/shared/auth/index.server", async () => {
-  const handler =
-    await import("@/shared/auth/authenticated-mutation-handler.server");
-  return {
-    handleAuthenticatedMutation: handler.handleAuthenticatedMutation,
-    handleMutationOperation: handler.handleMutationOperation,
-    handleOptionalMutationOperation: handler.handleOptionalMutationOperation,
-  };
-});
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { sessionAdapter } from "@/shared/auth/session-adapter.server";
+import {
+  interceptBackendHttp,
+  expectSingleBackendRequest,
+} from "../support/backend-http";
+import { realBffSession } from "../support/real-bff-session";
+const backend = vi.fn<(request: Request) => Promise<Response>>();
+let session: Awaited<ReturnType<typeof realBffSession>>;
 
 import {
-  proxyContentCoverDelivery,
-  proxyContentCoverRemoval,
-  proxyContentCoverUpload,
+  proxyContentCoverDelivery as realproxyContentCoverDelivery,
+  proxyContentCoverRemoval as realproxyContentCoverRemoval,
+  proxyContentCoverUpload as realproxyContentCoverUpload,
 } from "@/features/content-covers/api/content-cover-bff.server";
-import { MAX_CONTENT_COVER_MUTATION_BYTES } from "@/shared/api/mutation-limits";
+
+const proxyContentCoverDelivery = (
+  ...args: Parameters<typeof realproxyContentCoverDelivery>
+) => session(() => realproxyContentCoverDelivery(...args));
+const proxyContentCoverRemoval = (
+  ...args: Parameters<typeof realproxyContentCoverRemoval>
+) => session(() => realproxyContentCoverRemoval(...args));
+const proxyContentCoverUpload = (
+  ...args: Parameters<typeof realproxyContentCoverUpload>
+) => session(() => realproxyContentCoverUpload(...args));
 
 const coverId = "10000000-0000-4000-8000-000000000001";
 const ownerId = "20000000-0000-4000-8000-000000000001";
 
 describe("Content covers BFF", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    fakes.getAccessToken.mockResolvedValue("access-token");
+  beforeEach(async () => {
+    backend.mockReset();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-16T10:00:00Z"));
+    session = await realBffSession();
+    interceptBackendHttp(backend);
   });
+  afterEach(() => vi.useRealTimers());
 
   it("proxies only a canonical public rendition and preserves immutable headers", async () => {
-    fakes.requestDelivery.mockResolvedValue(
+    backend.mockResolvedValue(
       new Response(new Uint8Array([1, 2, 3]), {
         headers: {
           "cache-control": "public, max-age=31536000, immutable",
@@ -83,9 +58,16 @@ describe("Content covers BFF", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toContain("immutable");
     expect(response.headers.get("content-type")).toBe("image/webp");
-    expect(fakes.requestDelivery).toHaveBeenCalledWith(
-      expect.objectContaining({ coverId, width: "960" }),
+    const outgoing = expectSingleBackendRequest(
+      backend,
+      "GET",
+      `/content-covers/${coverId}/960`,
+      null,
     );
+    expect(outgoing.redirect).toBe("manual");
+    expect(Array.from(new Uint8Array(await response.arrayBuffer()))).toEqual([
+      1, 2, 3,
+    ]);
 
     const malformed = await proxyContentCoverDelivery(
       new Request(
@@ -104,10 +86,11 @@ describe("Content covers BFF", () => {
       "wide",
     );
     expect(malformedWidth.status).toBe(404);
-    expect(fakes.requestDelivery).toHaveBeenCalledTimes(1);
+    expect(backend).toHaveBeenCalledTimes(1);
   });
 
   it("rejects cross-origin authoring before identity or backend work", async () => {
+    const tokenReads = vi.spyOn(sessionAdapter, "accessToken");
     const response = await proxyContentCoverRemoval(
       removalRequest("https://attacker.example.test"),
       "material",
@@ -115,12 +98,12 @@ describe("Content covers BFF", () => {
     );
 
     expect(response.status).toBe(403);
-    expect(fakes.getAccessToken).not.toHaveBeenCalled();
-    expect(fakes.requestRemoval).not.toHaveBeenCalled();
+    expect(tokenReads).not.toHaveBeenCalled();
+    expect(backend).not.toHaveBeenCalled();
   });
 
   it("streams a same-origin upload with manager authentication", async () => {
-    fakes.requestUpload.mockResolvedValue(
+    backend.mockResolvedValue(
       Response.json({ cover: { coverId, renditions: [] } }),
     );
     const form = new FormData();
@@ -144,21 +127,30 @@ describe("Content covers BFF", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(fakes.requestUpload).toHaveBeenCalledWith(
-      expect.objectContaining({
-        accessToken: "access-token",
-        ownerId,
-        ownerKind: "material",
-      }),
+    const outgoing = expectSingleBackendRequest(
+      backend,
+      "PUT",
+      `/authoring/content-covers/material/${ownerId}`,
     );
+    const uploaded = await outgoing.formData();
+    expect(uploaded.get("declaredSize")).toBe("3");
+    expect(uploaded.get("checksumSha256")).toBe(
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    );
+    expect(uploaded.get("expectedCoverId")).toBe("null");
+    const file = uploaded.get("file");
+    expect(file).toBeInstanceOf(File);
+    if (!(file instanceof File)) throw new Error("Expected cover File");
+    expect(file.name).toBe("cover.png");
+    expect(Array.from(new Uint8Array(await file.arrayBuffer()))).toEqual([
+      1, 2, 3,
+    ]);
   });
 
   it("rejects an oversized upload before identity or backend work", async () => {
+    const tokenReads = vi.spyOn(sessionAdapter, "accessToken");
     const request = uploadRequest();
-    request.headers.set(
-      "content-length",
-      String(MAX_CONTENT_COVER_MUTATION_BYTES + 1),
-    );
+    request.headers.set("content-length", "10551297");
 
     const response = await proxyContentCoverUpload(
       request,
@@ -167,12 +159,12 @@ describe("Content covers BFF", () => {
     );
 
     expect(response.status).toBe(413);
-    expect(fakes.getAccessToken).not.toHaveBeenCalled();
-    expect(fakes.requestUpload).not.toHaveBeenCalled();
+    expect(tokenReads).not.toHaveBeenCalled();
+    expect(backend).not.toHaveBeenCalled();
   });
 
   it("validates and forwards removal concurrency state", async () => {
-    fakes.requestRemoval.mockResolvedValue(Response.json({ cover: null }));
+    backend.mockResolvedValue(Response.json({ cover: null }));
 
     const response = await proxyContentCoverRemoval(
       removalRequest("https://inside.example.test"),
@@ -181,14 +173,13 @@ describe("Content covers BFF", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(fakes.requestRemoval).toHaveBeenCalledWith(
-      expect.objectContaining({
-        accessToken: "access-token",
-        expectedCoverId: coverId,
-        ownerId,
-        ownerKind: "topic",
-      }),
-    );
+    expect(
+      await expectSingleBackendRequest(
+        backend,
+        "DELETE",
+        `/authoring/content-covers/topic/${ownerId}`,
+      ).json(),
+    ).toEqual({ expectedCoverId: "10000000-0000-4000-8000-000000000001" });
   });
 
   it("rejects a removal body outside the strict concurrency contract", async () => {
@@ -209,7 +200,7 @@ describe("Content covers BFF", () => {
     );
 
     expect(response.status).toBe(400);
-    expect(fakes.requestRemoval).not.toHaveBeenCalled();
+    expect(backend).not.toHaveBeenCalled();
   });
 });
 
