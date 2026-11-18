@@ -28,17 +28,38 @@ function CatalogLifetime() {
     <>
       <div>
         {(["ready", "pending", "error", "exhausted"] as const).map((value) => (
-          <button key={value} type="button" onClick={() => setState(value)}>
+          <button
+            key={value}
+            type="button"
+            onClick={() => {
+              setState(value);
+            }}
+          >
             {value}
           </button>
         ))}
-        <button type="button" onClick={() => setVisible(false)}>
+        <button
+          type="button"
+          onClick={() => {
+            setVisible(false);
+          }}
+        >
           Скрыть каталог
         </button>
-        <button type="button" onClick={() => setVisible(true)}>
+        <button
+          type="button"
+          onClick={() => {
+            setVisible(true);
+          }}
+        >
           Вернуть каталог
         </button>
-        <button type="button" onClick={() => setMounted(false)}>
+        <button
+          type="button"
+          onClick={() => {
+            setMounted(false);
+          }}
+        >
           Удалить каталог
         </button>
         <output aria-label="Запросы продолжения">{requests}</output>
@@ -89,7 +110,7 @@ export const RetainsCatalogAndReleasesObservation: Story = {
     const { observe, disconnect } = nativeResources;
     const acquisitions = () =>
       observe.mock.calls.flatMap(([node], index) =>
-        node.parentElement?.matches("[data-library-state='ready']") &&
+        node.parentElement?.matches("[data-library-state='ready']") === true &&
         canvasElement.contains(node)
           ? [{ node, owner: observe.mock.contexts[index] }]
           : [],
