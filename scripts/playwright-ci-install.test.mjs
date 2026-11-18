@@ -24,14 +24,15 @@ const command = installStep.split("      run: |\n")[1]?.replace(/^ {8}/gmu, "");
 assert.ok(command);
 const shellCommand = command;
 
-/** @param {import('node:test').TestContext} t @param {string} failures */
-function install(t, failures) {
-  const directory = mkdtempSync(join(tmpdir(), "platform-apt-test-"));
-  t.after(() => rmSync(directory, { recursive: true, force: true }));
-  const log = join(directory, "commands");
-  const sources = join(directory, "apt");
-  mkdirSync(join(sources, "sources.list.d"), { recursive: true });
-  const sourceFiles = {
+/**
+ * @param {import('node:test').TestContext} t
+ * @param {string} failures
+ * @param {Readonly<Record<string, string>>} [sourceFiles]
+ */
+function install(
+  t,
+  failures,
+  sourceFiles = {
     "sources.list": "deb http://azure.archive.ubuntu.com/ubuntu noble main\n",
     "sources.list.d/ubuntu.sources":
       "URIs: https://azure.archive.ubuntu.com/ubuntu\n",
@@ -39,7 +40,13 @@ function install(t, failures) {
       "http://azure.archive.ubuntu.com/ubuntu/\tpriority:1\nhttps://archive.ubuntu.com/ubuntu/\tpriority:2\nhttps://security.ubuntu.com/ubuntu/\tpriority:3\n",
     "sources.list.d/vendor.list":
       "deb http://vendor.example/ubuntu noble main\n",
-  };
+  },
+) {
+  const directory = mkdtempSync(join(tmpdir(), "platform-apt-test-"));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const log = join(directory, "commands");
+  const sources = join(directory, "apt");
+  mkdirSync(join(sources, "sources.list.d"), { recursive: true });
   for (const [name, content] of Object.entries(sourceFiles)) {
     writeFileSync(join(sources, name), content);
   }
@@ -190,6 +197,44 @@ test("a failed fallback preserves the exit code and never starts browser downloa
   assert.equal(result.status, 100, result.stderr);
   assert.equal((result.log.match(/sudo timeout/gmu) ?? []).length, 2);
   assert.doesNotMatch(result.log, /playwright install chromium/u);
+});
+
+test("observed EC2 mirror switches to HTTPS before attempt two without changing source options or other hosts", (t) => {
+  const result = install(t, "137,0", {
+    "sources.list":
+      "deb [arch=amd64 signed-by=/usr/share/keyrings/ubuntu.gpg] http://us-east-2.ec2.archive.ubuntu.com/ubuntu/ noble-updates main restricted\n",
+    "sources.list.d/ubuntu.sources":
+      "Types: deb deb-src\nURIs: https://us-east-2.ec2.archive.ubuntu.com/ubuntu http://security.ubuntu.com/ubuntu\nSuites: noble noble-updates\nComponents: main restricted\nSigned-By: /usr/share/keyrings/ubuntu.gpg\n",
+    "apt-mirrors.txt":
+      "http://us-east-2.ec2.archive.ubuntu.com/ubuntu/\tpriority:1\nhttps://us-east-2.ec2.archive.ubuntu.com/ubuntu?channel=noble\tpriority:2\nhttps://archive.ubuntu.com/ubuntu/\tpriority:3\nhttp://security.ubuntu.com/ubuntu/\tpriority:4\n",
+    "sources.list.d/vendor.list":
+      "deb http://vendor.example/ubuntu noble main\ndeb http://us-west-2.ec2.archive.ubuntu.com/ubuntu noble main\ndeb http://us-east-2.ec2.archive.ubuntu.com.evil.example/ubuntu noble main\ndeb http://us-east-2.ec2.archive.ubuntu.com/ubuntu-extra noble main\n",
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(
+    (result.log.match(/sudo timeout --signal=KILL 180s/gmu) ?? []).length,
+    2,
+  );
+  assert.equal(
+    result.sources["sources.list"],
+    "deb [arch=amd64 signed-by=/usr/share/keyrings/ubuntu.gpg] https://archive.ubuntu.com/ubuntu/ noble-updates main restricted\n",
+  );
+  assert.equal(
+    result.sources["sources.list.d/ubuntu.sources"],
+    "Types: deb deb-src\nURIs: https://archive.ubuntu.com/ubuntu http://security.ubuntu.com/ubuntu\nSuites: noble noble-updates\nComponents: main restricted\nSigned-By: /usr/share/keyrings/ubuntu.gpg\n",
+  );
+  assert.equal(
+    result.sources["apt-mirrors.txt"],
+    "https://archive.ubuntu.com/ubuntu/\tpriority:1\nhttps://archive.ubuntu.com/ubuntu?channel=noble\tpriority:2\nhttps://archive.ubuntu.com/ubuntu/\tpriority:3\nhttp://security.ubuntu.com/ubuntu/\tpriority:4\n",
+  );
+  assert.equal(
+    result.sources["sources.list.d/vendor.list"],
+    "deb http://vendor.example/ubuntu noble main\ndeb http://us-west-2.ec2.archive.ubuntu.com/ubuntu noble main\ndeb http://us-east-2.ec2.archive.ubuntu.com.evil.example/ubuntu noble main\ndeb http://us-east-2.ec2.archive.ubuntu.com/ubuntu-extra noble main\n",
+  );
+  assert.match(
+    result.log,
+    /pnpm --filter @inside\/web exec playwright install chromium webkit/u,
+  );
 });
 
 test(

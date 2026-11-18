@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import type { ReactNode } from "react";
+
+import { mountWelcomeDialog } from "./welcome-dialog.browser";
 
 import "./welcome-dialog.css";
 
@@ -16,36 +18,13 @@ export function WelcomeDialog({
   readonly labelledBy: string;
   readonly children: ReactNode;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const element = dialog.current;
-    if (element === null || element.matches(":modal")) return;
-    // Focus the reader already moved inside the server-rendered dialog is kept.
-    const active = document.activeElement;
-    const kept =
-      active instanceof HTMLElement && element.contains(active) ? active : null;
-    if (element.open) element.close();
-    element.showModal();
-    (
-      kept ?? element.querySelector<HTMLElement>("[data-dialog-initial-focus]")
-    )?.focus();
-  }, []);
   return (
     <dialog
-      ref={dialog}
+      ref={mountWelcomeDialog}
       open
       aria-labelledby={labelledBy}
-      // `closedby` ещё не поддерживает Safari; там закрытие по Esc отменяет `onCancel`.
+      // Без поддержки closedby закрытие по Esc всё равно предотвращает native cancel handler.
       {...{ closedby: "none" }}
-      onCancel={(event) => {
-        event.preventDefault();
-      }}
-      // Повторный Esc без действия человека браузер может не дать отменить: окно закрывается.
-      // Пока условия не приняты, оно открывается снова.
-      onClose={(event) => {
-        const element = event.currentTarget;
-        if (element.isConnected && !element.open) element.showModal();
-      }}
       className="welcome-dialog m-auto max-h-[calc(100dvh-2rem)] w-[min(26rem,calc(100vw-2rem))] max-w-none overflow-y-auto overscroll-contain rounded-[1.25rem] border border-border bg-card p-0 text-foreground shadow-card"
     >
       {children}

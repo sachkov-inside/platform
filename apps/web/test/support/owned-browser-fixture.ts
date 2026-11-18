@@ -20,6 +20,10 @@ const fixtureName = z.enum([
   "course-film",
   "material-video",
   "native-dialog",
+  "material-authoring",
+  "deletion-dialog",
+  "process-artwork",
+  "material-order",
   "account-avatar",
 ]);
 const budget = z.number().int().positive().max(30_000);
