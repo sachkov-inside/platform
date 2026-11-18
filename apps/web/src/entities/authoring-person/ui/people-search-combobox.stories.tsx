@@ -334,6 +334,7 @@ export const ControlledChoicePreservesTheScheduledQuery: Story = {
     await expect(canvas.getByRole("combobox", { name: "Кому" })).toHaveValue(
       "Анна",
     );
+    await userEvent.click(canvas.getByRole("combobox", { name: "Кому" }));
     await expect(await canvas.findAllByRole("option")).toHaveLength(2);
   },
 };
