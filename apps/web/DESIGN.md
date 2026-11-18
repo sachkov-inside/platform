@@ -334,10 +334,12 @@ reading controls keep their own targets and remain above the stretched link.
 
 - **Status:** composition replaced in issue #494 by owner decision; the two-column editor and the
   separate member projection from issue #189 are history, not an alternative.
-- **Composition:** раздел «Профиль» — одна карточка: аватар, имя и о себе. Профиль виден только
+- **Current cabinet:** the [MVP brief](../../docs/product/platform-mvp-brief.md), «Тарифы, назначения и кабинет»,
+  removed the avatar and biography editors. The retained editor is not a current `/account` surface.
+- **Historical composition (#494):** раздел «Профиль» представлял одну карточку: аватар, имя и о себе. Профиль виден только
   владельцу (#658): ссылки для участников и страницы участника нет. Профиль показан сразу и
   правится на месте. Мобильный порядок тот же, в одну колонку.
-- **Actions:** Profile create/edit and avatar change are the complete self-service surface;
+- **Historical actions (#494):** Profile create/edit and avatar change were the complete self-service surface;
   member link, complaint, export and delete controls are absent.
 - **Copy:** подписи объясняют только приватность («виден только вам») и ограничения полей.
 

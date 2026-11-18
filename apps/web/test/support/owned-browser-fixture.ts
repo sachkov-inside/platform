@@ -24,6 +24,7 @@ const fixtureName = z.enum([
   "deletion-dialog",
   "process-artwork",
   "material-order",
+  "account-avatar",
 ]);
 const budget = z.number().int().positive().max(30_000);
 const configuration = z.object({
