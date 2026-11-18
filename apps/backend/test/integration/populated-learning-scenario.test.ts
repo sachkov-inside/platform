@@ -1,3 +1,4 @@
+import { reportLearningStage } from "./setup/populated-learning-observation.js";
 import {
   GenericContainer,
   Wait,
@@ -55,10 +56,23 @@ let ownerToken: string;
 let holderToken: string;
 let seeded: Awaited<ReturnType<typeof seedLearningScenario>>;
 let telegram: Awaited<ReturnType<typeof startIsolatedTelegramProvider>>;
-const cleanups: (() => Promise<unknown>)[] = [];
+const cleanups: {
+  readonly stage:
+    | "cleanup:database"
+    | "cleanup:rustfs"
+    | "cleanup:identity"
+    | "cleanup:telegram"
+    | "cleanup:bank"
+    | "cleanup:api";
+  readonly run: () => Promise<unknown>;
+}[] = [];
 beforeAll(async () => {
+  reportLearningStage("beforeAll", "start");
+  reportLearningStage("database", "start");
   database = await createMigratedTestDatabase();
-  cleanups.push(() => database.dispose());
+  cleanups.push({ stage: "cleanup:database", run: () => database.dispose() });
+  reportLearningStage("database", "end");
+  reportLearningStage("rustfs-start-health", "start");
   storage = await new GenericContainer(
     "ghcr.io/rustfs/rustfs:1.0.5@sha256:b81d16a90ee25bd9511280127ca1471788c6e874cf0f0da759645f46b2dc1d74",
   )
@@ -69,7 +83,8 @@ beforeAll(async () => {
     .withExposedPorts(9000)
     .withWaitStrategy(Wait.forHttp("/health", 9000))
     .start();
-  cleanups.push(() => storage.stop());
+  cleanups.push({ stage: "cleanup:rustfs", run: () => storage.stop() });
+  reportLearningStage("rustfs-start-health", "end");
   const storageEndpoint = `http://${storage.getHost()}:${String(storage.getMappedPort(9000))}`;
   const client = new S3Client({
     endpoint: storageEndpoint,
@@ -77,29 +92,43 @@ beforeAll(async () => {
     credentials: storageCredentials,
     forcePathStyle: true,
   });
+  reportLearningStage("s3-buckets", "start");
   try {
     for (const Bucket of Object.values(storageBuckets))
       await client.send(new CreateBucketCommand({ Bucket }));
   } finally {
     client.destroy();
   }
+  reportLearningStage("s3-buckets", "end");
+  reportLearningStage("identity-issuer", "start");
   identity = await startTestIdentityIssuer({
     issuer: "https://learning-scenarios.invalid/oidc",
     audience: "https://learning-scenarios.invalid/api",
   });
-  cleanups.push(() => identity.close());
+  cleanups.push({ stage: "cleanup:identity", run: () => identity.close() });
+  reportLearningStage("identity-issuer", "end");
+  reportLearningStage("bootstrap-owner", "start");
   await bootstrapOwnerAccount(
     database.prisma,
     { issuer: identity.issuer, subject: scenarioRoles.owner.subject },
     "platform:admin",
   );
+  reportLearningStage("bootstrap-owner", "end");
+  reportLearningStage("owner-token", "start");
   ownerToken = await identity.sign(scenarioRoles.owner.subject);
+  reportLearningStage("owner-token", "end");
+  reportLearningStage("telegram-provider", "start");
   telegram = await startIsolatedTelegramProvider({
     databaseName: new URL(database.url).pathname.slice(1),
   });
-  cleanups.push(() => telegram.close());
+  cleanups.push({ stage: "cleanup:telegram", run: () => telegram.close() });
+  reportLearningStage("telegram-provider", "end");
+  reportLearningStage("api-port", "start");
   const apiPort = await reservePort();
+  reportLearningStage("api-port", "end");
+  reportLearningStage("bank-port", "start");
   const bankPort = await reservePort();
+  reportLearningStage("bank-port", "end");
   const bankEnvironment = {
     TBANK_PROVIDER_MODE: "test",
     TBANK_TEST_API_BASE_URL: `http://127.0.0.1:${String(bankPort)}/v2`,
@@ -107,12 +136,15 @@ beforeAll(async () => {
     TBANK_TEST_NOTIFICATION_URL: `http://127.0.0.1:${String(apiPort)}/billing/tbank/notification`,
     TBANK_TEST_RETURN_URL: `http://127.0.0.1:${String(apiPort)}/payment/return`,
   };
+  reportLearningStage("bank-provider", "start");
   const bank = await startLocalBankDouble({
     config: localTbankConfig(bankEnvironment),
     host: "127.0.0.1",
     port: bankPort,
   });
-  cleanups.push(() => bank.close());
+  cleanups.push({ stage: "cleanup:bank", run: () => bank.close() });
+  reportLearningStage("bank-provider", "end");
+  reportLearningStage("create-api-application", "start");
   app = await createApiApplication(
     parsePlatformConfig({
       OBJECT_STORAGE_ENDPOINT: storageEndpoint,
@@ -135,28 +167,42 @@ beforeAll(async () => {
     }),
     { logger: false },
   );
-  cleanups.push(() => app.close());
+  cleanups.push({ stage: "cleanup:api", run: () => app.close() });
+  reportLearningStage("create-api-application", "end");
 
+  reportLearningStage("api-listen", "start");
   await app.listen(apiPort, "127.0.0.1");
+  reportLearningStage("api-listen", "end");
+  reportLearningStage("api-url", "start");
   api = await app.getUrl();
+  reportLearningStage("api-url", "end");
+  reportLearningStage("holder-token", "start");
   holderToken = await identity.sign(scenarioRoles.holder.subject, {
     inside_verified_email: "light-holder@inside.test",
   });
+  reportLearningStage("holder-token", "end");
+  reportLearningStage("accounts-http", "start");
   await fetch(`${api}/accounts`, {
     method: "POST",
     headers: { authorization: `Bearer ${holderToken}` },
   });
+  reportLearningStage("accounts-http", "end");
+  reportLearningStage("reading-feed-seed", "start");
   await seedReadingFeedScenario({
     api,
     databaseName: new URL(database.url).pathname.slice(1),
     ownerToken,
   });
+  reportLearningStage("reading-feed-seed", "end");
+  reportLearningStage("learning-seed", "start");
   seeded = await seedLearningScenario({
     api,
     databaseName: new URL(database.url).pathname.slice(1),
     ownerToken,
     holderToken,
   });
+  reportLearningStage("learning-seed", "end");
+  reportLearningStage("beforeAll", "end");
 });
 
 test("the isolated library has a complete public feed, format filters and cursor continuation without legacy seed data", async () => {
@@ -350,14 +396,20 @@ test("the unpaid learner has real linked contacts, explicit waitlist membership 
   });
 });
 afterAll(async () => {
+  reportLearningStage("cleanup", "start");
   const failures: unknown[] = [];
-  for (const cleanup of cleanups.toReversed()) {
+  for (const { stage, run } of cleanups.toReversed()) {
+    reportLearningStage(stage, "start");
     try {
-      await cleanup();
+      await run();
     } catch (error) {
+      reportLearningStage(stage, "failed");
       failures.push(error);
+    } finally {
+      reportLearningStage(stage, "end");
     }
   }
+  reportLearningStage("cleanup", "end");
   if (failures.length > 0)
     throw new AggregateError(failures, "Learning scenario cleanup failed");
 });
