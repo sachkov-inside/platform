@@ -70,8 +70,8 @@ beforeAll(async () => {
   reportLearningStage("beforeAll", "start");
   reportLearningStage("database", "start");
   database = await createMigratedTestDatabase();
-  reportLearningStage("database", "end");
   cleanups.push({ stage: "cleanup:database", run: () => database.dispose() });
+  reportLearningStage("database", "end");
   reportLearningStage("rustfs-start-health", "start");
   storage = await new GenericContainer(
     "ghcr.io/rustfs/rustfs:1.0.5@sha256:b81d16a90ee25bd9511280127ca1471788c6e874cf0f0da759645f46b2dc1d74",
@@ -83,8 +83,8 @@ beforeAll(async () => {
     .withExposedPorts(9000)
     .withWaitStrategy(Wait.forHttp("/health", 9000))
     .start();
-  reportLearningStage("rustfs-start-health", "end");
   cleanups.push({ stage: "cleanup:rustfs", run: () => storage.stop() });
+  reportLearningStage("rustfs-start-health", "end");
   const storageEndpoint = `http://${storage.getHost()}:${String(storage.getMappedPort(9000))}`;
   const client = new S3Client({
     endpoint: storageEndpoint,
@@ -105,8 +105,8 @@ beforeAll(async () => {
     issuer: "https://learning-scenarios.invalid/oidc",
     audience: "https://learning-scenarios.invalid/api",
   });
-  reportLearningStage("identity-issuer", "end");
   cleanups.push({ stage: "cleanup:identity", run: () => identity.close() });
+  reportLearningStage("identity-issuer", "end");
   reportLearningStage("bootstrap-owner", "start");
   await bootstrapOwnerAccount(
     database.prisma,
@@ -121,8 +121,8 @@ beforeAll(async () => {
   telegram = await startIsolatedTelegramProvider({
     databaseName: new URL(database.url).pathname.slice(1),
   });
-  reportLearningStage("telegram-provider", "end");
   cleanups.push({ stage: "cleanup:telegram", run: () => telegram.close() });
+  reportLearningStage("telegram-provider", "end");
   reportLearningStage("api-port", "start");
   const apiPort = await reservePort();
   reportLearningStage("api-port", "end");
@@ -142,8 +142,8 @@ beforeAll(async () => {
     host: "127.0.0.1",
     port: bankPort,
   });
-  reportLearningStage("bank-provider", "end");
   cleanups.push({ stage: "cleanup:bank", run: () => bank.close() });
+  reportLearningStage("bank-provider", "end");
   reportLearningStage("create-api-application", "start");
   app = await createApiApplication(
     parsePlatformConfig({
@@ -167,8 +167,8 @@ beforeAll(async () => {
     }),
     { logger: false },
   );
-  reportLearningStage("create-api-application", "end");
   cleanups.push({ stage: "cleanup:api", run: () => app.close() });
+  reportLearningStage("create-api-application", "end");
 
   reportLearningStage("api-listen", "start");
   await app.listen(apiPort, "127.0.0.1");

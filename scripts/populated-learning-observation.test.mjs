@@ -41,7 +41,7 @@ function readStage(line) {
   };
 }
 
-for (const outcome of ["success", "timeout"]) {
+for (const outcome of ["success", "timeout", "closed-stderr"]) {
   test(`populated learning ${outcome} observation survives the real default reporter`, async (t) => {
     const child = spawnOwned(
       process.execPath,
@@ -58,9 +58,18 @@ for (const outcome of ["success", "timeout"]) {
     try {
       assert.equal(
         await commandExit(child),
-        outcome === "success" ? 0 : 1,
+        outcome === "timeout" ? 1 : 0,
         output,
       );
+      if (outcome === "closed-stderr") {
+        assert.match(output, /CLOSED_STDERR_WAS_OBSERVED/u);
+        assert.match(output, /CANARY_CLEANUP_COMPLETED/u);
+        assert.match(output, /1 passed/u);
+        t.diagnostic(
+          "Physical closed-stderr fault and completed cleanup observed; no sink output claimed.",
+        );
+        return;
+      }
       const records = output
         .split("\n")
         .filter((line) => line.startsWith('{"diagnostic":"populated-learning"'))

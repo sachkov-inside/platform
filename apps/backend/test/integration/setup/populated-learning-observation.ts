@@ -34,13 +34,17 @@ export function reportLearningStage(
   phase: "start" | "end" | "failed",
 ): void {
   // Vitest's default reporter suppresses successful console messages (#2417).
-  writeSync(
-    2,
-    `${JSON.stringify({
-      diagnostic: "populated-learning",
-      stage,
-      phase,
-      monotonicMs: performance.now(),
-    })}\n`,
-  );
+  try {
+    writeSync(
+      2,
+      `${JSON.stringify({
+        diagnostic: "populated-learning",
+        stage,
+        phase,
+        monotonicMs: performance.now(),
+      })}\n`,
+    );
+  } catch {
+    // A broken diagnostic sink must not prevent fixture cleanup or replace its error (#2417).
+  }
 }
