@@ -27,13 +27,28 @@ function RetainedGlossary() {
   const [mounted, setMounted] = useState(true);
   return (
     <>
-      <button onClick={() => setHidden(true)} type="button">
+      <button
+        onClick={() => {
+          setHidden(true);
+        }}
+        type="button"
+      >
         Скрыть текст
       </button>
-      <button onClick={() => setHidden(false)} type="button">
+      <button
+        onClick={() => {
+          setHidden(false);
+        }}
+        type="button"
+      >
         Вернуть текст
       </button>
-      <button onClick={() => setMounted(false)} type="button">
+      <button
+        onClick={() => {
+          setMounted(false);
+        }}
+        type="button"
+      >
         Убрать текст
       </button>
       {mounted ? (
