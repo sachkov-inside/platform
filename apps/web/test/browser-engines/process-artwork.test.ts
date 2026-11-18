@@ -1,3 +1,6 @@
+import { mkdir } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+
 import { expect as browserExpect } from "@playwright/test";
 import { afterAll, beforeAll, test } from "vitest";
 
@@ -217,12 +220,27 @@ for (const engine of ["chromium", "webkit"] as const) {
   test(`${engine}: the genuine non-looping scene clock stops at its existing end`, async () => {
     const browser = fixture.browsers.get(engine);
     if (browser === undefined) throw new Error("Missing artwork engine");
+    const evidence =
+      process.env["CAPTURE_EVIDENCE"] === "1"
+        ? fileURLToPath(
+            new URL(
+              `../../../../.reports/process-artwork-lifetimes/engine-evidence/${engine}/`,
+              import.meta.url,
+            ),
+          )
+        : undefined;
+    if (evidence !== undefined) await mkdir(evidence, { recursive: true });
     const context = await browser.newContext({
       viewport: { width: 900, height: 700 },
       reducedMotion: "no-preference",
+      ...(evidence === undefined
+        ? {}
+        : {
+            recordVideo: { dir: evidence, size: { width: 900, height: 700 } },
+          }),
     });
+    const page = await context.newPage();
     try {
-      const page = await context.newPage();
       await page.addInitScript(observeArtworkResources);
       await page.goto(fixture.url);
       await page
@@ -238,8 +256,12 @@ for (const engine of ["chromium", "webkit"] as const) {
       await browserExpect
         .poll(() => page.evaluate(() => window.processArtworkResources?.()))
         .toMatchObject({ frames: 0 });
+      if (evidence !== undefined)
+        await page.screenshot({ path: `${evidence}/stopped.png` });
     } finally {
       await context.close();
+      if (evidence !== undefined)
+        await page.video()?.saveAs(`${evidence}/actual-once-cycle.webm`);
     }
   }, 30_000);
 }
