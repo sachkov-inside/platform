@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useState } from "react";
 
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { CatalogBackLink } from "@/shared/ui/catalog-back-link";
@@ -19,22 +19,22 @@ export function ReaderReturnNavigation({
   readonly topNavigation?: ReactNode;
   readonly target: MaterialReaderReturnTarget;
 }) {
-  const topRef = useRef<HTMLDivElement>(null);
   const [topOutsideViewport, setTopOutsideViewport] = useState(false);
-
-  useEffect(() => {
-    const top = topRef.current;
-    if (top === null || !repeatAtBottom) return;
-    const observer = new IntersectionObserver((entries) => {
-      const latestEntry = entries.at(-1);
-      if (latestEntry !== undefined)
-        setTopOutsideViewport(!latestEntry.isIntersecting);
-    });
-    observer.observe(top);
-    return () => {
-      observer.disconnect();
-    };
-  }, [repeatAtBottom]);
+  const observeTop = useCallback(
+    (top: HTMLDivElement | null) => {
+      if (top === null || !repeatAtBottom) return;
+      const observer = new IntersectionObserver((entries) => {
+        const latestEntry = entries.at(-1);
+        if (latestEntry !== undefined)
+          setTopOutsideViewport(!latestEntry.isIntersecting);
+      });
+      observer.observe(top);
+      return () => {
+        observer.disconnect();
+      };
+    },
+    [repeatAtBottom],
+  );
 
   if (hideReturn && topNavigation === undefined) return children;
 
@@ -46,7 +46,7 @@ export function ReaderReturnNavigation({
         className="mx-auto mb-6 max-w-[43rem]"
         data-reader-return={hideReturn ? undefined : "top"}
         data-reader-top-frame
-        ref={topRef}
+        ref={observeTop}
       >
         {topNavigation ?? action}
       </div>

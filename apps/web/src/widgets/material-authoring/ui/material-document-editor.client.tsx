@@ -1,4 +1,5 @@
 "use client";
+import { createMaterialImagePreviews } from "./material-image-previews.browser";
 import { useMaterialBlockControls } from "./use-material-block-controls";
 import { materialSaveStateLabel } from "../model/material-save-state-label";
 import { withMaterialNodeIds } from "../model/material-document-identifiers";
@@ -61,7 +62,6 @@ import {
   MaterialAssetUploadQueue,
   useMaterialAssetUploads,
 } from "./material-asset-upload-controls.client";
-import { hasText } from "@/shared/lib/text";
 
 const noAssetPreviewBlocks: NonNullable<
   MaterialAuthoringPresentation["draft"]["assetPreviewBlocks"]
@@ -134,22 +134,22 @@ function MaterialDocumentEditorView({
   const [linkInvalid, setLinkInvalid] = useState(false);
   const [menuSearch, setMenuSearch] = useState("");
   const dialog = useRef<HTMLDialogElement>(null);
-  const imageUrls = useRef(new Map<string, string>());
+  const [imagePreviews] = useState(createMaterialImagePreviews);
+  const attachDialog = useCallback(
+    (element: HTMLDialogElement | null) => {
+      dialog.current = element;
+      if (element !== null) imagePreviews.attach(element);
+    },
+    [imagePreviews],
+  );
   const [localImages, setLocalImages] = useState<
     Readonly<Record<string, string>>
   >({});
-  const imageReady = useCallback((assetId: string, file: File) => {
-    const previous = imageUrls.current.get(assetId);
-    if (hasText(previous)) URL.revokeObjectURL(previous);
-    const url = URL.createObjectURL(file);
-    imageUrls.current.set(assetId, url);
-    setLocalImages(Object.fromEntries(imageUrls.current));
-  }, []);
-  useEffect(
-    () => () => {
-      for (const url of imageUrls.current.values()) URL.revokeObjectURL(url);
+  const imageReady = useCallback(
+    (assetId: string, file: File) => {
+      setLocalImages(imagePreviews.imageReady(assetId, file));
     },
-    [],
+    [imagePreviews],
   );
   const expand = () => {
     const window = dialog.current;
@@ -168,7 +168,11 @@ function MaterialDocumentEditorView({
           : [...(document.content ?? []), { type: "paragraph" }],
     }),
   );
+  const retainedDocument = useRef(initialDocument);
   const editor = useEditor({
+    onBeforeCreate: ({ editor: current }) => {
+      current.setOptions({ content: retainedDocument.current });
+    },
     content: initialDocument,
     editable: !disabled,
     extensions: materialEditorExtensions,
@@ -195,7 +199,9 @@ function MaterialDocumentEditorView({
       },
     },
     onUpdate: ({ editor: currentEditor }) => {
-      onChange(currentEditor.getJSON());
+      const document = currentEditor.getJSON();
+      retainedDocument.current = document;
+      onChange(document);
     },
   });
   // Редактор не пересобирается на каждой транзакции: панели читают из него только то, что
@@ -232,28 +238,34 @@ function MaterialDocumentEditorView({
     insertionPosition,
     prepareTextBlock,
   } = useMaterialBlockControls(editor, menuOpen || linkOpen);
-  const searchInput = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (!menuOpen) return;
-    searchInput.current?.focus();
-    const dismiss = (event: PointerEvent) => {
-      if (
-        event.target instanceof Element &&
-        event.target.closest(
-          "[data-editor-block-menu], [data-editor-add-block]",
+  const searchInput = useCallback(
+    (input: HTMLInputElement | null) => {
+      if (input === null || !menuOpen) return;
+      input.focus();
+      const dismiss = (event: PointerEvent) => {
+        if (
+          event.target instanceof Element &&
+          event.target.closest(
+            "[data-editor-block-menu], [data-editor-add-block]",
+          )
         )
-      )
-        return;
-      setMenuOpen(false);
-    };
-    window.addEventListener("pointerdown", dismiss);
-    return () => {
-      window.removeEventListener("pointerdown", dismiss);
-    };
-  }, [menuOpen]);
+          return;
+        setMenuOpen(false);
+      };
+      window.addEventListener("pointerdown", dismiss);
+      return () => {
+        window.removeEventListener("pointerdown", dismiss);
+      };
+    },
+    [menuOpen],
+  );
 
   useEffect(() => {
-    if (editor !== null && editor.isEditable !== !disabled) {
+    if (
+      editor !== null &&
+      !editor.isDestroyed &&
+      editor.isEditable !== !disabled
+    ) {
       editor.setEditable(!disabled);
     }
   }, [disabled, editor]);
@@ -452,7 +464,7 @@ function MaterialDocumentEditorView({
   return (
     <dialog
       open
-      ref={dialog}
+      ref={attachDialog}
       aria-label="Редактор статьи"
       onKeyDownCapture={(event) => {
         if (event.key !== "Escape") return;

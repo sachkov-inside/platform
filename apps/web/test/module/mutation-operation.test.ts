@@ -1,10 +1,16 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+  type MockInstance,
+} from "vitest";
 import { z } from "zod";
 
 const fakes = vi.hoisted(() => ({
   expirePublicCatalog: vi.fn(),
-  token: vi.fn(),
-  LogtoSessionUnavailableError: class extends Error {},
 }));
 
 vi.mock("next/cache", () => ({
@@ -12,18 +18,16 @@ vi.mock("next/cache", () => ({
   cacheTag: vi.fn(),
   revalidateTag: fakes.expirePublicCatalog,
 }));
-vi.mock("@/shared/auth/session-adapter.server", () => ({
-  sessionAdapter: {
-    accessToken: fakes.token,
-    baseUrl: () => "https://inside.example.test",
-  },
-  LogtoSessionUnavailableError: fakes.LogtoSessionUnavailableError,
-}));
-
 import { defineMutationOperation } from "@/shared/api/mutation-operation";
 import { MAX_BROWSER_MUTATION_BYTES } from "@/shared/api/mutation-limits";
 import { handleMutationOperation } from "@/shared/auth/index.server";
 
+import { realBffSession } from "../support/real-bff-session";
+import {
+  interceptIdentityOutage,
+  expectIdentityOutage,
+} from "../support/identity-http";
+import { sessionAdapter } from "@/shared/auth/session-adapter.server";
 import { routeBrowserMutations } from "../support/mutation-operation-route";
 
 const resultSchema = z.discriminatedUnion("kind", [
@@ -51,10 +55,12 @@ const execute = vi.fn(
 );
 
 function handle(request: Request) {
-  return handleMutationOperation(request, renameOperation, {
-    execute,
-    invalidInput: (): Result => ({ kind: "invalid_input" }),
-  });
+  return scope(() =>
+    handleMutationOperation(request, renameOperation, {
+      execute,
+      invalidInput: (): Result => ({ kind: "invalid_input" }),
+    }),
+  );
 }
 
 function post(body: BodyInit, headers: Record<string, string> = {}) {
@@ -69,9 +75,17 @@ function post(body: BodyInit, headers: Record<string, string> = {}) {
   });
 }
 
-beforeEach(() => {
+let scope: Awaited<ReturnType<typeof realBffSession>>;
+let sessionRead: MockInstance<typeof sessionAdapter.accessToken>;
+beforeEach(async () => {
   vi.clearAllMocks();
-  fakes.token.mockResolvedValue("token");
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2030-03-01T12:00:00Z"));
+  scope = await realBffSession("token");
+  sessionRead = vi.spyOn(sessionAdapter, "accessToken");
+});
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("a mutation operation's Route Handler", () => {
@@ -107,7 +121,7 @@ describe("a mutation operation's Route Handler", () => {
 
     expect(response.status).toBe(status);
     expect(response.headers.get("cache-control")).toBe("no-store, private");
-    expect(fakes.token).not.toHaveBeenCalled();
+    expect(sessionRead).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -162,10 +176,12 @@ describe("a mutation operation's Route Handler", () => {
       }),
     });
 
-    const response = await handleMutationOperation(
-      post(JSON.stringify({ name: "Новое" })),
-      exhausting,
-      { execute, invalidInput: (): Result => ({ kind: "invalid_input" }) },
+    const response = await scope(() =>
+      handleMutationOperation(
+        post(JSON.stringify({ name: "Новое" })),
+        exhausting,
+        { execute, invalidInput: (): Result => ({ kind: "invalid_input" }) },
+      ),
     );
 
     expect(response.status).toBe(400);
@@ -174,11 +190,13 @@ describe("a mutation operation's Route Handler", () => {
   });
 
   it("separates a missing session from an unavailable identity provider", async () => {
-    fakes.token.mockRejectedValueOnce(new fakes.LogtoSessionUnavailableError());
+    scope = await realBffSession(null);
     expect((await handle(post("{}"))).status).toBe(401);
 
-    fakes.token.mockRejectedValueOnce(new Error("Logto unavailable"));
+    scope = await realBffSession({ refreshToken: "expired-generic-operation" });
+    const identity = interceptIdentityOutage();
     expect((await handle(post("{}"))).status).toBe(503);
+    expectIdentityOutage(identity);
     expect(execute).not.toHaveBeenCalled();
   });
 
@@ -194,31 +212,75 @@ describe("a mutation operation's Route Handler", () => {
 });
 
 describe("a mutation operation's browser adapter", () => {
-  it("maps transport failures through the operation", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("offline")));
-    await expect(renameOperation.send({ name: "x" })).resolves.toEqual({
-      kind: "failed",
-      reference: "503",
-    });
-
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(new Response("<html>", { status: 200 })),
-    );
-    await expect(renameOperation.send({ name: "x" })).resolves.toEqual({
-      kind: "failed",
-      reference: "502",
-    });
-
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(Response.json({ kind: "renamed" })),
-    );
-    await expect(renameOperation.send({ name: "x" })).resolves.toEqual({
-      kind: "failed",
-      reference: "contract",
-    });
-  });
+  it.each([
+    ["offline", "503"],
+    ["html", "502"],
+    ["missing-name", "contract"],
+  ] as const)(
+    "maps named %s transport corruption after a valid real handler response",
+    async (fault, reference) => {
+      const receipts: {
+        method: string;
+        url: string;
+        status: number;
+        payload: unknown;
+        bodyUsed: boolean;
+      }[] = [];
+      vi.stubGlobal(
+        "fetch",
+        async (
+          input: RequestInfo | URL,
+          init?: RequestInit,
+        ): Promise<Response> => {
+          const target =
+            input instanceof Request
+              ? input
+              : new URL(input, "https://inside.example.test");
+          const request = new Request(target, init);
+          if (
+            request.method !== "POST" ||
+            request.url !== "https://inside.example.test/api/authoring/rename"
+          )
+            throw new Error("Unexpected transport fault request");
+          request.headers.set("origin", "https://inside.example.test");
+          const response = await handle(request);
+          const payload: unknown = await response.json();
+          receipts.push({
+            method: request.method,
+            url: request.url,
+            status: response.status,
+            payload,
+            bodyUsed: response.bodyUsed,
+          });
+          if (fault === "offline")
+            throw new TypeError("transport delivery interrupted");
+          return fault === "html"
+            ? new Response("<html>", {
+                status: response.status,
+                headers: response.headers,
+              })
+            : Response.json(
+                { kind: "renamed" },
+                { status: response.status, headers: response.headers },
+              );
+        },
+      );
+      await expect(renameOperation.send({ name: "x" })).resolves.toEqual({
+        kind: "failed",
+        reference,
+      });
+      expect(execute).toHaveBeenCalledOnce();
+      expect(receipts).toEqual([
+        {
+          method: "POST",
+          url: "https://inside.example.test/api/authoring/rename",
+          status: 200,
+          payload: { kind: "renamed", name: "x:token" },
+          bodyUsed: true,
+        },
+      ]);
+    },
+  );
 
   it("reaches its handler through the literal path and method", async () => {
     const { fetch } = routeBrowserMutations({

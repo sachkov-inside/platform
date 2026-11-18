@@ -3,15 +3,20 @@
 import { checkExerciseAnswer } from "@inside/material-blocks";
 import { ChevronDown, ChevronUp, GripVertical } from "lucide-react";
 import {
-  useEffect,
+  useCallback,
   useId,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
+import { flushSync } from "react-dom";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
+import {
+  MaterialOrderStepTableNames,
+  useShownOrderTableNames,
+} from "../material-table-names.client";
 import {
   Select,
   SelectContent,
@@ -450,10 +455,18 @@ function useStepDrag(onDrop: (from: number, to: number) => void) {
   const list = useRef<HTMLOListElement>(null);
   const [drag, setDrag] = useState<StepDrag | null>(null);
   const stop = useRef<(() => void) | null>(null);
-  useEffect(() => () => stop.current?.(), []);
+  const attachList = useCallback((element: HTMLOListElement) => {
+    list.current = element;
+    return () => {
+      stop.current?.();
+      setDrag(null);
+      list.current = null;
+    };
+  }, []);
 
   const start = (from: number, event: ReactPointerEvent<HTMLElement>) => {
-    if (event.button !== 0 || list.current === null) return;
+    if (event.button !== 0 || list.current === null || stop.current !== null)
+      return;
     event.preventDefault();
     const top = list.current.getBoundingClientRect().top;
     const boxes = [...list.current.children].map((item) => {
@@ -480,6 +493,7 @@ function useStepDrag(onDrop: (from: number, to: number) => void) {
     let current = measure(0);
     setDrag(current);
     const move = (moveEvent: PointerEvent) => {
+      if (moveEvent.pointerId !== event.pointerId) return;
       current = measure(moveEvent.clientY - startY);
       setDrag(current);
     };
@@ -489,10 +503,12 @@ function useStepDrag(onDrop: (from: number, to: number) => void) {
       if (dropped && current.to !== current.from)
         onDrop(current.from, current.to);
     };
-    const up = () => {
+    const up = (upEvent: PointerEvent) => {
+      if (upEvent.pointerId !== event.pointerId) return;
       finish(true);
     };
-    const cancel = () => {
+    const cancel = (cancelEvent: PointerEvent) => {
+      if (cancelEvent.pointerId !== event.pointerId) return;
       finish(false);
     };
     window.addEventListener("pointermove", move);
@@ -506,7 +522,7 @@ function useStepDrag(onDrop: (from: number, to: number) => void) {
     };
   };
 
-  return { list, drag, start };
+  return { list: attachList, drag, start };
 }
 
 /**
@@ -524,7 +540,6 @@ export function MaterialOrder(props: MaterialOrderPresentation) {
   const [draft, setDraft] = useState<readonly string[] | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const buttons = useRef(new Map<string, HTMLButtonElement>());
-  const pendingFocus = useRef<string | null>(null);
   const answered = state.current;
   const shown =
     answered === null
@@ -533,25 +548,10 @@ export function MaterialOrder(props: MaterialOrderPresentation) {
         ? arrangedSteps(id, steps, answered.answer.stepIds)
         : steps;
   const position = new Map(steps.map((step, index) => [step.id, index]));
+  const tableNames = useShownOrderTableNames(shown.map((step) => step.id));
   const inPlace = shown.filter(
     (step, index) => position.get(step.id) === index,
   );
-
-  // A moved step keeps the focus on its button; at the edge the other button takes it.
-  useEffect(() => {
-    const key = pendingFocus.current;
-    if (key === null) return;
-    pendingFocus.current = null;
-    const button = buttons.current.get(key);
-    if (button?.disabled === false) {
-      button.focus();
-      return;
-    }
-    const [stepId, direction] = key.split(":");
-    buttons.current
-      .get(`${stepId ?? ""}:${direction === "up" ? "down" : "up"}`)
-      ?.focus();
-  });
 
   const move = (index: number, direction: Direction) => {
     const target = direction === "up" ? index - 1 : index + 1;
@@ -561,11 +561,18 @@ export function MaterialOrder(props: MaterialOrderPresentation) {
     const next = shown.map((item) => item.id);
     next[index] = other.id;
     next[target] = step.id;
-    setDraft(next);
-    pendingFocus.current = `${step.id}:${direction}`;
-    setAnnouncement(
-      `«${step.label}»: место ${String(target + 1)} из ${String(shown.length)}`,
-    );
+    flushSync(() => {
+      setDraft(next);
+      setAnnouncement(
+        `«${step.label}»: место ${String(target + 1)} из ${String(shown.length)}`,
+      );
+    });
+    const button = buttons.current.get(`${step.id}:${direction}`);
+    if (button?.disabled === false) button.focus();
+    else
+      buttons.current
+        .get(`${step.id}:${direction === "up" ? "down" : "up"}`)
+        ?.focus();
   };
 
   const { list, drag, start } = useStepDrag((from, to) => {
@@ -631,112 +638,118 @@ export function MaterialOrder(props: MaterialOrderPresentation) {
                 : position.get(step.id) === index;
             const place = (position.get(step.id) ?? 0) + 1;
             return (
-              <li
+              <MaterialOrderStepTableNames
                 key={step.id}
-                data-order-step
-                data-result={
-                  correct === undefined
-                    ? undefined
-                    : correct
-                      ? "in-place"
-                      : "out-of-place"
-                }
-                aria-describedby={correct === undefined ? undefined : reviewId}
-                onKeyDown={(event) => {
-                  if (answered !== null || !event.altKey) return;
-                  const direction =
-                    event.key === "ArrowUp"
-                      ? "up"
-                      : event.key === "ArrowDown"
-                        ? "down"
-                        : undefined;
-                  if (direction === undefined) return;
-                  event.preventDefault();
-                  move(index, direction);
-                }}
-                data-dragging={drag?.from === index ? "" : undefined}
-                style={
-                  drag?.from === index
-                    ? { transform: `translateY(${String(drag.offset)}px)` }
-                    : undefined
-                }
-                className={cn(
-                  "relative grid min-w-0 gap-x-2.5 rounded-lg border border-lesson-line bg-card py-2 pr-1.5 data-dragging:z-10 data-dragging:shadow-card",
-                  answered === null
-                    ? "grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center pl-0"
-                    : "grid-cols-[auto_minmax(0,1fr)_auto] items-start py-2.5 pl-3 pr-3 sm:pl-4 sm:pr-4",
-                )}
+                shift={tableNames.get(step.id)}
               >
-                {answered === null ? (
-                  <span
-                    aria-hidden="true"
-                    data-order-handle
-                    onPointerDown={(event) => {
-                      start(index, event);
-                    }}
-                    className="-my-2 flex min-h-11 w-7 cursor-grab touch-none items-center justify-center self-stretch rounded-l-lg text-muted-foreground hover:text-foreground active:cursor-grabbing"
-                  >
-                    <GripVertical className="size-4" />
-                  </span>
-                ) : null}
-                <span className="tabular-nums text-muted-foreground">
-                  {index + 1}
-                </span>
-                <div className="min-w-0">
-                  <div id={labelId}>{step.content}</div>
-                  {answered === null ? null : (
-                    <ItemExplanation>{step.explanation}</ItemExplanation>
+                <li
+                  data-order-step
+                  data-result={
+                    correct === undefined
+                      ? undefined
+                      : correct
+                        ? "in-place"
+                        : "out-of-place"
+                  }
+                  aria-describedby={
+                    correct === undefined ? undefined : reviewId
+                  }
+                  onKeyDown={(event) => {
+                    if (answered !== null || !event.altKey) return;
+                    const direction =
+                      event.key === "ArrowUp"
+                        ? "up"
+                        : event.key === "ArrowDown"
+                          ? "down"
+                          : undefined;
+                    if (direction === undefined) return;
+                    event.preventDefault();
+                    move(index, direction);
+                  }}
+                  data-dragging={drag?.from === index ? "" : undefined}
+                  style={
+                    drag?.from === index
+                      ? { transform: `translateY(${String(drag.offset)}px)` }
+                      : undefined
+                  }
+                  className={cn(
+                    "relative grid min-w-0 gap-x-2.5 rounded-lg border border-lesson-line bg-card py-2 pr-1.5 data-dragging:z-10 data-dragging:shadow-card",
+                    answered === null
+                      ? "grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center pl-0"
+                      : "grid-cols-[auto_minmax(0,1fr)_auto] items-start py-2.5 pl-3 pr-3 sm:pl-4 sm:pr-4",
                   )}
-                </div>
-                {answered === null ? (
-                  <div className="flex" data-order-moves>
-                    <MoveButton
-                      direction="up"
-                      labelId={labelId}
-                      disabled={index === 0}
-                      register={(element) => {
-                        if (element === null)
-                          buttons.current.delete(`${step.id}:up`);
-                        else buttons.current.set(`${step.id}:up`, element);
+                >
+                  {answered === null ? (
+                    <span
+                      aria-hidden="true"
+                      data-order-handle
+                      onPointerDown={(event) => {
+                        start(index, event);
                       }}
-                      onClick={() => {
-                        move(index, "up");
-                      }}
-                    />
-                    <MoveButton
-                      direction="down"
-                      labelId={labelId}
-                      disabled={index === shown.length - 1}
-                      register={(element) => {
-                        if (element === null)
-                          buttons.current.delete(`${step.id}:down`);
-                        else buttons.current.set(`${step.id}:down`, element);
-                      }}
-                      onClick={() => {
-                        move(index, "down");
-                      }}
-                    />
-                  </div>
-                ) : correct === undefined ? (
-                  <span />
-                ) : correct ? (
-                  <span id={reviewId} className="mt-1">
-                    <ItemResultMark result="correct" speech="На месте" />
-                  </span>
-                ) : (
-                  <span
-                    id={reviewId}
-                    data-item-mark="incorrect"
-                    data-order-place={place}
-                    className="mt-0.5 whitespace-nowrap text-sm font-semibold tabular-nums"
-                  >
-                    <span aria-hidden="true">→ {place}</span>
-                    <span className="sr-only">
-                      Не на месте, место этого шага: {place}
+                      className="-my-2 flex min-h-11 w-7 cursor-grab touch-none items-center justify-center self-stretch rounded-l-lg text-muted-foreground hover:text-foreground active:cursor-grabbing"
+                    >
+                      <GripVertical className="size-4" />
                     </span>
+                  ) : null}
+                  <span className="tabular-nums text-muted-foreground">
+                    {index + 1}
                   </span>
-                )}
-              </li>
+                  <div className="min-w-0">
+                    <div id={labelId}>{step.content}</div>
+                    {answered === null ? null : (
+                      <ItemExplanation>{step.explanation}</ItemExplanation>
+                    )}
+                  </div>
+                  {answered === null ? (
+                    <div className="flex" data-order-moves>
+                      <MoveButton
+                        direction="up"
+                        labelId={labelId}
+                        disabled={index === 0}
+                        register={(element) => {
+                          if (element === null)
+                            buttons.current.delete(`${step.id}:up`);
+                          else buttons.current.set(`${step.id}:up`, element);
+                        }}
+                        onClick={() => {
+                          move(index, "up");
+                        }}
+                      />
+                      <MoveButton
+                        direction="down"
+                        labelId={labelId}
+                        disabled={index === shown.length - 1}
+                        register={(element) => {
+                          if (element === null)
+                            buttons.current.delete(`${step.id}:down`);
+                          else buttons.current.set(`${step.id}:down`, element);
+                        }}
+                        onClick={() => {
+                          move(index, "down");
+                        }}
+                      />
+                    </div>
+                  ) : correct === undefined ? (
+                    <span />
+                  ) : correct ? (
+                    <span id={reviewId} className="mt-1">
+                      <ItemResultMark result="correct" speech="На месте" />
+                    </span>
+                  ) : (
+                    <span
+                      id={reviewId}
+                      data-item-mark="incorrect"
+                      data-order-place={place}
+                      className="mt-0.5 whitespace-nowrap text-sm font-semibold tabular-nums"
+                    >
+                      <span aria-hidden="true">→ {place}</span>
+                      <span className="sr-only">
+                        Не на месте, место этого шага: {place}
+                      </span>
+                    </span>
+                  )}
+                </li>
+              </MaterialOrderStepTableNames>
             );
           })}
         </ol>

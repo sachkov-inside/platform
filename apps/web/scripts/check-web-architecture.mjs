@@ -6,6 +6,7 @@ import { fileURLToPath, URL } from "node:url";
 import { z } from "zod";
 
 import { parseSync, Visitor } from "oxc-parser";
+import { testSubstituteViolations } from "./test-substitutes.mts";
 
 /**
  * @typedef {import("oxc-parser").Program} Program
@@ -90,14 +91,18 @@ const siteAnimationPackages =
 
 /**
  * @param {string} root
+ * @param {boolean} [includeJavaScript]
  * @returns {string[]}
  */
-function sourceFiles(root) {
+function sourceFiles(root, includeJavaScript = false) {
   if (statSync(root).isFile()) return [root];
   return readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
     const entryPath = path.join(root, entry.name);
-    if (entry.isDirectory()) return sourceFiles(entryPath);
-    return /\.(?:cts|mts|ts|tsx)$/.test(entry.name) ? [entryPath] : [];
+    if (entry.isDirectory()) return sourceFiles(entryPath, includeJavaScript);
+    const extension = includeJavaScript
+      ? /\.[cm]?[jt]sx?$/u
+      : /\.(?:cts|mts|ts|tsx)$/u;
+    return extension.test(entry.name) ? [entryPath] : [];
   });
 }
 
@@ -1156,7 +1161,7 @@ for (const scanRoot of scanRoots) {
 }
 
 const parsedFiles = new Map(
-  [...new Set(scanRoots.flatMap(sourceFiles))].map((file) => {
+  [...new Set(scanRoots.flatMap((root) => sourceFiles(root)))].map((file) => {
     const { errors, program } = parseSync(file, readFileSync(file, "utf8"));
     const [firstError] = errors;
     if (firstError !== undefined) {
@@ -1543,6 +1548,38 @@ for (const entry of [...parsedFiles.keys()].filter(
       );
     }
   }
+}
+
+const substituteRoots =
+  requestedRoots.length === 0
+    ? [
+        "src",
+        "app",
+        "proxy.ts",
+        "scripts",
+        "test",
+        ".storybook",
+        "vitest.config.mts",
+        "vitest.smoke.config.mts",
+        "file-preview/next-navigation.ts",
+      ].map((root) => path.resolve(webRoot, root))
+    : scanRoots;
+for (const file of new Set(
+  substituteRoots.flatMap((root) => sourceFiles(root, true)),
+)) {
+  const sourcePath = scannedPath(file);
+  if (
+    requestedRoots.length === 0 &&
+    sourcePath.startsWith("test/guardrails/fixtures/")
+  )
+    continue;
+  if (sourcePath.includes("/__mocks__/"))
+    findings.push(
+      `${sourcePath}: manual module mock directories are not external service transports`,
+    );
+  findings.push(
+    ...testSubstituteViolations(sourcePath, readFileSync(file, "utf8")),
+  );
 }
 
 if (findings.length > 0) {
