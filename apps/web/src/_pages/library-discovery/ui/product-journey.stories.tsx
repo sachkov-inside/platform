@@ -1,6 +1,10 @@
 import { legacyCatalogueScenario } from "../../../../../../scenarios/legacy-catalog.mjs";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { ReadonlyURLSearchParams, useSearchParams } from "next/navigation";
+import {
+  ReadonlyURLSearchParams,
+  usePathname,
+  useSearchParams,
+} from "next/navigation";
 import { useState, type ComponentProps } from "react";
 import { z } from "zod";
 import {
@@ -1083,10 +1087,16 @@ export const CatalogueRefreshRestoresMaterial: Story = {
   args: { learning: { kind: "guest" } },
   beforeEach: () => {
     const cleanup = environment.beforeEach();
+    mocked(usePathname).mockReturnValue(
+      `/products/${productJourneyCorpus().reference.slug}/programme`,
+    );
     mocked(useSearchParams).mockReturnValue(
       new ReadonlyURLSearchParams("part=materials&at=performance-lesson-12"),
     );
     return () => {
+      mocked(usePathname).mockReturnValue(
+        `/products/${legacyCatalogueScenario.product.slug}/programme`,
+      );
       mocked(useSearchParams).mockReturnValue(new ReadonlyURLSearchParams());
       cleanup?.();
     };
