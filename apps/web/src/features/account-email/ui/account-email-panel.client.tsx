@@ -53,7 +53,6 @@ export function AccountEmailPanel() {
     challengeRef: string;
   } | null>(null);
   const [error, setError] = useState<EmailAttachmentFailure["code"]>();
-  const [verified, setVerified] = useState(false);
   const start = useMutation({
     mutationFn: startAccountEmail,
     retry: false,
@@ -81,7 +80,6 @@ export function AccountEmailPanel() {
       }));
       setChallenge(null);
       setError(undefined);
-      setVerified(true);
       emailAttached.announce();
       await client.invalidateQueries({ queryKey }, { cancelRefetch: false });
     },
@@ -104,7 +102,7 @@ export function AccountEmailPanel() {
         (query.data?.ok === false && query.data.code === "unauthorized")
       }
       pending={start.isPending || confirm.isPending}
-      verified={verified}
+      verified={confirm.data?.ok === true}
       onStart={(email) => {
         setError(undefined);
         start.mutate(email);
