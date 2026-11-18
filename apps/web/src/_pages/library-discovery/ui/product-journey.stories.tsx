@@ -2599,7 +2599,7 @@ function ProgrammeQueryScopeSwitch() {
               "/products/owned-programme-b/programme",
             );
             mocked(useSearchParams).mockReturnValue(
-              new ReadonlyURLSearchParams("page=2"),
+              new ReadonlyURLSearchParams("page=3"),
             );
             setStage(2);
           }}
@@ -2631,25 +2631,44 @@ export const ProgrammeQueryFollowsProductScope: Story = {
   render: () => <ProgrammeQueryScopeSwitch />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(
-      canvasElement.querySelectorAll("[data-product-ordinal]"),
-    ).toHaveLength(24);
-    await userEvent.click(
-      canvas.getByRole("button", {
-        name: "Показать другой Product вне его маршрута",
-      }),
-    );
-    await expect(
-      canvas.getByRole("heading", { name: "Вторая программа", level: 1 }),
-    ).toBeVisible();
-    await expect(
-      canvasElement.querySelectorAll("[data-product-ordinal]"),
-    ).toHaveLength(12);
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Принять адрес второй программы" }),
-    );
-    await expect(
-      canvasElement.querySelectorAll("[data-product-ordinal]"),
-    ).toHaveLength(24);
+    const committedCounts: number[] = [];
+    const observeB = () => {
+      const surface = canvasElement.querySelector(
+        '[data-product-programme="owned-programme-b"]',
+      );
+      if (surface !== null)
+        committedCounts.push(
+          surface.querySelectorAll("[data-product-ordinal]").length,
+        );
+    };
+    const observer = new MutationObserver(observeB);
+    observer.observe(canvasElement, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-product-programme"],
+    });
+    try {
+      await expect(
+        canvasElement.querySelectorAll("[data-product-ordinal]"),
+      ).toHaveLength(24);
+      await userEvent.click(
+        canvas.getByRole("button", {
+          name: "Показать другой Product вне его маршрута",
+        }),
+      );
+      await expect(
+        canvas.getByRole("heading", { name: "Вторая программа", level: 1 }),
+      ).toBeVisible();
+      await expect(committedCounts[0]).toBe(12);
+      // A later native reveal is valid with this retained scroll geometry.
+      committedCounts.length = 0;
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Принять адрес второй программы" }),
+      );
+      await expect(committedCounts[0]).toBe(36);
+    } finally {
+      observer.disconnect();
+    }
   },
 };
