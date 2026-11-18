@@ -1,6 +1,18 @@
 import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import {
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+  type MockInstance,
+} from "vitest";
+import {
+  PathnameContext,
+  SearchParamsContext,
+} from "next/dist/shared/lib/hooks-client-context.shared-runtime";
+import * as readerHistory from "@/shared/ui/reader-history.client";
 import {
   MaterialReaderPending,
   MaterialReaderAccess,
@@ -10,23 +22,21 @@ import { resolveProductReaderContext } from "@/_pages/material-reader/model/prod
 import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { courseSource } from "@/storybook/course-reading.fixtures";
 
-const { track } = vi.hoisted(() => ({ track: vi.fn() }));
-vi.mock("@/shared/ui/reader-history.client", () => ({
-  ReaderHistoryTracker: (props: {
-    readonly path: string;
-    readonly originHref?: string;
-  }) => {
-    track(props);
-    return null;
-  },
-  ReaderOriginLink: ({
-    href,
-    children,
-  }: {
-    readonly href: string;
-    readonly children: ReactNode;
-  }) => createElement("a", { href }, children),
-}));
+let track: MockInstance<typeof readerHistory.ReaderHistoryTracker>;
+beforeEach(() => {
+  track = vi.spyOn(readerHistory, "ReaderHistoryTracker");
+});
+function renderReader(node: ReactNode): string {
+  return renderToStaticMarkup(
+    createElement(PathnameContext.Provider, {
+      value: "/materials/aie-product-brief",
+      children: createElement(SearchParamsContext.Provider, {
+        value: new URLSearchParams(),
+        children: node,
+      }),
+    }),
+  );
+}
 
 const material = {
   materialId: "02000000-0000-4000-8000-000000000010",
@@ -50,7 +60,7 @@ describe("Reader history activation boundary", () => {
     const returnTarget = parseMaterialReaderReturnTarget(
       "/products/ai-engineering/programme",
     );
-    renderToStaticMarkup(
+    renderReader(
       createElement(MaterialReaderPending, {
         material,
         returnTarget,
@@ -72,7 +82,7 @@ describe("Reader history activation boundary", () => {
         anchor: { kind: "task", code: "aie-ch1-onboarding" },
       }),
     );
-    renderToStaticMarkup(
+    const readyHtml = renderReader(
       createElement(MaterialReaderView, {
         material,
         body: [],
@@ -81,10 +91,13 @@ describe("Reader history activation boundary", () => {
         productContext: context,
       }),
     );
-    expect(track).toHaveBeenCalledExactlyOnceWith({
-      path: "/materials/aie-product-brief",
-      originHref: "/products/ai-engineering/tasks/aie-ch1-onboarding",
-    });
+    expect(track.mock.calls.map(([props]) => props)).toEqual([
+      {
+        path: "/materials/aie-product-brief",
+        originHref: "/products/ai-engineering/tasks/aie-ch1-onboarding",
+      },
+    ]);
+    expect(readyHtml).toContain("data-reader-history-tracker");
   });
 });
 
@@ -105,7 +118,7 @@ describe("Locked material course entry", () => {
       },
       anchor: { kind: "task", code: "aie-ch1-onboarding" },
     });
-    const html = renderToStaticMarkup(
+    const html = renderReader(
       createElement(MaterialReaderAccess, {
         material: {
           ...material,

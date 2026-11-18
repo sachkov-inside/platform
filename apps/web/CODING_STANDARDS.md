@@ -51,8 +51,9 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
   Browser adapters use `requestAuthenticatedRead` and validate ready values with feature schemas.
   The shared result distinguishes missing authentication, identity failure and dependency failure;
   other HTTP rejections keep their status and `unknown` body for feature failure schemas.
-  Feature outcomes remain local. Replace the public `sessionAdapter` in read tests, rather than
-  token or Logto config internals. RSC prefetch interruption stays outside failure catches.
+  Feature outcomes remain local. Read tests execute the actual session, SDK and own adapters,
+  answering only external backend and identity HTTP. RSC prefetch interruption stays outside
+  failure catches.
 - Generated types guide compilation; adapters validate `unknown` bodies with focused Zod schemas
   and map Problem Details and success bodies to feature outcomes and presentation models.
 - Do not add a universal proxy, generated TanStack hooks/Zod schemas/UI models, or a second
@@ -225,6 +226,10 @@ These rules require review. An effect count or a passing dependency linter canno
   sign-in on `focus`. A bare `focus` only re-checks sign-in and re-reads no query. Worked examples:
   `returnToStaleTab` in `test/fullstack/personal-home.spec.ts` for a return to the tab and
   `signInAndRecheckOnFocus` in `test/fullstack/reading-progress.spec.ts` for a sign-in re-check.
+- Tests keep own modules and their callable defaults real, including session and backend clients.
+  Observational spies preserve actual behaviour. The architecture checker and negative fixtures
+  enforce concrete substitute forms; [Testing → Substitutes](../../docs/agents/testing.md#substitutes)
+  owns required callback ports, named wire faults and the exact API/context platform seams.
 - Keep Web guardrails and negative fixtures aligned. [Testing](../../docs/agents/testing.md)
   owns the choice between module tests, Storybook and Playwright.
 

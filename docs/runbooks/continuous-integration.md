@@ -193,8 +193,11 @@ the changed packages until the next run on `main` saves a new one.
 The archive cache does not skip apt index updates. `scripts/install-playwright-ci.sh` bounds
 system-package installation to 180 seconds per attempt, then kills the whole process group as root.
 HTTP and HTTPS connection and data waits time out after 15 seconds and retry once; index errors fail
-the installation. After a failed first attempt the script replaces only the Azure Ubuntu mirror
-with `https://archive.ubuntu.com` and retries once. This also replaces the original HTTP scheme:
+the installation. After a failed first attempt the script replaces the Azure Ubuntu mirror and
+the exact `us-east-2.ec2.archive.ubuntu.com` host observed in #2411 with
+`https://archive.ubuntu.com` and retries once. Other hosts remain unchanged. In #2411 the previous
+Azure-only fallback reached the same HTTP EC2 host twice; the package-transfer delay remains
+unexplained. This also replaces the original HTTP scheme:
 the previous fallback preserved HTTP on the highest-priority mirror despite an existing HTTPS
 entry on the runner. In #1107 that HTTP source waited until the deadline; the log does not
 establish the provider's internal network failure cause. A failed second attempt fails the job before browser

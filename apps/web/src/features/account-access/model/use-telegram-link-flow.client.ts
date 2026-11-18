@@ -1,27 +1,42 @@
 "use client";
 
-import { useMutation } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+} from "react";
 
 import { beginTelegramLink } from "../api/begin-telegram-link.browser";
 import { confirmTelegramLink } from "../api/confirm-telegram-link.browser";
+import { accountPresentationQueryKey } from "./account-presentation-query";
+import type { TelegramLinkMutationResult } from "./account-telegram-membership";
 import {
   clearTelegramLinkSession,
   resolveTelegramLinkDeepLink,
 } from "./telegram-link-session.browser";
 
+interface TelegramLinkBrowser {
+  opening: { readonly popup: Window | null } | null;
+}
+
 export function useTelegramLinkFlow(onRefresh: () => Promise<void>) {
   const [deepLink, setDeepLink] = useState<string | null>(null);
   const [automaticConfirmation, setAutomaticConfirmation] = useState(false);
   const automaticLinkRef = useRef<string | null>(null);
-  const automaticConfirmInFlight = useRef(false);
-  const confirmOnReturn = useRef<() => void>(() => undefined);
+  const browser = useRef<TelegramLinkBrowser | null>(null);
+  const confirming = useRef<TelegramLinkBrowser | null>(null);
+  const client = useQueryClient();
   const beginMutation = useMutation({
     mutationFn: beginTelegramLink,
   });
+  const { reset: resetBegin } = beginMutation;
   const confirmMutation = useMutation({
     mutationFn: confirmTelegramLink,
   });
+  const { reset: resetConfirm } = confirmMutation;
   const refreshMutation = useMutation({ mutationFn: onRefresh });
   const mutationResult = confirmMutation.data ?? beginMutation.data ?? null;
   const pending =
@@ -29,20 +44,36 @@ export function useTelegramLinkFlow(onRefresh: () => Promise<void>) {
     confirmMutation.isPending ||
     refreshMutation.isPending;
 
-  const clearAutomaticConfirmation = () => {
+  const clearAutomaticConfirmation = useCallback(() => {
     automaticLinkRef.current = null;
-    automaticConfirmInFlight.current = false;
     setAutomaticConfirmation(false);
+  }, []);
+
+  const refreshDetachedAccount = async (result: TelegramLinkMutationResult) => {
+    // A settled server write can change the Account even after its initiating screen leaves.
+    if (result.kind === "received") {
+      await client.invalidateQueries({
+        queryKey: accountPresentationQueryKey(),
+      });
+    }
   };
 
   const begin = async () => {
-    beginMutation.reset();
-    confirmMutation.reset();
+    const active = browser.current;
+    if (active?.opening !== null) return;
+    resetBegin();
+    resetConfirm();
     clearAutomaticConfirmation();
     const telegramWindow = window.open("about:blank", "_blank");
+    const opening = { popup: telegramWindow };
+    active.opening = opening;
     if (telegramWindow !== null) telegramWindow.opener = null;
     try {
       const result = await beginMutation.mutateAsync();
+      if (browser.current !== active) {
+        await refreshDetachedAccount(result);
+        return;
+      }
       const resolvedDeepLink =
         result.kind === "received"
           ? resolveTelegramLinkDeepLink(result.state)
@@ -60,19 +91,28 @@ export function useTelegramLinkFlow(onRefresh: () => Promise<void>) {
       } else {
         telegramWindow?.close();
       }
+      active.opening = null;
       await onRefresh();
     } catch {
-      telegramWindow?.close();
+      if (browser.current === active) {
+        telegramWindow?.close();
+        if (active.opening === opening) active.opening = null;
+      }
     }
   };
 
   const runConfirmation = async (linkRef: string, automatic: boolean) => {
-    if (automatic && automaticConfirmInFlight.current) return;
-    if (automatic) automaticConfirmInFlight.current = true;
-    beginMutation.reset();
-    confirmMutation.reset();
+    const active = browser.current;
+    if (active === null || confirming.current !== null) return;
+    confirming.current = active;
+    resetBegin();
+    resetConfirm();
     try {
       const result = await confirmMutation.mutateAsync(linkRef);
+      if (browser.current !== active) {
+        await refreshDetachedAccount(result);
+        return;
+      }
       if (result.kind === "received" && result.state.status !== "pending") {
         setDeepLink(null);
         clearTelegramLinkSession();
@@ -82,58 +122,65 @@ export function useTelegramLinkFlow(onRefresh: () => Promise<void>) {
         clearTelegramLinkSession();
       }
       await onRefresh();
-      if (
-        automatic &&
-        (result.kind !== "received" || result.state.status !== "pending")
-      ) {
+      if (!automatic || browser.current !== active) return;
+      if (result.kind !== "received" || result.state.status !== "pending") {
         clearAutomaticConfirmation();
-      } else if (automatic) {
-        automaticConfirmInFlight.current = false;
+      } else {
         setAutomaticConfirmation(false);
       }
     } catch {
-      if (automatic) clearAutomaticConfirmation();
+      if (automatic && browser.current === active) clearAutomaticConfirmation();
     } finally {
-      if (automatic) automaticConfirmInFlight.current = false;
+      confirming.current = null;
     }
   };
 
   const confirm = (linkRef: string) => {
+    if (confirming.current !== null) return;
     clearAutomaticConfirmation();
     void runConfirmation(linkRef, false);
   };
   const refresh = () => {
-    beginMutation.reset();
-    confirmMutation.reset();
+    resetBegin();
+    resetConfirm();
     clearAutomaticConfirmation();
     refreshMutation.mutate();
   };
 
-  useEffect(() => {
-    confirmOnReturn.current = () => {
-      const linkRef = automaticLinkRef.current;
-      if (
-        linkRef === null ||
-        document.visibilityState !== "visible" ||
-        automaticConfirmInFlight.current
-      ) {
-        return;
-      }
-      void runConfirmation(linkRef, true);
-    };
+  const confirmOnReturn = useEffectEvent(() => {
+    const linkRef = automaticLinkRef.current;
+    if (
+      linkRef === null ||
+      document.visibilityState !== "visible" ||
+      confirming.current !== null
+    ) {
+      return;
+    }
+    void runConfirmation(linkRef, true);
   });
 
   useEffect(() => {
+    const active: TelegramLinkBrowser = { opening: null };
+    browser.current = active;
     const handleReturn = () => {
-      confirmOnReturn.current();
+      confirmOnReturn();
     };
     window.addEventListener("focus", handleReturn);
     document.addEventListener("visibilitychange", handleReturn);
     return () => {
+      browser.current = null;
       window.removeEventListener("focus", handleReturn);
       document.removeEventListener("visibilitychange", handleReturn);
+      if (active.opening !== null) {
+        active.opening.popup?.close();
+        resetBegin();
+      }
+      if (confirming.current === active) {
+        clearAutomaticConfirmation();
+        resetConfirm();
+      }
     };
-  }, []);
+  }, [clearAutomaticConfirmation, resetBegin, resetConfirm]);
 
   return {
     automaticConfirmation,

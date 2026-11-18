@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { Activity, useState, type ComponentProps } from "react";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { ProductRemovalConfirmationDialog } from "./product-removal-confirmation-dialog.client";
 
 const meta = {
@@ -85,5 +86,71 @@ export const PageStaysBehindDialog: Story = {
     const backdrop = getComputedStyle(dialog, "::backdrop");
     await expect(backdrop.overflowY).toBe("hidden");
     await expect(backdrop.overscrollBehaviorY).toBe("contain");
+  },
+};
+
+function RetainedRemoval({
+  products,
+  pending,
+  onCancel,
+  onConfirm,
+}: ComponentProps<typeof ProductRemovalConfirmationDialog>) {
+  const [visible, setVisible] = useState(true);
+  const [mounted, setMounted] = useState(true);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          setVisible(true);
+        }}
+      >
+        Вернуть подтверждение
+      </button>
+      <Activity mode={visible ? "visible" : "hidden"}>
+        {mounted ? (
+          <ProductRemovalConfirmationDialog
+            products={products}
+            {...(pending === undefined ? {} : { pending })}
+            onConfirm={() => {
+              onConfirm();
+              setVisible(false);
+            }}
+            onCancel={() => {
+              onCancel();
+              setMounted(false);
+            }}
+          />
+        ) : null}
+      </Activity>
+    </>
+  );
+}
+
+export const RetainedModalReleasesAndReturns: Story = {
+  render: (args) => <RetainedRemoval {...args} />,
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    const dialog = await canvas.findByRole("dialog");
+    await expect(dialog.matches(":modal")).toBe(true);
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Снять из продукта" }),
+    );
+    await waitFor(() => expect(dialog).not.toBeVisible());
+    await expect(dialog.isConnected).toBe(true);
+    await expect(dialog.matches(":modal")).toBe(false);
+    await expect(args.onConfirm).toHaveBeenCalledOnce();
+    await expect(args.onCancel).not.toHaveBeenCalled();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Вернуть подтверждение" }),
+    );
+    await waitFor(() => expect(dialog.matches(":modal")).toBe(true));
+    await expect(canvas.getByRole("dialog")).toBe(dialog);
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Оставить в продукте" }),
+    );
+    await waitFor(() => expect(dialog.isConnected).toBe(false));
+    await expect(dialog.matches(":modal")).toBe(false);
+    await expect(args.onCancel).toHaveBeenCalledOnce();
   },
 };

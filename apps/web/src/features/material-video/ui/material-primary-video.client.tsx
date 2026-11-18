@@ -132,6 +132,7 @@ export function MaterialPrimaryVideo({
     // A call is not narrowed, so each check reads the value the cleanup may have changed.
     const isActive = () => active;
     let mountedPlayer: { destroy(): Promise<void> } | null = null;
+    let ownedMount: HTMLElement | null = null;
     let cancelMetadataWait: (() => void) | undefined;
     let requestedHref = window.location.href;
     let seekToReadyFragment: ((href: string) => void) | undefined;
@@ -171,6 +172,7 @@ export function MaterialPrimaryVideo({
             "[data-video-player-mount]",
           ) ?? null;
         if (mount === null) throw new Error("Player mount is unavailable");
+        ownedMount = mount;
         const source = new URL(session.embedLocator);
         source.searchParams.set("dnt", "1");
         if (session.drmAuthToken !== null) {
@@ -441,6 +443,9 @@ export function MaterialPrimaryVideo({
       cancelMetadataWait?.();
       removeTimeListener();
       void mountedPlayer?.destroy();
+      // create() installs an iframe before its connection promise settles. Activity cleanup
+      // must release that DOM resource now, even when no player handle has arrived yet.
+      ownedMount?.replaceChildren();
     };
   }, [
     createPlaybackSession,

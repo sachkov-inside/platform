@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Material authoring lifetimes</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- Next Link reads __NEXT_ROUTER_BASEPATH at module load outside Next. -->
+    <script>
+      globalThis.process = { env: {} };
+    </script>
+    <script
+      type="module"
+      src="/src/widgets/material-authoring/ui/testing/material-authoring-harness.tsx"
+    ></script>
+  </body>
+</html>
