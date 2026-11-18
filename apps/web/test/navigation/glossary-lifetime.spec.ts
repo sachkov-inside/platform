@@ -97,15 +97,16 @@ test("a pinned expanded glossary definition keeps its DOM across a real Next ret
   );
   const originalTrigger = await trigger.elementHandle();
   const originalBubble = await bubble.elementHandle();
-  // A keyboard link activation preserves the pin; outside pointer input intentionally dismisses it.
+  // This existing Next return link retains the route; ordinary document body links reload it.
   const next = page
-    .locator("[data-reader-body]")
-    .getByRole("link", { name: "Следующий пример", exact: true });
+    .getByRole("navigation", { name: "Действия материала", exact: true })
+    .getByRole("link", { name: "Назад", exact: true });
+  await expect(next).toHaveAttribute("href", "/");
   await next.focus();
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL("/materials/glossary-lifetime-second");
+  await expect(page).toHaveURL("/");
   await expect(
-    page.getByRole("heading", { name: "Следующий пример", exact: true }),
+    page.getByRole("heading", { name: "Главная", exact: true }),
   ).toBeVisible();
   expect(await originalTrigger.evaluate((node) => node.isConnected)).toBe(true);
   expect(await originalBubble.evaluate((node) => node.isConnected)).toBe(true);
