@@ -52,6 +52,54 @@ afterAll(async () => {
 }, 10_000);
 
 for (const engine of ["chromium", "webkit"] as const) {
+  test(`${engine}: native keyboard moves keep an enabled button of the same step focused at both edges`, async () => {
+    const browser = fixture.browsers.get(engine);
+    if (browser === undefined) throw new Error("Missing MaterialOrder engine");
+    const context = await browser.newContext({
+      viewport: { width: 900, height: 700 },
+    });
+    try {
+      const page = await context.newPage();
+      await page.goto(fixture.url);
+      const up = page.getByRole("button", {
+        name: "Выше Найти ближайшие чанки к вопросу",
+        exact: true,
+      });
+      const down = page.getByRole("button", {
+        name: "Ниже Найти ближайшие чанки к вопросу",
+        exact: true,
+      });
+      await up.focus();
+      await page.keyboard.press("Enter");
+      await browserExpect(up).toBeFocused();
+      await page.keyboard.press("Alt+ArrowUp");
+      await page.keyboard.press("Alt+ArrowUp");
+      await browserExpect(up).toBeDisabled();
+      await browserExpect(down).toBeEnabled();
+      await browserExpect(down).toBeFocused();
+      await browserExpect(
+        page.locator("[data-order-step]").first(),
+      ).toContainText("Найти ближайшие чанки к вопросу");
+      await browserExpect(page.locator("[data-order-announcement]")).toHaveText(
+        "«Найти ближайшие чанки к вопросу»: место 1 из 4",
+      );
+      await page.keyboard.press("Alt+ArrowDown");
+      await page.keyboard.press("Alt+ArrowDown");
+      await page.keyboard.press("Alt+ArrowDown");
+      await browserExpect(down).toBeDisabled();
+      await browserExpect(up).toBeEnabled();
+      await browserExpect(up).toBeFocused();
+      await browserExpect(
+        page.locator("[data-order-step]").last(),
+      ).toContainText("Найти ближайшие чанки к вопросу");
+      await browserExpect(page.locator("[data-order-announcement]")).toHaveText(
+        "«Найти ближайшие чанки к вопросу»: место 4 из 4",
+      );
+    } finally {
+      await context.close();
+    }
+  }, 15_000);
+
   test(`${engine}: retained hide cancels an unfinished mouse drag without changing the steps`, async () => {
     const browser = fixture.browsers.get(engine);
     if (browser === undefined) throw new Error("Missing MaterialOrder engine");
