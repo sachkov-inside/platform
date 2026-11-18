@@ -1113,6 +1113,11 @@ export const PartSwitchStartsAtBeginning: Story = {
     learning: { kind: "guest" },
     result: {
       ...result,
+      // Keep the manual reveal outside the existing 600px automatic reveal margin.
+      items: materials.map((material) => ({
+        ...material,
+        title: `${material.title}. Практический разбор: подготовь проект к разработке, проверь требования и настрой рабочий процесс команды.`,
+      })),
       chapters: chapters.map((chapter, index) =>
         index === 0
           ? { ...chapter, materialIds: chapter.materialIds.slice(0, 5) }
@@ -1122,6 +1127,19 @@ export const PartSwitchStartsAtBeginning: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await expect(
+      canvasElement.querySelectorAll("[data-product-ordinal]"),
+    ).toHaveLength(12);
+    const last = canvasElement.querySelector<HTMLElement>(
+      '[data-product-ordinal="12"]',
+    );
+    if (last === null) throw new Error("Missing manual reveal boundary");
+    const main = last.closest("main");
+    const edge =
+      main !== null && getComputedStyle(main).overflowY === "auto"
+        ? main.getBoundingClientRect().bottom
+        : window.innerHeight;
+    await expect(last.getBoundingClientRect().top).toBeGreaterThan(edge + 600);
     await userEvent.click(
       canvas.getByRole("button", { name: "Показать ещё уроки" }),
     );
