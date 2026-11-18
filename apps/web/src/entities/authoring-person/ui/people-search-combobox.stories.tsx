@@ -216,13 +216,13 @@ export const RetainsInputAndReleasesPendingSearch: Story = {
       const firstTimer = pendingTimer();
       await expect(searchRequests).not.toHaveBeenCalled();
       await userEvent.click(
-        canvas.getByRole("button", { name: "Скрыть выбор", exact: true }),
+        canvas.getByRole("button", { name: /^Скрыть выбор$/u }),
       );
       await expect(input).not.toBeVisible();
       await expect(input.isConnected).toBe(true);
       await expect(clears).toHaveBeenCalledWith(firstTimer);
       await userEvent.click(
-        canvas.getByRole("button", { name: "Вернуть выбор", exact: true }),
+        canvas.getByRole("button", { name: /^Вернуть выбор$/u }),
       );
       await expect(canvas.getByRole("combobox", { name: "Кому" })).toBe(input);
       await expect(input).toHaveValue("Анна");
@@ -233,7 +233,7 @@ export const RetainsInputAndReleasesPendingSearch: Story = {
       await userEvent.type(input, "я");
       const lastTimer = pendingTimer();
       await userEvent.click(
-        canvas.getByRole("button", { name: "Удалить выбор", exact: true }),
+        canvas.getByRole("button", { name: /^Удалить выбор$/u }),
       );
       await expect(input.isConnected).toBe(false);
       await expect(clears).toHaveBeenCalledWith(lastTimer);
@@ -284,7 +284,7 @@ export const PendingTextCannotChooseThePreviousResult: Story = {
       await userEvent.type(input, " Кон");
       await userEvent.keyboard("{Enter}");
       await expect(
-        canvas.queryByRole("button", { name: "Изменить", exact: true }),
+        canvas.queryByRole("button", { name: /^Изменить$/u }),
       ).toBeNull();
       await expect(input).toHaveValue("Анна Кон");
       await waitFor(() =>
@@ -300,7 +300,7 @@ export const PendingTextCannotChooseThePreviousResult: Story = {
         }),
       ).toBeVisible();
       await userEvent.click(
-        canvas.getByRole("button", { name: "Изменить", exact: true }),
+        canvas.getByRole("button", { name: /^Изменить$/u }),
       );
       await expect(canvas.getByRole("combobox", { name: "Кому" })).toHaveValue(
         "",
@@ -322,14 +322,14 @@ export const ControlledChoicePreservesTheScheduledQuery: Story = {
       "Анна",
     );
     await userEvent.click(
-      canvas.getByRole("button", { name: "Выбрать извне", exact: true }),
+      canvas.getByRole("button", { name: /^Выбрать извне$/u }),
     );
     await expect(canvas.queryByRole("combobox", { name: "Кому" })).toBeNull();
     await waitFor(() =>
       expect(searchRequests).toHaveBeenLastCalledWith("Анна"),
     );
     await userEvent.click(
-      canvas.getByRole("button", { name: "Снять выбор извне", exact: true }),
+      canvas.getByRole("button", { name: /^Снять выбор извне$/u }),
     );
     await expect(canvas.getByRole("combobox", { name: "Кому" })).toHaveValue(
       "Анна",
