@@ -1,6 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
+import type { MaterialTableName } from "../model/material-table-names";
+import { useMaterialTableName } from "./material-table-names.client";
 
 import { mountMaterialTableScroll } from "./material-table-scroll.browser";
 
@@ -13,9 +15,12 @@ const fade =
  */
 export function MaterialTableScroll({
   children,
+  name,
 }: {
   readonly children: ReactNode;
+  readonly name?: MaterialTableName | undefined;
 }) {
+  const label = useMaterialTableName(name);
   return (
     <div
       className="relative mt-8 max-w-full overflow-hidden rounded-xl border border-border"
@@ -23,7 +28,7 @@ export function MaterialTableScroll({
       data-reader-block="table"
     >
       <div
-        aria-label="Таблица в материале"
+        aria-label={label}
         className="max-w-full overflow-x-auto overscroll-x-contain [scrollbar-color:var(--muted-foreground)_var(--muted)]"
         data-table-scroll=""
         ref={mountMaterialTableScroll}
