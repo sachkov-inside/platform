@@ -37,6 +37,171 @@ async function signInAsReader(
 
 const optionalHoldSchema = z.object({ blocked: z.array(z.string()) });
 
+test("same-source compact programme retains both lesson nodes through Reader return", async ({
+  page,
+}, info) => {
+  await page.setViewportSize({ width: 390, height: 320 });
+  const route =
+    "/products/performance-course/programme?page=1&at=performance-lesson-1";
+  const response = await page.goto(route);
+  await response?.finished();
+  const initialUrl = page.url();
+  const surface = page.locator(
+    '[data-product-programme="performance-course"]:visible',
+  );
+  await expect(surface).toBeVisible();
+  const rows = surface.locator("[data-product-ordinal]");
+  const journal = await page.evaluateHandle(() => {
+    const entries: unknown[] = [];
+    const identities = new WeakMap<Element, number>();
+    let sequence = 0;
+    let retained: HTMLElement | undefined;
+    const identity = (node: Element | null) => {
+      if (node === null) return null;
+      let id = identities.get(node);
+      if (id === undefined) {
+        id = ++sequence;
+        identities.set(node, id);
+      }
+      return id;
+    };
+    const snapshot = (reason: string) => {
+      const candidates = [
+        ...document.querySelectorAll<HTMLElement>(
+          '[data-product-programme="performance-course"]',
+        ),
+      ];
+      retained =
+        candidates.find((node) => node.getClientRects().length > 0) ?? retained;
+      const main = retained?.closest("main");
+      const overflow =
+        main === null || main === undefined
+          ? null
+          : getComputedStyle(main).overflowY;
+      const root =
+        main !== null &&
+        main !== undefined &&
+        (overflow === "auto" || overflow === "scroll")
+          ? main
+          : null;
+      const boundary = retained?.querySelector<HTMLElement>(
+        '[data-product-ordinal="12"]',
+      );
+      const row24 =
+        retained?.querySelector<HTMLElement>('[data-product-ordinal="24"]') ??
+        null;
+      const value = {
+        reason,
+        time: performance.now(),
+        pathname: location.pathname,
+        query: location.search,
+        count: retained?.querySelectorAll("[data-product-ordinal]").length ?? 0,
+        root: root === null ? "document" : "main",
+        mainOverflow: overflow,
+        rootBottom: root?.getBoundingClientRect().bottom ?? innerHeight,
+        scrollTop: root?.scrollTop ?? scrollY,
+        boundaryTop: boundary?.getBoundingClientRect().top ?? null,
+        firstId: identity(
+          retained?.querySelector('[data-product-ordinal="1"]') ?? null,
+        ),
+        row24Id: identity(row24),
+        row24Slug: row24?.dataset["routeMaterial"] ?? null,
+        retainedConnected: retained?.isConnected ?? false,
+        retainedRects: retained?.getClientRects().length ?? 0,
+      };
+      if (entries.length < 128) entries.push(value);
+      return value;
+    };
+    const controller = new AbortController();
+    document.addEventListener("scroll", () => snapshot("native-scroll"), {
+      capture: true,
+      passive: true,
+      signal: controller.signal,
+    });
+    window.addEventListener("resize", () => snapshot("native-resize"), {
+      passive: true,
+      signal: controller.signal,
+    });
+    window.addEventListener("popstate", () => snapshot("native-popstate"), {
+      signal: controller.signal,
+    });
+    const observer = new MutationObserver(() => {
+      snapshot("native-dom-change");
+    });
+    observer.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["style"],
+    });
+    return {
+      snapshot,
+      stop: () => {
+        observer.disconnect();
+        controller.abort();
+        return entries;
+      },
+    };
+  });
+  try {
+    const before = await journal.evaluate((value) =>
+      value.snapshot("before-first-action"),
+    );
+    await expect(rows).toHaveCount(12);
+    expect(before.root).toBe("document");
+    expect(before.boundaryTop).not.toBeNull();
+    expect(before.boundaryTop).toBeGreaterThan(before.rootBottom + 600);
+    await rows.nth(11).evaluate((node) => {
+      node.scrollIntoView({ block: "end", behavior: "instant" });
+    });
+    await expect(rows).toHaveCount(24);
+    const first = await rows.first().elementHandle();
+    const boundary = await rows.nth(23).elementHandle();
+    if (first === null || boundary === null)
+      throw new Error("Missing controlled programme nodes");
+    try {
+      await journal.evaluate((value) => value.snapshot("before-reader"));
+      await rows.first().getByRole("heading").getByRole("link").click();
+      await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
+      expect(await first.evaluate((node) => node.isConnected)).toBe(true);
+      expect(await boundary.evaluate((node) => node.isConnected)).toBe(true);
+      await journal.evaluate((value) => value.snapshot("reader-visible"));
+      await page.goBack();
+      await expect(page).toHaveURL(initialUrl);
+      await expect(surface).toBeVisible();
+      await expect(rows).toHaveCount(24);
+      expect(
+        await rows
+          .first()
+          .evaluate((node, original) => node === original, first),
+      ).toBe(true);
+      expect(
+        await rows
+          .nth(23)
+          .evaluate((node, original) => node === original, boundary),
+      ).toBe(true);
+      await journal.evaluate((value) =>
+        value.snapshot("after-back-same-source"),
+      );
+      await rows.nth(23).evaluate((node) => {
+        node.scrollIntoView({ block: "end", behavior: "instant" });
+      });
+      await expect(rows).toHaveCount(36);
+      await journal.evaluate((value) => value.snapshot("after-second-reveal"));
+    } finally {
+      await first.dispose();
+      await boundary.dispose();
+    }
+  } finally {
+    const events = await journal.evaluate((value) => value.stop());
+    await journal.dispose();
+    await info.attach("same-source-native-events.json", {
+      body: JSON.stringify(events, null, 2),
+      contentType: "application/json",
+    });
+  }
+});
+
 test("the actual programme retains lesson nodes and resumes reveal after Reader return", async ({
   page,
 }, info) => {
