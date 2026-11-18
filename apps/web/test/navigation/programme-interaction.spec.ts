@@ -1,4 +1,11 @@
-import { expect, test, type BrowserContext } from "@playwright/test";
+import { createHash } from "node:crypto";
+import {
+  expect,
+  test,
+  type BrowserContext,
+  type Page,
+  type TestInfo,
+} from "@playwright/test";
 import { z } from "zod";
 import { scrollProgrammeBoundaryIntoView } from "../support/programme-scroll";
 
@@ -37,21 +44,22 @@ async function signInAsReader(
 
 const optionalHoldSchema = z.object({ blocked: z.array(z.string()) });
 
-test("same-source compact programme retains both lesson nodes through Reader return", async ({
-  page,
-}, info) => {
-  await page.setViewportSize({ width: 390, height: 320 });
-  const route =
-    "/products/performance-course/programme?page=1&at=performance-lesson-1";
+async function checkSameSourceProgrammeReturn(
+  page: Page,
+  info: TestInfo,
+  productSlug: string,
+  firstSlug: string,
+) {
+  const route = `/products/${productSlug}/programme?page=1&at=${firstSlug}`;
   const response = await page.goto(route);
   await response?.finished();
   const initialUrl = page.url();
   const surface = page.locator(
-    '[data-product-programme="performance-course"]:visible',
+    `[data-product-programme="${productSlug}"]:visible`,
   );
   await expect(surface).toBeVisible();
   const rows = surface.locator("[data-product-ordinal]");
-  const journal = await page.evaluateHandle(() => {
+  const journal = await page.evaluateHandle((slug) => {
     const entries: unknown[] = [];
     const identities = new WeakMap<Element, number>();
     let sequence = 0;
@@ -68,7 +76,7 @@ test("same-source compact programme retains both lesson nodes through Reader ret
     const snapshot = (reason: string) => {
       const candidates = [
         ...document.querySelectorAll<HTMLElement>(
-          '[data-product-programme="performance-course"]',
+          `[data-product-programme="${slug}"]`,
         ),
       ];
       retained =
@@ -142,7 +150,7 @@ test("same-source compact programme retains both lesson nodes through Reader ret
         return entries;
       },
     };
-  });
+  }, productSlug);
   try {
     const before = await journal.evaluate((value) =>
       value.snapshot("before-first-action"),
@@ -157,8 +165,6 @@ test("same-source compact programme retains both lesson nodes through Reader ret
     await expect(rows).toHaveCount(24);
     const first = await rows.first().elementHandle();
     const boundary = await rows.nth(23).elementHandle();
-    if (first === null || boundary === null)
-      throw new Error("Missing controlled programme nodes");
     try {
       await journal.evaluate((value) => value.snapshot("before-reader"));
       await rows.first().getByRole("heading").getByRole("link").click();
@@ -200,6 +206,146 @@ test("same-source compact programme retains both lesson nodes through Reader ret
       contentType: "application/json",
     });
   }
+}
+
+test("same-source compact programme retains both lesson nodes through Reader return", async ({
+  page,
+}, info) => {
+  await page.setViewportSize({ width: 390, height: 320 });
+  await checkSameSourceProgrammeReturn(
+    page,
+    info,
+    "performance-course",
+    "performance-lesson-1",
+  );
+});
+
+const revealFixtureSchema = z.object({
+  scope: z.uuid(),
+  productSlug: z.string().regex(/^reader-title-[0-9a-f-]+$/u),
+  materialSlugs: z.array(z.string()).length(120),
+});
+const revealItemSchema = z.object({
+  materialId: z.uuid(),
+  slug: z.string(),
+  title: z.string(),
+  access: z.literal("free"),
+  availability: z.literal("available"),
+  productMemberships: z.tuple([
+    z.object({
+      ordinal: z.number().int(),
+      stepGroup: z.null(),
+      product: z.object({ id: z.uuid(), name: z.string(), slug: z.string() }),
+    }),
+  ]),
+});
+
+test("allocated same-source programme retains both lesson nodes through Reader return", async ({
+  page,
+  request,
+}, info) => {
+  const backend = `http://127.0.0.1:${process.env["FAKE_BACKEND_PORT"] ?? ""}`;
+  const allocated = await request.post(
+    `${backend}/__reader-title-fixtures?layout=programme-reveal`,
+  );
+  const raw: unknown = await allocated.json();
+  const { scope } = z.object({ scope: z.uuid() }).parse(raw);
+  try {
+    expect(allocated.status()).toBe(201);
+    const fixture = revealFixtureSchema.parse(raw);
+    const projection = await request.get(
+      `${backend}/library/products/${fixture.productSlug}`,
+    );
+    expect(projection.status()).toBe(200);
+    const payload: unknown = await projection.json();
+    const programme = z
+      .object({
+        items: z.array(revealItemSchema).length(120),
+        chapters: z.array(z.object({ materialIds: z.array(z.uuid()) })),
+      })
+      .parse(payload);
+    expect(programme.items.map(({ slug }) => slug)).toEqual(
+      fixture.materialSlugs,
+    );
+    const normalized = programme.items.map((item, index) => {
+      const membership = item.productMemberships[0];
+      expect(membership.ordinal).toBe(index + 1);
+      expect(membership.product.id).toBe(scope);
+      expect(membership.product.slug).toBe(fixture.productSlug);
+      return {
+        title: item.title,
+        access: item.access,
+        availability: item.availability,
+        ordinal: membership.ordinal,
+        stepGroup: membership.stepGroup,
+      };
+    });
+    const placement = programme.chapters.map(({ materialIds }) =>
+      materialIds.map((id) => {
+        const index = programme.items.findIndex(
+          (item) => item.materialId === id,
+        );
+        expect(index).toBeGreaterThanOrEqual(0);
+        return index + 1;
+      }),
+    );
+    expect(placement.flat()).toEqual(
+      Array.from({ length: 120 }, (_, index) => index + 1),
+    );
+    const firstSlug = fixture.materialSlugs[0];
+    const firstItem = programme.items[0];
+    if (firstSlug === undefined || firstItem === undefined)
+      throw new Error("Missing allocated first lesson");
+    const reader = await request.get(`${backend}/materials/${firstSlug}`);
+    expect(reader.status()).toBe(200);
+    const readerRaw: unknown = await reader.json();
+    const readerItem = z
+      .object({
+        kind: z.literal("available"),
+        projection: z.object({
+          materialId: z.uuid(),
+          title: z.string(),
+          slug: z.string(),
+        }),
+      })
+      .parse(readerRaw);
+    expect(readerItem.projection).toEqual({
+      materialId: firstItem.materialId,
+      title: firstItem.title,
+      slug: firstSlug,
+    });
+    await info.attach("allocated-programme-input.json", {
+      contentType: "application/json",
+      body: JSON.stringify(
+        {
+          scope,
+          productSlug: fixture.productSlug,
+          materialSlugs: fixture.materialSlugs,
+          returnPath: `/products/${fixture.productSlug}/programme?page=1&at=${firstSlug}`,
+          normalizedSha256: createHash("sha256")
+            .update(JSON.stringify({ items: normalized, placement }))
+            .digest("hex"),
+          normalized,
+          placement,
+        },
+        null,
+        2,
+      ),
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await checkSameSourceProgrammeReturn(
+      page,
+      info,
+      fixture.productSlug,
+      firstSlug,
+    );
+  } finally {
+    const deleted = await request.delete(
+      `${backend}/__reader-title-fixtures/${scope}`,
+    );
+    expect(deleted.status()).toBe(200);
+    expect(await deleted.json()).toEqual({ deleted: true });
+  }
 });
 
 test("the actual programme retains lesson nodes and resumes reveal after Reader return", async ({
@@ -216,8 +362,6 @@ test("the actual programme retains lesson nodes and resumes reveal after Reader 
   await expect(rows).toHaveCount(24);
   const originalFirst = await rows.first().elementHandle();
   const originalBoundary = await rows.nth(23).elementHandle();
-  if (originalFirst === null || originalBoundary === null)
-    throw new Error("Missing actual programme nodes before navigation");
   try {
     await rows.first().getByRole("heading").getByRole("link").click();
     await expect(page.locator("[data-reader-body]:visible")).toBeVisible();

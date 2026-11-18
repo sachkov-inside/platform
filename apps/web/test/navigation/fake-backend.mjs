@@ -201,7 +201,7 @@ const performanceTemplate = (() => {
   if (template === undefined) throw new Error("Missing lesson template");
   return template;
 })();
-/** @typedef {{ scope: string; product: Product; lessons: Lesson[]; opens: Map<string, number>; commands: Set<string>; personalRead: PromiseWithResolvers<void> | null; linear: boolean }} ReaderTitleFixture */
+/** @typedef {{ scope: string; product: Product; lessons: Lesson[]; opens: Map<string, number>; commands: Set<string>; personalRead: PromiseWithResolvers<void> | null; linear: boolean; programmeReveal: boolean }} ReaderTitleFixture */
 /** @type {Map<string, ReaderTitleFixture>} */
 const readerTitleFixtures = new Map();
 
@@ -209,18 +209,24 @@ const readerTitleFixtures = new Map();
  * Every allocation owns its data and a fresh shared-cache namespace. A linear Product has no
  * chapters, so its Reader keeps the return actions without the course frame.
  * @param {boolean} linear
+ * @param {boolean} programmeReveal
  */
-function createReaderTitleFixture(linear) {
+function createReaderTitleFixture(linear, programmeReveal) {
   const scope = randomUUID();
   const product = {
     cover: null,
     id: scope,
-    name: "Курс заголовков",
+    name: programmeReveal
+      ? "Синтетическая программа наблюдения"
+      : "Курс заголовков",
     slug: `reader-title-${scope}`,
   };
-  const lessons = [1, 2].map((ordinal) => ({
+  const lessons = Array.from(
+    { length: programmeReveal ? 120 : 2 },
+    (_, index) => index + 1,
+  ).map((ordinal) => ({
     ...performanceTemplate,
-    access: "closed",
+    access: programmeReveal ? "free" : "closed",
     productMemberships: [
       {
         ordinal,
@@ -230,8 +236,11 @@ function createReaderTitleFixture(linear) {
     ],
     materialId: randomUUID(),
     slug: `${product.slug}-${String(ordinal)}`,
-    title:
-      ordinal === 1 ? "Первый заголовок читателя" : "Второй заголовок читателя",
+    title: programmeReveal
+      ? `Синтетический урок ${String(ordinal)}: как проверить владение наблюдением и возврат к программе, сохранив порядок материалов, положение читателя и границы каждой следующей порции`
+      : ordinal === 1
+        ? "Первый заголовок читателя"
+        : "Второй заголовок читателя",
   }));
   /** @type {ReaderTitleFixture} */
   const fixture = {
@@ -242,6 +251,7 @@ function createReaderTitleFixture(linear) {
     commands: new Set(),
     personalRead: null,
     linear,
+    programmeReveal,
   };
   readerTitleFixtures.set(scope, fixture);
   return fixture;
@@ -812,14 +822,14 @@ function route(method, url, entitled) {
   );
   if (titleRead !== undefined) {
     const { lesson: titleLesson, fixture } = titleRead;
-    if (!entitled)
+    if (!entitled && !fixture.programmeReveal)
       return json({
         kind: "teaser",
         cacheScope: "private-no-store",
         projection: readerProjection(titleLesson),
         access: { availability: "locked", subscriptionOffered: false },
       });
-    const document = body(titleLesson, true);
+    const document = body(titleLesson, entitled);
     return json({
       kind: "available",
       cacheScope: "private-no-store",
@@ -1357,6 +1367,7 @@ const server = createServer(async (request, response) => {
   ) {
     const fixture = createReaderTitleFixture(
       url.searchParams.get("layout") === "linear",
+      url.searchParams.get("layout") === "programme-reveal",
     );
     send(201, {
       scope: fixture.scope,
