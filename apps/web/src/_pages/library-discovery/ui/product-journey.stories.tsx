@@ -1,7 +1,7 @@
 import { legacyCatalogueScenario } from "../../../../../../scenarios/legacy-catalog.mjs";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ReadonlyURLSearchParams, useSearchParams } from "next/navigation";
-import { useState, type ComponentProps } from "react";
+import { Activity, useState, type ComponentProps } from "react";
 import { z } from "zod";
 import {
   expect,
@@ -1977,6 +1977,156 @@ export const EarlyLessonReveal: Story = {
 export const EarlyLessonRevealMobile: Story = {
   ...EarlyLessonReveal,
   globals: { viewport: { value: "mobile320", isRotated: false } },
+};
+
+function observeProgrammeResources() {
+  // These spies call the original native methods and only retain their receipts.
+  const observed = spyOn(IntersectionObserver.prototype, "observe");
+  const disconnected = spyOn(IntersectionObserver.prototype, "disconnect");
+  return {
+    activeOwnersFor: (node: Element) => {
+      const owners = new Set(
+        observed.mock.contexts.filter(
+          (_owner, index) => observed.mock.calls[index]?.[0] === node,
+        ),
+      );
+      return [...owners].filter((owner) => {
+        const latestObserve = Math.max(
+          0,
+          ...observed.mock.invocationCallOrder.filter(
+            (_order, index) =>
+              observed.mock.contexts[index] === owner &&
+              observed.mock.calls[index]?.[0] === node,
+          ),
+        );
+        const latestDisconnect = Math.max(
+          0,
+          ...disconnected.mock.invocationCallOrder.filter(
+            (_order, index) => disconnected.mock.contexts[index] === owner,
+          ),
+        );
+        return latestObserve > latestDisconnect;
+      });
+    },
+    disconnectedOwners: () => disconnected.mock.contexts,
+    restore: () => {
+      observed.mockRestore();
+      disconnected.mockRestore();
+    },
+  };
+}
+
+let programmeResources: ReturnType<typeof observeProgrammeResources> | null =
+  null;
+
+function RetainedProgrammeReveal({ learning, ...args }: ProgrammeStoryArgs) {
+  const [mode, setMode] = useState<"visible" | "hidden" | null>("visible");
+  return (
+    <>
+      <div className="sticky top-0 z-50 flex gap-2 bg-background p-2">
+        <Button
+          onClick={() => {
+            setMode("hidden");
+          }}
+        >
+          Скрыть программу
+        </Button>
+        <Button
+          onClick={() => {
+            setMode("visible");
+          }}
+        >
+          Вернуть программу
+        </Button>
+        <Button
+          onClick={() => {
+            setMode(null);
+          }}
+        >
+          Убрать программу
+        </Button>
+      </div>
+      {mode === null ? null : (
+        <Activity mode={mode}>
+          <ProductLearningProvider learning={learning ?? { kind: "guest" }}>
+            <ProductProgrammeView {...args} />
+          </ProductLearningProvider>
+        </Activity>
+      )}
+    </>
+  );
+}
+
+export const RetainedProgrammeRevealLifetime: Story = {
+  ...EarlyLessonReveal,
+  beforeEach: () => {
+    const cleanup = environment.beforeEach();
+    programmeResources = observeProgrammeResources();
+    return () => {
+      programmeResources?.restore();
+      programmeResources = null;
+      cleanup?.();
+    };
+  },
+  render: (args) => <RetainedProgrammeReveal {...args} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const resources = programmeResources;
+    if (resources === null) throw new Error("Missing native observation");
+    const first = canvasElement.querySelector('[data-product-ordinal="1"]');
+    const last = canvasElement.querySelector<HTMLElement>(
+      '[data-product-ordinal="12"]',
+    );
+    if (first === null || last === null)
+      throw new Error("Missing initial programme rows");
+    await expect(
+      canvasElement.querySelectorAll("[data-product-ordinal]"),
+    ).toHaveLength(12);
+    await waitFor(async () => {
+      await expect(resources.activeOwnersFor(last)).toHaveLength(1);
+    });
+    const originalOwner = resources.activeOwnersFor(last)[0];
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Скрыть программу" }),
+    );
+    await waitFor(async () => {
+      await expect(resources.disconnectedOwners()).toContain(originalOwner);
+      await expect(resources.activeOwnersFor(last)).toHaveLength(0);
+    });
+    await expect(last.getClientRects()).toHaveLength(0);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Вернуть программу" }),
+    );
+    await waitFor(async () => {
+      await expect(resources.activeOwnersFor(last)).toHaveLength(1);
+    });
+    const returnedOwner = resources.activeOwnersFor(last)[0];
+    await expect(
+      canvasElement.querySelector('[data-product-ordinal="1"]'),
+    ).toBe(first);
+    await expect(
+      canvasElement.querySelector('[data-product-ordinal="12"]'),
+    ).toBe(last);
+    last.scrollIntoView({ block: "end" });
+    await waitFor(async () => {
+      await expect(
+        canvasElement.querySelectorAll("[data-product-ordinal]"),
+      ).toHaveLength(24);
+    });
+    await expect(
+      canvasElement.querySelector('[data-product-ordinal="1"]'),
+    ).toBe(first);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Убрать программу" }),
+    );
+    await waitFor(async () => {
+      await expect(
+        canvasElement.querySelector('[data-product-ordinal="1"]'),
+      ).toBeNull();
+      await expect(resources.disconnectedOwners()).toContain(returnedOwner);
+      await expect(resources.activeOwnersFor(last)).toHaveLength(0);
+    });
+  },
 };
 
 export const FastLessonReveal: Story = {
