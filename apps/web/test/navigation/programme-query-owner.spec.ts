@@ -54,7 +54,13 @@ test("an active programme accepts semantic native query changes and History retu
         });
       });
       observer.observe(programme, { childList: true, subtree: true });
-      return { initialCount, commits, disconnect: () => observer.disconnect() };
+      return {
+        initialCount,
+        commits,
+        disconnect: () => {
+          observer.disconnect();
+        },
+      };
     });
     try {
       expect(await historyReset.evaluate((record) => record.initialCount)).toBe(
@@ -81,7 +87,9 @@ test("an active programme accepts semantic native query changes and History retu
         ),
       });
     } finally {
-      await historyReset.evaluate((record) => record.disconnect());
+      await historyReset.evaluate((record) => {
+        record.disconnect();
+      });
       await historyReset.dispose();
     }
     await page.goForward();
