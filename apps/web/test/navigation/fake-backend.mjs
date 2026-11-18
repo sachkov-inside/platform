@@ -39,6 +39,7 @@ import {
 import { productTaskHistoryRoute } from "./product-task-history-backend.mjs";
 import { readerSaleAvailabilityRoute } from "./reader-sale-availability-backend.mjs";
 import { tableNamesRoute } from "./table-names-backend.mjs";
+import { glossaryLifetimeRoute } from "./glossary-lifetime-backend.mjs";
 import { dataLoadingMetricsRoute } from "./data-loading-metrics-backend.mjs";
 import { authoringMaterialsRoute } from "./authoring-materials-backend.mjs";
 import { authoringSearchRoute } from "./authoring-search-backend.mjs";
@@ -1269,6 +1270,15 @@ const server = createServer(async (request, response) => {
   }
   const readerFixture = lessons[0];
   if (readerFixture === undefined) throw new Error("Missing reader fixture");
+  const glossaryLifetime = glossaryLifetimeRoute(
+    request.method,
+    url,
+    readerProjection(readerFixture),
+  );
+  if (glossaryLifetime !== null) {
+    send(glossaryLifetime.status, glossaryLifetime.value);
+    return;
+  }
   const tableNames = tableNamesRoute(
     request.method,
     url,
