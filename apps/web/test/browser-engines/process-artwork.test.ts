@@ -133,7 +133,7 @@ for (const engine of ["chromium", "webkit"] as const) {
     try {
       const page = await context.newPage();
       await page.addInitScript(observeArtworkResources);
-      await page.goto(`${fixture.url}/test/support/process-artwork.html`);
+      await page.goto(fixture.url);
       const host = page.locator(".ai-process-artwork");
       const stage = host.locator(".stage");
       const resources = () =>
@@ -224,7 +224,7 @@ for (const engine of ["chromium", "webkit"] as const) {
     try {
       const page = await context.newPage();
       await page.addInitScript(observeArtworkResources);
-      await page.goto(`${fixture.url}/test/support/process-artwork.html`);
+      await page.goto(fixture.url);
       await page
         .getByRole("button", { name: "Animate once", exact: true })
         .click();
