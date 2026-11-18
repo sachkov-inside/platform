@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Activity, useRef, useState } from "react";
 import { expect, spyOn, userEvent, waitFor, within } from "storybook/test";
 
+import { scrollShellRootsTo } from "@/shared/lib/shell-scroll";
 import { homeMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 
@@ -17,20 +18,27 @@ function observeNativeResources() {
 let nativeResources: ReturnType<typeof observeNativeResources> | undefined;
 
 function ReaderReturnLifetime() {
-  const viewport = useRef<HTMLDivElement>(null);
+  const scope = useRef<HTMLDivElement>(null);
   const [repeat, setRepeat] = useState(true);
   const [visible, setVisible] = useState(true);
   const [mounted, setMounted] = useState(true);
   return (
-    <>
-      <div>
+    <div ref={scope}>
+      <div className="sticky top-0 z-10 bg-background">
         <button
           type="button"
-          onClick={() => viewport.current?.scrollTo(0, 500)}
+          onClick={() => {
+            scrollShellRootsTo({ windowY: 500, contentY: 500 }, scope.current);
+          }}
         >
           Прокрутить ниже
         </button>
-        <button type="button" onClick={() => viewport.current?.scrollTo(0, 0)}>
+        <button
+          type="button"
+          onClick={() => {
+            scrollShellRootsTo({ windowY: 0, contentY: 0 }, scope.current);
+          }}
+        >
           Вернуться наверх
         </button>
         <button
@@ -74,19 +82,17 @@ function ReaderReturnLifetime() {
           Удалить Reader
         </button>
       </div>
-      <div ref={viewport} style={{ height: 250, overflowY: "auto" }}>
-        <Activity mode={visible ? "visible" : "hidden"}>
-          {mounted ? (
-            <ReaderReturnNavigation
-              target={homeMaterialReaderReturnTarget}
-              repeatAtBottom={repeat}
-            >
-              <div style={{ height: 900 }}>Содержимое материала</div>
-            </ReaderReturnNavigation>
-          ) : null}
-        </Activity>
-      </div>
-    </>
+      <Activity mode={visible ? "visible" : "hidden"}>
+        {mounted ? (
+          <ReaderReturnNavigation
+            target={homeMaterialReaderReturnTarget}
+            repeatAtBottom={repeat}
+          >
+            <div style={{ height: 900 }}>Содержимое материала</div>
+          </ReaderReturnNavigation>
+        ) : null}
+      </Activity>
+    </div>
   );
 }
 
@@ -94,6 +100,7 @@ const meta = {
   ...publicPageEnvironment("/materials/reader-return"),
   title: "Patterns/Reader return lifetime",
   component: ReaderReturnLifetime,
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
   beforeEach: () => {
     publicPageEnvironment("/materials/reader-return").beforeEach();
     const resources = observeNativeResources();
@@ -247,4 +254,9 @@ export const HiddenReturnKeepsProvidedTopNavigation: Story = {
       canvasElement.querySelector("[data-reader-top-frame]"),
     ).toBeVisible();
   },
+};
+
+export const RepeatsOnPhone: Story = {
+  ...RepeatsOnlyOutsideTheTopViewport,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
 };
