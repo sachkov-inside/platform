@@ -192,6 +192,12 @@ the changed packages until the next run on `main` saves a new one.
 
 The archive cache does not skip apt index updates. `scripts/install-playwright-ci.sh` bounds
 system-package installation to 180 seconds per attempt, then kills the whole process group as root.
+Each dependency invocation receives a temporary copy of the APT source lists through `APT_CONFIG`.
+Only the exact Microsoft Ubuntu 24.04 `prod` feed observed returning HTTP429 in #2431 is omitted
+from that copy; other hosts, suites, options and signing keys stay. The `apt-get` binary settings
+apply the scoped source paths after system configuration and disable list cleanup for this invocation,
+so another APT consumer retains its original sources and cached indexes. Dpkg state, locks and
+signature verification are unchanged. The copy is removed on exit, including failed installation.
 HTTP and HTTPS connection and data waits time out after 15 seconds and retry once; index errors fail
 the installation. After a failed first attempt the script replaces the Azure Ubuntu mirror and
 the exact `us-east-2.ec2.archive.ubuntu.com` host observed in #2411 with
@@ -202,7 +208,7 @@ the previous fallback preserved HTTP on the highest-priority mirror despite an e
 entry on the runner. In #1107 that HTTP source waited until the deadline; the log does not
 establish the provider's internal network failure cause. A failed second attempt fails the job before browser
 downloads. The replacement covers `.list`, deb822 `.sources` and the GitHub runner's
-`/etc/apt/apt-mirrors.txt`, preserving mirror priorities. The same script installs browsers for Production access pass and the manual full-stack
+copy of `/etc/apt/apt-mirrors.txt`, preserving mirror priorities. The same script installs browsers for Production access pass and the manual full-stack
 smoke; production deployment commands and access-pass requests keep their existing contracts.
 
 Automated telemetry resource-budget measurements and their CI/release gates were removed by #1430.

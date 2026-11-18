@@ -5,6 +5,8 @@ installer=$1
 fixture=$(mktemp -d)
 export INSTALL_TEST_PIDS="$fixture/pids"
 export INSTALL_TEST_SOURCES="$fixture/apt"
+export INSTALL_TEST_EFFECTIVE="$fixture/effective"
+export INSTALL_TEST_NODE="$(command -v node)"
 mkdir -p "$INSTALL_TEST_SOURCES/sources.list.d"
 printf 'deb http://azure.archive.ubuntu.com/ubuntu noble main\n' > "$INSTALL_TEST_SOURCES/sources.list"
 printf 'URIs: https://azure.archive.ubuntu.com/ubuntu\n' > "$INSTALL_TEST_SOURCES/sources.list.d/ubuntu.sources"
@@ -27,6 +29,13 @@ case "$1" in
     exec /usr/bin/find "$INSTALL_TEST_SOURCES" "$@"
     ;;
   timeout)
+    for argument in "$@"; do
+      if [[ "$argument" = APT_CONFIG=* ]]; then
+        configuration=${argument#APT_CONFIG=}
+        mkdir -p "$INSTALL_TEST_EFFECTIVE"
+        cp -R "$(dirname "$configuration")/." "$INSTALL_TEST_EFFECTIVE/"
+      fi
+    done
     shift
     signal_option=$1
     shift 2
@@ -37,6 +46,9 @@ esac
 SH
 cat > "$fixture/node" <<'SH'
 #!/usr/bin/env bash
+if [[ "$1" = */prepare-playwright-apt-sources.mjs ]]; then
+  exec "$INSTALL_TEST_NODE" "$1" "$INSTALL_TEST_SOURCES" "$3"
+fi
 # Model a CLI parent that exits on SIGTERM, with a child that ignores SIGTERM.
 trap 'exit 0' TERM
 bash -c 'trap "" TERM; echo "$$" >> "$INSTALL_TEST_PIDS"; exec sleep 600' &
@@ -63,8 +75,9 @@ while read -r pid; do
 done < "$INSTALL_TEST_PIDS"
 test "$status" -eq 137
 echo 'Both deadline attempts terminated their SIGTERM-resistant children.'
-grep -q 'https://archive.ubuntu.com/ubuntu' "$INSTALL_TEST_SOURCES/sources.list"
-grep -q 'https://archive.ubuntu.com/ubuntu' "$INSTALL_TEST_SOURCES/sources.list.d/ubuntu.sources"
-grep -q 'https://archive.ubuntu.com/ubuntu.*priority:1' "$INSTALL_TEST_SOURCES/apt-mirrors.txt"
-grep -q 'http://security.ubuntu.com/ubuntu.*priority:2' "$INSTALL_TEST_SOURCES/apt-mirrors.txt"
-echo 'HTTPS fallback replaced Azure in .list, .sources and apt-mirrors.txt; priorities preserved.'
+grep -q 'https://archive.ubuntu.com/ubuntu' "$INSTALL_TEST_EFFECTIVE/sources.list"
+grep -q 'https://archive.ubuntu.com/ubuntu' "$INSTALL_TEST_EFFECTIVE/sources.list.d/ubuntu.sources"
+grep -q 'https://archive.ubuntu.com/ubuntu.*priority:1' "$INSTALL_TEST_EFFECTIVE/apt-mirrors.txt"
+grep -q 'http://security.ubuntu.com/ubuntu.*priority:2' "$INSTALL_TEST_EFFECTIVE/apt-mirrors.txt"
+grep -q 'http://azure.archive.ubuntu.com/ubuntu' "$INSTALL_TEST_SOURCES/sources.list"
+echo 'Scoped HTTPS fallback replaced Azure in every format; original global sources remained unchanged.'
