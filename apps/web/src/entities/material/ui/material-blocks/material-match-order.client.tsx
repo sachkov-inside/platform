@@ -4,13 +4,13 @@ import { checkExerciseAnswer } from "@inside/material-blocks";
 import { ChevronDown, ChevronUp, GripVertical } from "lucide-react";
 import {
   useCallback,
-  useEffect,
   useId,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
+import { flushSync } from "react-dom";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import {
@@ -536,7 +536,6 @@ export function MaterialOrder(props: MaterialOrderPresentation) {
   const [draft, setDraft] = useState<readonly string[] | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const buttons = useRef(new Map<string, HTMLButtonElement>());
-  const pendingFocus = useRef<string | null>(null);
   const answered = state.current;
   const shown =
     answered === null
@@ -550,22 +549,6 @@ export function MaterialOrder(props: MaterialOrderPresentation) {
     (step, index) => position.get(step.id) === index,
   );
 
-  // A moved step keeps the focus on its button; at the edge the other button takes it.
-  useEffect(() => {
-    const key = pendingFocus.current;
-    if (key === null) return;
-    pendingFocus.current = null;
-    const button = buttons.current.get(key);
-    if (button?.disabled === false) {
-      button.focus();
-      return;
-    }
-    const [stepId, direction] = key.split(":");
-    buttons.current
-      .get(`${stepId ?? ""}:${direction === "up" ? "down" : "up"}`)
-      ?.focus();
-  });
-
   const move = (index: number, direction: Direction) => {
     const target = direction === "up" ? index - 1 : index + 1;
     const step = shown[index];
@@ -574,11 +557,19 @@ export function MaterialOrder(props: MaterialOrderPresentation) {
     const next = shown.map((item) => item.id);
     next[index] = other.id;
     next[target] = step.id;
-    setDraft(next);
-    pendingFocus.current = `${step.id}:${direction}`;
-    setAnnouncement(
-      `«${step.label}»: место ${String(target + 1)} из ${String(shown.length)}`,
-    );
+    flushSync(() => {
+      setDraft(next);
+      setAnnouncement(
+        `«${step.label}»: место ${String(target + 1)} из ${String(shown.length)}`,
+      );
+    });
+    // The move's DOM commit owns focus; at the edge its enabled counterpart takes it.
+    const button = buttons.current.get(`${step.id}:${direction}`);
+    if (button?.disabled === false) button.focus();
+    else
+      buttons.current
+        .get(`${step.id}:${direction === "up" ? "down" : "up"}`)
+        ?.focus();
   };
 
   const { list, drag, start } = useStepDrag((from, to) => {
