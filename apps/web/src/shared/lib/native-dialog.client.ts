@@ -55,15 +55,21 @@ export function useNativeDialog({
   readonly onOpenChange: (open: boolean) => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const active = useRef(false);
   // Child refs register before the modal opens: https://github.com/sachkov-inside/platform/issues/2255.
   useLayoutEffect(() => {
     const element = ref.current;
     if (element === null) return;
+    active.current = true;
     if (open && !element.open) {
       element.showModal();
       initialFocusTargets.get(element)?.focus();
     }
     if (!open && element.open) element.close();
+    return () => {
+      active.current = false;
+      if (element.open) element.close();
+    };
   }, [open]);
 
   return {
@@ -73,6 +79,8 @@ export function useNativeDialog({
       if (!pending) onOpenChange(false);
     },
     onClose(event: SyntheticEvent<HTMLDialogElement>) {
+      // Hidden retained forms release their modal layer without dismissing their draft (#2389).
+      if (!active.current) return;
       // A queued close event can arrive after a subsequent showModal.
       if (open && !event.currentTarget.open) onOpenChange(false);
     },

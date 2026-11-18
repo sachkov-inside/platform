@@ -4,31 +4,25 @@ import { fileURLToPath } from "node:url";
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const fakes = vi.hoisted(() => ({ token: vi.fn(), permissions: vi.fn() }));
-vi.mock("@/shared/api/backend/index.server", () => ({
-  requestCurrentAccountPermissions: fakes.permissions,
-}));
-vi.mock("@/shared/auth/session-adapter.server", () => ({
-  sessionAdapter: {
-    accessToken: fakes.token,
-    baseUrl: () => "https://inside.example.test",
-  },
-  LogtoSessionUnavailableError: class LogtoSessionUnavailableError extends Error {},
-}));
-
-import { requireAuthoringEntry } from "@/_app/authoring-entry.server";
-import { LogtoSessionUnavailableError } from "@/shared/auth/session-adapter.server";
+import { afterEach } from "vitest";
+import { sessionAdapter } from "@/shared/auth/session-adapter.server";
+import { realBffSession } from "../support/real-bff-session";
+import { interceptBackendHttp } from "../support/backend-http";
+import {
+  interceptIdentityOutage,
+  expectIdentityOutage,
+} from "../support/identity-http";
+const backend = vi.fn<(request: Request) => Promise<Response>>();
+let scope: Awaited<ReturnType<typeof realBffSession>>;
+import { requireAuthoringEntry as realRequireAuthoringEntry } from "@/_app/authoring-entry.server";
+const requireAuthoringEntry = () => scope(realRequireAuthoringEntry);
 
 function permissions(body: unknown) {
-  return { ok: true, body, response: new Response(null, { status: 200 }) };
+  return Response.json(body);
 }
 
 function backendFailure(status: number) {
-  return {
-    ok: false,
-    problem: { code: "rejected" },
-    response: new Response(null, { status }),
-  };
+  return Response.json({ code: "rejected" }, { status });
 }
 
 /** Адреса, которые только отвечают 404 или перенаправляют на проверенную страницу. */
@@ -42,63 +36,82 @@ const rendersNothing = new Set([
 /** `notFound()` бросает ошибку с этим digest; по нему Next.js отвечает страницей 404. */
 const notFoundDigest = "NEXT_HTTP_ERROR_FALLBACK;404";
 
-beforeEach(() => {
-  vi.clearAllMocks();
-  fakes.token.mockResolvedValue("trusted-token");
+beforeEach(async () => {
+  backend.mockReset();
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-16T10:00:00Z"));
+  scope = await realBffSession();
+  interceptBackendHttp(backend);
 });
+afterEach(() => vi.useRealTimers());
 
 describe("Authoring entry", () => {
   it("opens the admin to an Account with any platform permission", async () => {
+    const tokenReads = vi.spyOn(sessionAdapter, "accessToken");
     for (const granted of [["materials:manage"], ["billing:manage"]]) {
-      fakes.permissions.mockResolvedValueOnce(
-        permissions({ permissions: granted }),
-      );
+      backend.mockResolvedValueOnce(permissions({ permissions: granted }));
       await expect(requireAuthoringEntry()).resolves.toBeUndefined();
     }
-    expect(fakes.permissions).toHaveBeenCalledWith("trusted-token");
-    expect(fakes.token).toHaveBeenCalledWith("rsc");
+    expect(backend).toHaveBeenCalledTimes(2);
+    for (const [request] of backend.mock.calls) {
+      expect(request.method).toBe("GET");
+      expect(request.url).toBe(
+        "https://platform-api.example.test/accounts/current/permissions",
+      );
+      expect(request.headers.get("authorization")).toBe("Bearer trusted-token");
+    }
+    expect(tokenReads).toHaveBeenCalledWith("rsc");
   });
 
   it("answers 404 to an Account without permissions", async () => {
-    fakes.permissions.mockResolvedValue(permissions({ permissions: [] }));
+    backend.mockResolvedValue(permissions({ permissions: [] }));
     await expect(requireAuthoringEntry()).rejects.toMatchObject({
       digest: notFoundDigest,
     });
   });
 
   it("answers 404 to a guest without asking the backend", async () => {
-    fakes.token.mockRejectedValue(new LogtoSessionUnavailableError());
+    scope = await realBffSession(null);
     await expect(requireAuthoringEntry()).rejects.toMatchObject({
       digest: notFoundDigest,
     });
-    expect(fakes.permissions).not.toHaveBeenCalled();
+    expect(backend).not.toHaveBeenCalled();
   });
 
   it("answers 404 when the backend knows no Account for the session", async () => {
-    fakes.permissions.mockResolvedValue(backendFailure(401));
+    backend.mockResolvedValue(backendFailure(401));
     await expect(requireAuthoringEntry()).rejects.toMatchObject({
       digest: notFoundDigest,
     });
   });
 
   it("keeps the admin closed when the check fails", async () => {
+    let identity: ReturnType<typeof interceptIdentityOutage> | undefined;
     const failures = [
-      () => fakes.permissions.mockResolvedValueOnce(backendFailure(503)),
+      () => backend.mockResolvedValueOnce(backendFailure(503)),
       () =>
-        fakes.permissions.mockResolvedValueOnce(
+        backend.mockResolvedValueOnce(
           permissions({ permissions: "platform:admin" }),
         ),
-      () => fakes.permissions.mockRejectedValueOnce(new Error("offline")),
-      () => fakes.token.mockRejectedValueOnce(new Error("identity down")),
+      () => backend.mockRejectedValueOnce(new Error("offline")),
+      async () => {
+        scope = await realBffSession({
+          refreshToken: "failed-authoring-entry-identity",
+        });
+        identity = interceptIdentityOutage();
+      },
     ];
     for (const fail of failures) {
-      fail();
+      await fail();
       const outcome = requireAuthoringEntry();
       await expect(outcome).rejects.toBeInstanceOf(Error);
       await expect(outcome).rejects.not.toMatchObject({
         digest: notFoundDigest,
       });
     }
+    if (identity === undefined)
+      throw new Error("Expected identity outage fixture");
+    expectIdentityOutage(identity);
   });
 
   it("is checked by every admin page, since the layout does not stop a page from rendering", () => {

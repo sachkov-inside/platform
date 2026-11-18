@@ -1,17 +1,13 @@
 import { createElement } from "react";
 import { renderToString } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
+
+import { withNextNavigation } from "../support/next-navigation";
 
 import { ProductJourney } from "@/_pages/library-discovery/ui/product-journey";
 import type { ProductChapter } from "@/features/library-discovery";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
 import { productJourneyCorpus } from "@/storybook/product-journey-corpus.fixtures";
-
-vi.mock("next/navigation", async (original) => ({
-  ...(await original<Record<string, unknown>>()),
-  useSearchParams: () => new URLSearchParams(),
-  useRouter: () => ({ refresh: vi.fn() }),
-}));
 
 const ids = (from: number, to: number) =>
   Array.from(
@@ -53,18 +49,20 @@ function chapters(roadmap: boolean): readonly ProductChapter[] {
 function render(roadmap: boolean): string {
   const corpus = productJourneyCorpus();
   return renderToString(
-    createElement(ProductJourney, {
-      currentHref: productProgrammeHref("platform-inside"),
-      result: {
-        ...corpus,
-        items: corpus.items.slice(0, 15),
-        chapters: chapters(roadmap),
-        reference: {
-          ...corpus.reference,
-          ...(roadmap ? { roadmapUpdatedOn: "2026-11-13" } : {}),
+    withNextNavigation(
+      createElement(ProductJourney, {
+        currentHref: productProgrammeHref("platform-inside"),
+        result: {
+          ...corpus,
+          items: corpus.items.slice(0, 15),
+          chapters: chapters(roadmap),
+          reference: {
+            ...corpus.reference,
+            ...(roadmap ? { roadmapUpdatedOn: "2026-11-13" } : {}),
+          },
         },
-      },
-    }),
+      }),
+    ),
   );
 }
 

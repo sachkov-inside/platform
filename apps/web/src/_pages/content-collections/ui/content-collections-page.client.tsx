@@ -7,6 +7,7 @@ import {
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
   type RefObject,
 } from "react";
@@ -54,6 +55,10 @@ import {
   useCollectionListQuery,
   type CollectionListNavigation,
 } from "../model/use-collection-list-query.client";
+import {
+  createContentCollectionState,
+  type ContentCollectionState,
+} from "../model/content-collection-state";
 import { CollectionCreateForm } from "./collection-create-form.client";
 import { MutationNotice } from "./collection-mutation-notice";
 import { HomePinNotice, ProductsTable } from "./products-list.client";
@@ -72,24 +77,16 @@ export function ContentCollectionsPageClient({
   readonly initialCollections: readonly ContentCollection[];
   readonly kind: ContentCollectionKind;
 }) {
-  const [collections, setCollections] = useState(initialCollections);
+  const [collectionState] = useState(() =>
+    createContentCollectionState(initialCollections),
+  );
+  const collections = useSyncExternalStore(
+    collectionState.subscribe,
+    collectionState.getSnapshot,
+    collectionState.getSnapshot,
+  );
   const [query, navigation] = useCollectionListQuery(kind);
-  const applySavedCollection = (result: ContentCollectionMutationResult) => {
-    if (result.kind !== "saved") return;
-    setCollections((current) => {
-      const existing = current.some(({ id }) => id === result.collection.id);
-      const next = existing
-        ? current.map((collection) =>
-            collection.id === result.collection.id
-              ? result.collection
-              : collection,
-          )
-        : [...current, result.collection];
-      return [...next].sort((left, right) =>
-        left.name.localeCompare(right.name),
-      );
-    });
-  };
+  const applySavedCollection = collectionState.accept;
 
   return (
     <main className="authoring-page" id="authoring-content" tabIndex={-1}>
@@ -103,6 +100,7 @@ export function ContentCollectionsPageClient({
           />
         ) : (
           <TopicsSection
+            collectionState={collectionState}
             collections={collections}
             navigation={navigation}
             onSaved={applySavedCollection}
@@ -179,11 +177,12 @@ function ProductsSection({
 }
 
 function TopicsSection({
+  collectionState,
   collections,
   query,
   navigation,
   onSaved,
-}: SectionProps) {
+}: SectionProps & { readonly collectionState: ContentCollectionState }) {
   const router = useRouter();
   const listPath = usePathname();
   const openId = query.topicId;
@@ -244,10 +243,11 @@ function TopicsSection({
                 if (collection === undefined) return;
                 void flushPendingEdits().then((ok) => {
                   if (!ok) return;
+                  const current = collectionState.collection(collection.id);
                   archive.mutate({
-                    archived: !collection.archived,
-                    collectionId: collection.id,
-                    expectedVersion: collection.version,
+                    archived: !current.archived,
+                    collectionId: current.id,
+                    expectedVersion: current.version,
                     kind: "topic",
                   });
                 });
@@ -289,7 +289,7 @@ function TopicsSection({
               collection={collection}
               headingId={topicHeadingId(id)}
               onClose={close}
-              onSaved={onSaved}
+              state={collectionState}
             />
           </div>
         );

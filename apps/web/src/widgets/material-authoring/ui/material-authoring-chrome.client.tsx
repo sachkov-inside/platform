@@ -2,7 +2,7 @@
 import { materialSaveStateLabel } from "../model/material-save-state-label";
 
 import { ArrowLeft, CircleAlert, CloudOff, Eye, RotateCcw } from "lucide-react";
-import { useLayoutEffect, useRef } from "react";
+import { useCallback } from "react";
 
 import { MaterialPublicationActionButton } from "@/features/material-lifecycle";
 import { Button } from "@/shared/ui/button";
@@ -37,13 +37,12 @@ export function MaterialAuthoringHeader({
 }: MaterialAuthoringChromeProps & { readonly canSave: boolean }) {
   const disabled =
     presentation.blocking.kind !== "none" || presentation.draft.readOnly;
-  const header = useRef<HTMLElement>(null);
   // Шапка закреплена у верхнего края прокрутки, и её высота меняется, когда строка переносится.
   // Панель редактора закрепляется под шапкой, поэтому читает высоту из переменной на `main`.
-  useLayoutEffect(() => {
-    const element = header.current;
-    const scroller = element?.closest<HTMLElement>("[data-material-authoring]");
-    if (element === null || scroller === null || scroller === undefined) return;
+  const header = useCallback((element: HTMLElement | null) => {
+    if (element === null) return;
+    const scroller = element.closest<HTMLElement>("[data-material-authoring]");
+    if (scroller === null) return;
     const syncHeaderHeight = () => {
       scroller.style.setProperty(
         headerHeightVariable,

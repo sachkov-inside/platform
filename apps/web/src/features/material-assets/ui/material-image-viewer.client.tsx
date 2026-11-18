@@ -58,7 +58,7 @@ export function MaterialImageViewer({
   alt,
   caption,
   height,
-  onClose,
+  onClose: requestClose,
   src,
   width,
 }: {
@@ -92,10 +92,6 @@ export function MaterialImageViewer({
   // жест начинается с того, что уже на экране, а не с прошлого рендера.
   const latestView = useRef(FIT_VIEW);
   const latestBounds = useRef(bounds);
-  useEffect(() => {
-    latestBounds.current = bounds;
-  });
-
   // Единственный путь чтения и записи вида для обработчиков; читает только refs, поэтому стабилен.
   const shownView = useCallback(
     () => clampView(latestView.current, latestBounds.current),
@@ -114,35 +110,53 @@ export function MaterialImageViewer({
     [shownView],
   );
 
+  const onClose = () => {
+    dialog.current?.close();
+    requestClose();
+  };
+
+  // The stage owns measurement and pointer captures. Hiding a retained route detaches the ref,
+  // releasing gestures before it can be reattached with a different viewport.
+  const attachStage = useCallback(
+    (element: HTMLDivElement | null) => {
+      stage.current = element;
+      if (element === null) return;
+      const measure = () => {
+        const size = {
+          height: element.clientHeight,
+          width: element.clientWidth,
+        };
+        latestBounds.current = viewerBounds({ height, width }, size);
+        setStageSize((previous) =>
+          previous.height === size.height && previous.width === size.width
+            ? previous
+            : size,
+        );
+      };
+      const observer = new ResizeObserver(measure);
+      observer.observe(element);
+      measure();
+      return () => {
+        observer.disconnect();
+        for (const id of pointers.current.keys())
+          if (element.hasPointerCapture(id)) element.releasePointerCapture(id);
+        pointers.current.clear();
+        gesture.current = null;
+        moved.current = false;
+        lastTap.current = null;
+        stagePresses.current = [];
+        stage.current = null;
+      };
+    },
+    [height, width],
+  );
+
+  // One native modal lifetime owns top-layer membership, initial focus and the non-passive wheel.
   useEffect(() => {
     const element = dialog.current;
-    if (element !== null && !element.open) element.showModal();
+    if (element === null) return;
+    if (!element.open) element.showModal();
     closeButton.current?.focus();
-    return () => {
-      element?.close();
-    };
-  }, []);
-
-  useEffect(() => {
-    const element = stage.current;
-    if (element === null) return;
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry === undefined) return;
-      setStageSize({
-        height: entry.contentRect.height,
-        width: entry.contentRect.width,
-      });
-    });
-    observer.observe(element);
-    return () => {
-      observer.disconnect();
-    };
-  }, []);
-
-  useEffect(() => {
-    const element = dialog.current;
-    if (element === null) return;
-    // React подписывает колесо пассивно, а странице за окном нельзя прокручиваться.
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
       const area = stage.current;
@@ -168,6 +182,7 @@ export function MaterialImageViewer({
     element.addEventListener("wheel", onWheel, { passive: false });
     return () => {
       element.removeEventListener("wheel", onWheel);
+      element.close();
     };
   }, [update]);
 
@@ -362,7 +377,7 @@ export function MaterialImageViewer({
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        ref={stage}
+        ref={attachStage}
       >
         {failed ? (
           <div

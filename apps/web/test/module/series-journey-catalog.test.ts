@@ -1,30 +1,30 @@
 import { createElement } from "react";
 import { renderToString } from "react-dom/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
+
+import { withNextNavigation } from "../support/next-navigation";
 
 import { ProductJourney } from "@/_pages/library-discovery/ui/product-journey";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
 import { productJourneyCorpus } from "@/storybook/product-journey-corpus.fixtures";
 
-const navigation = vi.hoisted(() => ({ search: "" }));
-vi.mock("next/navigation", async (original) => ({
-  ...(await original<Record<string, unknown>>()),
-  useSearchParams: () => new URLSearchParams(navigation.search),
-  useRouter: () => ({ refresh: vi.fn() }),
-}));
+let navigationSearch: string;
 
 beforeEach(() => {
-  navigation.search = "part=materials";
+  navigationSearch = "part=materials";
 });
 
 function renderCatalogue(
   result: ReturnType<typeof productJourneyCorpus> = productJourneyCorpus(),
 ) {
   return renderToString(
-    createElement(ProductJourney, {
-      currentHref: productProgrammeHref("platform-inside"),
-      result,
-    }),
+    withNextNavigation(
+      createElement(ProductJourney, {
+        currentHref: productProgrammeHref("platform-inside"),
+        result,
+      }),
+      navigationSearch,
+    ),
   );
 }
 
@@ -139,7 +139,7 @@ describe("Product catalogue presentation", () => {
   });
 
   it("keeps the catalogue return address of a card", () => {
-    navigation.search = "part=materials&at=performance-lesson-89";
+    navigationSearch = "part=materials&at=performance-lesson-89";
     const html = renderCatalogue();
     expect(html).toContain('data-route-material="performance-lesson-89"');
     expect(html).toContain("part%3Dmaterials%26at%3Dperformance-lesson-89");

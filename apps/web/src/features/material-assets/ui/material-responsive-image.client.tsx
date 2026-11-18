@@ -1,7 +1,9 @@
 "use client";
 
 import type { ImageFormat, ImageVariants } from "@inside/material-blocks";
-import { type CSSProperties, useLayoutEffect, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useState } from "react";
+
+import { observeImageComposition } from "./image-composition.browser";
 
 import styles from "./material-responsive-image.module.css";
 
@@ -18,9 +20,6 @@ export interface MaterialImageSource {
   readonly srcSet: string;
   readonly viewerSize?: ViewerSize | undefined;
 }
-
-/** At narrower article widths, the tall composition keeps diagram labels readable. */
-const WIDE_IMAGE_COLUMN_PX = 560;
 
 /**
  * Reuses the accepted image delivery and viewer for the column's current composition and theme.
@@ -40,49 +39,17 @@ export function MaterialResponsiveImage({
   readonly imageVariants?: ImageVariants<MaterialImageSource> | undefined;
   readonly preview: boolean;
 }) {
-  const container = useRef<HTMLDivElement>(null);
   const [choice, setChoice] = useState<
     keyof ImageVariants<MaterialImageSource> | undefined
   >(undefined);
-  // The composition depends on the actual column and inherited local theme. Select it before
-  // the first hydrated paint, without downloading an incorrect server-side default first.
-  useLayoutEffect(() => {
-    const element = container.current;
-    if (element === null || imageVariants === undefined) return;
-    const update = () => {
-      const dark =
-        getComputedStyle(element).getPropertyValue("--theme-is-dark").trim() ===
-        "1";
-      const wide =
-        element.getBoundingClientRect().width >= WIDE_IMAGE_COLUMN_PX;
-      setChoice(
-        wide
-          ? dark
-            ? "wideDark"
-            : "wideLight"
-          : dark
-            ? "tallDark"
-            : "tallLight",
-      );
-    };
-    const resize = new ResizeObserver(update);
-    resize.observe(element);
-    const theme = new MutationObserver(update);
-    for (
-      let ancestor: HTMLElement | null = element;
-      ancestor !== null;
-      ancestor = ancestor.parentElement
-    )
-      theme.observe(ancestor, {
-        attributes: true,
-        attributeFilter: ["class", "style"],
-      });
-    update();
-    return () => {
-      resize.disconnect();
-      theme.disconnect();
-    };
-  }, [imageVariants]);
+  const hasVariants = imageVariants !== undefined;
+  const container = useCallback(
+    (element: HTMLDivElement | null) => {
+      if (element === null || !hasVariants) return;
+      return observeImageComposition(element, setChoice);
+    },
+    [hasVariants],
+  );
   const selected =
     imageVariants === undefined
       ? image

@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 
 import { expect, test } from "@playwright/test";
+import { installVideoProvider } from "./video-provider.fixture";
 
 for (const activation of [
   "mouse",
@@ -28,46 +29,9 @@ for (const activation of [
         });
       },
     );
-    await page.route("https://kinescope.io/**", (route) =>
-      route.fulfill({ contentType: "text/html", body: "<title>Video</title>" }),
-    );
-    await page.addInitScript((failPlay) => {
-      let failed = false;
-      Object.defineProperty(window, "Kinescope", {
-        value: {
-          IframePlayer: {
-            version: "1.0.0",
-            create: (mount: HTMLElement) => {
-              const iframe = document.createElement("iframe");
-              iframe.src = "https://kinescope.io/embed/poster-test";
-              mount.append(iframe);
-              return Promise.resolve({
-                Events: { TimeUpdate: "time", Pause: "pause", Ended: "ended" },
-                on: () => undefined,
-                off: () => undefined,
-                getDuration: () => Promise.resolve(600),
-                seekTo: (seconds: number) => {
-                  iframe.dataset["position"] = String(seconds);
-                  return Promise.resolve();
-                },
-                play: () => {
-                  if (failPlay && !failed) {
-                    failed = true;
-                    return Promise.reject(new Error("Playback rejected"));
-                  }
-                  iframe.dataset["playing"] = "true";
-                  return Promise.resolve();
-                },
-                destroy: () => {
-                  iframe.remove();
-                  return Promise.resolve();
-                },
-              });
-            },
-          },
-        },
-      });
-    }, activation === "play-error");
+    await installVideoProvider(page, {
+      failFirstPlay: activation === "play-error",
+    });
     await page.route("**/api/content-covers/**", (route) =>
       route.fulfill({
         contentType: "image/webp",
