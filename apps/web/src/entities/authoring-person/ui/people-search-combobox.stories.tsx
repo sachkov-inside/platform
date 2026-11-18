@@ -54,10 +54,37 @@ function searchResponse(name: "available" | "unavailable") {
   };
 }
 
-function Picker() {
+function Picker({
+  externalControls = false,
+}: {
+  readonly externalControls?: boolean;
+}) {
   const [person, setPerson] = useState<PersonIdentity | null>(null);
   return (
     <div className="max-w-md">
+      {externalControls ? (
+        <>
+          <button
+            type="button"
+            onClick={() => {
+              const preset = people[0];
+              if (preset === undefined)
+                throw new Error("Missing synthetic person");
+              setPerson(preset);
+            }}
+          >
+            Выбрать извне
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setPerson(null);
+            }}
+          >
+            Снять выбор извне
+          </button>
+        </>
+      ) : null}
       <PeopleSearchCombobox label="Кому" value={person} onChange={setPerson} />
     </div>
   );
@@ -114,7 +141,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-let releaseLatestSearch = () => {};
+let releaseLatestSearch: (() => void) | undefined;
 
 export const ChooseByKeyboardDesktop: Story = {
   ...desktop,
@@ -248,6 +275,9 @@ export const PendingTextCannotChooseThePreviousResult: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const input = canvas.getByRole("combobox", { name: "Кому" });
+    const release = releaseLatestSearch;
+    if (release === undefined)
+      throw new Error("Missing external search response control");
     try {
       await userEvent.type(input, "Анна");
       await expect(await canvas.findAllByRole("option")).toHaveLength(2);
@@ -261,7 +291,7 @@ export const PendingTextCannotChooseThePreviousResult: Story = {
         expect(searchRequests).toHaveBeenLastCalledWith("Анна Кон"),
       );
       await expect(canvas.queryAllByRole("option")).toHaveLength(0);
-      releaseLatestSearch();
+      release();
       await expect(await canvas.findAllByRole("option")).toHaveLength(1);
       await userEvent.keyboard("{Enter}");
       await expect(
@@ -277,7 +307,33 @@ export const PendingTextCannotChooseThePreviousResult: Story = {
       );
       await expect(canvas.queryAllByRole("option")).toHaveLength(0);
     } finally {
-      releaseLatestSearch();
+      release();
     }
+  },
+};
+
+export const ControlledChoicePreservesTheScheduledQuery: Story = {
+  ...desktop,
+  render: () => <Picker externalControls />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.type(
+      canvas.getByRole("combobox", { name: "Кому" }),
+      "Анна",
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Выбрать извне", exact: true }),
+    );
+    await expect(canvas.queryByRole("combobox", { name: "Кому" })).toBeNull();
+    await waitFor(() =>
+      expect(searchRequests).toHaveBeenLastCalledWith("Анна"),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Снять выбор извне", exact: true }),
+    );
+    await expect(canvas.getByRole("combobox", { name: "Кому" })).toHaveValue(
+      "Анна",
+    );
+    await expect(await canvas.findAllByRole("option")).toHaveLength(2);
   },
 };
