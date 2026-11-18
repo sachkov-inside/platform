@@ -1,7 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
-import { expect as browserExpect } from "@playwright/test";
+import { expect as browserExpect, type Video } from "@playwright/test";
 import { afterAll, beforeAll, test } from "vitest";
 
 import {
@@ -22,7 +22,6 @@ declare global {
   }
 }
 
-/** Passive native accounting; every registration and callback still reaches the real browser. */
 function observeArtworkResources() {
   const intersection = new Map<IntersectionObserver, Set<Element>>();
   const frames = new Set<number>();
@@ -150,6 +149,23 @@ for (const engine of ["chromium", "webkit"] as const) {
         .toContain("Добавь");
       const savedStage = await stage.elementHandle();
       await page
+        .getByRole("button", { name: "Hide artwork", exact: true })
+        .click();
+      await browserExpect(host).toBeHidden();
+      await browserExpect
+        .poll(resources)
+        .toMatchObject({ intersection: 0, frames: 0, visibility: 0, media: 0 });
+      await page
+        .getByRole("button", { name: "Return artwork", exact: true })
+        .click();
+      await browserExpect(stage).toHaveAttribute("data-scene", "1");
+      await browserExpect
+        .poll(resources)
+        .toMatchObject({ intersection: 1, frames: 1, visibility: 1, media: 1 });
+      await browserExpect
+        .poll(() => host.locator(".scene-1 .type").textContent())
+        .toContain("Добавь");
+      await page
         .getByRole("button", { name: "Move offscreen", exact: true })
         .click();
       await browserExpect(stage).toHaveClass(/is-paused/u);
@@ -211,6 +227,25 @@ for (const engine of ["chromium", "webkit"] as const) {
       await browserExpect
         .poll(resources)
         .toMatchObject({ intersection: 0, frames: 0, visibility: 0, media: 0 });
+      await browserExpect
+        .poll(() =>
+          savedStage.evaluate((element) => ({
+            connected: element.isConnected,
+            className: element.getAttribute("class"),
+            scene: element.getAttribute("data-scene"),
+            active: element.querySelectorAll(
+              ".scene.is-active, .scene.is-leaving, .caret.is-on",
+            ).length,
+            text: element.querySelector(".scene-1 .type")?.textContent,
+          })),
+        )
+        .toEqual({
+          connected: false,
+          className: "stage",
+          scene: null,
+          active: 0,
+          text: "Добавь уведомления о новых заявках",
+        });
       await savedStage.dispose();
     } finally {
       await context.close();
@@ -239,8 +274,10 @@ for (const engine of ["chromium", "webkit"] as const) {
             recordVideo: { dir: evidence, size: { width: 900, height: 700 } },
           }),
     });
-    const page = await context.newPage();
+    let video: Video | null = null;
     try {
+      const page = await context.newPage();
+      video = page.video();
       await page.addInitScript(observeArtworkResources);
       await page.goto(fixture.url);
       await page
@@ -261,7 +298,7 @@ for (const engine of ["chromium", "webkit"] as const) {
     } finally {
       await context.close();
       if (evidence !== undefined)
-        await page.video()?.saveAs(`${evidence}/actual-once-cycle.webm`);
+        await video?.saveAs(`${evidence}/actual-once-cycle.webm`);
     }
   }, 30_000);
 }
