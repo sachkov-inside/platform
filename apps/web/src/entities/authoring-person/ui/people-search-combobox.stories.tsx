@@ -185,6 +185,7 @@ export const RetainsInputAndReleasesPendingSearch: Story = {
     try {
       await userEvent.type(input, "Анна");
       const firstTimer = pendingTimer();
+      await expect(searchRequests).not.toHaveBeenCalled();
       await userEvent.click(
         canvas.getByRole("button", { name: "Скрыть выбор", exact: true }),
       );
@@ -196,6 +197,8 @@ export const RetainsInputAndReleasesPendingSearch: Story = {
       );
       await expect(canvas.getByRole("combobox", { name: "Кому" })).toBe(input);
       await expect(input).toHaveValue("Анна");
+      await expect(input).toHaveAttribute("aria-expanded", "false");
+      await userEvent.click(input);
       await expect(await canvas.findAllByRole("option")).toHaveLength(2);
       await expect(searchRequests).toHaveBeenLastCalledWith("Анна");
       await userEvent.type(input, "я");
