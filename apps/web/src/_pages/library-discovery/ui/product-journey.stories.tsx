@@ -1,5 +1,6 @@
 import { legacyCatalogueScenario } from "../../../../../../scenarios/legacy-catalog.mjs";
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { page } from "vitest/browser";
 import { ReadonlyURLSearchParams, useSearchParams } from "next/navigation";
 import { Activity, useState, type ComponentProps } from "react";
 import { z } from "zod";
@@ -1979,7 +1980,11 @@ export const EarlyLessonRevealMobile: Story = {
   globals: { viewport: { value: "mobile320", isRotated: false } },
 };
 
+let lateProgrammeDeliveryActive = false;
+
 function observeProgrammeResources() {
+  if (lateProgrammeDeliveryActive)
+    throw new Error("The named late programme delivery test is exclusive");
   // These spies call the original native methods and only retain their receipts.
   const observed = spyOn(IntersectionObserver.prototype, "observe");
   const disconnected = spyOn(IntersectionObserver.prototype, "disconnect");
@@ -2019,8 +2024,14 @@ function observeProgrammeResources() {
 let programmeResources: ReturnType<typeof observeProgrammeResources> | null =
   null;
 
-function RetainedProgrammeReveal({ learning, ...args }: ProgrammeStoryArgs) {
-  const [mode, setMode] = useState<"visible" | "hidden" | null>("visible");
+function RetainedProgrammeReveal({
+  learning,
+  initiallyVisible = true,
+  ...args
+}: ProgrammeStoryArgs & { initiallyVisible?: boolean }) {
+  const [mode, setMode] = useState<"visible" | "hidden" | null>(
+    initiallyVisible ? "visible" : "hidden",
+  );
   return (
     <>
       <div className="sticky top-0 z-50 flex gap-2 bg-background p-2">
@@ -2126,6 +2137,175 @@ export const RetainedProgrammeRevealLifetime: Story = {
       await expect(resources.disconnectedOwners()).toContain(returnedOwner);
       await expect(resources.activeOwnersFor(last)).toHaveLength(0);
     });
+  },
+};
+
+export const ProgrammeRevealFollowsScrollRoot: Story = {
+  ...RetainedProgrammeRevealLifetime,
+  play: async ({ canvasElement }) => {
+    const resources = programmeResources;
+    if (resources === null) throw new Error("Missing native observation");
+    const last = canvasElement.querySelector<HTMLElement>(
+      '[data-product-ordinal="12"]',
+    );
+    if (last === null) throw new Error("Missing programme boundary");
+    const main = last.closest("main");
+    if (main === null) throw new Error("Missing application scroll root");
+    const originalWidth = window.innerWidth;
+    const originalHeight = window.innerHeight;
+    const expectRoot = async (root: Element | Document) => {
+      await waitFor(async () => {
+        const owners = resources.activeOwnersFor(last);
+        await expect(owners).toHaveLength(1);
+        const owner = owners[0];
+        if (!(owner instanceof IntersectionObserver))
+          throw new Error("Missing actual native observer");
+        await expect(owner.root).toBe(root);
+      });
+    };
+    try {
+      await page.viewport(1440, 900);
+      await expectRoot(main);
+      await page.viewport(390, 844);
+      await expectRoot(document);
+      await page.viewport(1440, 900);
+      await expectRoot(main);
+      await expect(
+        canvasElement.querySelector('[data-product-ordinal="12"]'),
+      ).toBe(last);
+      last.scrollIntoView({ block: "end" });
+      await waitFor(async () => {
+        await expect(
+          canvasElement.querySelectorAll("[data-product-ordinal]"),
+        ).toHaveLength(24);
+      });
+    } finally {
+      await page.viewport(originalWidth, originalHeight);
+    }
+  },
+};
+
+export const ArtificialLateProgrammeDeliveryAfterDisconnect: Story = {
+  ...EarlyLessonReveal,
+  beforeEach: () => environment.beforeEach(),
+  render: (args) => (
+    <RetainedProgrammeReveal {...args} initiallyVisible={false} />
+  ),
+  play: async ({ canvasElement }) => {
+    if (lateProgrammeDeliveryActive || programmeResources !== null)
+      throw new Error("The named late programme delivery test is exclusive");
+    const descriptor = Object.getOwnPropertyDescriptor(
+      window,
+      "IntersectionObserver",
+    );
+    if (descriptor === undefined)
+      throw new Error("Missing native IntersectionObserver descriptor");
+    const NativeObserver = window.IntersectionObserver;
+    const callbacks = new Map<
+      IntersectionObserver,
+      IntersectionObserverCallback
+    >();
+    const resources = observeProgrammeResources();
+    lateProgrammeDeliveryActive = true;
+    try {
+      // Keep the actual constructor arguments, native handle and ordinary delivery.
+      const observedConstructor = new Proxy(NativeObserver, {
+        construct(
+          target,
+          args: ConstructorParameters<typeof IntersectionObserver>,
+        ) {
+          const instance: unknown = Reflect.construct(target, args);
+          if (!(instance instanceof NativeObserver))
+            throw new Error("Expected the actual native observer handle");
+          callbacks.set(instance, args[0]);
+          return instance;
+        },
+      });
+      Object.defineProperty(window, "IntersectionObserver", {
+        ...descriptor,
+        value: observedConstructor,
+      });
+      const canvas = within(canvasElement);
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Вернуть программу" }),
+      );
+      const rows = () =>
+        canvasElement.querySelectorAll("[data-product-ordinal]");
+      const first = canvasElement.querySelector('[data-product-ordinal="1"]');
+      const last = canvasElement.querySelector<HTMLElement>(
+        '[data-product-ordinal="12"]',
+      );
+      if (first === null || last === null)
+        throw new Error("Missing initial programme rows");
+      await expect(rows()).toHaveLength(12);
+      await waitFor(async () => {
+        await expect(resources.activeOwnersFor(last)).toHaveLength(1);
+      });
+      const owner = resources.activeOwnersFor(last)[0];
+      if (!(owner instanceof NativeObserver))
+        throw new Error("Missing original native observer");
+      const callback = callbacks.get(owner);
+      if (callback === undefined)
+        throw new Error("Missing original native observer callback");
+      const beforeHide = last.getBoundingClientRect();
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Скрыть программу" }),
+      );
+      await waitFor(async () => {
+        await expect(resources.disconnectedOwners()).toContain(owner);
+        await expect(resources.activeOwnersFor(last)).toHaveLength(0);
+      });
+      // One explicitly artificial late entry, not a browser scheduling claim.
+      callback(
+        [
+          {
+            target: last,
+            time: performance.now(),
+            isIntersecting: true,
+            intersectionRatio: 1,
+            boundingClientRect: beforeHide,
+            intersectionRect: beforeHide,
+            rootBounds: null,
+          },
+        ],
+        owner,
+      );
+      await expect(rows()).toHaveLength(12);
+      await expect(resources.activeOwnersFor(last)).toHaveLength(0);
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Вернуть программу" }),
+      );
+      await waitFor(async () => {
+        await expect(last).toBeVisible();
+      });
+      await expect(rows()).toHaveLength(12);
+      await expect(
+        canvasElement.querySelector('[data-product-ordinal="1"]'),
+      ).toBe(first);
+      await expect(
+        canvasElement.querySelector('[data-product-ordinal="12"]'),
+      ).toBe(last);
+      await waitFor(async () => {
+        const active = resources.activeOwnersFor(last);
+        await expect(active).toHaveLength(1);
+        await expect(active).not.toContain(owner);
+      });
+      last.scrollIntoView({ block: "end" });
+      await waitFor(async () => {
+        await expect(rows()).toHaveLength(24);
+      });
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Убрать программу" }),
+      );
+      await waitFor(async () => {
+        await expect(rows()).toHaveLength(0);
+        await expect(resources.activeOwnersFor(last)).toHaveLength(0);
+      });
+    } finally {
+      Object.defineProperty(window, "IntersectionObserver", descriptor);
+      resources.restore();
+      lateProgrammeDeliveryActive = false;
+    }
   },
 };
 

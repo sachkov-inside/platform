@@ -37,6 +37,54 @@ async function signInAsReader(
 
 const optionalHoldSchema = z.object({ blocked: z.array(z.string()) });
 
+test("the actual programme retains lesson nodes and resumes reveal after Reader return", async ({
+  page,
+}, info) => {
+  const response = await page.goto("/products/performance-course/programme");
+  await response?.finished();
+  const surface = page.locator(
+    '[data-product-programme="performance-course"]:visible',
+  );
+  const rows = surface.locator("[data-product-ordinal]");
+  await expect(rows).toHaveCount(12);
+  await scrollProgrammeBoundaryIntoView(page, 12);
+  await expect(rows).toHaveCount(24);
+  const originalFirst = await rows.first().elementHandle();
+  const originalBoundary = await rows.nth(23).elementHandle();
+  if (originalFirst === null || originalBoundary === null)
+    throw new Error("Missing actual programme nodes before navigation");
+  try {
+    await rows.first().getByRole("heading").getByRole("link").click();
+    await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
+    expect(await originalFirst.evaluate((node) => node.isConnected)).toBe(true);
+    expect(
+      await originalFirst.evaluate((node) => node.getClientRects().length),
+    ).toBe(0);
+    await page.goBack();
+    await expect(surface).toBeVisible();
+    await expect(rows).toHaveCount(24);
+    expect(
+      await rows
+        .first()
+        .evaluate((node, original) => node === original, originalFirst),
+    ).toBe(true);
+    expect(
+      await rows
+        .nth(23)
+        .evaluate((node, original) => node === original, originalBoundary),
+    ).toBe(true);
+    await scrollProgrammeBoundaryIntoView(page, 24);
+    await expect(rows).toHaveCount(36);
+    await info.attach("programme-reveal-after-reader-return.png", {
+      body: await page.screenshot(),
+      contentType: "image/png",
+    });
+  } finally {
+    await originalFirst.dispose();
+    await originalBoundary.dispose();
+  }
+});
+
 test("the first available programme switch opens the catalogue across delayed hydration", async ({
   page,
 }) => {

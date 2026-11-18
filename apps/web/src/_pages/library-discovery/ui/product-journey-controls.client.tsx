@@ -10,6 +10,7 @@ import {
 import type { Route } from "next";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -32,6 +33,7 @@ import { readProductPage } from "@/shared/routing/material-reader";
 
 import { useProductProgrammeSelection } from "./product-programme-selection.client";
 import { PRODUCT_BATCH_SIZE } from "./product-batch";
+import { observeProgrammeReveal } from "./product-journey-reveal.browser";
 import {
   ProductMaterialCatalog,
   type CatalogEntry,
@@ -221,7 +223,6 @@ export function ProductJourneyControls({
     ),
   );
   const hasMore = count < visible.length;
-  const lastLesson = useRef<HTMLLIElement>(null);
   const next = parts
     .flatMap(partRows)
     .find((row) => row.slug === continuation?.materialSlug && row.available);
@@ -244,86 +245,18 @@ export function ProductJourneyControls({
         : { materialSlug: firstOpen.slug, label: "Начать обучение" }
       : { materialSlug: next.slug, label: "Продолжить" };
 
-  useEffect(() => {
-    const node = lastLesson.current;
-    if (
-      !hasMore ||
-      node === null ||
-      typeof IntersectionObserver === "undefined"
-    )
-      return;
-    const revealAheadPixels = 600;
-    let observer: IntersectionObserver | undefined;
-    let scrollTarget: Element | Document = node.ownerDocument;
-    let frame: number | undefined;
-    let revealed = false;
-    const revealNextBatch = () => {
-      if (revealed) return;
-      revealed = true;
-      observer?.disconnect();
-      setReveal({
-        source,
-        count: Math.min(visible.length, count + PRODUCT_BATCH_SIZE),
+  const lastLesson = useCallback(
+    (node: HTMLLIElement | null) => {
+      if (node === null || !hasMore) return;
+      return observeProgrammeReveal(node, count > initialCount, () => {
+        setReveal({
+          source,
+          count: Math.min(visible.length, count + PRODUCT_BATCH_SIZE),
+        });
       });
-    };
-    const checkReachedBoundary = () => {
-      frame = undefined;
-      if (node.getClientRects().length === 0) return;
-      const bottom =
-        scrollTarget instanceof Element
-          ? scrollTarget.getBoundingClientRect().bottom
-          : window.innerHeight;
-      if (node.getBoundingClientRect().top <= bottom + revealAheadPixels) {
-        revealNextBatch();
-      }
-    };
-    const scheduleBoundaryCheck = () => {
-      if (frame === undefined && !revealed)
-        frame = requestAnimationFrame(checkReachedBoundary);
-    };
-    const observeLastLesson = () => {
-      observer?.disconnect();
-      scrollTarget.removeEventListener("scroll", scheduleBoundaryCheck);
-      // Desktop scrolls the shell's main; phones scroll the document. Resolve again
-      // on resize because the shell changes its scroll owner at the breakpoint.
-      let root = node.parentElement;
-      while (
-        root !== null &&
-        !/^(auto|scroll)$/.test(getComputedStyle(root).overflowY)
-      ) {
-        root = root.parentElement;
-      }
-      scrollTarget = root ?? node.ownerDocument;
-      observer = new IntersectionObserver(
-        (entries) => {
-          if (entries.some((entry) => entry.isIntersecting)) revealNextBatch();
-        },
-        {
-          root: scrollTarget,
-          rootMargin: `0px 0px ${String(revealAheadPixels)}px 0px`,
-        },
-      );
-      observer.observe(node);
-      // End/scrollbar jumps can skip the entire intersection region between frames.
-      // Reached or already passed boundaries must still advance without another scroll.
-      scrollTarget.addEventListener("scroll", scheduleBoundaryCheck, {
-        passive: true,
-      });
-      if (count > initialCount) scheduleBoundaryCheck();
-    };
-    const onResize = () => {
-      observeLastLesson();
-      scheduleBoundaryCheck();
-    };
-    observeLastLesson();
-    window.addEventListener("resize", onResize);
-    return () => {
-      observer?.disconnect();
-      scrollTarget.removeEventListener("scroll", scheduleBoundaryCheck);
-      window.removeEventListener("resize", onResize);
-      if (frame !== undefined) cancelAnimationFrame(frame);
-    };
-  }, [count, hasMore, initialCount, source, visible.length]);
+    },
+    [count, hasMore, initialCount, source, visible.length],
+  );
 
   const returnSlug =
     selection !== null
