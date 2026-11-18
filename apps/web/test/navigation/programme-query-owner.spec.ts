@@ -42,9 +42,48 @@ test("an active programme accepts semantic native query changes and History retu
     }, deep);
     await expect(rows).toHaveCount(36);
     await expect(rows.nth(24)).toBeInViewport();
-    await page.goBack();
-    await expect(page).toHaveURL(initial);
-    await expect(rows).toHaveCount(12);
+    const historyReset = await surface.evaluateHandle((programme) => {
+      const initialCount = programme.querySelectorAll(
+        "[data-product-ordinal]",
+      ).length;
+      const commits: { readonly href: string; readonly count: number }[] = [];
+      const observer = new MutationObserver(() => {
+        commits.push({
+          href: window.location.pathname + window.location.search,
+          count: programme.querySelectorAll("[data-product-ordinal]").length,
+        });
+      });
+      observer.observe(programme, { childList: true, subtree: true });
+      return { initialCount, commits, disconnect: () => observer.disconnect() };
+    });
+    try {
+      expect(await historyReset.evaluate((record) => record.initialCount)).toBe(
+        36,
+      );
+      await page.goBack();
+      await expect(page).toHaveURL(initial);
+      // Back commits the query's initial batch. Native scroll restoration may then reveal more.
+      await expect
+        .poll(() =>
+          historyReset.evaluate(
+            (record, href) =>
+              record.commits
+                .filter((commit) => commit.href === href)
+                .map((commit) => commit.count),
+            initial,
+          ),
+        )
+        .toContain(12);
+      await info.attach("native-history-query-reset.json", {
+        contentType: "application/json",
+        body: JSON.stringify(
+          await historyReset.evaluate((record) => record.commits),
+        ),
+      });
+    } finally {
+      await historyReset.evaluate((record) => record.disconnect());
+      await historyReset.dispose();
+    }
     await page.goForward();
     await expect(page).toHaveURL(deep);
     await expect(rows).toHaveCount(36);
