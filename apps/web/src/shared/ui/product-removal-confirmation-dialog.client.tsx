@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useId } from "react";
 
+import { useNativeDialog } from "@/shared/lib/native-dialog.client";
 import type { ProductRemoval } from "@/shared/lib/product-removal";
 import { Button } from "@/shared/ui/button";
 
@@ -20,18 +21,13 @@ export function ProductRemovalConfirmationDialog({
   readonly onConfirm: () => void;
   readonly pending?: boolean;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
+  const { ref: dialogRef, ...dialogEvents } = useNativeDialog({
+    open: true,
+    onOpenChange: onCancel,
+  });
   const id = useId();
   const headingId = `${id}-removal-heading`;
   const descriptionId = `${id}-removal-description`;
-
-  useEffect(() => {
-    const element = dialog.current;
-    if (element !== null && !element.open) element.showModal();
-    return () => {
-      element?.close();
-    };
-  }, []);
 
   return (
     <dialog
@@ -39,10 +35,9 @@ export function ProductRemovalConfirmationDialog({
       aria-labelledby={headingId}
       className="m-auto w-[min(34rem,calc(100%-2rem))] rounded-2xl border border-border bg-card p-0 text-foreground shadow-card backdrop:bg-foreground/45"
       onCancel={(event) => {
-        event.preventDefault();
-        onCancel();
+        dialogEvents.onCancel(event);
       }}
-      ref={dialog}
+      ref={dialogRef}
     >
       <div className="p-6 sm:p-8">
         <h2
