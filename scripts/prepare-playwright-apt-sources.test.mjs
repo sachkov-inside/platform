@@ -141,12 +141,16 @@ test("apt-get-only overrides preserve other feeds' list cache without changing d
 });
 
 test("a nonempty scope is refused without deleting its existing files", (t) => {
-  const scope = mkdtempSync(join(tmpdir(), "playwright-nonempty-scope-"));
-  t.after(() => rmSync(scope, { recursive: true, force: true }));
+  const directory = mkdtempSync(join(tmpdir(), "playwright-nonempty-scope-"));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const source = join(directory, "original");
+  const scope = join(directory, "scope");
+  mkdirSync(source);
+  mkdirSync(scope);
   writeFileSync(join(scope, "owned.txt"), "preserve");
   const r = spawnSync(
     process.execPath,
-    [resolve("scripts/prepare-playwright-apt-sources.mjs"), scope, scope],
+    [resolve("scripts/prepare-playwright-apt-sources.mjs"), source, scope],
     { encoding: "utf8", timeout: 5_000 },
   );
   assert.ifError(r.error);

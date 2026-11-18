@@ -179,7 +179,24 @@ exec /usr/bin/sed "$@"
   const aptCalls = logged
     .split("\n")
     .filter((line) => line.startsWith("apt-model "))
-    .map((line) => JSON.parse(line.slice("apt-model ".length)));
+    .map((line) => {
+      const row = /** @type {unknown} */ (
+        JSON.parse(line.slice("apt-model ".length))
+      );
+      assert.ok(row !== null && typeof row === "object");
+      assert.ok("main" in row && typeof row.main === "string");
+      assert.ok("parts" in row && typeof row.parts === "string");
+      assert.ok("config" in row && typeof row.config === "string");
+      assert.ok(
+        "preserveLists" in row && typeof row.preserveLists === "boolean",
+      );
+      return {
+        main: row.main,
+        parts: row.parts,
+        config: row.config,
+        preserveLists: row.preserveLists,
+      };
+    });
   return {
     ...result,
     log: logged,
