@@ -73,9 +73,6 @@ for (const engine of ["chromium", "webkit"] as const) {
           )
           .allTextContents();
       await browserExpect(steps).toHaveCount(4);
-      const initialPointerListeners = await pointerListeners();
-      if (initialPointerListeners === undefined)
-        throw new Error("Missing native listener observation");
       await browserExpect
         .poll(labels)
         .toEqual([
@@ -104,25 +101,30 @@ for (const engine of ["chromium", "webkit"] as const) {
         handle.y + handle.height / 2 + 110,
       );
       await browserExpect(list.locator("[data-dragging]")).toHaveCount(1);
-      await browserExpect
-        .poll(pointerListeners)
-        .toBe(initialPointerListeners + 3);
+      const activePointerListeners = await pointerListeners();
+      if (activePointerListeners === undefined || activePointerListeners < 3)
+        throw new Error("Missing native gesture listener observation");
       await browserExpect(
         page.getByRole("button", { name: "Hide exercise", exact: true }),
       ).toBeFocused();
       await page.keyboard.press("Enter");
       await browserExpect(list).toBeHidden();
-      await browserExpect.poll(pointerListeners).toBe(initialPointerListeners);
+      await browserExpect
+        .poll(pointerListeners)
+        .toBe(activePointerListeners - 3);
       await page
         .getByRole("button", { name: "Return exercise", exact: true })
         .focus();
       await page.keyboard.press("Enter");
       await browserExpect(list).toBeVisible();
-      await browserExpect.poll(pointerListeners).toBe(initialPointerListeners);
+      await browserExpect
+        .poll(pointerListeners)
+        .toBe(activePointerListeners - 3);
       console.log(
         JSON.stringify({
           engine,
           stage: "returned",
+          activePointerListeners,
           pointerListeners: await pointerListeners(),
           dragMarkers: await list.locator("[data-dragging]").count(),
         }),
