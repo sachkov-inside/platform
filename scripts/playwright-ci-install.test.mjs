@@ -53,6 +53,9 @@ function install(
   const stub = `#!/bin/bash
 set -eu
 echo "$(basename "$0") $*" >> "$INSTALL_TEST_LOG"
+if [[ "$(basename "$0")" = node && "$1" = */prepare-playwright-apt-sources.mjs ]]; then
+  exec "$INSTALL_TEST_NODE" "$1" "$INSTALL_TEST_SOURCES" "$3"
+fi
 if [[ "$(basename "$0")" = sudo ]]; then
   if [[ "$1" = tee ]]; then cat >> "$INSTALL_TEST_LOG"; fi
   if [[ "$1" = find ]]; then
@@ -64,8 +67,20 @@ if [[ "$(basename "$0")" = sudo ]]; then
     [[ ! -f "$INSTALL_TEST_LOG.count" ]] || count=$(cat "$INSTALL_TEST_LOG.count")
     count=$((count + 1))
     echo "$count" > "$INSTALL_TEST_LOG.count"
-    if [[ "$count" = 2 ]]; then
-      cp -R "$INSTALL_TEST_SOURCES" "$INSTALL_TEST_SOURCES.second"
+    active_sources="$INSTALL_TEST_SOURCES"
+    for argument in "$@"; do
+      if [[ "$argument" = APT_CONFIG=* ]]; then
+        configuration=$(echo "$argument" | cut -d= -f2-)
+        active_sources=$(dirname "$configuration")
+      fi
+    done
+    cp -R "$active_sources" "$INSTALL_TEST_SOURCES.attempt$count"
+    if [[ "$INSTALL_TEST_MODE" = microsoft429 ]]; then
+      if /usr/bin/grep -R -q 'https://packages.microsoft.com/ubuntu/24.04/prod' "$active_sources"; then
+        echo 'E: Failed to fetch https://packages.microsoft.com/ubuntu/24.04/prod/dists/noble/InRelease 429 Too Many Requests' >&2
+        exit 100
+      fi
+      exit 0
     fi
     case "$count" in
       1) exit "$INSTALL_TEST_FIRST" ;;
@@ -105,12 +120,16 @@ exec /usr/bin/sed "$@"
         INSTALL_TEST_SOURCES: sources,
         INSTALL_TEST_FIRST: first,
         INSTALL_TEST_SECOND: second,
+        INSTALL_TEST_MODE:
+          failures === "microsoft429" ? failures : "exit-codes",
+        INSTALL_TEST_NODE: process.execPath,
       },
       encoding: "utf8",
       timeout: 5_000,
     },
   );
   assert.ifError(result.error);
+  const attempts = Number(readFileSync(`${log}.count`, "utf8"));
   return {
     ...result,
     log: readFileSync(log, "utf8"),
@@ -118,13 +137,24 @@ exec /usr/bin/sed "$@"
       Object.keys(sourceFiles).map((name) => [
         name,
         readFileSync(
-          join(first === "0" ? sources : `${sources}.second`, name),
+          join(`${sources}.attempt${String(attempts)}`, name),
           "utf8",
         ),
       ]),
     ),
   };
 }
+
+test("observed Microsoft 429 does not block browser dependencies or change the original feed", (t) => {
+  const result = install(t, "microsoft429", {
+    "sources.list": "deb http://azure.archive.ubuntu.com/ubuntu noble main\n",
+    "sources.list.d/microsoft-prod.list":
+      "deb [arch=amd64,arm64,armhf signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/ubuntu/24.04/prod noble main\n",
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal((result.log.match(/sudo timeout/gmu) ?? []).length, 1);
+  assert.match(result.log, /playwright install chromium webkit/u);
+});
 
 test("apt succeeds once under a root-owned deadline, then installs both engines", (t) => {
   const result = install(t, "0");
