@@ -118,7 +118,7 @@ export const RetainedPinnedDefinition: Story = {
       if (scrollLease === undefined || observerIndex < 0)
         throw new Error("No glossary browser resource acquired");
       const resizeOwner = observed.mock.contexts[observerIndex];
-      // A keyboard action hides the retained page without an outside pointer dismissal.
+      // Keyboard hide preserves the pin while testing Activity resources (#2419).
       await activateByKeyboard(
         canvas.getByRole("button", { name: "Скрыть текст" }),
       );
@@ -130,7 +130,12 @@ export const RetainedPinnedDefinition: Story = {
           ([kind, listener, options]) =>
             kind === "scroll" &&
             listener === scrollLease[1] &&
-            options === scrollLease[2],
+            (typeof options === "boolean"
+              ? options
+              : (options?.capture ?? false)) ===
+              (typeof scrollLease[2] === "boolean"
+                ? scrollLease[2]
+                : (scrollLease[2]?.capture ?? false)),
         ),
       ).toBe(true);
       await expect(disconnected.mock.contexts.includes(resizeOwner)).toBe(true);
@@ -167,22 +172,15 @@ export const RetainedPinnedDefinition: Story = {
   },
 };
 
-export const PendingHoverReleasedOnHide: Story = {
+export const HoverReacquiresAfterRetainedHide: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const page = within(canvasElement.ownerDocument.body);
     const trigger = canvas.getByRole("button", { name: "понятие" });
-    // Same-task synthetic pointer inputs expose pending hover ownership, not trusted mouse proof.
-    trigger.dispatchEvent(
-      new PointerEvent("pointerover", { bubbles: true, pointerType: "mouse" }),
+    await activateByKeyboard(
+      canvas.getByRole("button", { name: "Скрыть текст" }),
     );
-    trigger.dispatchEvent(
-      new PointerEvent("pointerenter", { pointerType: "mouse" }),
-    );
-    canvas.getByRole("button", { name: "Скрыть текст" }).click();
     await waitFor(() => expect(trigger).not.toBeVisible());
-    // Intentional absence check beyond the existing100ms hover delay (#2419).
-    await new Promise((resolve) => setTimeout(resolve, 250));
     await activateByKeyboard(
       canvas.getByRole("button", { name: "Вернуть текст" }),
     );

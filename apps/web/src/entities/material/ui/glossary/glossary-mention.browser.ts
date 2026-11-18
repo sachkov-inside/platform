@@ -3,19 +3,19 @@ interface MentionSnapshot {
   readonly expanded: boolean;
 }
 
-/** The 360px reading surface keeps a gutter around its definition. */
+/** Keeps the narrow reader gutter (../material-body-view.stories.tsx, GlossaryTermsMobile; https://github.com/sachkov-inside/platform/issues/2419). */
 const VIEWPORT_GUTTER = 16;
-/** The arrow occupies this gap without covering the next line of text. */
+/** Keeps the next text line clear (../material-body-view.stories.tsx, GlossaryTermBubblePlacement; https://github.com/sachkov-inside/platform/issues/2419). */
 const BUBBLE_GAP = 12;
-/** The arrow stays clear of the definition's rounded corners. */
+/** Keeps the arrow clear of rounded corners (../material-body-view.stories.tsx, GlossaryTermBubblePlacement; https://github.com/sachkov-inside/platform/issues/2419). */
 const ARROW_INSET = 16;
 const BUBBLE_MAX_WIDTH = 320;
-/** A passing mouse does not open every term along its path. */
+/** Ignores a passing pointer (https://github.com/sachkov-inside/platform/issues/2419). */
 const HOVER_OPEN_DELAY_MS = 100;
-/** The reader can cross from a term to its definition without losing it. */
+/** Allows pointer transfer (test/navigation/glossary-lifetime.spec.ts; https://github.com/sachkov-inside/platform/issues/2419). */
 const HOVER_CLOSE_DELAY_MS = 150;
 
-/** Owns one term's hover/pinned facts and the live trigger/definition DOM pair. */
+/** Owns one term and its live DOM pair (https://github.com/sachkov-inside/platform/issues/2419). */
 export function createGlossaryMention() {
   const initial: MentionSnapshot = { openness: "closed", expanded: false };
   let snapshot = initial;
@@ -110,7 +110,7 @@ export function createGlossaryMention() {
         Math.max(box.left, VIEWPORT_GUTTER),
         viewport - VIEWPORT_GUTTER - width,
       );
-      // Measure height at the final width; expanded text can wrap differently.
+      // Expanded text wraps at this width (../material-body-view.stories.tsx, GlossaryTermBubblePlacement; https://github.com/sachkov-inside/platform/issues/2419).
       definition.style.width = `${String(width)}px`;
       definition.style.left = `${String(left)}px`;
       const height = definition.offsetHeight;
@@ -119,7 +119,7 @@ export function createGlossaryMention() {
       const fitsAbove = above >= VIEWPORT_GUTTER;
       const fitsBelow = below + height <= view.innerHeight - VIEWPORT_GUTTER;
       const side = fitsAbove || !fitsBelow ? "top" : "bottom";
-      // Wrapped terms point at their first line, not the full multiline rectangle.
+      // Points at the reading line (../material-body-view.stories.tsx, GlossaryTermBubblePlacement; https://github.com/sachkov-inside/platform/issues/2419).
       const firstLine = anchor.getClientRects()[0] ?? box;
       const arrow = Math.min(
         Math.max(firstLine.left + firstLine.width / 2 - left, ARROW_INSET),
@@ -149,7 +149,7 @@ export function createGlossaryMention() {
         return;
       close();
     };
-    // Capture receives scrolls from the desktop shell's column as well as the window.
+    // Follows the shell column too (../material-body-view.stories.tsx, GlossaryTermBubblePlacement; https://github.com/sachkov-inside/platform/issues/2419).
     const scrollOptions = { capture: true, passive: true } as const;
     const resize = new ResizeObserver(place);
     place();
