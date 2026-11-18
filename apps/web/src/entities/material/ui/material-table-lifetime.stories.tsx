@@ -214,14 +214,10 @@ export const NestedTablesOwnTheirEdgeHints: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const viewports = canvas.getAllByRole("region", {
-      name: "Таблица в материале",
-    });
+    const viewports = canvas.getAllByRole("region");
     await expect(viewports).toHaveLength(2);
-    const outer = viewports[0];
-    const inner = viewports[1];
-    if (outer === undefined || inner === undefined)
-      throw new Error("Missing nested viewports");
+    const outer = canvas.getByRole("region", { name: "Таблица 1 в материале" });
+    const inner = canvas.getByRole("region", { name: "Таблица 2 в материале" });
     const hints = (viewport: HTMLElement) => {
       const frame = viewport.parentElement;
       if (frame === null) throw new Error("Missing table frame");
