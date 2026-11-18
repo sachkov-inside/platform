@@ -12,6 +12,89 @@ declare global {
   }
 }
 
+test("chromium: browser protocol touch reorders the public exercise and native touchcancel preserves its order", async () => {
+  const browser = fixture.browsers.get("chromium");
+  if (browser === undefined) throw new Error("Missing Chromium engine");
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+  });
+  try {
+    const page = await context.newPage();
+    await page.goto(fixture.url);
+    const session = await context.newCDPSession(page);
+    const list = page.locator("[data-exercise-steps]");
+    const steps = list.locator("[data-order-step]");
+    const labels = () => steps.locator("[id*='-step-']").allTextContents();
+    const handle = await steps
+      .first()
+      .locator("[data-order-handle]")
+      .boundingBox();
+    const target = await steps.nth(2).boundingBox();
+    if (handle === null || target === null)
+      throw new Error("Missing touch drag geometry");
+    const x = handle.x + handle.width / 2;
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ x, y: handle.y + handle.height / 2 }],
+    });
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{ x, y: target.y + target.height / 2 + 6 }],
+    });
+    await browserExpect(list.locator("[data-dragging]")).toHaveCount(1);
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    });
+    await browserExpect(list.locator("[data-dragging]")).toHaveCount(0);
+    await browserExpect
+      .poll(labels)
+      .toEqual([
+        "Посчитать эмбеддинги чанков",
+        "Нарезать документы на чанки",
+        "Сохранить векторы в индекс",
+        "Найти ближайшие чанки к вопросу",
+      ]);
+    const next = await steps
+      .first()
+      .locator("[data-order-handle]")
+      .boundingBox();
+    if (next === null) throw new Error("Missing next touch handle");
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [
+        { x: next.x + next.width / 2, y: next.y + next.height / 2 },
+      ],
+    });
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [
+        { x: next.x + next.width / 2, y: next.y + next.height / 2 + 100 },
+      ],
+    });
+    await browserExpect(list.locator("[data-dragging]")).toHaveCount(1);
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchCancel",
+      touchPoints: [],
+    });
+    await browserExpect(list.locator("[data-dragging]")).toHaveCount(0);
+    await browserExpect(page.locator("[data-order-drop-line]")).toHaveCount(0);
+    await browserExpect
+      .poll(labels)
+      .toEqual([
+        "Посчитать эмбеддинги чанков",
+        "Нарезать документы на чанки",
+        "Сохранить векторы в индекс",
+        "Найти ближайшие чанки к вопросу",
+      ]);
+    await session.detach();
+  } finally {
+    await context.close();
+  }
+}, 15_000);
+
 function observePointerListeners() {
   const listeners = new Map<string, Set<EventListenerOrEventListenerObject>>();
   const add: unknown = Object.getOwnPropertyDescriptor(
