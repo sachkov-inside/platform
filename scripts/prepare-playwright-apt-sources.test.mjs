@@ -49,6 +49,83 @@ function prepare(t, input) {
   };
 }
 
+/**
+ * @param {"print-uris" | "update" | "indextargets"} phase
+ * @param {number | null} exit
+ * @param {string} stderr
+ */
+function aptFailureReceipt(phase, exit, stderr) {
+  const errors = stderr
+    .split(/\r?\n/u)
+    .filter((line) => line.startsWith("E: "));
+  let category = "unknown";
+  const missing = errors.find(
+    (line) =>
+      line.startsWith("E: Failed to fetch file:") &&
+      line.includes("File not found"),
+  );
+  if (missing !== undefined) {
+    if (missing.includes("/cnf/Commands-")) category = "missing-offline-cnf";
+    else if (missing.includes("/i18n/Translation-"))
+      category = "missing-offline-translation";
+    else if (missing.includes("/dep11/")) category = "missing-offline-dep11";
+    else if (/\/binary-[^/]+\/Packages/u.test(missing))
+      category = "missing-offline-packages";
+    else category = "missing-offline-file";
+  } else if (errors.some((line) => line.includes("Permission denied")))
+    category = "permission";
+  else if (
+    errors.some((line) =>
+      /NO_PUBKEY|EXPKEYSIG|BADSIG|is not signed/u.test(line),
+    )
+  )
+    category = "signature";
+  else if (
+    errors.some((line) =>
+      /Release file.+(?:is expired|not valid yet)/u.test(line),
+    )
+  )
+    category = "validity";
+  else if (
+    errors.some((line) =>
+      line.startsWith("E: Problem executing scripts APT::Update::"),
+    )
+  )
+    category = "update-hook";
+  return { phase, exit, category };
+}
+
+test("APT failure receipts expose only the phase, exit and a proven fixed category", () => {
+  const privateInput = "SYNTHETIC_PRIVATE_INPUT_NEVER_EMIT";
+  const cases = [
+    [
+      `E: Failed to fetch file:/private/${privateInput}/cnf/Commands-amd64.xz File not found`,
+      "missing-offline-cnf",
+    ],
+    [
+      `E: Failed to fetch file:/private/${privateInput}/i18n/Translation-en.xz File not found`,
+      "missing-offline-translation",
+    ],
+    [`E: Could not open ${privateInput}: Permission denied`, "permission"],
+    [`E: The repository ${privateInput} is not signed`, "signature"],
+    [`E: Release file ${privateInput} is expired`, "validity"],
+    [
+      `E: Problem executing scripts APT::Update::Post-Invoke ${privateInput}`,
+      "update-hook",
+    ],
+    [
+      `Config-Item: Secret=${privateInput}\nConfig-Item: Message=Permission denied\nE: Unclassified error ${privateInput}`,
+      "unknown",
+    ],
+  ];
+  for (const [stderr, category] of cases) {
+    assert.ok(stderr !== undefined && category !== undefined);
+    const receipt = aptFailureReceipt("update", 100, stderr);
+    assert.deepEqual(receipt, { phase: "update", exit: 100, category });
+    assert.ok(!JSON.stringify(receipt).includes(privateInput));
+  }
+});
+
 test("only the exact active Microsoft Ubuntu24 feed is removed from a list", (t) => {
   const kept =
     "# deb https://packages.microsoft.com/ubuntu/24.04/prod noble main\n" +
@@ -173,7 +250,7 @@ test(
   (t) => {
     const r = prepare(t, (source) => ({
       "sources.list":
-        "deb [arch=amd64 signed-by=/usr/share/keyrings/ubuntu-archive-keyring.gpg] file:" +
+        "deb [target=Packages arch=amd64 signed-by=/usr/share/keyrings/ubuntu-archive-keyring.gpg] file:" +
         join(source, "repository") +
         " noble restricted\n",
     }));
@@ -205,25 +282,33 @@ test(
       "-oDir::Cache::pkgcache=",
       "-oDir::Cache::srcpkgcache=",
       "-oAPT::Update::Error-Mode=any",
+      // Exercise a normal extra target even on a minimal image. Only this file:
+      // source opts into Packages; system targets and production inputs stay intact.
+      "-oAcquire::IndexTargets::deb::CNF::MetaKey=$(COMPONENT)/cnf/Commands-$(NATIVE_ARCHITECTURE)",
+      "-oAcquire::IndexTargets::deb::CNF::ShortDescription=Commands-$(NATIVE_ARCHITECTURE)",
+      "-oAcquire::IndexTargets::deb::CNF::Description=$(RELEASE)/$(COMPONENT) $(NATIVE_ARCHITECTURE) c-n-f Metadata",
     ];
-    /** @param {string[]} args */
-    const apt = (args) => {
+    /** @param {"print-uris" | "update" | "indextargets"} phase @param {string[]} args */
+    const apt = (phase, args) => {
       const result = spawnSync("apt-get", [...common, ...args], {
         env,
         encoding: "utf8",
         timeout: 5_000,
       });
-      assert.ifError(result.error);
+      if (result.error !== undefined)
+        assert.fail(
+          JSON.stringify({ phase, exit: result.status, category: "unknown" }),
+        );
       // Never include config/debug stderr, which may contain unrelated settings.
       assert.equal(
         result.status,
         0,
-        "native apt-get failed; raw output withheld",
+        JSON.stringify(aptFailureReceipt(phase, result.status, result.stderr)),
       );
       return result;
     };
     // Refuse any non-fixture source before real Acquire can perform work.
-    const printed = apt(["--print-uris", "update"]);
+    const printed = apt("print-uris", ["--print-uris", "update"]);
     const uris = printed.stdout
       .split("\n")
       .filter((line) => line.startsWith("'"));
@@ -232,7 +317,7 @@ test(
       uris.every((line) => line.startsWith(`'file:${repo}/`)),
       "APT selected a source outside the offline fixture; update not run",
     );
-    const updated = apt(["-oDebug::pkgAcquire::Worker=1", "update"]);
+    const updated = apt("update", ["-oDebug::pkgAcquire::Worker=1", "update"]);
     // Worker protocol debug is percent-encoded. Decode in memory and expose only
     // the two fixed parent values erased by the old Binary::apt-get subtree.
     const protocol = updated.stderr.replace(
@@ -264,7 +349,7 @@ test(
         .digest("hex"),
       statusBefore,
     );
-    const targets = apt(["indextargets", "--format", "$(URI)"]);
+    const targets = apt("indextargets", ["indextargets", "--format", "$(URI)"]);
     assert.ok(
       targets.stdout.includes(`file:${repo}/`),
       "offline index missing",
