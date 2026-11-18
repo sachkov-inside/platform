@@ -45,9 +45,9 @@ export function materialTableNames(
     parent: readonly number[],
     orderScopes: readonly string[] = [],
   ) {
-    children.forEach((block, index) =>
-      visitBlock(block, [...parent, index], orderScopes),
-    );
+    children.forEach((block, index) => {
+      visitBlock(block, [...parent, index], orderScopes);
+    });
   }
   function visitBlock(
     block: RenderedBlock,
@@ -58,9 +58,9 @@ export function materialTableNames(
       case "table":
         tables.push({ path: at.join("-"), orderScopes });
         block.rows.forEach((row, r) => {
-          row.cells.forEach((cell, c) =>
-            visit(cell.content, [...at, r, c], orderScopes),
-          );
+          row.cells.forEach((cell, c) => {
+            visit(cell.content, [...at, r, c], orderScopes);
+          });
         });
         break;
       case "blockquote":
@@ -70,9 +70,9 @@ export function materialTableNames(
         break;
       case "bullet_list":
       case "ordered_list":
-        block.items.forEach((item, branch) =>
-          visit(item, [...at, branch], orderScopes),
-        );
+        block.items.forEach((item, branch) => {
+          visit(item, [...at, branch], orderScopes);
+        });
         break;
       case "quiz":
       case "match":
@@ -114,6 +114,20 @@ export function materialTableNames(
         if (block.dontKnow !== undefined) rich(block.dontKnow.explanation);
         break;
       }
+      case "agent_prompt":
+      case "code_block":
+      case "file":
+      case "heading":
+      case "horizontal_rule":
+      case "image":
+      case "key_point":
+      case "labeled_list":
+      case "paragraph":
+      case "resource_card":
+      case "step_break":
+      case "term_definition":
+      case "video":
+        break;
     }
   }
   for (const index of bodyBlockIndices(blocks, order)) {

@@ -85,7 +85,7 @@ for (const fixture of ["single", "nested", "order"] as const) {
         await firstStep.getByRole("button", { name: /^Ниже /u }).click();
         await expect
           .poll(() =>
-            firstNode?.evaluate(
+            firstNode.evaluate(
               (element) =>
                 element ===
                 document.querySelectorAll(
@@ -95,7 +95,7 @@ for (const fixture of ["single", "nested", "order"] as const) {
           )
           .toBe(true);
         expect(
-          await secondNode?.evaluate(
+          await secondNode.evaluate(
             (element) =>
               element ===
               document.querySelectorAll(
@@ -111,7 +111,7 @@ for (const fixture of ["single", "nested", "order"] as const) {
         );
         await expect
           .poll(() =>
-            firstStepNode?.evaluate((element) =>
+            firstStepNode.evaluate((element) =>
               element.contains(document.activeElement),
             ),
           )
