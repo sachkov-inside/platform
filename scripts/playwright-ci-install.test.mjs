@@ -65,9 +65,9 @@ import { appendFileSync, existsSync, readFileSync, readdirSync, rmSync } from 'n
 import { join } from 'node:path';
 const [config, source, mode, lists, log] = process.argv.slice(2);
 const text = config ? readFileSync(config, 'utf8') : '';
-const main = text.match(/^Binary::apt-get::Dir::Etc::sourcelist "(.*)";$/mi)?.[1] ?? join(source, 'sources.list');
-const parts = text.match(/^Binary::apt-get::Dir::Etc::sourceparts "(.*)";$/mi)?.[1] ?? join(source, 'sources.list.d');
-const preserveLists = /^Binary::apt-get::APT::Get::List-Cleanup "false";$/mi.test(text);
+const main = text.match(/^Dir::Etc::sourcelist "(.*)";$/mi)?.[1] ?? join(source, 'sources.list');
+const parts = text.match(/^Dir::Etc::sourceparts "(.*)";$/mi)?.[1] ?? join(source, 'sources.list.d');
+const preserveLists = /^APT::Get::List-Cleanup "false";$/mi.test(text);
 const files = [main, ...readdirSync(parts).filter(n => n.endsWith('.list') || n.endsWith('.sources')).map(n => join(parts, n))];
 const feeds = files.filter(existsSync).map(f => readFileSync(f, 'utf8')).join(String.fromCharCode(10));
 appendFileSync(log, 'apt-model ' + JSON.stringify({ main, parts, preserveLists, config }) + String.fromCharCode(10));

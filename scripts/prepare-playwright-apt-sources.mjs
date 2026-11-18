@@ -118,13 +118,14 @@ if (hasMirror)
 /** @param {string} value */
 const quoted = (value) =>
   `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
-// Binary settings apply after the system fragments/main. Do not remove other feeds' indexes.
+// The installer passes this only to Playwright's process tree. A binary subtree
+// would also move empty Dir/Etc parents and erase APT's normal root defaults.
 writeFileSync(
   join(destination, "apt.conf"),
   [
-    `Binary::apt-get::Dir::Etc::sourcelist ${quoted(join(destination, "sources.list"))};`,
-    `Binary::apt-get::Dir::Etc::sourceparts ${quoted(join(destination, "sources.list.d"))};`,
-    'Binary::apt-get::APT::Get::List-Cleanup "false";',
+    `Dir::Etc::sourcelist ${quoted(join(destination, "sources.list"))};`,
+    `Dir::Etc::sourceparts ${quoted(join(destination, "sources.list.d"))};`,
+    'APT::Get::List-Cleanup "false";',
     "",
   ].join("\n"),
   { mode: 0o644 },

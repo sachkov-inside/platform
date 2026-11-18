@@ -126,17 +126,17 @@ test("the runner mirror file is scoped with its priorities and accessible file m
   assert.equal(statSync(join(r.scope, "apt-mirrors.txt")).mode & 0o777, 0o644);
 });
 
-test("apt-get-only overrides preserve other feeds' list cache without changing dpkg or trust", (t) => {
+test("the scoped process config preserves other feeds' list cache without changing dpkg or trust", (t) => {
   const r = prepare(t, {});
   assert.equal(
     r.file("apt.conf"),
-    'Binary::apt-get::Dir::Etc::sourcelist "' +
+    'Dir::Etc::sourcelist "' +
       join(r.scope, "sources.list") +
       '";\n' +
-      'Binary::apt-get::Dir::Etc::sourceparts "' +
+      'Dir::Etc::sourceparts "' +
       join(r.scope, "sources.list.d") +
       '";\n' +
-      'Binary::apt-get::APT::Get::List-Cleanup "false";\n',
+      'APT::Get::List-Cleanup "false";\n',
   );
   assert.doesNotMatch(
     r.file("apt.conf"),
@@ -254,7 +254,10 @@ test(
       ["etc/apt"],
       "native Acquire Dir::Etc changed",
     );
-    assert.deepEqual(readFileSync(otherIndex), originalIndex);
+    assert.ok(
+      readFileSync(otherIndex).equals(originalIndex),
+      "other consumer index bytes changed",
+    );
     assert.equal(
       createHash("sha256")
         .update(readFileSync("/var/lib/dpkg/status"))
