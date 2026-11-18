@@ -592,3 +592,68 @@ test("topic row archive waits for the pending draft and uses its accepted versio
     if (routeState.started) await finished.promise;
   }
 });
+
+test("a same-task tab selection and native Back restores the programme (#2387)", async ({
+  page,
+}) => {
+  await page.goto(`/authoring/products/${architectureId}?tab=program`);
+  await expect(
+    page.getByRole("list", { name: "Материалы продукта" }),
+  ).toBeVisible();
+  await page
+    .getByRole("tab", { name: "Описание и витрина", exact: true })
+    .evaluate((tab: HTMLButtonElement) => {
+      tab.click();
+      window.history.back();
+    });
+  await expect(page).toHaveURL(
+    `/authoring/products/${architectureId}?tab=program`,
+  );
+  await expect(
+    page.getByRole("tab", { name: "Программа", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(
+    page.getByRole("textbox", { name: "Краткое описание" }),
+  ).toBeHidden();
+  await page.goForward();
+  await expect(page).toHaveURL(
+    `/authoring/products/${architectureId}?tab=description`,
+  );
+  await expect(
+    page.getByRole("tab", { name: "Описание и витрина", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(
+    page.getByRole("textbox", { name: "Краткое описание" }),
+  ).toBeVisible();
+});
+
+test("a retained Product ignores another route tab and returns to the same description (#2387)", async ({
+  page,
+}) => {
+  await page.goto(`/authoring/products/${architectureId}?tab=description`);
+  const description = page.getByRole("textbox", { name: "Краткое описание" });
+  await expect(description).toBeVisible();
+  const field = await description.elementHandle();
+  await page.getByRole("link", { name: "Все продукты", exact: true }).click();
+  await expect(page).toHaveURL("/authoring/products");
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Продукты", exact: true }),
+  ).toBeVisible();
+  await expect(field.evaluate((node) => node.isConnected)).resolves.toBe(true);
+  await page.evaluate(() => {
+    window.history.replaceState(null, "", "/authoring/products?tab=sale");
+  });
+  await expect(page).toHaveURL("/authoring/products?tab=sale");
+  await page.goBack();
+  await expect(page).toHaveURL(
+    `/authoring/products/${architectureId}?tab=description`,
+  );
+  await expect(
+    page.getByRole("tab", { name: "Описание и витрина", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(
+    field.evaluate(
+      (node) => node.isConnected && node.getClientRects().length > 0,
+    ),
+  ).resolves.toBe(true);
+});
