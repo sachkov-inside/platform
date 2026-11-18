@@ -1,7 +1,7 @@
 "use client";
 
 import { Search, X } from "lucide-react";
-import { useEffect, useId, useState } from "react";
+import { useCallback, useId, useRef, useState } from "react";
 
 import { usePeopleSearch } from "../model/use-people-reads.client";
 import { personLabel, type PersonIdentity } from "../model/person-identity";
@@ -34,14 +34,29 @@ export function PeopleSearchCombobox({
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setQuery(text);
+  const pendingSearch = useRef<number | undefined>(undefined);
+  const lastEnteredText = useRef("");
+  const scheduleQuery = useCallback((next: string) => {
+    lastEnteredText.current = next;
+    window.clearTimeout(pendingSearch.current);
+    pendingSearch.current = window.setTimeout(() => {
+      pendingSearch.current = undefined;
+      setQuery(next);
     }, SEARCH_INPUT_PAUSE_MS);
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [text]);
+  }, []);
+  const attachControl = useCallback(
+    (control: HTMLDivElement) => {
+      const input = control.querySelector<HTMLInputElement>(
+        'input[role="combobox"]',
+      );
+      scheduleQuery(input?.value ?? lastEnteredText.current);
+      return () => {
+        window.clearTimeout(pendingSearch.current);
+        pendingSearch.current = undefined;
+      };
+    },
+    [scheduleQuery],
+  );
   const searched = usePeopleSearch(query, { limit });
   // Until the paused input reaches the query, the previous answer is not offered: Enter could
   // otherwise choose a person from the text before the last edit.
@@ -53,7 +68,7 @@ export function PeopleSearchCombobox({
   if (value !== null) {
     const chosen = personLabel(value);
     return (
-      <div className="grid min-w-0 gap-2">
+      <div className="grid min-w-0 gap-2" ref={attachControl}>
         <span className="text-sm font-semibold" id={`${id}-label`}>
           {label}
         </span>
@@ -80,6 +95,7 @@ export function PeopleSearchCombobox({
               onChange(null);
               setText("");
               setQuery("");
+              if (lastEnteredText.current !== "") scheduleQuery("");
             }}
           >
             <X aria-hidden="true" className="size-4" />
@@ -97,7 +113,7 @@ export function PeopleSearchCombobox({
   const showList = open && search.kind !== "idle";
 
   return (
-    <div className="relative grid min-w-0 gap-2">
+    <div className="relative grid min-w-0 gap-2" ref={attachControl}>
       <label className="text-sm font-semibold" htmlFor={id}>
         {label}
       </label>
@@ -124,7 +140,9 @@ export function PeopleSearchCombobox({
           placeholder="Имя, @username, email или ID"
           value={text}
           onChange={(event) => {
-            setText(event.currentTarget.value);
+            const next = event.currentTarget.value;
+            setText(next);
+            scheduleQuery(next);
             setActive(0);
             setOpen(true);
           }}
