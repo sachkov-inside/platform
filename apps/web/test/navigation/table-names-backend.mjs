@@ -31,7 +31,9 @@ function table(columns) {
 export function tableNamesRoute(method, url, projection) {
   if (method !== "GET") return null;
   const single = url.pathname === "/materials/table-names-single";
-  if (!single && url.pathname !== "/materials/table-names-nested") return null;
+  const order = url.pathname === "/materials/table-names-order";
+  if (!single && !order && url.pathname !== "/materials/table-names-nested")
+    return null;
   const inner = table(8);
   /** @type {import("@inside/material-blocks").RenderedBlock} */
   const outer = {
@@ -62,6 +64,42 @@ export function tableNamesRoute(method, url, projection) {
       },
     ],
   };
+  /** @type {import("@inside/material-blocks").RenderedBlock} */
+  const exercise = {
+    kind: "order",
+    id: "table-reading-order",
+    reveal: "none",
+    question: [
+      {
+        kind: "paragraph",
+        content: [
+          { kind: "text", text: "Расставь шаги по порядку.", marks: [] },
+        ],
+      },
+    ],
+    steps: [
+      {
+        id: "first-step",
+        content: [inner],
+        explanation: [
+          {
+            kind: "paragraph",
+            content: [{ kind: "text", text: "Первый шаг.", marks: [] }],
+          },
+        ],
+      },
+      {
+        id: "second-step",
+        content: [inner],
+        explanation: [
+          {
+            kind: "paragraph",
+            content: [{ kind: "text", text: "Второй шаг.", marks: [] }],
+          },
+        ],
+      },
+    ],
+  };
   return {
     status: 200,
     value: {
@@ -75,12 +113,25 @@ export function tableNamesRoute(method, url, projection) {
         access: "free",
         materialId: single
           ? "50002408-0000-4000-8000-000000000001"
-          : "50002408-0000-4000-8000-000000000002",
-        slug: single ? "table-names-single" : "table-names-nested",
-        title: single ? "Одна таблица" : "Вложенные таблицы",
+          : order
+            ? "50002408-0000-4000-8000-000000000003"
+            : "50002408-0000-4000-8000-000000000002",
+        slug: single
+          ? "table-names-single"
+          : order
+            ? "table-names-order"
+            : "table-names-nested",
+        title: single
+          ? "Одна таблица"
+          : order
+            ? "Таблицы в упражнении"
+            : "Вложенные таблицы",
         productMemberships: [],
       },
-      body: { schemaVersion: 1, blocks: single ? [inner] : [outer, inner] },
+      body: {
+        schemaVersion: 1,
+        blocks: single ? [inner] : order ? [exercise] : [outer, inner],
+      },
     },
   };
 }

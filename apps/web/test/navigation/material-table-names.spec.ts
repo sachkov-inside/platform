@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-for (const fixture of ["single", "nested"] as const) {
+for (const fixture of ["single", "nested", "order"] as const) {
   test(`table names stay readable and stable across real SSR/hydration: ${fixture}`, async ({
     page,
   }) => {
@@ -26,12 +26,14 @@ for (const fixture of ["single", "nested"] as const) {
       const names =
         fixture === "single"
           ? ["Таблица в материале"]
-          : [
-              "Таблица 1 в материале",
-              "Таблица 2 в материале",
-              "Таблица 3 в материале",
-            ];
-      const regions = body.getByRole("region");
+          : fixture === "order"
+            ? ["Таблица 1 в материале", "Таблица 2 в материале"]
+            : [
+                "Таблица 1 в материале",
+                "Таблица 2 в материале",
+                "Таблица 3 в материале",
+              ];
+      const regions = body.getByRole("region", { name: /^Таблица /u });
       const tables = body.getByRole("table");
       await expect(regions).toHaveCount(names.length);
       await expect(tables).toHaveCount(names.length);
@@ -77,6 +79,52 @@ for (const fixture of ["single", "nested"] as const) {
       await expect
         .poll(() => active.evaluate((element) => element.scrollLeft))
         .toBeGreaterThan(0);
+      if (fixture === "order") {
+        const firstNode = await regions.nth(0).elementHandle();
+        const secondNode = await regions.nth(1).elementHandle();
+        const firstStep = body.locator("[data-order-step]").first();
+        const firstStepNode = await firstStep.elementHandle();
+        await firstStep.getByRole("button", { name: /^Ниже /u }).click();
+        await expect
+          .poll(() =>
+            firstNode?.evaluate(
+              (element) =>
+                element ===
+                document.querySelectorAll(
+                  "[data-reader-body] [data-table-scroll]",
+                )[1],
+            ),
+          )
+          .toBe(true);
+        expect(
+          await secondNode?.evaluate(
+            (element) =>
+              element ===
+              document.querySelectorAll(
+                "[data-reader-body] [data-table-scroll]",
+              )[0],
+          ),
+        ).toBe(true);
+        await expect(regions.nth(0)).toHaveAccessibleName(
+          "Таблица 1 в материале",
+        );
+        await expect(regions.nth(1)).toHaveAccessibleName(
+          "Таблица 2 в материале",
+        );
+        await expect
+          .poll(() =>
+            firstStepNode?.evaluate((element) =>
+              element.contains(document.activeElement),
+            ),
+          )
+          .toBe(true);
+        await body
+          .getByRole("button", { name: "Проверить", exact: true })
+          .click();
+        await expect(
+          body.getByText("Правильно", { exact: true }),
+        ).toBeVisible();
+      }
       expect(errors).toEqual([]);
       const scan = await new AxeBuilder({ page })
         .include("[data-reader-body]")
