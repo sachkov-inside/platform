@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Activity, useState } from "react";
-import { expect, userEvent, waitFor, within } from "storybook/test";
+import { expect, spyOn, userEvent, waitFor, within } from "storybook/test";
 
 import type { RenderedBlock } from "../../material.model";
 import { MaterialBodyView } from "./material-body-view";
@@ -36,14 +36,26 @@ const rendering = {
 
 function TableLifetime({
   initialColumns = 8,
+  initiallyMounted = true,
 }: {
   readonly initialColumns?: number;
+  readonly initiallyMounted?: boolean;
 }) {
   const [columns, setColumns] = useState(initialColumns);
   const [visible, setVisible] = useState(true);
-  const [mounted, setMounted] = useState(true);
+  const [mounted, setMounted] = useState(initiallyMounted);
   return (
     <>
+      {!mounted ? (
+        <button
+          type="button"
+          onClick={() => {
+            setMounted(true);
+          }}
+        >
+          Показать таблицу
+        </button>
+      ) : null}
       <button
         type="button"
         onClick={() => {
@@ -127,6 +139,115 @@ export const RetainsTableViewport: Story = {
       canvas.getByRole("button", { name: "Удалить таблицу" }),
     );
     await waitFor(() => expect(scroller.isConnected).toBe(false));
+  },
+};
+
+export const ReleasesNativeTableResources: Story = {
+  args: { initiallyMounted: false },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const added = spyOn(EventTarget.prototype, "addEventListener");
+    const removed = spyOn(EventTarget.prototype, "removeEventListener");
+    const observed = spyOn(ResizeObserver.prototype, "observe");
+    const disconnected = spyOn(ResizeObserver.prototype, "disconnect");
+    const capture = (options: boolean | EventListenerOptions | undefined) =>
+      typeof options === "boolean" ? options : (options?.capture ?? false);
+    try {
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Показать таблицу" }),
+      );
+      const scroller = await canvas.findByRole("region", {
+        name: "Таблица в материале",
+      });
+      const table = within(scroller).getByRole("table");
+      const lease = async (afterScroll: number, afterObserve: number) => {
+        const index = added.mock.calls.findLastIndex(
+          ([kind], at) =>
+            at >= afterScroll &&
+            kind === "scroll" &&
+            added.mock.contexts[at] === scroller,
+        );
+        const listener = added.mock.calls[index];
+        const viewportIndex = observed.mock.calls.findLastIndex(
+          ([element], at) => at >= afterObserve && element === scroller,
+        );
+        const contentIndex = observed.mock.calls.findLastIndex(
+          ([element], at) => at >= afterObserve && element === table,
+        );
+        const observer = observed.mock.contexts[viewportIndex];
+        if (
+          listener === undefined ||
+          observer === undefined ||
+          contentIndex < 0
+        )
+          throw new Error("Missing actual table viewport/content lease");
+        await expect(observed.mock.contexts[contentIndex] === observer).toBe(
+          true,
+        );
+        return { listener, observer };
+      };
+      const first = await lease(0, 0);
+      const released = async (
+        resource: Awaited<ReturnType<typeof lease>>,
+        afterRemove: number,
+        afterDisconnect: number,
+      ) => {
+        await expect(
+          removed.mock.calls.some(
+            ([kind, listener, options], at) =>
+              at >= afterRemove &&
+              removed.mock.contexts[at] === scroller &&
+              kind === "scroll" &&
+              listener === resource.listener[1] &&
+              capture(options) === capture(resource.listener[2]),
+          ),
+        ).toBe(true);
+        await expect(
+          disconnected.mock.contexts
+            .slice(afterDisconnect)
+            .includes(resource.observer),
+        ).toBe(true);
+      };
+      const beforeHide = {
+        removes: removed.mock.calls.length,
+        disconnects: disconnected.mock.calls.length,
+      };
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Скрыть или вернуть таблицу" }),
+      );
+      await waitFor(() => expect(scroller).not.toBeVisible());
+      await released(first, beforeHide.removes, beforeHide.disconnects);
+      const beforeReturn = {
+        scrolls: added.mock.calls.length,
+        observations: observed.mock.calls.length,
+      };
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Скрыть или вернуть таблицу" }),
+      );
+      await waitFor(() => expect(scroller).toBeVisible());
+      await expect(
+        canvas.getByRole("region", { name: "Таблица в материале" }) ===
+          scroller,
+      ).toBe(true);
+      const second = await lease(
+        beforeReturn.scrolls,
+        beforeReturn.observations,
+      );
+      const beforeUnmount = {
+        removes: removed.mock.calls.length,
+        disconnects: disconnected.mock.calls.length,
+      };
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Удалить таблицу" }),
+      );
+      await waitFor(() => expect(scroller.isConnected).toBe(false));
+      await released(second, beforeUnmount.removes, beforeUnmount.disconnects);
+    } finally {
+      added.mockRestore();
+      removed.mockRestore();
+      observed.mockRestore();
+      disconnected.mockRestore();
+    }
   },
 };
 
