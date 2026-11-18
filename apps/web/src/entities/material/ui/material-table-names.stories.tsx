@@ -311,11 +311,36 @@ export const OrderStepTablesFollowShownOrder: Story = {
     ],
   },
   play: async ({ canvasElement }) => {
-    const regions = within(canvasElement).getAllByRole("region", {
+    const canvas = within(canvasElement);
+    const regions = canvas.getAllByRole("region", {
       name: /^Таблица /u,
     });
     await expect(regions).toHaveLength(2);
     await expect(regions[0]).toHaveAccessibleName("Таблица 1 в материале");
     await expect(regions[1]).toHaveAccessibleName("Таблица 2 в материале");
+    const first = regions[0];
+    const second = regions[1];
+    const firstStep = first?.closest<HTMLElement>("[data-order-step]");
+    if (firstStep === null || firstStep === undefined)
+      throw new Error("Missing shown first step");
+    await userEvent.click(
+      within(firstStep).getByRole("button", { name: /^Ниже /u }),
+    );
+    await expect(canvas.getAllByRole("region", { name: /^Таблица /u })).toEqual(
+      [second, first],
+    );
+    await expect(second).toHaveAccessibleName("Таблица 1 в материале");
+    await expect(first).toHaveAccessibleName("Таблица 2 в материале");
+    await waitFor(() =>
+      expect(
+        within(firstStep).getByRole("button", { name: /^Выше /u }),
+      ).toHaveFocus(),
+    );
+    for (const [index, item] of canvas.getAllByRole("table").entries())
+      await expect(item).toHaveAccessibleName(
+        `Таблица ${String(index + 1)} в материале`,
+      );
+    await userEvent.click(canvas.getByRole("button", { name: "Проверить" }));
+    await expect(canvas.getByText("Правильно", { exact: true })).toBeVisible();
   },
 };
