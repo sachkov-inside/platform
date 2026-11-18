@@ -1,16 +1,22 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { expect, waitFor, within } from "storybook/test";
+import { useState } from "react";
+import { expect, userEvent, waitFor, within } from "storybook/test";
 import { z } from "zod";
 
 import type { MaterialPreview } from "@/entities/material";
 import type { PublishedProductResult } from "@/features/library-discovery";
-import { ReadingProgressProvider } from "@/features/reading-progress";
+import {
+  ProductMaterialMarker,
+  ReadingProgressProvider,
+} from "@/features/reading-progress";
+import { Button } from "@/shared/ui/button";
 import { fetchBeforeRender } from "@/storybook/mutation-mock";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 
 import { ProductLearningProvider } from "./product-learning.client";
 import { ProductProgrammeView } from "./product-programme-view";
+import { ChapterReadingProgress } from "./chapter-reading-progress.client";
 
 const chapterIds = [
   "41000000-0000-4000-8000-000000000001",
@@ -235,6 +241,204 @@ export const IncludesUnrevealedLessons: Story = {
           unrevealed24Mounted: false,
           counter: counter.textContent,
           accessibleName: counter.getAttribute("aria-label"),
+        }),
+      );
+    } finally {
+      releaseStates?.();
+    }
+  },
+};
+
+const overlapAccount = "43000000-0000-4000-8000-000000000002";
+const sharedId = "41000000-0000-4000-8000-000000000001";
+const chapterOnlyId = "41000000-0000-4000-8000-000000000002";
+const overlapIds = [sharedId, chapterOnlyId];
+const observerEvents: {
+  readonly phase: string;
+  readonly type: "observerAdded" | "observerRemoved";
+  readonly materialId: string;
+  readonly active: boolean;
+  readonly observers: number;
+  readonly at: number;
+}[] = [];
+let lifecyclePhase = "initial";
+const overlapKey = (materialId: string) => [
+  "reading-progress",
+  overlapAccount,
+  "material",
+  materialId,
+];
+const observedKey = z.tuple([
+  z.literal("reading-progress"),
+  z.literal(overlapAccount),
+  z.literal("material"),
+  z.enum([sharedId, chapterOnlyId]),
+]);
+
+/** Each real consumer can unmount independently while the provider stays mounted. */
+function OverlappingOwners() {
+  const [chapter, setChapter] = useState(true);
+  const [marker, setMarker] = useState(true);
+  return (
+    <QueryClientProvider client={client}>
+      <ReadingProgressProvider accountId={overlapAccount} resolved>
+        <h1>Регистрация прогресса главы</h1>
+        <Button
+          disabled={!chapter}
+          onClick={() => {
+            setChapter(false);
+          }}
+        >
+          Убрать счётчик главы
+        </Button>
+        <Button
+          disabled={!marker}
+          onClick={() => {
+            setMarker(false);
+          }}
+        >
+          Убрать отметку материала
+        </Button>
+        {chapter ? (
+          <ChapterReadingProgress materialIds={overlapIds} name="Перекрытие" />
+        ) : null}
+        {marker ? (
+          <ProductMaterialMarker materialId={sharedId} ordinal={1} />
+        ) : null}
+      </ReadingProgressProvider>
+    </QueryClientProvider>
+  );
+}
+
+/** Public cache membership distinguishes active subscriptions from retained cached data. */
+export const ReleasesOnlyTheRemovedOwner: Story = {
+  render: () => <OverlappingOwners />,
+  beforeEach: () => {
+    observerEvents.length = 0;
+    lifecyclePhase = "initial";
+    return client.getQueryCache().subscribe((event) => {
+      const key = observedKey.safeParse(event.query.queryKey);
+      if (
+        !key.success ||
+        (event.type !== "observerAdded" && event.type !== "observerRemoved")
+      )
+        return;
+      observerEvents.push({
+        phase: lifecyclePhase,
+        type: event.type,
+        materialId: key.data[3],
+        active: event.query.isActive(),
+        observers: event.query.getObserversCount(),
+        at: performance.now(),
+      });
+    });
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const cache = client.getQueryCache();
+    try {
+      await waitFor(() => expect(requested.flat().sort()).toEqual(overlapIds));
+      const shared = cache.find({
+        queryKey: overlapKey(sharedId),
+        exact: true,
+      });
+      const chapterOnly = cache.find({
+        queryKey: overlapKey(chapterOnlyId),
+        exact: true,
+      });
+      if (shared === undefined || chapterOnly === undefined)
+        throw new Error("Missing actual reading-progress queries");
+      await expect(shared.isActive()).toBe(true);
+      await expect(chapterOnly.isActive()).toBe(true);
+      await expect(shared.getObserversCount()).toBe(1);
+      await expect(chapterOnly.getObserversCount()).toBe(1);
+      releaseStates?.();
+      const counter = await canvas.findByLabelText(
+        "Изучено 1 из 2 материалов главы «Перекрытие»",
+      );
+      const marker = await canvas.findByRole("img", {
+        name: "Материал 1, изучен",
+      });
+      await expect(counter).toBeVisible();
+      await expect(marker).toBeVisible();
+
+      lifecyclePhase = "remove-chapter";
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Убрать счётчик главы" }),
+      );
+      await waitFor(() => expect(chapterOnly.isActive()).toBe(false));
+      await expect(counter).not.toBeInTheDocument();
+      await expect(chapterOnly.getObserversCount()).toBe(0);
+      await expect(
+        cache.find({ queryKey: overlapKey(chapterOnlyId), exact: true }),
+      ).toBe(chapterOnly);
+      await expect(shared.isActive()).toBe(true);
+      await expect(shared.getObserversCount()).toBe(1);
+      await expect(
+        canvas.getByRole("img", { name: "Материал 1, изучен" }),
+      ).toBe(marker);
+      await expect(observerEvents).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            phase: "remove-chapter",
+            type: "observerRemoved",
+            materialId: chapterOnlyId,
+            active: false,
+            observers: 0,
+          }),
+        ]),
+      );
+      console.info(
+        "Chapter query overlap",
+        JSON.stringify({
+          phase: lifecyclePhase,
+          chapterOnlyActive: chapterOnly.isActive(),
+          sharedActive: shared.isActive(),
+          chapterOnlyCached:
+            cache.find({ queryKey: overlapKey(chapterOnlyId), exact: true }) ===
+            chapterOnly,
+          sharedCached:
+            cache.find({ queryKey: overlapKey(sharedId), exact: true }) ===
+            shared,
+          httpRequestsObserved: requested.length,
+        }),
+      );
+
+      lifecyclePhase = "remove-last-consumer";
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Убрать отметку материала" }),
+      );
+      await waitFor(() => expect(shared.isActive()).toBe(false));
+      await expect(marker).not.toBeInTheDocument();
+      await expect(shared.getObserversCount()).toBe(0);
+      await expect(
+        cache.find({ queryKey: overlapKey(sharedId), exact: true }),
+      ).toBe(shared);
+      await expect(observerEvents).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            phase: "remove-last-consumer",
+            type: "observerRemoved",
+            materialId: sharedId,
+            active: false,
+            observers: 0,
+          }),
+        ]),
+      );
+      console.info(
+        "Chapter query overlap",
+        JSON.stringify({
+          phase: lifecyclePhase,
+          chapterOnlyActive: chapterOnly.isActive(),
+          sharedActive: shared.isActive(),
+          chapterOnlyCached:
+            cache.find({ queryKey: overlapKey(chapterOnlyId), exact: true }) ===
+            chapterOnly,
+          sharedCached:
+            cache.find({ queryKey: overlapKey(sharedId), exact: true }) ===
+            shared,
+          httpRequestsObserved: requested.length,
+          observerEvents,
         }),
       );
     } finally {
