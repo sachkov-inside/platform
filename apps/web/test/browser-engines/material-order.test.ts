@@ -414,3 +414,95 @@ for (const engine of ["chromium", "webkit"] as const) {
     }
   }, 15_000);
 }
+
+test("chromium: a second touch cannot replace the active gesture cleanup across retained hide", async () => {
+  const browser = fixture.browsers.get("chromium");
+  if (browser === undefined) throw new Error("Missing Chromium engine");
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+  });
+  try {
+    const page = await context.newPage();
+    await page.addInitScript(observePointerListeners);
+    await page.goto(fixture.url);
+    await page
+      .getByRole("button", { name: "Hide exercise", exact: true })
+      .focus();
+    const list = page.locator("[data-exercise-steps]");
+    const steps = list.locator("[data-order-step]");
+    const firstBox = await steps
+      .first()
+      .locator("[data-order-handle]")
+      .boundingBox();
+    const secondBox = await steps
+      .nth(1)
+      .locator("[data-order-handle]")
+      .boundingBox();
+    if (firstBox === null || secondBox === null)
+      throw new Error("Missing multi-touch geometry");
+    const first = {
+      id: 1,
+      x: firstBox.x + firstBox.width / 2,
+      y: firstBox.y + firstBox.height / 2,
+    };
+    const second = {
+      id: 2,
+      x: secondBox.x + secondBox.width / 2,
+      y: secondBox.y + secondBox.height / 2,
+    };
+    const session = await context.newCDPSession(page);
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [first],
+    });
+    await browserExpect(list.locator("[data-dragging]")).toHaveCount(1);
+    const oneGesture = await page.evaluate(() =>
+      window.materialOrderPointerListeners?.(),
+    );
+    if (oneGesture === undefined)
+      throw new Error("Missing gesture observation");
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [first, second],
+    });
+    console.log(
+      JSON.stringify({
+        stage: "second-touch",
+        oneGesture,
+        afterSecondTouch: await page.evaluate(() =>
+          window.materialOrderPointerListeners?.(),
+        ),
+      }),
+    );
+    await page.keyboard.press("Enter");
+    await browserExpect(list).toBeHidden();
+    await browserExpect
+      .poll(() => page.evaluate(() => window.materialOrderPointerListeners?.()))
+      .toBe(oneGesture - 3);
+    await page
+      .getByRole("button", { name: "Return exercise", exact: true })
+      .focus();
+    await page.keyboard.press("Enter");
+    await browserExpect(list).toBeVisible();
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{ ...first, y: first.y + 100 }, second],
+    });
+    await browserExpect(list.locator("[data-dragging]")).toHaveCount(0);
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    });
+    await browserExpect(steps.locator("[id*='-step-']")).toHaveText([
+      "Сохранить векторы в индекс",
+      "Посчитать эмбеддинги чанков",
+      "Нарезать документы на чанки",
+      "Найти ближайшие чанки к вопросу",
+    ]);
+    await session.detach();
+  } finally {
+    await context.close();
+  }
+}, 15_000);
