@@ -114,6 +114,8 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+let releaseLatestSearch = () => {};
+
 export const ChooseByKeyboardDesktop: Story = {
   ...desktop,
   play: async ({ canvasElement }) => {
@@ -211,6 +213,71 @@ export const RetainsInputAndReleasesPendingSearch: Story = {
     } finally {
       timeouts.mockRestore();
       clears.mockRestore();
+    }
+  },
+};
+
+export const PendingTextCannotChooseThePreviousResult: Story = {
+  ...desktop,
+  beforeEach: () => {
+    getQueryClient().clear();
+    searchRequests.mockClear();
+    const pending = new Promise<void>((resolve) => {
+      releaseLatestSearch = resolve;
+    });
+    return fetchBeforeRender(async (input) => {
+      const url = new URL(
+        input instanceof Request ? input.url : String(input),
+        window.location.origin,
+      );
+      if (
+        url.pathname === "/api/authoring/people/search" &&
+        url.searchParams.get("query") === "Анна Кон"
+      ) {
+        searchRequests("Анна Кон");
+        await pending;
+        return Response.json({
+          kind: "ready",
+          items: people.slice(1),
+          nameSearch: "available",
+        });
+      }
+      return searchResponse("available")(input);
+    })();
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const input = canvas.getByRole("combobox", { name: "Кому" });
+    try {
+      await userEvent.type(input, "Анна");
+      await expect(await canvas.findAllByRole("option")).toHaveLength(2);
+      await userEvent.type(input, " Кон");
+      await userEvent.keyboard("{Enter}");
+      await expect(
+        canvas.queryByRole("button", { name: "Изменить", exact: true }),
+      ).toBeNull();
+      await expect(input).toHaveValue("Анна Кон");
+      await waitFor(() =>
+        expect(searchRequests).toHaveBeenLastCalledWith("Анна Кон"),
+      );
+      await expect(canvas.queryAllByRole("option")).toHaveLength(0);
+      releaseLatestSearch();
+      await expect(await canvas.findAllByRole("option")).toHaveLength(1);
+      await userEvent.keyboard("{Enter}");
+      await expect(
+        canvas.getByText("Анна Константинопольская-Задунайская", {
+          exact: true,
+        }),
+      ).toBeVisible();
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Изменить", exact: true }),
+      );
+      await expect(canvas.getByRole("combobox", { name: "Кому" })).toHaveValue(
+        "",
+      );
+      await expect(canvas.queryAllByRole("option")).toHaveLength(0);
+    } finally {
+      releaseLatestSearch();
     }
   },
 };
