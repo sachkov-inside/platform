@@ -1,3 +1,4 @@
+import { writeSync } from "node:fs";
 import { performance } from "node:perf_hooks";
 
 type LearningStage =
@@ -32,12 +33,14 @@ export function reportLearningStage(
   stage: LearningStage,
   phase: "start" | "end" | "failed",
 ): void {
-  console.info(
-    JSON.stringify({
+  // Vitest's default reporter suppresses successful console messages (#2417).
+  writeSync(
+    2,
+    `${JSON.stringify({
       diagnostic: "populated-learning",
       stage,
       phase,
       monotonicMs: performance.now(),
-    }),
+    })}\n`,
   );
 }
