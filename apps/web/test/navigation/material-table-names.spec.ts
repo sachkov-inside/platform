@@ -26,13 +26,11 @@ for (const fixture of ["single", "nested", "order"] as const) {
       const names =
         fixture === "single"
           ? ["Таблица в материале"]
-          : fixture === "order"
-            ? ["Таблица 1 в материале", "Таблица 2 в материале"]
-            : [
-                "Таблица 1 в материале",
-                "Таблица 2 в материале",
-                "Таблица 3 в материале",
-              ];
+          : [
+              "Таблица 1 в материале",
+              "Таблица 2 в материале",
+              "Таблица 3 в материале",
+            ];
       const regions = body.getByRole("region", { name: /^Таблица /u });
       const tables = body.getByRole("table");
       await expect(regions).toHaveCount(names.length);
@@ -118,6 +116,28 @@ for (const fixture of ["single", "nested", "order"] as const) {
             ),
           )
           .toBe(true);
+        for (const [target, label] of [
+          "Подготовить",
+          "Вычислить",
+          "Проверить результат",
+        ].entries()) {
+          const step = body
+            .locator("[data-order-step]")
+            .filter({ has: page.getByText(label, { exact: true }) });
+          for (let move = 0; move < 3; move++) {
+            const position = await step.evaluate((element) =>
+              Array.from(element.parentElement?.children ?? []).indexOf(
+                element,
+              ),
+            );
+            if (position === target) break;
+            await step.getByRole("button", { name: /^Выше /u }).click();
+          }
+        }
+        for (const [index, name] of names.entries()) {
+          await expect(regions.nth(index)).toHaveAccessibleName(name);
+          await expect(tables.nth(index)).toHaveAccessibleName(name);
+        }
         await body
           .getByRole("button", { name: "Проверить", exact: true })
           .click();

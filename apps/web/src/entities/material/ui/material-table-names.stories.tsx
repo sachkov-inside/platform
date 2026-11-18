@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { renderedBlockSchema } from "@inside/material-blocks";
 import { useState } from "react";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 
@@ -270,56 +271,48 @@ export const TablesInComparedContent: Story = {
   },
 };
 
-export const OrderStepTablesFollowShownOrder: Story = {
-  args: {
-    blocks: [
+const orderLabels = ["Подготовить", "Вычислить", "Проверить результат"];
+const orderExercise = renderedBlockSchema.parse({
+  kind: "order",
+  id: "table-reading-order",
+  reveal: "none",
+  question: [
+    {
+      kind: "paragraph",
+      content: [{ kind: "text", text: "Расставь шаги по порядку.", marks: [] }],
+    },
+  ],
+  steps: orderLabels.map((label, index) => ({
+    id: `step-${String(index + 1)}`,
+    content: [
       {
-        kind: "order",
-        id: "table-reading-order",
-        reveal: "none",
-        question: [
-          {
-            kind: "paragraph",
-            content: [
-              { kind: "text", text: "Расставь шаги по порядку.", marks: [] },
-            ],
-          },
-        ],
-        steps: [
-          {
-            id: "first-step",
-            content: [table(2)],
-            explanation: [
-              {
-                kind: "paragraph",
-                content: [{ kind: "text", text: "Первый шаг.", marks: [] }],
-              },
-            ],
-          },
-          {
-            id: "second-step",
-            content: [table(2)],
-            explanation: [
-              {
-                kind: "paragraph",
-                content: [{ kind: "text", text: "Второй шаг.", marks: [] }],
-              },
-            ],
-          },
-        ],
+        kind: "paragraph",
+        content: [{ kind: "text", text: label, marks: [] }],
+      },
+      table(2),
+    ],
+    explanation: [
+      {
+        kind: "paragraph",
+        content: [{ kind: "text", text: `Разбор: ${label}`, marks: [] }],
       },
     ],
-  },
+  })),
+});
+
+export const OrderStepTablesFollowShownOrder: Story = {
+  args: { blocks: [orderExercise] },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const regions = canvas.getAllByRole("region", {
-      name: /^Таблица /u,
-    });
-    await expect(regions).toHaveLength(2);
-    await expect(regions[0]).toHaveAccessibleName("Таблица 1 в материале");
-    await expect(regions[1]).toHaveAccessibleName("Таблица 2 в материале");
+    const regions = canvas.getAllByRole("region", { name: /^Таблица /u });
+    await expect(regions).toHaveLength(3);
+    for (const [index, item] of regions.entries())
+      await expect(item).toHaveAccessibleName(
+        `Таблица ${String(index + 1)} в материале`,
+      );
     const first = regions[0];
     const second = regions[1];
+    const third = regions[2];
     const firstStep = first?.closest<HTMLElement>("[data-order-step]");
     if (firstStep === null || firstStep === undefined)
       throw new Error("Missing shown first step");
@@ -327,15 +320,30 @@ export const OrderStepTablesFollowShownOrder: Story = {
       within(firstStep).getByRole("button", { name: /^Ниже /u }),
     );
     await expect(canvas.getAllByRole("region", { name: /^Таблица /u })).toEqual(
-      [second, first],
+      [second, first, third],
     );
     await expect(second).toHaveAccessibleName("Таблица 1 в материале");
     await expect(first).toHaveAccessibleName("Таблица 2 в материале");
     await waitFor(() =>
       expect(
-        within(firstStep).getByRole("button", { name: /^Выше /u }),
+        within(firstStep).getByRole("button", { name: /^Ниже /u }),
       ).toHaveFocus(),
     );
+    for (const [target, label] of orderLabels.entries()) {
+      const step = canvas
+        .getByText(label, { exact: true })
+        .closest<HTMLElement>("[data-order-step]");
+      if (step === null) throw new Error("Missing named step");
+      for (let move = 0; move < 3; move++) {
+        const position = Array.from(
+          canvasElement.querySelectorAll("[data-order-step]"),
+        ).indexOf(step);
+        if (position === target) break;
+        await userEvent.click(
+          within(step).getByRole("button", { name: /^Выше /u }),
+        );
+      }
+    }
     for (const [index, item] of canvas.getAllByRole("table").entries())
       await expect(item).toHaveAccessibleName(
         `Таблица ${String(index + 1)} в материале`,

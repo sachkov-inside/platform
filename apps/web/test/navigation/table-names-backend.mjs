@@ -77,28 +77,24 @@ export function tableNamesRoute(method, url, projection) {
         ],
       },
     ],
-    steps: [
-      {
-        id: "first-step",
-        content: [inner],
+    steps: ["Подготовить", "Вычислить", "Проверить результат"].map(
+      (label, index) => ({
+        id: `step-${String(index + 1)}`,
+        content: [
+          {
+            kind: "paragraph",
+            content: [{ kind: "text", text: label, marks: [] }],
+          },
+          inner,
+        ],
         explanation: [
           {
             kind: "paragraph",
-            content: [{ kind: "text", text: "Первый шаг.", marks: [] }],
+            content: [{ kind: "text", text: `Разбор: ${label}`, marks: [] }],
           },
         ],
-      },
-      {
-        id: "second-step",
-        content: [inner],
-        explanation: [
-          {
-            kind: "paragraph",
-            content: [{ kind: "text", text: "Второй шаг.", marks: [] }],
-          },
-        ],
-      },
-    ],
+      }),
+    ),
   };
   return {
     status: 200,
