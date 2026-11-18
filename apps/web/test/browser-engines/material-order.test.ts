@@ -1,0 +1,508 @@
+import { expect as browserExpect } from "@playwright/test";
+import { afterAll, beforeAll, test } from "vitest";
+
+import {
+  createOwnedBrowserFixture,
+  type BrowserFixture,
+} from "../support/owned-browser-fixture";
+
+declare global {
+  interface Window {
+    materialOrderPointerListeners?: () => number;
+  }
+}
+
+test("chromium: browser protocol touch reorders the public exercise and native touchcancel preserves its order", async () => {
+  const browser = fixture.browsers.get("chromium");
+  if (browser === undefined) throw new Error("Missing Chromium engine");
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+  });
+  try {
+    const page = await context.newPage();
+    await page.goto(fixture.url);
+    const session = await context.newCDPSession(page);
+    const list = page.locator("[data-exercise-steps]");
+    const steps = list.locator("[data-order-step]");
+    const labels = () => steps.locator("[id*='-step-']").allTextContents();
+    const handle = await steps
+      .first()
+      .locator("[data-order-handle]")
+      .boundingBox();
+    const target = await steps.nth(2).boundingBox();
+    if (handle === null || target === null)
+      throw new Error("Missing touch drag geometry");
+    const x = handle.x + handle.width / 2;
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ x, y: handle.y + handle.height / 2 }],
+    });
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{ x, y: target.y + target.height / 2 + 6 }],
+    });
+    await browserExpect(list.locator("[data-dragging]")).toHaveCount(1);
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    });
+    await browserExpect(list.locator("[data-dragging]")).toHaveCount(0);
+    await browserExpect
+      .poll(labels)
+      .toEqual([
+        "Посчитать эмбеддинги чанков",
+        "Нарезать документы на чанки",
+        "Сохранить векторы в индекс",
+        "Найти ближайшие чанки к вопросу",
+      ]);
+    const next = await steps
+      .first()
+      .locator("[data-order-handle]")
+      .boundingBox();
+    if (next === null) throw new Error("Missing next touch handle");
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [
+        { x: next.x + next.width / 2, y: next.y + next.height / 2 },
+      ],
+    });
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [
+        { x: next.x + next.width / 2, y: next.y + next.height / 2 + 100 },
+      ],
+    });
+    await browserExpect(list.locator("[data-dragging]")).toHaveCount(1);
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchCancel",
+      touchPoints: [],
+    });
+    await browserExpect(list.locator("[data-dragging]")).toHaveCount(0);
+    await browserExpect(page.locator("[data-order-drop-line]")).toHaveCount(0);
+    await browserExpect
+      .poll(labels)
+      .toEqual([
+        "Посчитать эмбеддинги чанков",
+        "Нарезать документы на чанки",
+        "Сохранить векторы в индекс",
+        "Найти ближайшие чанки к вопросу",
+      ]);
+    await session.detach();
+  } finally {
+    await context.close();
+  }
+}, 15_000);
+
+function observePointerListeners() {
+  const listeners = new Map<string, Set<EventListenerOrEventListenerObject>>();
+  const add: unknown = Object.getOwnPropertyDescriptor(
+    EventTarget.prototype,
+    "addEventListener",
+  )?.value;
+  const remove: unknown = Object.getOwnPropertyDescriptor(
+    EventTarget.prototype,
+    "removeEventListener",
+  )?.value;
+  if (typeof add !== "function" || typeof remove !== "function")
+    throw new Error("Missing native EventTarget methods");
+  EventTarget.prototype.addEventListener = function (type, listener, options) {
+    Reflect.apply(add, this, [type, listener, options]);
+    if (
+      this !== window ||
+      listener === null ||
+      !["pointermove", "pointerup", "pointercancel"].includes(type)
+    )
+      return;
+    const entries =
+      listeners.get(type) ?? new Set<EventListenerOrEventListenerObject>();
+    entries.add(listener);
+    listeners.set(type, entries);
+  };
+  EventTarget.prototype.removeEventListener = function (
+    type,
+    listener,
+    options,
+  ) {
+    Reflect.apply(remove, this, [type, listener, options]);
+    if (this === window && listener !== null)
+      listeners.get(type)?.delete(listener);
+  };
+  window.materialOrderPointerListeners = () =>
+    [...listeners.values()].reduce((total, entries) => total + entries.size, 0);
+}
+
+const owner = createOwnedBrowserFixture("material-order");
+let fixture: BrowserFixture;
+beforeAll(async () => {
+  fixture = await owner.start();
+}, 30_000);
+afterAll(async () => {
+  await owner.close();
+}, 10_000);
+
+for (const engine of ["chromium", "webkit"] as const) {
+  test(`${engine}: native mouse reorder survives check/retry and unmount cancels a later drag`, async () => {
+    const browser = fixture.browsers.get(engine);
+    if (browser === undefined) throw new Error("Missing MaterialOrder engine");
+    const context = await browser.newContext({
+      viewport: { width: 900, height: 700 },
+    });
+    try {
+      const page = await context.newPage();
+      await page.addInitScript(observePointerListeners);
+      await page.goto(fixture.url);
+      const list = page.locator("[data-exercise-steps]");
+      const steps = list.locator("[data-order-step]");
+      const labels = () => steps.locator("[id*='-step-']").allTextContents();
+      const handle = await steps
+        .first()
+        .locator("[data-order-handle]")
+        .boundingBox();
+      const target = await steps.nth(2).boundingBox();
+      if (handle === null || target === null)
+        throw new Error("Missing exercise drag geometry");
+      await page.mouse.move(
+        handle.x + handle.width / 2,
+        handle.y + handle.height / 2,
+      );
+      await page.mouse.down();
+      await page.mouse.move(
+        handle.x + handle.width / 2,
+        target.y + target.height / 2 + 6,
+      );
+      await browserExpect(page.locator("[data-order-drop-line]")).toHaveCount(
+        1,
+      );
+      await page.mouse.up();
+      await browserExpect(list.locator("[data-dragging]")).toHaveCount(0);
+      await browserExpect
+        .poll(labels)
+        .toEqual([
+          "Посчитать эмбеддинги чанков",
+          "Нарезать документы на чанки",
+          "Сохранить векторы в индекс",
+          "Найти ближайшие чанки к вопросу",
+        ]);
+      await browserExpect(page.locator("[data-order-announcement]")).toHaveText(
+        "«Сохранить векторы в индекс»: место 3 из 4",
+      );
+      await page
+        .getByRole("button", { name: "Проверить", exact: true })
+        .click();
+      await browserExpect(page.locator("[data-order-handle]")).toHaveCount(0);
+      await page
+        .getByRole("button", { name: "Ответить ещё раз", exact: true })
+        .click();
+      await browserExpect(page.locator("[data-order-handle]")).toHaveCount(4);
+      await browserExpect
+        .poll(labels)
+        .toEqual([
+          "Посчитать эмбеддинги чанков",
+          "Нарезать документы на чанки",
+          "Сохранить векторы в индекс",
+          "Найти ближайшие чанки к вопросу",
+        ]);
+      const oldList = await list.elementHandle();
+      await page
+        .getByRole("button", { name: "Remove exercise", exact: true })
+        .focus();
+      const secondHandle = await steps
+        .first()
+        .locator("[data-order-handle]")
+        .boundingBox();
+      if (secondHandle === null) throw new Error("Missing retry drag handle");
+      await page.mouse.move(
+        secondHandle.x + secondHandle.width / 2,
+        secondHandle.y + secondHandle.height / 2,
+      );
+      await page.mouse.down();
+      await page.mouse.move(
+        secondHandle.x + secondHandle.width / 2,
+        secondHandle.y + secondHandle.height / 2 + 110,
+      );
+      await browserExpect(list.locator("[data-dragging]")).toHaveCount(1);
+      const activeListeners = await page.evaluate(() =>
+        window.materialOrderPointerListeners?.(),
+      );
+      if (activeListeners === undefined)
+        throw new Error("Missing native observation");
+      await page.keyboard.press("Enter");
+      await browserExpect(list).toHaveCount(0);
+      await browserExpect
+        .poll(() =>
+          page.evaluate(() => window.materialOrderPointerListeners?.()),
+        )
+        .toBe(activeListeners - 3);
+      await browserExpect
+        .poll(() => oldList.evaluate((element) => element.isConnected))
+        .toBe(false);
+      await page
+        .getByRole("button", { name: "Mount exercise", exact: true })
+        .focus();
+      await page.keyboard.press("Enter");
+      await browserExpect(steps).toHaveCount(4);
+      await page.mouse.move(
+        secondHandle.x + secondHandle.width / 2,
+        secondHandle.y + secondHandle.height / 2 + 180,
+      );
+      await page.mouse.up();
+      await browserExpect
+        .poll(labels)
+        .toEqual([
+          "Сохранить векторы в индекс",
+          "Посчитать эмбеддинги чанков",
+          "Нарезать документы на чанки",
+          "Найти ближайшие чанки к вопросу",
+        ]);
+      await oldList.dispose();
+    } finally {
+      await context.close();
+    }
+  }, 15_000);
+
+  test(`${engine}: native keyboard moves keep an enabled button of the same step focused at both edges`, async () => {
+    const browser = fixture.browsers.get(engine);
+    if (browser === undefined) throw new Error("Missing MaterialOrder engine");
+    const context = await browser.newContext({
+      viewport: { width: 900, height: 700 },
+    });
+    try {
+      const page = await context.newPage();
+      await page.goto(fixture.url);
+      const up = page.getByRole("button", {
+        name: "Выше Найти ближайшие чанки к вопросу",
+        exact: true,
+      });
+      const down = page.getByRole("button", {
+        name: "Ниже Найти ближайшие чанки к вопросу",
+        exact: true,
+      });
+      await up.focus();
+      await page.keyboard.press("Enter");
+      await browserExpect(up).toBeFocused();
+      await page.keyboard.press("Alt+ArrowUp");
+      await page.keyboard.press("Alt+ArrowUp");
+      await browserExpect(up).toBeDisabled();
+      await browserExpect(down).toBeEnabled();
+      await browserExpect(down).toBeFocused();
+      await browserExpect(
+        page.locator("[data-order-step]").first(),
+      ).toContainText("Найти ближайшие чанки к вопросу");
+      await browserExpect(page.locator("[data-order-announcement]")).toHaveText(
+        "«Найти ближайшие чанки к вопросу»: место 1 из 4",
+      );
+      await page.keyboard.press("Alt+ArrowDown");
+      await page.keyboard.press("Alt+ArrowDown");
+      await page.keyboard.press("Alt+ArrowDown");
+      await browserExpect(down).toBeDisabled();
+      await browserExpect(up).toBeEnabled();
+      await browserExpect(up).toBeFocused();
+      await browserExpect(
+        page.locator("[data-order-step]").last(),
+      ).toContainText("Найти ближайшие чанки к вопросу");
+      await browserExpect(page.locator("[data-order-announcement]")).toHaveText(
+        "«Найти ближайшие чанки к вопросу»: место 4 из 4",
+      );
+    } finally {
+      await context.close();
+    }
+  }, 15_000);
+
+  test(`${engine}: retained hide cancels an unfinished mouse drag without changing the steps`, async () => {
+    const browser = fixture.browsers.get(engine);
+    if (browser === undefined) throw new Error("Missing MaterialOrder engine");
+    const context = await browser.newContext({
+      viewport: { width: 900, height: 700 },
+    });
+    try {
+      const page = await context.newPage();
+      await page.addInitScript(observePointerListeners);
+      await page.goto(fixture.url);
+      const pointerListeners = () =>
+        page.evaluate(() => window.materialOrderPointerListeners?.());
+      const list = page.locator("[data-exercise-steps]");
+      const steps = list.locator("[data-order-step]");
+      const labels = () =>
+        steps
+          .locator(
+            "[id$='-step-0'], [id$='-step-1'], [id$='-step-2'], [id$='-step-3']",
+          )
+          .allTextContents();
+      await browserExpect(steps).toHaveCount(4);
+      await browserExpect
+        .poll(labels)
+        .toEqual([
+          "Сохранить векторы в индекс",
+          "Посчитать эмбеддинги чанков",
+          "Нарезать документы на чанки",
+          "Найти ближайшие чанки к вопросу",
+        ]);
+      const originalList = await list.elementHandle();
+      await page
+        .getByRole("button", { name: "Hide exercise", exact: true })
+        .focus();
+      const handle = await steps
+        .nth(0)
+        .locator("[data-order-handle]")
+        .boundingBox();
+      if (handle === null) throw new Error("Missing drag handle");
+      await page.mouse.move(
+        handle.x + handle.width / 2,
+        handle.y + handle.height / 2,
+      );
+      await page.mouse.down();
+      await page.mouse.move(
+        handle.x + handle.width / 2,
+        handle.y + handle.height / 2 + 110,
+      );
+      await browserExpect(list.locator("[data-dragging]")).toHaveCount(1);
+      const activePointerListeners = await pointerListeners();
+      if (activePointerListeners === undefined || activePointerListeners < 3)
+        throw new Error("Missing native gesture listener observation");
+      await browserExpect(
+        page.getByRole("button", { name: "Hide exercise", exact: true }),
+      ).toBeFocused();
+      await page.keyboard.press("Enter");
+      await browserExpect(list).toBeHidden();
+      await browserExpect
+        .poll(pointerListeners)
+        .toBe(activePointerListeners - 3);
+      await page
+        .getByRole("button", { name: "Return exercise", exact: true })
+        .focus();
+      await page.keyboard.press("Enter");
+      await browserExpect(list).toBeVisible();
+      await browserExpect
+        .poll(pointerListeners)
+        .toBe(activePointerListeners - 3);
+      console.log(
+        JSON.stringify({
+          engine,
+          stage: "returned",
+          activePointerListeners,
+          pointerListeners: await pointerListeners(),
+          dragMarkers: await list.locator("[data-dragging]").count(),
+        }),
+      );
+      await browserExpect
+        .poll(() =>
+          originalList.evaluate(
+            (element) =>
+              element === document.querySelector("[data-exercise-steps]"),
+          ),
+        )
+        .toBe(true);
+      await browserExpect(list.locator("[data-dragging]")).toHaveCount(0);
+      await page.mouse.move(
+        handle.x + handle.width / 2,
+        handle.y + handle.height / 2 + 160,
+      );
+      await page.mouse.up();
+      await browserExpect
+        .poll(labels)
+        .toEqual([
+          "Сохранить векторы в индекс",
+          "Посчитать эмбеддинги чанков",
+          "Нарезать документы на чанки",
+          "Найти ближайшие чанки к вопросу",
+        ]);
+      await originalList.dispose();
+    } finally {
+      await context.close();
+    }
+  }, 15_000);
+}
+
+test("chromium: a second touch cannot replace the active gesture cleanup across retained hide", async () => {
+  const browser = fixture.browsers.get("chromium");
+  if (browser === undefined) throw new Error("Missing Chromium engine");
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+  });
+  try {
+    const page = await context.newPage();
+    await page.addInitScript(observePointerListeners);
+    await page.goto(fixture.url);
+    await page
+      .getByRole("button", { name: "Hide exercise", exact: true })
+      .focus();
+    const list = page.locator("[data-exercise-steps]");
+    const steps = list.locator("[data-order-step]");
+    const firstBox = await steps
+      .first()
+      .locator("[data-order-handle]")
+      .boundingBox();
+    const secondBox = await steps
+      .nth(1)
+      .locator("[data-order-handle]")
+      .boundingBox();
+    if (firstBox === null || secondBox === null)
+      throw new Error("Missing multi-touch geometry");
+    const first = {
+      id: 1,
+      x: firstBox.x + firstBox.width / 2,
+      y: firstBox.y + firstBox.height / 2,
+    };
+    const second = {
+      id: 2,
+      x: secondBox.x + secondBox.width / 2,
+      y: secondBox.y + secondBox.height / 2,
+    };
+    const session = await context.newCDPSession(page);
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [first],
+    });
+    await browserExpect(list.locator("[data-dragging]")).toHaveCount(1);
+    const oneGesture = await page.evaluate(() =>
+      window.materialOrderPointerListeners?.(),
+    );
+    if (oneGesture === undefined)
+      throw new Error("Missing gesture observation");
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [first, second],
+    });
+    console.log(
+      JSON.stringify({
+        stage: "second-touch",
+        oneGesture,
+        afterSecondTouch: await page.evaluate(() =>
+          window.materialOrderPointerListeners?.(),
+        ),
+      }),
+    );
+    await page.keyboard.press("Enter");
+    await browserExpect(list).toBeHidden();
+    await browserExpect
+      .poll(() => page.evaluate(() => window.materialOrderPointerListeners?.()))
+      .toBe(oneGesture - 3);
+    await page
+      .getByRole("button", { name: "Return exercise", exact: true })
+      .focus();
+    await page.keyboard.press("Enter");
+    await browserExpect(list).toBeVisible();
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{ ...first, y: first.y + 100 }, second],
+    });
+    await browserExpect(list.locator("[data-dragging]")).toHaveCount(0);
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    });
+    await browserExpect(steps.locator("[id*='-step-']")).toHaveText([
+      "Сохранить векторы в индекс",
+      "Посчитать эмбеддинги чанков",
+      "Нарезать документы на чанки",
+      "Найти ближайшие чанки к вопросу",
+    ]);
+    await session.detach();
+  } finally {
+    await context.close();
+  }
+}, 15_000);

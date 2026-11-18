@@ -3,13 +3,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import {
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-  type RefObject,
-} from "react";
+import { useState, useSyncExternalStore, type ReactNode } from "react";
 
 import { useHomePin } from "@/features/product-order";
 import {
@@ -54,6 +48,11 @@ import {
   useCollectionListQuery,
   type CollectionListNavigation,
 } from "../model/use-collection-list-query.client";
+import {
+  createContentCollectionState,
+  type ContentCollectionState,
+} from "../model/content-collection-state";
+import { useTopicFocus } from "../model/use-topic-focus.client";
 import { CollectionCreateForm } from "./collection-create-form.client";
 import { MutationNotice } from "./collection-mutation-notice";
 import { HomePinNotice, ProductsTable } from "./products-list.client";
@@ -72,24 +71,16 @@ export function ContentCollectionsPageClient({
   readonly initialCollections: readonly ContentCollection[];
   readonly kind: ContentCollectionKind;
 }) {
-  const [collections, setCollections] = useState(initialCollections);
+  const [collectionState] = useState(() =>
+    createContentCollectionState(initialCollections),
+  );
+  const collections = useSyncExternalStore(
+    collectionState.subscribe,
+    collectionState.getSnapshot,
+    collectionState.getSnapshot,
+  );
   const [query, navigation] = useCollectionListQuery(kind);
-  const applySavedCollection = (result: ContentCollectionMutationResult) => {
-    if (result.kind !== "saved") return;
-    setCollections((current) => {
-      const existing = current.some(({ id }) => id === result.collection.id);
-      const next = existing
-        ? current.map((collection) =>
-            collection.id === result.collection.id
-              ? result.collection
-              : collection,
-          )
-        : [...current, result.collection];
-      return [...next].sort((left, right) =>
-        left.name.localeCompare(right.name),
-      );
-    });
-  };
+  const applySavedCollection = collectionState.accept;
 
   return (
     <main className="authoring-page" id="authoring-content" tabIndex={-1}>
@@ -103,6 +94,7 @@ export function ContentCollectionsPageClient({
           />
         ) : (
           <TopicsSection
+            collectionState={collectionState}
             collections={collections}
             navigation={navigation}
             onSaved={applySavedCollection}
@@ -179,11 +171,12 @@ function ProductsSection({
 }
 
 function TopicsSection({
+  collectionState,
   collections,
   query,
   navigation,
   onSaved,
-}: SectionProps) {
+}: SectionProps & { readonly collectionState: ContentCollectionState }) {
   const router = useRouter();
   const listPath = usePathname();
   const openId = query.topicId;
@@ -201,8 +194,7 @@ function TopicsSection({
     mutationFn: setContentCollectionArchive,
     onSuccess: onSaved,
   });
-  const listRef = useRef<HTMLDivElement>(null);
-  useTopicFocus(openId, listRef);
+  const { listRef, headingId } = useTopicFocus(openId);
 
   const found = filterCollections(collections, query);
   const shown = pageOfCollections(found, query.page);
@@ -244,10 +236,11 @@ function TopicsSection({
                 if (collection === undefined) return;
                 void flushPendingEdits().then((ok) => {
                   if (!ok) return;
+                  const current = collectionState.collection(collection.id);
                   archive.mutate({
-                    archived: !collection.archived,
-                    collectionId: collection.id,
-                    expectedVersion: collection.version,
+                    archived: !current.archived,
+                    collectionId: current.id,
+                    expectedVersion: current.version,
                     kind: "topic",
                   });
                 });
@@ -287,48 +280,15 @@ function TopicsSection({
           <div className="contents" hidden={id !== openId} key={id}>
             <TopicEditor
               collection={collection}
-              headingId={topicHeadingId(id)}
+              headingId={headingId(id)}
               onClose={close}
-              onSaved={onSaved}
+              state={collectionState}
             />
           </div>
         );
       })}
     </>
   );
-}
-
-/**
- * Фокус идёт за видом: открытая тема получает его на заголовке, а возврат к списку ставит его на
- * ссылку той же темы в строке.
- */
-function useTopicFocus(
-  openId: string | undefined,
-  listRef: RefObject<HTMLDivElement | null>,
-) {
-  const previous = useRef(openId);
-  useEffect(() => {
-    const left = previous.current;
-    if (left === openId) return;
-    previous.current = openId;
-    if (openId !== undefined) {
-      document.getElementById(topicHeadingId(openId))?.focus();
-      return;
-    }
-    const link = [
-      ...(listRef.current?.querySelectorAll<HTMLAnchorElement>("a[href]") ??
-        []),
-    ].find(
-      (anchor) =>
-        anchor.getClientRects().length > 0 &&
-        new URL(anchor.href).searchParams.get("topic") === left,
-    );
-    link?.focus();
-  }, [openId, listRef]);
-}
-
-function topicHeadingId(topicId: string): string {
-  return `topic-editor-${topicId}`;
 }
 
 /** Заголовок, форма создания, поиск и фильтр архива одного списка. */

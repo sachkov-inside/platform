@@ -5,6 +5,8 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { telemetryRoute } from "@/features/client-telemetry/model/client-telemetry-wire";
 
+// This fixture asserts immediate HTTP/rate/log outcomes only, not deferred persistence.
+// web-telemetry-forwarding.test.ts retains and runs the actual deferred callback.
 vi.mock("next/server", () => ({ after: () => undefined }));
 
 let handleRenderErrorReport: (request: Request) => Promise<Response>;
@@ -59,7 +61,7 @@ beforeEach(async () => {
   vi.spyOn(console, "error").mockImplementation(() => undefined);
 });
 
-it("пишет каждую метрику загрузки отдельной строкой журнала с адресом страницы", async () => {
+it("немедленный протокол и журнал: пишет каждую метрику загрузки отдельной строкой журнала с адресом страницы", async () => {
   const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
   const cls = { id: "v5-2", name: "CLS", value: 0.02 };
 
@@ -89,7 +91,7 @@ it("пишет каждую метрику загрузки отдельной �
   ]);
 });
 
-it("пишет ошибку отрисовки с кодом обращения в журнал ошибок", async () => {
+it("немедленный протокол и журнал: пишет ошибку отрисовки с кодом обращения в журнал ошибок", async () => {
   const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
   const renderError = {
     boundary: "public",
@@ -116,7 +118,7 @@ it("пишет ошибку отрисовки с кодом обращения 
   ]);
 });
 
-it("не принимает отчёт с чужого сайта и ничего не пишет", async () => {
+it("немедленный протокол и журнал: не принимает отчёт с чужого сайта и ничего не пишет", async () => {
   const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
 
   const response = await handleWebVitalsReport(
@@ -129,7 +131,7 @@ it("не принимает отчёт с чужого сайта и ничег�
   expect(info).not.toHaveBeenCalled();
 });
 
-it("отклоняет отчёт с адресом, в котором есть параметры запроса", async () => {
+it("немедленный протокол и журнал: отклоняет отчёт с адресом, в котором есть параметры запроса", async () => {
   const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
 
   const response = await handleWebVitalsReport(
@@ -146,7 +148,7 @@ it("отклоняет отчёт с адресом, в котором есть 
   expect(info).not.toHaveBeenCalled();
 });
 
-it("отклоняет неизвестную метрику и тело, которое не JSON", async () => {
+it("немедленный протокол и журнал: отклоняет неизвестную метрику и тело, которое не JSON", async () => {
   const unknownMetric = await handleWebVitalsReport(
     report(
       "/api/web-vitals",
@@ -161,7 +163,7 @@ it("отклоняет неизвестную метрику и тело, кот
   expect(notJson.status).toBe(400);
 });
 
-it("отклоняет слишком большой отчёт, даже если его длина не заявлена", async () => {
+it("немедленный протокол и журнал: отклоняет слишком большой отчёт, даже если его длина не заявлена", async () => {
   const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
   const oversized = JSON.stringify({
     boundary: "public",
@@ -211,7 +213,7 @@ describe("общий потолок журнала для отчётов бра�
     vi.useRealTimers();
   });
 
-  it("сверх потолка отвечает 429 с Retry-After и не пишет отчёт в журнал", async () => {
+  it("немедленный протокол и журнал: сверх потолка отвечает 429 с Retry-After и не пишет отчёт в журнал", async () => {
     const error = vi
       .spyOn(console, "error")
       .mockImplementation(() => undefined);
@@ -233,7 +235,7 @@ describe("общий потолок журнала для отчётов бра�
     expect(loggedEvents(error, "client-render-error")).toHaveLength(60);
   });
 
-  it("отмечает в журнале только первый отказ окна, а в новом окне снова принимает отчёты", async () => {
+  it("немедленный протокол и журнал: отмечает в журнале только первый отказ окна, а в новом окне снова принимает отчёты", async () => {
     const error = vi
       .spyOn(console, "error")
       .mockImplementation(() => undefined);
@@ -258,7 +260,7 @@ describe("общий потолок журнала для отчётов бра�
     expect(nextWindow.status).toBe(204);
   });
 
-  it("считает метрики строками журнала и не пишет часть отчёта, который не помещается", async () => {
+  it("немедленный протокол и журнал: считает метрики строками журнала и не пишет часть отчёта, который не помещается", async () => {
     const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
     const metrics = (count: number) =>
       Array.from({ length: count }, (_, index) => ({
@@ -286,7 +288,7 @@ describe("общий потолок журнала для отчётов бра�
     expect(loggedEvents(info, "web-vital")).toHaveLength(300);
   });
 
-  it("поток метрик не вытесняет отчёты об ошибках", async () => {
+  it("немедленный протокол и журнал: поток метрик не вытесняет отчёты об ошибках", async () => {
     vi.spyOn(console, "info").mockImplementation(() => undefined);
     const vitals = JSON.stringify({ metrics: [lcp], route: "/" });
 
@@ -304,7 +306,7 @@ describe("общий потолок журнала для отчётов бра�
     expect(errorReport.status).toBe(204);
   });
 
-  it("на стенде и в проверках разработки потолок не действует", async () => {
+  it("немедленный протокол и журнал: на стенде и в проверках разработки потолок не действует", async () => {
     vi.stubEnv("NODE_ENV", "development");
     const send = () =>
       handleRenderErrorReport(
@@ -318,7 +320,7 @@ describe("общий потолок журнала для отчётов бра�
   });
 });
 
-it("does not log the bearer id of a private payment link", async () => {
+it("immediate protocol/log: does not log the bearer id of a private payment link", async () => {
   const response = await handleWebVitalsReport(
     report(
       "/api/web-vitals",
@@ -340,7 +342,7 @@ it("does not log the bearer id of a private payment link", async () => {
   );
 });
 
-it("groups a person card by its template, never by the Account ID", async () => {
+it("immediate protocol/log: groups a person card by its template, never by the Account ID", async () => {
   const accountId = "d1210000-0000-4000-8000-000000000001";
   expect(telemetryRoute(`/authoring/people/${accountId}`)).toBe(
     "/authoring/people/[accountId]",

@@ -1,7 +1,17 @@
 // @ts-check
+import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import process from "node:process";
 import { fileURLToPath, URL } from "node:url";
+import { z } from "zod";
+
+import { commandExit } from "../../../scripts/diagnostic-command.mjs";
+import { spawnOwned, stopOwned } from "../../../scripts/owned-process.mjs";
+
+import { testSubstituteViolations } from "./test-substitutes.mts";
 
 const webRoot = fileURLToPath(new URL("..", import.meta.url));
 const fixtures = [
@@ -269,3 +279,122 @@ for (const fixture of [
       `Web lint fixture ${fixture.file} did not enforce its contract\n${output}`,
     );
 }
+
+// Deliberate violations are data, not runnable substitutes: https://github.com/sachkov-inside/platform/issues/2292
+const substituteFixtures = z
+  .object({
+    rejected: z.array(
+      z.object({
+        name: z.string(),
+        file: z.string(),
+        source: z.string(),
+        diagnostic: z.string(),
+      }),
+    ),
+    accepted: z.array(
+      z.object({ name: z.string(), file: z.string(), source: z.string() }),
+    ),
+  })
+  .parse(
+    JSON.parse(
+      readFileSync(
+        new URL(
+          "../test/guardrails/fixtures/test-substitutes.json",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    ),
+  );
+const substituteFailures = [];
+for (const fixture of substituteFixtures.rejected) {
+  const diagnostics = testSubstituteViolations(fixture.file, fixture.source);
+  if (
+    !diagnostics.some((diagnostic) => diagnostic.includes(fixture.diagnostic))
+  )
+    substituteFailures.push(
+      `Accepted forbidden ${fixture.name}: ${diagnostics.join("\n")}`,
+    );
+}
+for (const fixture of substituteFixtures.accepted) {
+  const diagnostics = testSubstituteViolations(fixture.file, fixture.source);
+  if (diagnostics.length)
+    substituteFailures.push(
+      `Rejected allowed ${fixture.name}: ${diagnostics.join("\n")}`,
+    );
+}
+assert.deepEqual(substituteFailures, [], "Web test substitute fixtures");
+
+const substituteDirectory = mkdtempSync(
+  path.join(tmpdir(), "platform-test-substitutes-"),
+);
+/** @type {NodeJS.Signals | undefined} */
+let substituteInterrupted;
+const substituteCliTimeoutMs = 30_000;
+const substituteCliStopGraceMs = 1_000;
+try {
+  const fixture = substituteFixtures.rejected[0];
+  assert.ok(fixture);
+  const file = path.join(substituteDirectory, "substitution.test.ts");
+  writeFileSync(file, fixture.source);
+  const child = spawnOwned(
+    process.execPath,
+    ["scripts/check-web-architecture.mjs", file],
+    { cwd: webRoot },
+  );
+  let timedOut = false;
+  let stdout = "";
+  let stderr = "";
+  const stop = () => {
+    void stopOwned(child, substituteCliStopGraceMs);
+  };
+  const onInterrupt = () => {
+    substituteInterrupted = "SIGINT";
+    stop();
+  };
+  const onTerminate = () => {
+    substituteInterrupted = "SIGTERM";
+    stop();
+  };
+  const deadline = setTimeout(() => {
+    timedOut = true;
+    stop();
+  }, substituteCliTimeoutMs);
+  process.once("SIGINT", onInterrupt);
+  process.once("SIGTERM", onTerminate);
+  try {
+    child.stdout?.on("data", (chunk) => {
+      stdout += String(chunk);
+    });
+    child.stderr?.on("data", (chunk) => {
+      stderr += String(chunk);
+    });
+    const status = await commandExit(child);
+    if (substituteInterrupted === undefined) {
+      assert.equal(
+        timedOut,
+        false,
+        "Architecture command exceeded its failure budget",
+      );
+      assert.equal(
+        status,
+        1,
+        "Architecture command must reject an own-module substitution",
+      );
+      assert.ok(`${stdout}${stderr}`.includes(fixture.diagnostic));
+    } else {
+      process.exitCode = substituteInterrupted === "SIGINT" ? 130 : 143;
+    }
+  } finally {
+    clearTimeout(deadline);
+    process.off("SIGINT", onInterrupt);
+    process.off("SIGTERM", onTerminate);
+    await stopOwned(child, substituteCliStopGraceMs);
+  }
+} finally {
+  rmSync(substituteDirectory, { recursive: true, force: true });
+}
+if (substituteInterrupted === undefined)
+  process.stdout.write(
+    `Web test substitute guardrails passed (${substituteFixtures.rejected.length} rejected, ${substituteFixtures.accepted.length} accepted).\n`,
+  );

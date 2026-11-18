@@ -1,7 +1,7 @@
 "use client";
 
 import { Maximize2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 import { hasText } from "@/shared/lib/text";
 
@@ -35,14 +35,6 @@ export function MaterialImageDelivery({
   const [failed, setFailed] = useState(false);
   const [viewing, setViewing] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
-  const returnFocus = useRef(false);
-  useEffect(() => {
-    // Фокус возвращается после того, как окно просмотра закрылось: пока оно модальное,
-    // остальная страница недоступна для фокуса.
-    if (viewing || !returnFocus.current) return;
-    returnFocus.current = false;
-    trigger.current?.focus();
-  }, [viewing]);
   const image = (
     // oxlint-disable-next-line next/no-img-element -- The protected route needs the viewer's session.
     <img
@@ -124,8 +116,8 @@ export function MaterialImageDelivery({
           caption={caption}
           height={viewerSize.height}
           onClose={() => {
-            returnFocus.current = true;
             setViewing(false);
+            trigger.current?.focus();
           }}
           src={src}
           width={viewerSize.width}

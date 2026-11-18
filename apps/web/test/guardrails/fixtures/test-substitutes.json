@@ -1,0 +1,619 @@
+{
+  "rejected": [
+    {
+      "name": "direct own module",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { vi } from \"vitest\"; vi.mock(\"@/shared/auth/session-adapter.server\", () => ({ sessionAdapter: {} }));",
+      "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "renamed vi import",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { vi as tool } from \"vitest\"; tool.mock(\"@/shared/auth/index.server\");",
+      "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "API and target aliases",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { vi } from \"vitest\"; const tool = vi; const target = \"@/shared/auth/index.server\"; tool.mock(target);",
+      "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "mock method alias",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { vi } from \"vitest\"; const replace = vi.mock; replace(\"@/shared/auth/index.server\");",
+      "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "destructured mock method",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { vi } from \"vitest\"; const { mock: replace } = vi; replace(\"@/shared/auth/index.server\");",
+      "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "computed literal method",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { vi } from \"vitest\"; vi[\"mock\"](\"@/shared/auth/index.server\");",
+      "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "computed alias method",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { vi } from \"vitest\"; const method = \"mock\"; const replace = vi[method]; replace(\"@/shared/auth/index.server\");",
+      "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "dynamic target",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { vi } from \"vitest\"; vi.mock(chooseModule());",
+      "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "dynamic API",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { vi } from \"vitest\"; const method = chooseMethod(); vi[method](\"@/shared/auth/index.server\");",
+      "diagnostic": "test mock APIs must have literal names"
+    },
+    {
+      "name": "relative module",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { vi } from \"vitest\"; vi.doMock(\"../../src/shared/auth/index.server\");",
+      "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "workspace module",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { vi } from \"vitest\"; vi.mock(\"@inside/contracts\");",
+      "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "SDK is not the identity service",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { vi } from \"vitest\"; vi.mock(\"@logto/next\", () => ({ default: class {} }));",
+      "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "unapproved external package",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { vi } from \"vitest\"; vi.mock(\"react\", () => ({ createElement: () => null }));",
+      "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "spread replaces an own export",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { vi } from \"vitest\"; vi.mock(\"@/shared/auth/index.server\", async (original) => ({ ...await original(), readAuthenticatedSession: () => ({ kind: \"ready\" }) }));",
+      "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "original module passed to a helper",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { vi } from \"vitest\"; vi.mock(\"@/shared/auth/index.server\", async (original) => { const module = await original(); change(module); return module; });",
+      "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "original module mutated",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { vi } from \"vitest\"; vi.mock(\"@/shared/auth/index.server\", async (original) => { const module = await original(); module.readAuthenticatedSession = () => null; return module; });",
+      "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "after noop outside immediate fixtures",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { vi } from \"vitest\"; vi.mock(\"next/server\", () => ({ after: () => undefined }));",
+      "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "forwarding fixture must retain callback",
+      "file": "test/module/web-telemetry-forwarding.test.ts",
+      "source": "import { vi } from \"vitest\"; vi.mock(\"next/server\", () => ({ after: () => undefined }));",
+      "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "forwarding fixture cannot swap callback",
+      "file": "test/module/web-telemetry-forwarding.test.ts",
+      "source": "import { vi } from \"vitest\"; vi.mock(\"next/server\", () => ({ after: (work) => { pending.work.push(() => Promise.resolve()); } }));",
+      "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "platform exception cannot replace NextRequest",
+      "file": "test/module/client-telemetry-bff.test.ts",
+      "source": "import { vi } from \"vitest\"; vi.mock(\"next/server\", () => ({ after: () => undefined, NextRequest: class {} }));",
+      "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "unapproved cookies API",
+      "file": "test/module/client-telemetry-bff.test.ts",
+      "source": "import { vi } from \"vitest\"; vi.mock(\"next/headers\", () => ({ cookies: () => fakeJar }));",
+      "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "own spy behavior",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { vi } from \"vitest\"; import { sessionAdapter } from \"@/shared/auth/session-adapter.server\"; vi.spyOn(sessionAdapter, \"accessToken\").mockResolvedValue(\"token\");",
+      "diagnostic": "cannot replace own or SDK behavior"
+    },
+    {
+      "name": "own spy alias behavior",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { vi } from \"vitest\"; import { sessionAdapter } from \"@/shared/auth/session-adapter.server\"; const read = vi.spyOn(sessionAdapter, \"accessToken\"); const alias = read; alias.mockImplementation(() => \"token\");",
+      "diagnostic": "cannot replace own or SDK behavior"
+    },
+    {
+      "name": "imported mocked view",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { mocked } from \"storybook/test\"; import { ReaderHistoryTracker } from \"@/shared/ui/reader-history.client\"; mocked(ReaderHistoryTracker).mockReturnValue(null);",
+      "diagnostic": "cannot replace own or SDK behavior"
+    },
+    {
+      "name": "mocked view alias",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { vi } from \"vitest\"; import { ReaderHistoryTracker } from \"@/shared/ui/reader-history.client\"; const render = vi.mocked(ReaderHistoryTracker); render.mockImplementation(() => null);",
+      "diagnostic": "cannot replace own or SDK behavior"
+    },
+    {
+      "name": "direct member assignment",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { sessionAdapter } from \"@/shared/auth/session-adapter.server\"; sessionAdapter.accessToken = async () => \"token\";",
+      "diagnostic": "cannot overwrite imported own or SDK members"
+    },
+    {
+      "name": "Object.assign replacement",
+      "file": "test/module/substitution.test.ts",
+      "source": "import * as backend from \"@/shared/api/backend/index.server\"; Object.assign(backend, { requestAccountProfileCreation: async () => null });",
+      "diagnostic": "cannot overwrite imported own or SDK members"
+    },
+    {
+      "name": "own callable default",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { executeCreateAccountProfile as create } from \"@/_pages/account/api/create-account-profile\"; create({}, \"token\", async () => null);",
+      "diagnostic": "exercise own callable defaults"
+    },
+    {
+      "name": "productionDependencies object default",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { getCurrentMaterial } from \"@/_pages/material-authoring/api/get-current-material\"; getCurrentMaterial(\"id\", \"token\", { load: async () => null, references: async () => null });",
+      "diagnostic": "exercise own callable defaults"
+    },
+    {
+      "name": "inline callable object default",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { executeAcceptTerms } from \"@/features/terms-acceptance/api/accept-terms.server\"; executeAcceptTerms(\"button\", \"token\", { accept: async () => null, resumeTelegramSignIn: async () => null });",
+      "diagnostic": "exercise own callable defaults"
+    },
+    {
+      "name": "local own logger through barrel",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { readProductPageHero } from \"@/entities/product-page\"; readProductPageHero({ lead: 1 }, \"test\", () => undefined);",
+      "diagnostic": "exercise own callable defaults"
+    },
+    {
+      "name": "own alias redirect",
+      "file": "vitest.config.mts",
+      "source": "export const config = { resolve: { alias: { \"@/shared/auth\": \"./fake-auth.ts\" } } };",
+      "diagnostic": "aliases cannot redirect own modules"
+    },
+    {
+      "name": "own root alias redirect",
+      "file": "vitest.config.mts",
+      "source": "export const config = { resolve: { alias: { \"@\": \"./fake-src\" } } };",
+      "diagnostic": "aliases cannot redirect own modules"
+    },
+    {
+      "name": "server marker outside owning fixture",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { vi } from \"vitest\"; vi.mock(\"server-only\", () => ({}));",
+      "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "cache cannot add arbitrary exports",
+      "file": "test/module/mutation-operation.test.ts",
+      "source": "import { vi } from \"vitest\"; vi.mock(\"next/cache\", () => ({ cacheLife: vi.fn(), cacheTag: vi.fn(), revalidateTag: vi.fn(), unstable_cache: () => null }));",
+      "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "connection cannot replace other Next exports",
+      "file": "test/support/request-scope.ts",
+      "source": "import { vi } from \"vitest\"; vi.mock(\"next/server\", async (original) => ({ ...await original(), connection: () => Promise.resolve(), NextRequest: class {} }));",
+      "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "Storybook preset outside cache contract",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { vi } from \"vitest\"; vi.mock(\"@storybook/addon-vitest/vitest-plugin\", () => ({ storybookTest: () => [] }));",
+      "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "transparent load observer changed later",
+      "file": "test/module/observation.test.ts",
+      "source": "import { vi } from \"vitest\"; const state = vi.hoisted(() => ({ loaded: vi.fn() })); state.loaded.mockImplementation(() => { throw new Error(\"replace import\"); }); vi.mock(\"@/shared/auth/index.server\", async (original) => { const module = await original(); state.loaded(\"actual\"); return module; });",
+      "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "root file URL must target actual source",
+      "file": "vitest.config.mts",
+      "source": "import { fileURLToPath } from \"node:url\"; const config = { resolve: { alias: { \"@\": fileURLToPath(new URL(\"./fake-src\", import.meta.url)) } } };",
+      "diagnostic": "aliases cannot redirect own modules"
+    },
+    {
+      "name": "different Next alias target",
+      "file": ".storybook/main.ts",
+      "source": "import { fileURLToPath } from \"node:url\"; const config={resolve:{alias:{\"next/headers\":fileURLToPath(new URL(\"./mocks/next-navigation.ts\", import.meta.url))}}};",
+      "diagnostic": "framework aliases require the approved target, adapter and owning context"
+    },
+    {
+      "name": "different Storybook adapter",
+      "file": ".storybook/main.ts",
+      "source": "import { fileURLToPath } from \"node:url\"; const config={resolve:{alias:{\"next/navigation\":fileURLToPath(new URL(\"./mocks/next-link.tsx\", import.meta.url))}}};",
+      "diagnostic": "framework aliases require the approved target, adapter and owning context"
+    },
+    {
+      "name": "Storybook alias in module context",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { fileURLToPath } from \"node:url\"; const config={resolve:{alias:{\"next/link\":fileURLToPath(new URL(\"../../.storybook/mocks/next-link.tsx\", import.meta.url))}}};",
+      "diagnostic": "framework aliases require the approved target, adapter and owning context"
+    },
+    {
+      "name": "handoff shim in Storybook context",
+      "file": ".storybook/main.ts",
+      "source": "import { fileURLToPath } from \"node:url\"; const config={resolve:{alias:{\"next/navigation\":fileURLToPath(new URL(\"../test/support/course-reading-router.ts\", import.meta.url))}}};",
+      "diagnostic": "framework aliases require the approved target, adapter and owning context"
+    },
+    {
+      "name": "handoff shim in production alias",
+      "file": "src/features/fixture.ts",
+      "source": "import { fileURLToPath } from \"node:url\"; const config={resolve:{alias:{\"next/navigation\":fileURLToPath(new URL(\"../../test/support/course-reading-router.ts\", import.meta.url))}}};",
+      "diagnostic": "framework aliases require the approved target, adapter and owning context"
+    },
+    {
+      "name": "own backend adapter disguised as Next alias",
+      "file": ".storybook/main.ts",
+      "source": "import { fileURLToPath } from \"node:url\"; const config={resolve:{alias:{\"next/navigation\":fileURLToPath(new URL(\"../src/shared/api/backend/index.server.ts\", import.meta.url))}}};",
+      "diagnostic": "framework aliases require the approved target, adapter and owning context"
+    },
+    {
+      "name": "cache alias cannot redirect own policy",
+      "file": "vitest.config.mts",
+      "source": "import { fileURLToPath } from \"node:url\"; const config={resolve:{alias:{\"next/cache\":fileURLToPath(new URL(\"./src/shared/api/catalog-cache.server.ts\", import.meta.url))}}};",
+      "diagnostic": "framework aliases require the approved target, adapter and owning context"
+    },
+    {
+      "name": "unapproved package alias",
+      "file": "vitest.config.mts",
+      "source": "import { fileURLToPath } from \"node:url\"; const config={resolve:{alias:{\"react\":fileURLToPath(new URL(\"./test/fake-react.ts\", import.meta.url))}}};",
+      "diagnostic": "framework aliases require the approved target, adapter and owning context"
+    },
+    {
+      "name": "direct handoff shim in module context",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { useSearchParams } from \"../support/course-reading-router\"; useSearchParams();",
+      "diagnostic": "framework adapters stay in their approved fixture contexts"
+    },
+    {
+      "name": "direct handoff shim in production context",
+      "file": "src/fixture.ts",
+      "source": "import { useSearchParams } from \"../test/support/course-reading-router\"; useSearchParams();",
+      "diagnostic": "framework adapters stay in their approved fixture contexts"
+    },
+    {
+      "name": "additional framework API .storybook/mocks/next-link.tsx",
+      "file": ".storybook/mocks/next-link.tsx",
+      "source": "import { forwardRef, type AnchorHTMLAttributes, type ReactNode } from \"react\";\n\ninterface StorybookLinkProps extends Omit<\n  AnchorHTMLAttributes<HTMLAnchorElement>,\n  \"href\"\n> {\n  readonly children?: ReactNode;\n  readonly href: string;\n  readonly prefetch?: boolean | null;\n  readonly scroll?: boolean | undefined;\n  readonly onNavigate?: (() => void) | undefined;\n}\n\nconst StorybookLink = forwardRef<HTMLAnchorElement, StorybookLinkProps>(\n  (\n    { prefetch: _prefetch, scroll: _scroll, onNavigate: _onNavigate, ...props },\n    ref,\n  ) => <a ref={ref} {...props} />,\n);\n\nStorybookLink.displayName = \"StorybookLink\";\n\nexport default StorybookLink;\n\nexport function useLinkStatus() {\n  return { pending: false };\n}\n\nexport const unapproved = () => null;\n",
+      "diagnostic": "framework adapter API or behavior changed outside its accepted boundary"
+    },
+    {
+      "name": "additional framework API .storybook/mocks/next-navigation.ts",
+      "file": ".storybook/mocks/next-navigation.ts",
+      "source": "import { fn } from \"storybook/test\";\nimport { ReadonlyURLSearchParams } from \"next/dist/client/components/readonly-url-search-params\";\n\nexport { ReadonlyURLSearchParams };\n\nconst router = {\n  back: () => undefined,\n  forward: () => undefined,\n  prefetch: () => Promise.resolve(),\n  push: () => undefined,\n  refresh: () => undefined,\n  replace: () => undefined,\n};\n\nexport const usePathname = fn((): string => \"/\");\n\n/** Параметры маршрута: story задаёт их через `mocked(useParams).mockReturnValue(...)`. */\nexport const useParams = fn((): Record<string, string | string[]> => ({}));\n\nexport function useRouter() {\n  return router;\n}\n\n/** Story fixtures configure the external router before rendering production hooks. */\nexport function getStoryRouter() {\n  return router;\n}\n\nexport const useSearchParams = fn(\n  (): ReadonlyURLSearchParams => new ReadonlyURLSearchParams(),\n);\n\nexport const unapproved = () => null;\n",
+      "diagnostic": "framework adapter API or behavior changed outside its accepted boundary"
+    },
+    {
+      "name": "additional framework API test/support/course-reading-router.ts",
+      "file": "test/support/course-reading-router.ts",
+      "source": "import { use, useSyncExternalStore } from \"react\";\n\nlet release: () => void;\nconst ready = new Promise<void>((resolve) => {\n  release = resolve;\n});\nexport function usePathname() {\n  return useSyncExternalStore(\n    (notify) => {\n      window.addEventListener(\"popstate\", notify);\n      return () => {\n        window.removeEventListener(\"popstate\", notify);\n      };\n    },\n    () => window.location.pathname,\n    () => window.location.pathname,\n  );\n}\nexport function useSearchParams() {\n  use(ready);\n  return new URLSearchParams(window.location.search);\n}\nexport function releaseLocation() {\n  release();\n}\n\nexport const unapproved = () => null;\n",
+      "diagnostic": "framework adapter API or behavior changed outside its accepted boundary"
+    },
+    {
+      "name": "anchor pending behavior changes",
+      "file": ".storybook/mocks/next-link.tsx",
+      "source": "import { forwardRef, type AnchorHTMLAttributes, type ReactNode } from \"react\";\n\ninterface StorybookLinkProps extends Omit<\n  AnchorHTMLAttributes<HTMLAnchorElement>,\n  \"href\"\n> {\n  readonly children?: ReactNode;\n  readonly href: string;\n  readonly prefetch?: boolean | null;\n  readonly scroll?: boolean | undefined;\n  readonly onNavigate?: (() => void) | undefined;\n}\n\nconst StorybookLink = forwardRef<HTMLAnchorElement, StorybookLinkProps>(\n  (\n    { prefetch: _prefetch, scroll: _scroll, onNavigate: _onNavigate, ...props },\n    ref,\n  ) => <a ref={ref} {...props} />,\n);\n\nStorybookLink.displayName = \"StorybookLink\";\n\nexport default StorybookLink;\n\nexport function useLinkStatus() {\n  return { pending: true };\n}\n",
+      "diagnostic": "framework adapter API or behavior changed outside its accepted boundary"
+    },
+    {
+      "name": "handoff readiness behavior changes",
+      "file": "test/support/course-reading-router.ts",
+      "source": "import { use, useSyncExternalStore } from \"react\";\n\nlet release: () => void;\nconst ready = new Promise<void>((resolve) => {\n  release = resolve;\n});\nexport function usePathname() {\n  return useSyncExternalStore(\n    (notify) => {\n      window.addEventListener(\"popstate\", notify);\n      return () => {\n        window.removeEventListener(\"popstate\", notify);\n      };\n    },\n    () => window.location.pathname,\n    () => window.location.pathname,\n  );\n}\nexport function useSearchParams() {\n  void ready;\n  return new URLSearchParams(window.location.search);\n}\nexport function releaseLocation() {\n  release();\n}\n",
+      "diagnostic": "framework adapter API or behavior changed outside its accepted boundary"
+    },
+    {
+      "name": "SPEC-MOCK-1 dynamic own callable default",
+      "file": "test/module/substitution.test.ts",
+      "source": "const { executeCreateAccountProfile: create } = await import(\"@/_pages/account/api/create-account-profile\"); create({}, \"token\", async () => null);",
+      "diagnostic": "exercise own callable defaults"
+    },
+    {
+      "name": "SPEC-MOCK-1 dynamic own spy",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { vi } from \"vitest\"; const { sessionAdapter } = await import(\"@/shared/auth/session-adapter.server\"); vi.spyOn(sessionAdapter, \"accessToken\").mockResolvedValue(\"fake\");",
+      "diagnostic": "cannot replace own or SDK behavior"
+    },
+    {
+      "name": "SPEC-MOCK-2 transparent observer assignment",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { vi } from \"vitest\"; const state=vi.hoisted(()=>({loaded:vi.fn()})); state.loaded=()=>{throw new Error(\"replacement\")}; vi.mock(\"@/shared/auth/index.server\",async original=>{const module=await original();state.loaded(\"actual\");return module;});",
+      "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "SPEC-MOCK-2 transparent observer alias",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { vi } from \"vitest\"; const state=vi.hoisted(()=>({loaded:vi.fn()})); const alias=state.loaded; alias.mockImplementation(()=>{throw new Error(\"replacement\")}); vi.mock(\"@/shared/auth/index.server\",async original=>{const module=await original();state.loaded(\"actual\");return module;});",
+      "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "SPEC-MOCK-3 spy name chain",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { vi } from \"vitest\"; import { sessionAdapter } from \"@/shared/auth/session-adapter.server\"; vi.spyOn(sessionAdapter,\"accessToken\").mockName(\"auth\").mockResolvedValue(\"fake\");",
+      "diagnostic": "cannot replace own or SDK behavior"
+    },
+    {
+      "name": "SPEC-MOCK-4 dynamic handoff adapter",
+      "file": "test/module/substitution.test.ts",
+      "source": "const {useSearchParams}=await import(\"../support/course-reading-router\"); useSearchParams();",
+      "diagnostic": "framework adapters stay in their approved fixture contexts"
+    },
+    {
+      "name": "cache observation cannot change behavior later",
+      "file": "test/module/mutation-operation.test.ts",
+      "source": "import { vi } from \"vitest\"; const state=vi.hoisted(()=>({life:vi.fn(),tag:vi.fn(),invalidate:vi.fn()})); state.invalidate.mockImplementation(()=>{throw new Error(\"replacement\")}); vi.mock(\"next/cache\",()=>({cacheLife:state.life,cacheTag:state.tag,revalidateTag:state.invalidate}));",
+      "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "SPEC-MOCK-1 inline dynamic own default",
+      "file": "test/module/substitution.test.ts",
+      "source": "(await import(\"@/_pages/account/api/create-account-profile\")).executeCreateAccountProfile({},\"token\",async()=>null);",
+      "diagnostic": "exercise own callable defaults"
+    },
+    {
+      "name": "SPEC-MOCK-2 observer Object.assign",
+      "file": "test/module/substitution.test.ts",
+      "source": "import { vi } from \"vitest\"; const state=vi.hoisted(()=>({loaded:vi.fn()})); Object.assign(state,{loaded:()=>{throw new Error(\"replacement\")}}); vi.mock(\"@/shared/auth/index.server\",async original=>{const module=await original();state.loaded(\"actual\");return module;});",
+      "diagnostic": "tests keep modules real"
+    },
+    {
+      "name": "storybook direct own replacement",
+      "file": "src/example.stories.tsx",
+      "source": "import {spyOn} from \"storybook/test\"; import {sessionAdapter} from \"@/shared/auth/session-adapter.server\"; spyOn(sessionAdapter,\"accessToken\").mockReturnValue(\"fake\");",
+      "diagnostic": "tests cannot replace own or SDK behavior through a spy or mocked view"
+    },
+    {
+      "name": "storybook imported alias own replacement",
+      "file": "src/example.stories.tsx",
+      "source": "import {spyOn as observe} from \"storybook/test\"; import {sessionAdapter} from \"@/shared/auth/session-adapter.server\"; const observed=observe(sessionAdapter,\"accessToken\"); observed.mockImplementation(()=>\"fake\");",
+      "diagnostic": "tests cannot replace own or SDK behavior through a spy or mocked view"
+    },
+    {
+      "name": "owner-fact alias in another context",
+      "file": "test/browser-engines/other-owner-facts.test.ts",
+      "source": "import { fileURLToPath } from \"node:url\"; const config={resolve:{alias:{\"next/navigation\":fileURLToPath(new URL(\"../../file-preview/next-navigation.ts\",import.meta.url))}}};",
+      "diagnostic": "framework aliases require the approved target, adapter and owning context"
+    },
+    {
+      "name": "owner-fact alias with another target",
+      "file": "test/browser-engines/owner-fact-announcements.test.ts",
+      "source": "import { fileURLToPath } from \"node:url\"; const config={resolve:{alias:{\"next/link\":fileURLToPath(new URL(\"../../file-preview/next-navigation.ts\",import.meta.url))}}};",
+      "diagnostic": "framework aliases require the approved target, adapter and owning context"
+    },
+    {
+      "name": "owner-fact alias with another adapter",
+      "file": "test/browser-engines/owner-fact-announcements.test.ts",
+      "source": "import { fileURLToPath } from \"node:url\"; const config={resolve:{alias:{\"next/navigation\":fileURLToPath(new URL(\"../../.storybook/mocks/next-navigation.ts\",import.meta.url))}}};",
+      "diagnostic": "framework aliases require the approved target, adapter and owning context"
+    },
+    {
+      "name": "owner-fact adapter expanded exports",
+      "file": "file-preview/next-navigation.ts",
+      "source": "import { ReadonlyURLSearchParams } from \"next/dist/client/components/readonly-url-search-params\";\n\nexport { ReadonlyURLSearchParams };\n\n/** Navigation of the light preview: every transition is a page load of the preview address. */\nconst router = {\n  back: () => {\n    window.history.back();\n  },\n  forward: () => {\n    window.history.forward();\n  },\n  prefetch: () => Promise.resolve(),\n  push: (href: string) => {\n    window.location.assign(href);\n  },\n  refresh: () => undefined,\n  replace: (href: string) => {\n    window.location.replace(href);\n  },\n};\n\nexport function usePathname(): string {\n  return window.location.pathname;\n}\n\nexport function useParams(): Record<string, string | string[]> {\n  return {};\n}\n\nexport function useRouter() {\n  return router;\n}\n\nexport function useSearchParams(): ReadonlyURLSearchParams {\n  return new ReadonlyURLSearchParams(window.location.search);\n}\n\nexport const unapprovedNavigation = true;\n",
+      "diagnostic": "framework adapter API or behavior changed outside its accepted boundary"
+    },
+    {
+      "name": "owner-fact adapter changed body",
+      "file": "file-preview/next-navigation.ts",
+      "source": "import { ReadonlyURLSearchParams } from \"next/dist/client/components/readonly-url-search-params\";\n\nexport { ReadonlyURLSearchParams };\n\n/** Navigation of the light preview: every transition is a page load of the preview address. */\nconst router = {\n  back: () => {\n    window.history.back();\n  },\n  forward: () => {\n    window.history.forward();\n  },\n  prefetch: () => Promise.resolve(),\n  push: (href: string) => {\n    window.location.assign(href);\n  },\n  refresh: () => window.location.reload(),\n  replace: (href: string) => {\n    window.location.replace(href);\n  },\n};\n\nexport function usePathname(): string {\n  return window.location.pathname;\n}\n\nexport function useParams(): Record<string, string | string[]> {\n  return {};\n}\n\nexport function useRouter() {\n  return router;\n}\n\nexport function useSearchParams(): ReadonlyURLSearchParams {\n  return new ReadonlyURLSearchParams(window.location.search);\n}\n",
+      "diagnostic": "framework adapter API or behavior changed outside its accepted boundary"
+    },
+    {
+      "name": "owner-fact adapter direct module consumer",
+      "file": "test/module/unapproved-preview.test.ts",
+      "source": "import {useRouter} from \"../../file-preview/next-navigation\"; useRouter();",
+      "diagnostic": "framework adapters stay in their approved fixture contexts"
+    },
+    {
+      "name": "owner-fact adapter direct production consumer",
+      "file": "src/unapproved-preview.ts",
+      "source": "import {usePathname} from \"../file-preview/next-navigation\"; usePathname();",
+      "diagnostic": "framework adapters stay in their approved fixture contexts"
+    },
+    {
+      "name": "owner-fact adapter dynamic module consumer",
+      "file": "test/module/unapproved-preview.test.ts",
+      "source": "const {useParams}=await import(\"../../file-preview/next-navigation\"); useParams();",
+      "diagnostic": "framework adapters stay in their approved fixture contexts"
+    }
+  ],
+  "accepted": [
+    {
+      "name": "comments and strings are not calls",
+      "file": "test/module/observation.test.ts",
+      "source": "// vi.mock(\"@/shared/auth/index.server\")\nconst text = \"vi.mock(own)\"; setTimeout(() => undefined, 1);"
+    },
+    {
+      "name": "observational spy",
+      "file": "test/module/observation.test.ts",
+      "source": "import { vi } from \"vitest\"; import { sessionAdapter } from \"@/shared/auth/session-adapter.server\"; const read = vi.spyOn(sessionAdapter, \"accessToken\"); read.mockClear();"
+    },
+    {
+      "name": "actual transparent factory",
+      "file": "test/module/observation.test.ts",
+      "source": "import { vi } from \"vitest\"; const state = vi.hoisted(() => ({ loaded: vi.fn() })); vi.mock(\"@/shared/auth/index.server\", async (original) => { const module = await original(); state.loaded(\"actual\"); return module; });"
+    },
+    {
+      "name": "literal Storybook observation",
+      "file": ".storybook/preview.tsx",
+      "source": "import { sb } from \"storybook/test\"; sb.mock(\"../src/shared/ui/reader-history.client\", { spy: true });"
+    },
+    {
+      "name": "mocked render observation",
+      "file": "test/module/observation.test.ts",
+      "source": "import { mocked } from \"storybook/test\"; import { ReaderHistoryTracker } from \"@/shared/ui/reader-history.client\"; mocked(ReaderHistoryTracker).mockClear();"
+    },
+    {
+      "name": "explicit actual default forwarding",
+      "file": "test/module/observation.test.ts",
+      "source": "import { getAccountTelegramMembership } from \"@/_pages/account/api/get-account-telegram-membership\"; import { requestCurrentAccountTelegramMembership } from \"@/shared/api/backend/index.server\"; getAccountTelegramMembership(\"token\", requestCurrentAccountTelegramMembership);"
+    },
+    {
+      "name": "undefined keeps own default",
+      "file": "test/module/observation.test.ts",
+      "source": "import { executeCreateAccountProfile } from \"@/_pages/account/api/create-account-profile\"; executeCreateAccountProfile({}, \"token\", undefined);"
+    },
+    {
+      "name": "clock is a permitted input",
+      "file": "test/module/observation.test.ts",
+      "source": "import { paymentLinkExpiresAt } from \"@/features/payment-links/model/payment-link-expiry\"; paymentLinkExpiresAt(60, () => new Date(\"2030-01-01T00:00:00Z\"));"
+    },
+    {
+      "name": "required generic callback port",
+      "file": "test/module/observation.test.ts",
+      "source": "import { handleMutationOperation } from \"@/shared/auth/index.server\"; handleMutationOperation(request, fixtureOperation, { execute: async () => ({ kind: \"ready\" }), invalidInput: () => ({ kind: \"invalid\" }) });"
+    },
+    {
+      "name": "external HTTP responder",
+      "file": "test/module/observation.test.ts",
+      "source": "import { vi } from \"vitest\"; vi.stubGlobal(\"fetch\", async (request) => Response.json({ backend: true })); vi.useFakeTimers();"
+    },
+    {
+      "name": "local fixture data rebinding",
+      "file": "test/module/observation.test.ts",
+      "source": "import { commerceFixtureFacts } from \"@/storybook/commerce.fixtures\"; let quotedSnapshot = commerceFixtureFacts; quotedSnapshot = { ...quotedSnapshot };"
+    },
+    {
+      "name": "immediate protocol after port",
+      "file": "test/module/client-telemetry-bff.test.ts",
+      "source": "import { vi } from \"vitest\"; vi.mock(\"next/server\", () => ({ after: () => undefined }));"
+    },
+    {
+      "name": "actual callback retained by after port",
+      "file": "test/module/web-telemetry-forwarding.test.ts",
+      "source": "import { vi } from \"vitest\"; const pending = vi.hoisted(() => ({ work: [] })); vi.mock(\"next/server\", () => ({ after: (work) => { pending.work.push(work); } }));"
+    },
+    {
+      "name": "real own root alias",
+      "file": "vitest.config.mts",
+      "source": "import { fileURLToPath } from \"node:url\"; export const config = { resolve: { alias: { \"@\": fileURLToPath(new URL(\"./src\", import.meta.url)) } } };"
+    },
+    {
+      "name": "fresh external SDK configuration port",
+      "file": "test/module/observation.test.ts",
+      "source": "import LogtoClient from \"@logto/next\"; const client = new LogtoClient(config); client.adapter.navigate = async () => undefined;"
+    },
+    {
+      "name": "connected Node-test scope keeps other exports",
+      "file": "test/support/request-scope.ts",
+      "source": "import { vi } from \"vitest\"; vi.mock(\"next/server\", async (original) => ({ ...await original(), connection: () => Promise.resolve() }));"
+    },
+    {
+      "name": "cache API observation",
+      "file": "test/module/mutation-operation.test.ts",
+      "source": "import { vi } from \"vitest\"; vi.mock(\"next/cache\", () => ({ cacheLife: vi.fn(), cacheTag: vi.fn(), revalidateTag: vi.fn() }));"
+    },
+    {
+      "name": "conditional import marker",
+      "file": "test/module/logto-sdk-callback.test.ts",
+      "source": "import { vi } from \"vitest\"; vi.mock(\"server-only\", () => ({}));"
+    },
+    {
+      "name": "cache tooling vendor import side effect",
+      "file": "test/contracts/run-scoped-vite-cache.test.ts",
+      "source": "import { vi } from \"vitest\"; vi.mock(\"@storybook/addon-vitest/vitest-plugin\", () => ({ storybookTest: () => [] }));"
+    },
+    {
+      "name": "browser fixture real root template",
+      "file": "test/browser-engines/course-reading-handoff.test.ts",
+      "source": "import { fileURLToPath } from \"node:url\"; const root = fileURLToPath(new URL(\"../../\", import.meta.url)); const config = { resolve: { alias: { \"@\": `${root}/src` } } };"
+    },
+    {
+      "name": "accepted framework adapter .storybook/mocks/next-link.tsx",
+      "file": ".storybook/mocks/next-link.tsx",
+      "source": "import { forwardRef, type AnchorHTMLAttributes, type ReactNode } from \"react\";\n\ninterface StorybookLinkProps extends Omit<\n  AnchorHTMLAttributes<HTMLAnchorElement>,\n  \"href\"\n> {\n  readonly children?: ReactNode;\n  readonly href: string;\n  readonly prefetch?: boolean | null;\n  readonly scroll?: boolean | undefined;\n  readonly onNavigate?: (() => void) | undefined;\n}\n\nconst StorybookLink = forwardRef<HTMLAnchorElement, StorybookLinkProps>(\n  (\n    { prefetch: _prefetch, scroll: _scroll, onNavigate: _onNavigate, ...props },\n    ref,\n  ) => <a ref={ref} {...props} />,\n);\n\nStorybookLink.displayName = \"StorybookLink\";\n\nexport default StorybookLink;\n\nexport function useLinkStatus() {\n  return { pending: false };\n}\n"
+    },
+    {
+      "name": "accepted framework adapter .storybook/mocks/next-navigation.ts",
+      "file": ".storybook/mocks/next-navigation.ts",
+      "source": "import { fn } from \"storybook/test\";\nimport { ReadonlyURLSearchParams } from \"next/dist/client/components/readonly-url-search-params\";\n\nexport { ReadonlyURLSearchParams };\n\nconst router = {\n  back: () => undefined,\n  forward: () => undefined,\n  prefetch: () => Promise.resolve(),\n  push: () => undefined,\n  refresh: () => undefined,\n  replace: () => undefined,\n};\n\nexport const usePathname = fn((): string => \"/\");\n\n/** Параметры маршрута: story задаёт их через `mocked(useParams).mockReturnValue(...)`. */\nexport const useParams = fn((): Record<string, string | string[]> => ({}));\n\nexport function useRouter() {\n  return router;\n}\n\n/** Story fixtures configure the external router before rendering production hooks. */\nexport function getStoryRouter() {\n  return router;\n}\n\nexport const useSearchParams = fn(\n  (): ReadonlyURLSearchParams => new ReadonlyURLSearchParams(),\n);\n"
+    },
+    {
+      "name": "accepted framework adapter test/support/course-reading-router.ts",
+      "file": "test/support/course-reading-router.ts",
+      "source": "import { use, useSyncExternalStore } from \"react\";\n\nlet release: () => void;\nconst ready = new Promise<void>((resolve) => {\n  release = resolve;\n});\nexport function usePathname() {\n  return useSyncExternalStore(\n    (notify) => {\n      window.addEventListener(\"popstate\", notify);\n      return () => {\n        window.removeEventListener(\"popstate\", notify);\n      };\n    },\n    () => window.location.pathname,\n    () => window.location.pathname,\n  );\n}\nexport function useSearchParams() {\n  use(ready);\n  return new URLSearchParams(window.location.search);\n}\nexport function releaseLocation() {\n  release();\n}\n"
+    },
+    {
+      "name": "accepted actual alias context .storybook/main.ts",
+      "file": ".storybook/main.ts",
+      "source": "import { fileURLToPath } from \"node:url\";\n\nimport type { StorybookConfig } from \"@storybook/react-vite\";\nimport { mergeConfig } from \"vite\";\n\nconst config: StorybookConfig = {\n  staticDirs: [\n    ...[\"wideLight\", \"wideDark\", \"tallLight\", \"tallDark\"].map((name) => ({\n      from: `./fixtures/image-variants/${name}`,\n      to: `/api/materials/02000000-0000-4000-8000-000000000010/assets/${name}.png/images`,\n    })),\n    ...[\"wide\", \"tall\", \"hostile\", \"unscoped\", \"unsafe\"].map((name) => ({\n      from: `./fixtures/svg-figures/${name}`,\n      to: `/api/materials/02000000-0000-4000-8000-000000000010/assets/figure-${name}.svg/images`,\n    })),\n    {\n      from: \"./fixtures/image-variants\",\n      to: \"/api/products/synthetic-course/tasks/synthetic-c-task/assets\",\n    },\n    {\n      from: \"./fixtures/reader-images\",\n      to: \"/api/products/synthetic-course/tasks/synthetic-c-task/assets\",\n    },\n    \"../public\",\n    {\n      from: \"./fixtures/reader-images\",\n      to: \"/api/materials/02000000-0000-4000-8000-000000000010/assets/image-agent-path/images\",\n    },\n    {\n      from: \"../../../docs/evidence/issue-271/covers\",\n      to: \"/api/content-covers\",\n    },\n  ],\n  stories: [\n    \"../src/**/*.mdx\",\n    \"../src/**/!(*.prototype).stories.@(js|jsx|mjs|ts|tsx)\",\n  ],\n  addons: [\n    \"@storybook/addon-vitest\",\n    \"@storybook/addon-a11y\",\n    \"@storybook/addon-docs\",\n    \"@storybook/addon-mcp\",\n  ],\n  framework: \"@storybook/react-vite\",\n  features: { componentsManifest: true },\n  viteFinal: (viteConfig) =>\n    mergeConfig(viteConfig, {\n      // Storybook copies ../public via staticDirs while the Vite build runs.\n      // Keep one writer for those destinations, including public/images.\n      build: { copyPublicDir: false },\n      optimizeDeps: {\n        include: [\n          \"@tiptap/core\",\n          \"@tiptap/react\",\n          \"@inside/material-blocks/schema\",\n        ],\n      },\n      resolve: {\n        alias: {\n          \"@\": fileURLToPath(new URL(\"../src\", import.meta.url)),\n          \"next/link\": fileURLToPath(\n            new URL(\"./mocks/next-link.tsx\", import.meta.url),\n          ),\n          \"next/navigation\": fileURLToPath(\n            new URL(\"./mocks/next-navigation.ts\", import.meta.url),\n          ),\n        },\n      },\n    }),\n  typescript: { reactDocgen: \"react-docgen\" },\n};\n\nexport default config;\n"
+    },
+    {
+      "name": "accepted actual alias context test/browser-engines/course-reading-handoff.test.ts",
+      "file": "test/browser-engines/course-reading-handoff.test.ts",
+      "source": "import { mkdtemp, rm } from \"node:fs/promises\";\nimport { tmpdir } from \"node:os\";\nimport { join } from \"node:path\";\nimport { fileURLToPath } from \"node:url\";\nimport { chromium, expect } from \"@playwright/test\";\nimport { createServer, type ViteDevServer } from \"vite\";\nimport { afterAll, beforeAll, test } from \"vitest\";\n\nlet server: ViteDevServer;\nlet cacheDirectory: string;\nlet origin: string;\nbeforeAll(async () => {\n  const root = fileURLToPath(new URL(\"../../\", import.meta.url));\n  // Other browser fixtures have their own optimizer config and must not replace our dependency cache.\n  cacheDirectory = await mkdtemp(join(tmpdir(), \"inside-reader-handoff-\"));\n  server = await createServer({\n    configFile: false,\n    cacheDir: cacheDirectory,\n    root,\n    oxc: { jsx: { runtime: \"automatic\" } },\n    optimizeDeps: { include: [\"react-dom/server\"] },\n    resolve: {\n      alias: {\n        \"@\": `${root}/src`,\n        \"next/navigation\": `${root}/test/support/course-reading-router.ts`,\n        \"next/link\": `${root}/.storybook/mocks/next-link.tsx`,\n      },\n    },\n    // This immutable fixture must not reload when a concurrent production build writes HTML.\n    server: { host: \"127.0.0.1\", port: 0, watch: null },\n    plugins: [\n      {\n        name: \"reader-handoff\",\n        configureServer(vite) {\n          vite.middlewares.use((request, response, next) => {\n            if (request.url?.startsWith(\"/materials/step-0?\") !== true) {\n              next();\n              return;\n            }\n            response.setHeader(\"content-type\", \"text/html\");\n            response.end(\n              '<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><div id=\"root\"></div><button id=\"release\">Resolve route</button><script type=\"module\" src=\"/test/support/course-reading-handoff.tsx\"></script>',\n            );\n          });\n        },\n      },\n    ],\n  });\n  await server.listen();\n  const address = server.httpServer?.address();\n  if (address === undefined || address === null || typeof address === \"string\")\n    throw new Error(\"No browser fixture address\");\n  origin = `http://127.0.0.1:${String(address.port)}`;\n});\nafterAll(async () => {\n  try {\n    await server.close();\n  } finally {\n    await rm(cacheDirectory, { recursive: true, force: true });\n  }\n});\n\ntest(\"desktop retains an early chapter choice and focus through host activation\", async () => {\n  const browser = await chromium.launch();\n  try {\n    const page = await browser.newPage({\n      viewport: { width: 1440, height: 1024 },\n    });\n    await page.goto(\n      `${origin}/materials/step-0?from=%2Fproducts%2Fai-engineering%2Fprogramme`,\n    );\n    const rail = page.getByRole(\"complementary\", { name: \"Текущая глава\" });\n    const chapter = rail.getByRole(\"button\", {\n      name: /Глава 1 из 2 First chapter/,\n    });\n    await chapter.click();\n    await rail.getByRole(\"button\", { name: /Глава 2 Second chapter/ }).click();\n    const selected = rail.getByRole(\"button\", {\n      name: /Глава 2 из 2 Second chapter/,\n    });\n    await expect(selected).toBeFocused();\n    await expect(page.locator(\"[data-course-reading-host]\")).toHaveCount(0);\n    const before = await page\n      .getByRole(\"heading\", { name: \"Reader body\" })\n      .boundingBox();\n    // Resolve the external observer without stealing the reader's focus.\n    await page.locator(\"#release\").dispatchEvent(\"click\");\n    await expect(page.locator(\"[data-course-reading-host]\")).toBeVisible();\n    await expect(selected).toBeVisible();\n    await expect(selected).toBeFocused();\n    expect(\n      await page.getByRole(\"heading\", { name: \"Reader body\" }).boundingBox(),\n    ).toEqual(before);\n  } finally {\n    await browser.close();\n  }\n}, 30_000);\n\ntest(\"desktop retains early reference expansion and rail scroll through host activation\", async () => {\n  const browser = await chromium.launch();\n  try {\n    const page = await browser.newPage({\n      viewport: { width: 1440, height: 1024 },\n    });\n    await page.goto(\n      `${origin}/materials/step-0?from=%2Fproducts%2Fai-engineering%2Fprogramme`,\n    );\n    const rail = page.getByRole(\"complementary\", { name: \"Текущая глава\" });\n    await rail.getByRole(\"button\", { name: \"Показать ещё\" }).click();\n    const collapse = rail.getByRole(\"button\", { name: \"Скрыть\" });\n    await expect(collapse).toBeFocused();\n    const scroll = rail.locator(\"[data-course-rail-scroll]\");\n    const position = await scroll.evaluate((node) => {\n      node.scrollTop -= 40;\n      return node.scrollTop;\n    });\n    expect(position).toBeGreaterThan(0);\n    await expect(page.locator(\"[data-course-reading-host]\")).toHaveCount(0);\n    await page.locator(\"#release\").dispatchEvent(\"click\");\n    await expect(page.locator(\"[data-course-reading-host]\")).toBeVisible();\n    await expect(collapse).toHaveAttribute(\"aria-expanded\", \"true\");\n    await expect(collapse).toBeFocused();\n    expect(await scroll.evaluate((node) => node.scrollTop)).toBe(position);\n    await page.setViewportSize({ width: 390, height: 844 });\n    await page\n      .getByRole(\"button\", { name: /^Вся программа:/, exact: true })\n      .click();\n    await expect(\n      page.getByRole(\"dialog\").getByRole(\"button\", { name: \"Показать ещё\" }),\n    ).toHaveAttribute(\"aria-expanded\", \"false\");\n  } finally {\n    await browser.close();\n  }\n}, 30_000);\n\nfor (const width of [390, 820])\n  test(`width ${String(width)} retains the early open programme, chapter choice, reference expansion, focus and scroll`, async () => {\n    const browser = await chromium.launch();\n    try {\n      const page = await browser.newPage({\n        viewport: { width, height: 844 },\n        isMobile: width === 390,\n        hasTouch: true,\n      });\n      await page.goto(\n        `${origin}/materials/step-0?from=%2Fproducts%2Fai-engineering%2Fprogramme`,\n      );\n      const trigger = page.getByRole(\"button\", {\n        name: /^Вся программа:/,\n        exact: true,\n      });\n      await trigger.click();\n      const dialog = page.getByRole(\"dialog\");\n      await expect(dialog).toBeVisible();\n      await dialog\n        .getByRole(\"button\", { name: /Глава 1 из 2 First chapter/ })\n        .click();\n      await dialog\n        .getByRole(\"button\", { name: /Глава 2 Second chapter/ })\n        .click();\n      const selected = dialog.getByRole(\"button\", {\n        name: /Глава 2 из 2 Second chapter/,\n      });\n      await expect(selected).toBeFocused();\n      await dialog.getByRole(\"button\", { name: \"Показать ещё\" }).click();\n      const collapse = dialog.getByRole(\"button\", { name: \"Скрыть\" });\n      await expect(collapse).toBeFocused();\n      const position = await dialog.evaluate((node) => {\n        node.scrollTop -= 24;\n        return node.scrollTop;\n      });\n      expect(position).toBeGreaterThan(0);\n      await expect(page.locator(\"[data-course-reading-host]\")).toHaveCount(0);\n      const before = await page\n        .getByRole(\"heading\", { name: \"Reader body\" })\n        .boundingBox();\n      const dialogBefore = await dialog.boundingBox();\n      await page.locator(\"#release\").dispatchEvent(\"click\");\n      await expect(page.locator(\"[data-course-reading-host]\")).toBeVisible();\n      await expect(dialog).toBeVisible();\n      expect(await dialog.boundingBox()).toEqual(dialogBefore);\n      expect(\n        await page.getByRole(\"heading\", { name: \"Reader body\" }).boundingBox(),\n      ).toEqual(before);\n      await expect(selected).toBeVisible();\n      await expect(collapse).toHaveAttribute(\"aria-expanded\", \"true\");\n      await expect(collapse).toBeFocused();\n      expect(await dialog.evaluate((node) => node.scrollTop)).toBe(position);\n      await page.keyboard.press(\"Escape\");\n      await expect(dialog).not.toBeVisible();\n      await expect(trigger).toBeFocused();\n      // The sheet and desktop rail are independent controls, even during their first transfer.\n      await page.setViewportSize({ width: 1440, height: 1024 });\n      const rail = page.getByRole(\"complementary\", { name: \"Текущая глава\" });\n      await expect(\n        rail.getByRole(\"button\", { name: /Глава 1 из 2 First chapter/ }),\n      ).toBeVisible();\n      await expect(\n        rail.getByRole(\"button\", { name: \"Показать ещё\" }),\n      ).toHaveAttribute(\"aria-expanded\", \"false\");\n    } finally {\n      await browser.close();\n    }\n  }, 30_000);\n\ntest(\"desktop preserves an early scroll back to the top instead of revealing the current step again\", async () => {\n  const browser = await chromium.launch();\n  try {\n    const page = await browser.newPage({\n      viewport: { width: 1440, height: 1024 },\n    });\n    await page.goto(\n      `${origin}/materials/step-0?from=%2Fproducts%2Fai-engineering%2Fprogramme&last=1`,\n    );\n    const scroll = page.locator(\"[data-course-rail-scroll]\");\n    await expect\n      .poll(() => scroll.evaluate((node) => node.scrollTop))\n      .toBeGreaterThan(0);\n    await scroll.evaluate((node) => {\n      node.scrollTop = 0;\n    });\n    await scroll.focus();\n    await expect(page.locator(\"[data-course-reading-host]\")).toHaveCount(0);\n    await page.locator(\"#release\").dispatchEvent(\"click\");\n    await expect(page.locator(\"[data-course-reading-host]\")).toBeVisible();\n    await expect(scroll).toBeFocused();\n    expect(await scroll.evaluate((node) => node.scrollTop)).toBe(0);\n  } finally {\n    await browser.close();\n  }\n}, 30_000);\n\ntest(\"an in-progress programme entrance keeps its animation position through host activation\", async () => {\n  const browser = await chromium.launch();\n  try {\n    const page = await browser.newPage({\n      viewport: { width: 390, height: 844 },\n    });\n    await page.goto(\n      `${origin}/materials/step-0?from=%2Fproducts%2Fai-engineering%2Fprogramme`,\n    );\n    await page\n      .getByRole(\"button\", { name: /^Вся программа:/, exact: true })\n      .click();\n    const dialog = page.getByRole(\"dialog\");\n    // Hold the real CSS animation at an intermediate frame without a wall-clock wait.\n    const before = await dialog.evaluate((node) => {\n      const animation = node.getAnimations()[0];\n      if (animation === undefined)\n        throw new Error(\"Missing programme entrance animation\");\n      animation.pause();\n      animation.currentTime = 40;\n      const { x, y, width, height } = node.getBoundingClientRect();\n      return { x, y, width, height };\n    });\n    await expect(page.locator(\"[data-course-reading-host]\")).toHaveCount(0);\n    await page.locator(\"#release\").dispatchEvent(\"click\");\n    await expect(page.locator(\"[data-course-reading-host]\")).toBeVisible();\n    const after = await dialog.boundingBox();\n    expect(after).not.toBeNull();\n    if (after === null)\n      throw new Error(\"Transferred programme has no geometry\");\n    // Transformed rects can differ by floating-point rounding below a thousandth of a pixel.\n    for (const coordinate of [\"x\", \"y\", \"width\", \"height\"] as const)\n      expect(after[coordinate]).toBeCloseTo(before[coordinate], 3);\n    expect(\n      await dialog.evaluate((node) =>\n        node.getAnimations().map((animation) => ({\n          currentTime: animation.currentTime,\n          playState: animation.playState,\n        })),\n      ),\n    ).toEqual([{ currentTime: 40, playState: \"paused\" }]);\n  } finally {\n    await browser.close();\n  }\n}, 30_000);\n\ntest(\"reduced-motion programme stays still through host activation\", async () => {\n  const browser = await chromium.launch();\n  try {\n    const page = await browser.newPage({\n      viewport: { width: 390, height: 844 },\n      reducedMotion: \"reduce\",\n    });\n    await page.goto(\n      `${origin}/materials/step-0?from=%2Fproducts%2Fai-engineering%2Fprogramme`,\n    );\n    await page\n      .getByRole(\"button\", { name: /^Вся программа:/, exact: true })\n      .click();\n    const dialog = page.getByRole(\"dialog\");\n    expect(await dialog.evaluate((node) => node.getAnimations().length)).toBe(\n      0,\n    );\n    const before = await dialog.boundingBox();\n    await expect(page.locator(\"[data-course-reading-host]\")).toHaveCount(0);\n    await page.locator(\"#release\").dispatchEvent(\"click\");\n    await expect(page.locator(\"[data-course-reading-host]\")).toBeVisible();\n    expect(await dialog.boundingBox()).toEqual(before);\n    expect(await dialog.evaluate((node) => node.getAnimations().length)).toBe(\n      0,\n    );\n  } finally {\n    await browser.close();\n  }\n}, 30_000);\n"
+    },
+    {
+      "name": "accepted actual alias context vitest.config.mts",
+      "file": "vitest.config.mts",
+      "source": "import { fileURLToPath } from \"node:url\";\n\nimport { storybookTest } from \"@storybook/addon-vitest/vitest-plugin\";\nimport { defineConfig } from \"vitest/config\";\n\nimport { storybookImportDiagnostics } from \"./test/support/storybook-import-diagnostics.mjs\";\nimport { runScopedViteCache } from \"./test/support/run-scoped-vite-cache.mjs\";\n\nconst importDiagnostics = storybookImportDiagnostics(\n  fileURLToPath(new URL(\"./test-results/storybook-imports\", import.meta.url)),\n);\n\nexport default defineConfig({\n  optimizeDeps: {\n    include: [\"@tanstack/react-query\", \"zod\"],\n  },\n  resolve: {\n    alias: {\n      \"@\": fileURLToPath(new URL(\"./src\", import.meta.url)),\n      \"next/cache\": fileURLToPath(\n        new URL(\"./test/support/next-cache.ts\", import.meta.url),\n      ),\n      \"server-only\": fileURLToPath(\n        new URL(\"./test/support/server-only.ts\", import.meta.url),\n      ),\n    },\n  },\n  test: {\n    projects: [\n      {\n        extends: true,\n        test: {\n          name: \"module\",\n          maxWorkers: 2,\n          environment: \"node\",\n          include: [\"test/module/**/*.test.ts\"],\n          // The actual Logto SDK uses Next's extensionless imports through Vite.\n          // Request stores and cookies stay real in the owned request scope.\n          server: { deps: { inline: [\"@logto/next\"] } },\n          restoreMocks: true,\n          setupFiles: [\"./test/support/request-scope.ts\"],\n          unstubEnvs: true,\n          unstubGlobals: true,\n        },\n      },\n      {\n        extends: true,\n        test: {\n          name: \"contracts\",\n          maxWorkers: 2,\n          environment: \"node\",\n          include: [\"test/contracts/**/*.test.ts\"],\n          // The real HTTP transport imports Logto's extensionless Next.js entrypoint through Vite.\n          server: { deps: { inline: [\"@logto/next\"] } },\n          restoreMocks: true,\n          unstubEnvs: true,\n          unstubGlobals: true,\n        },\n      },\n      {\n        // Проверки, которые сами запускают настоящие движки браузеров (Chromium и WebKit): им нужны\n        // установленные браузеры, поэтому они идут рядом со Storybook, а не с модульными.\n        extends: true,\n        test: {\n          name: \"browser-engines\",\n          maxWorkers: 2,\n          environment: \"node\",\n          include: [\"test/browser-engines/**/*.test.ts\"],\n          restoreMocks: true,\n          unstubEnvs: true,\n          unstubGlobals: true,\n        },\n      },\n      {\n        extends: true,\n        plugins: [\n          storybookTest({\n            configDir: fileURLToPath(new URL(\"./.storybook\", import.meta.url)),\n          }),\n          runScopedViteCache(),\n          importDiagnostics.plugin,\n        ],\n        test: {\n          name: \"storybook\",\n          maxWorkers: 2,\n          setupFiles: [\"./test/support/storybook-preload.ts\"],\n          browser: {\n            enabled: true,\n            headless: true,\n            provider: importDiagnostics.provider,\n            instances: [{ browser: \"chromium\" }],\n          },\n        },\n      },\n    ],\n  },\n});\n"
+    },
+    {
+      "name": "accepted actual alias context vitest.smoke.config.mts",
+      "file": "vitest.smoke.config.mts",
+      "source": "import { fileURLToPath } from \"node:url\";\n\nimport { defineConfig } from \"vitest/config\";\n\nexport default defineConfig({\n  resolve: {\n    alias: {\n      \"@\": fileURLToPath(new URL(\"./src\", import.meta.url)),\n      \"server-only\": fileURLToPath(\n        new URL(\"./test/support/server-only.ts\", import.meta.url),\n      ),\n    },\n  },\n  test: {\n    environment: \"node\",\n    include: [\"test/smoke/**/*.smoke.test.ts\"],\n    testTimeout: 10_000,\n  },\n});\n"
+    },
+    {
+      "name": "framework adapter comments do not alter behavior",
+      "file": ".storybook/mocks/next-navigation.ts",
+      "source": "// vi.mock(\"own\") is a comment, not a call.\nimport { fn } from \"storybook/test\";\nimport { ReadonlyURLSearchParams } from \"next/dist/client/components/readonly-url-search-params\";\n\nexport { ReadonlyURLSearchParams };\n\nconst router = {\n  back: () => undefined,\n  forward: () => undefined,\n  prefetch: () => Promise.resolve(),\n  push: () => undefined,\n  refresh: () => undefined,\n  replace: () => undefined,\n};\n\nexport const usePathname = fn((): string => \"/\");\n\n/** Параметры маршрута: story задаёт их через `mocked(useParams).mockReturnValue(...)`. */\nexport const useParams = fn((): Record<string, string | string[]> => ({}));\n\nexport function useRouter() {\n  return router;\n}\n\n/** Story fixtures configure the external router before rendering production hooks. */\nexport function getStoryRouter() {\n  return router;\n}\n\nexport const useSearchParams = fn(\n  (): ReadonlyURLSearchParams => new ReadonlyURLSearchParams(),\n);\n"
+    },
+    {
+      "name": "dynamic own default stays real",
+      "file": "test/module/observation.test.ts",
+      "source": "const {executeCreateAccountProfile:create}=await import(\"@/_pages/account/api/create-account-profile\"); create({},\"token\");"
+    },
+    {
+      "name": "dynamic own namespace observation",
+      "file": "test/module/observation.test.ts",
+      "source": "import { vi } from \"vitest\"; const module=await import(\"@/shared/auth/session-adapter.server\"); vi.spyOn(module.sessionAdapter,\"accessToken\").mockName(\"actual\").mockClear();"
+    },
+    {
+      "name": "transparent observer alias only clears",
+      "file": "test/module/observation.test.ts",
+      "source": "import { vi } from \"vitest\"; const state=vi.hoisted(()=>({loaded:vi.fn()})); const alias=state.loaded; alias.mockClear(); vi.mock(\"@/shared/auth/index.server\",async original=>{const module=await original();state.loaded(\"actual\");return module;});"
+    },
+    {
+      "name": "storybook direct observing own call",
+      "file": "src/example.stories.tsx",
+      "source": "import {spyOn} from \"storybook/test\"; import {sessionAdapter} from \"@/shared/auth/session-adapter.server\"; const observation=spyOn(sessionAdapter,\"accessToken\"); const returned=observation.mock.results[0]?.value;"
+    },
+    {
+      "name": "storybook imported alias observing own call",
+      "file": "src/example.stories.tsx",
+      "source": "import {spyOn as observe} from \"storybook/test\"; import {sessionAdapter} from \"@/shared/auth/session-adapter.server\"; const observation=observe(sessionAdapter,\"accessToken\"); const returned=observation.mock.results[0]?.value;"
+    },
+    {
+      "name": "owner-fact exact framework alias context",
+      "file": "test/browser-engines/owner-fact-announcements.test.ts",
+      "source": "import { fileURLToPath } from \"node:url\"; const config={resolve:{alias:{\"next/navigation\":fileURLToPath(new URL(\"../../file-preview/next-navigation.ts\",import.meta.url))}}};"
+    },
+    {
+      "name": "owner-fact exact accepted adapter",
+      "file": "file-preview/next-navigation.ts",
+      "source": "import { ReadonlyURLSearchParams } from \"next/dist/client/components/readonly-url-search-params\";\n\nexport { ReadonlyURLSearchParams };\n\n/** Navigation of the light preview: every transition is a page load of the preview address. */\nconst router = {\n  back: () => {\n    window.history.back();\n  },\n  forward: () => {\n    window.history.forward();\n  },\n  prefetch: () => Promise.resolve(),\n  push: (href: string) => {\n    window.location.assign(href);\n  },\n  refresh: () => undefined,\n  replace: (href: string) => {\n    window.location.replace(href);\n  },\n};\n\nexport function usePathname(): string {\n  return window.location.pathname;\n}\n\nexport function useParams(): Record<string, string | string[]> {\n  return {};\n}\n\nexport function useRouter() {\n  return router;\n}\n\nexport function useSearchParams(): ReadonlyURLSearchParams {\n  return new ReadonlyURLSearchParams(window.location.search);\n}\n"
+    }
+  ]
+}

@@ -4,7 +4,7 @@ import {
 } from "@/storybook/autosave-activity";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ReadonlyURLSearchParams, useSearchParams } from "next/navigation";
-import { Suspense, use } from "react";
+import { Activity, Suspense, use, useState } from "react";
 import {
   expect,
   mocked,
@@ -265,6 +265,73 @@ export const ArchiveFromRowMenu: Story = {
           "В архиве",
         ),
       ).toHaveLength(2);
+    } finally {
+      write.mockRestore();
+    }
+  },
+};
+
+/** A retained draft reads the server version accepted by the list's separate archive command. */
+export const DraftAfterRowArchive: Story = {
+  globals: desktop.globals,
+  play: async ({ canvasElement }) => {
+    const page = await openFirstTopic(canvasElement, "Product engineering");
+    await userEvent.click(page.getByRole("button", { name: "Все темы" }));
+    const originalFetch = window.fetch;
+    const inputs: unknown[] = [];
+    const write = spyOn(window, "fetch").mockImplementation(
+      async (input, init) => {
+        if (init?.method !== "PUT") return originalFetch(input, init);
+        if (typeof init.body !== "string")
+          throw new Error("Expected a JSON collection mutation");
+        const body: unknown = JSON.parse(init.body);
+        inputs.push(body);
+        return Response.json({
+          kind: "saved",
+          collection: {
+            ...topic,
+            archived: true,
+            version: inputs.length === 1 ? 4 : 5,
+          },
+        });
+      },
+    );
+    try {
+      await userEvent.click(
+        page.getByRole("button", { name: "Действия с «Product engineering»" }),
+      );
+      await userEvent.click(
+        within(canvasElement.ownerDocument.body).getByRole("menuitem", {
+          name: "В архив",
+        }),
+      );
+      await expect(await page.findByText("Изменения сохранены.")).toBeVisible();
+      await userEvent.click(
+        page.getByRole("link", { name: "Product engineering" }),
+      );
+      await userEvent.type(
+        page.getByRole("textbox", { name: "Краткое описание" }),
+        " Обновлено.",
+      );
+      await expect(await flushPendingEdits()).toBe(true);
+      await expect(inputs).toEqual([
+        {
+          archived: true,
+          collectionId: topic.id,
+          expectedVersion: 3,
+          kind: "topic",
+        },
+        {
+          collectionId: topic.id,
+          expectedVersion: 4,
+          kind: "topic",
+          name: topic.name,
+          summary: `${topic.summary} Обновлено.`,
+        },
+      ]);
+      await expect(
+        page.getByRole("button", { name: "Вернуть из архива" }),
+      ).toBeVisible();
     } finally {
       write.mockRestore();
     }
@@ -539,3 +606,106 @@ function loadsInPlace({ globals, width }: StoryViewport): Story {
 }
 export const LoadsInPlace: Story = loadsInPlace(desktop);
 export const LoadsInPlaceMobile: Story = loadsInPlace(mobile);
+
+function RetainedTopicPages(
+  args: Parameters<typeof ContentCollectionsPageClient>[0],
+) {
+  const [next, setNext] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          setNext(true);
+        }}
+      >
+        Открыть второй экземпляр
+      </button>
+      <Activity mode={next ? "hidden" : "visible"}>
+        <section>
+          <ContentCollectionsPageClient {...args} />
+        </section>
+      </Activity>
+      {next ? (
+        <section data-live-topics>
+          <ContentCollectionsPageClient {...args} />
+        </section>
+      ) : null}
+    </>
+  );
+}
+
+/** A hidden retained instance must not receive the current page's heading focus. */
+export const FocusInCurrentTopicInstance: Story = {
+  beforeEach: () => {
+    mocked(useSearchParams).mockReturnValue(
+      new ReadonlyURLSearchParams(`topic=${topic.id}`),
+    );
+  },
+  render: (args) => <RetainedTopicPages {...args} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const previousHeading = canvas.getByRole("heading", {
+      level: 1,
+      name: topic.name,
+    });
+    await expect(previousHeading).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Открыть второй экземпляр" }),
+    );
+    await expect(previousHeading.isConnected).toBe(true);
+    await expect(previousHeading).not.toBeVisible();
+    const currentRoot =
+      canvasElement.querySelector<HTMLElement>("[data-live-topics]");
+    if (currentRoot === null) throw new Error("Missing current topic instance");
+    const current = within(currentRoot);
+    await expect(
+      canvas.getByRole("button", { name: "Открыть второй экземпляр" }),
+    ).toHaveFocus();
+    await userEvent.click(current.getByRole("button", { name: "Все темы" }));
+    await expect(current.getByRole("link", { name: topic.name })).toHaveFocus();
+    await userEvent.click(current.getByRole("link", { name: topic.name }));
+    await expect(
+      current.getByRole("heading", { level: 1, name: topic.name }),
+    ).toHaveFocus();
+    await expect(
+      current.getByRole("heading", { level: 1, name: topic.name }).id,
+    ).not.toBe(previousHeading.id);
+  },
+};
+
+export const MissingRowDoesNotFocusAnotherTopic: Story = {
+  beforeEach: () => {
+    mocked(useSearchParams).mockReturnValue(
+      new ReadonlyURLSearchParams(`search=Legacy&topic=${topic.id}`),
+    );
+  },
+  render: (args) => <RetainedTopicPages {...args} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const cachedHeading = canvas.getByRole("heading", {
+      level: 1,
+      name: topic.name,
+    });
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Открыть второй экземпляр" }),
+    );
+    const currentRoot =
+      canvasElement.querySelector<HTMLElement>("[data-live-topics]");
+    if (currentRoot === null) throw new Error("Missing current topic instance");
+    const current = within(currentRoot);
+    const currentHeading = current.getByRole("heading", {
+      level: 1,
+      name: topic.name,
+    });
+    await userEvent.click(current.getByRole("button", { name: "Все темы" }));
+    const otherTopic = current.getByRole("link", { name: "Legacy topic" });
+    await expect(otherTopic).toBeVisible();
+    await expect(
+      current.queryByRole("link", { name: topic.name }),
+    ).not.toBeInTheDocument();
+    await expect(otherTopic).not.toHaveFocus();
+    await expect(cachedHeading).not.toHaveFocus();
+    await expect(currentHeading).not.toHaveFocus();
+  },
+};

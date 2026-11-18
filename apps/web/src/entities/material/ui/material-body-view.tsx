@@ -2,6 +2,15 @@ import { Fragment, type ReactNode } from "react";
 
 import { BodyFragmentNavigation } from "@/shared/ui/body-fragment-navigation.client";
 import { materialSourceAnchors } from "../model/material-source-anchors";
+import {
+  bodyBlockIndices,
+  materialTableNames,
+  type MaterialTableNames,
+} from "../model/material-table-names";
+import {
+  MaterialOrderTablePlan,
+  MaterialTableCaption,
+} from "./material-table-names.client";
 import { cn } from "@/shared/lib/utils";
 import type { RenderedBlock, RenderedText } from "../../material.model";
 import { MaterialLessonBlock } from "./material-blocks";
@@ -71,6 +80,7 @@ export interface MaterialBodyRendering {
 interface BodyRendering extends MaterialBodyRendering {
   readonly sourceIds: ReadonlySet<string>;
   readonly legacyHeadingId: (path: readonly number[]) => string;
+  readonly tableNames: MaterialTableNames;
 }
 
 /** Allocate source anchors once for the whole document, including nested branches. */
@@ -138,6 +148,12 @@ export function MaterialBodyView(props: {
             anchors.get(path.join("-")) ?? props.rendering.headingId(path),
           legacyHeadingId: props.rendering.headingId,
           sourceIds: new Set(anchors.values()),
+          tableNames: materialTableNames(
+            props.blocks,
+            props.path,
+            props.blockOrder,
+            props.comparison,
+          ),
           exerciseNumbers:
             props.rendering.exerciseNumbers ??
             materialExerciseNumbers(props.blocks),
@@ -165,17 +181,7 @@ function BodyBlocks({
     readonly { readonly after: number; readonly node: ReactNode }[] | undefined;
   readonly path: readonly number[];
 }) {
-  const positions = new Map(
-    blockOrder?.map((index, position) => [index, position]),
-  );
-  const indices = blocks.map((_, index) => index);
-  if (blockOrder !== undefined)
-    indices.sort(
-      (left, right) =>
-        (positions.get(left) ?? blockOrder.length + left) -
-        (positions.get(right) ?? blockOrder.length + right),
-    );
-  return indices.map((index) => {
+  return bodyBlockIndices(blocks, blockOrder).map((index) => {
     const block = blocks[index];
     if (block === undefined) return null;
     const blockPath = [...path, index];
@@ -339,8 +345,8 @@ function BodyBlockView({
     case "key_point":
     case "labeled_list":
     case "resource_card":
-    case "takeaways":
-      return (
+    case "takeaways": {
+      const lesson = (
         <MaterialLessonBlock
           block={block}
           rendering={{
@@ -371,6 +377,17 @@ function BodyBlockView({
           }}
         />
       );
+      return block.kind === "order" ? (
+        <MaterialOrderTablePlan
+          scope={path.join("-")}
+          ranges={rendering.tableNames.orders.get(path.join("-")) ?? []}
+        >
+          {lesson}
+        </MaterialOrderTablePlan>
+      ) : (
+        lesson
+      );
+    }
     case "term_definition": {
       const term = rendering.glossary?.get(block.termId);
       return term === undefined ? null : <GlossaryDefinitionCard term={term} />;
@@ -436,8 +453,9 @@ function BodyTable({
   readonly path: readonly number[];
 }) {
   const columns = Math.max(0, ...block.rows.map((row) => row.cells.length));
+  const name = rendering.tableNames.tables.get(path.join("-"));
   return (
-    <MaterialTableScroll>
+    <MaterialTableScroll name={name}>
       <table
         className="w-full table-fixed border-collapse [overflow-wrap:anywhere] text-left text-lesson"
         // Two columns fit a phone; each further column keeps a readable width and scrolls instead.
@@ -445,7 +463,7 @@ function BodyTable({
           columns > 2 ? { minWidth: `${String(columns * 9)}rem` } : undefined
         }
       >
-        <caption className="sr-only">Таблица в материале</caption>
+        <MaterialTableCaption name={name} />
         <tbody className="divide-y divide-border">
           {block.rows.map((row, rowIndex) => (
             <tr key={rowIndex}>

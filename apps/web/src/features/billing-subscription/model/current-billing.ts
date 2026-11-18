@@ -1,5 +1,4 @@
 import { subscribeEnrollmentChange } from "@/entities/subscription";
-import type { QueryClient } from "@tanstack/react-query";
 
 import { factAnnouncement } from "@/shared/api/fact-announcement";
 import {
@@ -81,15 +80,4 @@ export function currentBillingQueryOptions() {
       };
     }) => billingRefreshInterval(state.data),
   };
-}
-
-/**
- * Забыть прежний ответ о состоянии покупателя и перечитать его. Начатое перечитывание не
- * отменяется: сколько бы поверхностей одной вкладки ни услышало объявление, чтение одно.
- */
-export function resetCurrentBilling(client: QueryClient): Promise<void> {
-  return client.invalidateQueries(
-    { queryKey: currentBillingQueryKey },
-    { cancelRefetch: false },
-  );
 }
