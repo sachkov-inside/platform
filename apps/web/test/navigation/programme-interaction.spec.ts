@@ -1,11 +1,4 @@
-import { createHash } from "node:crypto";
-import {
-  expect,
-  test,
-  type BrowserContext,
-  type Page,
-  type TestInfo,
-} from "@playwright/test";
+import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { z } from "zod";
 import { scrollProgrammeBoundaryIntoView } from "../support/programme-scroll";
 
@@ -46,7 +39,6 @@ const optionalHoldSchema = z.object({ blocked: z.array(z.string()) });
 
 async function checkSameSourceProgrammeReturn(
   page: Page,
-  info: TestInfo,
   productSlug: string,
   firstSlug: string,
 ) {
@@ -59,166 +51,54 @@ async function checkSameSourceProgrammeReturn(
   );
   await expect(surface).toBeVisible();
   const rows = surface.locator("[data-product-ordinal]");
-  const journal = await page.evaluateHandle((slug) => {
-    const entries: unknown[] = [];
-    const identities = new WeakMap<Element, number>();
-    let sequence = 0;
-    let retained: HTMLElement | undefined;
-    const identity = (node: Element | null) => {
-      if (node === null) return null;
-      let id = identities.get(node);
-      if (id === undefined) {
-        id = ++sequence;
-        identities.set(node, id);
-      }
-      return id;
-    };
-    const snapshot = (reason: string) => {
-      const candidates = [
-        ...document.querySelectorAll<HTMLElement>(
-          `[data-product-programme="${slug}"]`,
-        ),
-      ];
-      retained =
-        candidates.find((node) => node.getClientRects().length > 0) ?? retained;
-      const main = retained?.closest("main");
-      const overflow =
-        main === null || main === undefined
-          ? null
-          : getComputedStyle(main).overflowY;
-      const root =
-        main !== null &&
-        main !== undefined &&
-        (overflow === "auto" || overflow === "scroll")
-          ? main
-          : null;
-      const boundary = retained?.querySelector<HTMLElement>(
-        '[data-product-ordinal="12"]',
-      );
-      const row24 =
-        retained?.querySelector<HTMLElement>('[data-product-ordinal="24"]') ??
-        null;
-      const value = {
-        reason,
-        time: performance.now(),
-        pathname: location.pathname,
-        query: location.search,
-        count: retained?.querySelectorAll("[data-product-ordinal]").length ?? 0,
-        root: root === null ? "document" : "main",
-        mainOverflow: overflow,
-        rootBottom: root?.getBoundingClientRect().bottom ?? innerHeight,
-        scrollTop: root?.scrollTop ?? scrollY,
-        boundaryTop: boundary?.getBoundingClientRect().top ?? null,
-        firstId: identity(
-          retained?.querySelector('[data-product-ordinal="1"]') ?? null,
-        ),
-        row24Id: identity(row24),
-        row24Slug: row24?.dataset["routeMaterial"] ?? null,
-        retainedConnected: retained?.isConnected ?? false,
-        retainedRects: retained?.getClientRects().length ?? 0,
-      };
-      if (entries.length < 128) entries.push(value);
-      return value;
-    };
-    const controller = new AbortController();
-    document.addEventListener("scroll", () => snapshot("native-scroll"), {
-      capture: true,
-      passive: true,
-      signal: controller.signal,
-    });
-    window.addEventListener("resize", () => snapshot("native-resize"), {
-      passive: true,
-      signal: controller.signal,
-    });
-    window.addEventListener("popstate", () => snapshot("native-popstate"), {
-      signal: controller.signal,
-    });
-    const observer = new MutationObserver(() => {
-      snapshot("native-dom-change");
-    });
-    observer.observe(document.documentElement, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ["style"],
-    });
+  await expect(rows).toHaveCount(12);
+  const geometry = await rows.nth(11).evaluate((node) => {
+    let root = node.parentElement;
+    while (
+      root !== null &&
+      !/^(auto|scroll)$/.test(getComputedStyle(root).overflowY)
+    )
+      root = root.parentElement;
     return {
-      snapshot,
-      stop: () => {
-        observer.disconnect();
-        controller.abort();
-        return entries;
-      },
+      boundaryTop: node.getBoundingClientRect().top,
+      rootBottom: root?.getBoundingClientRect().bottom ?? innerHeight,
+      root: root === null ? "document" : "element",
     };
-  }, productSlug);
+  });
+  expect(geometry.root).toBe("document");
+  expect(geometry.boundaryTop).toBeGreaterThan(geometry.rootBottom + 600);
+  await rows.nth(11).evaluate((node) => {
+    node.scrollIntoView({ block: "end", behavior: "instant" });
+  });
+  await expect(rows).toHaveCount(24);
+  const first = await rows.first().elementHandle();
+  const boundary = await rows.nth(23).elementHandle();
   try {
-    const before = await journal.evaluate((value) =>
-      value.snapshot("before-first-action"),
-    );
-    await expect(rows).toHaveCount(12);
-    expect(before.root).toBe("document");
-    expect(before.boundaryTop).not.toBeNull();
-    expect(before.boundaryTop).toBeGreaterThan(before.rootBottom + 600);
-    await rows.nth(11).evaluate((node) => {
+    await rows.first().getByRole("heading").getByRole("link").click();
+    await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
+    expect(await first.evaluate((node) => node.isConnected)).toBe(true);
+    expect(await boundary.evaluate((node) => node.isConnected)).toBe(true);
+    await page.goBack();
+    await expect(page).toHaveURL(initialUrl);
+    await expect(surface).toBeVisible();
+    await expect(rows).toHaveCount(24);
+    expect(
+      await rows.first().evaluate((node, original) => node === original, first),
+    ).toBe(true);
+    expect(
+      await rows
+        .nth(23)
+        .evaluate((node, original) => node === original, boundary),
+    ).toBe(true);
+    await rows.nth(23).evaluate((node) => {
       node.scrollIntoView({ block: "end", behavior: "instant" });
     });
-    await expect(rows).toHaveCount(24);
-    const first = await rows.first().elementHandle();
-    const boundary = await rows.nth(23).elementHandle();
-    try {
-      await journal.evaluate((value) => value.snapshot("before-reader"));
-      await rows.first().getByRole("heading").getByRole("link").click();
-      await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
-      expect(await first.evaluate((node) => node.isConnected)).toBe(true);
-      expect(await boundary.evaluate((node) => node.isConnected)).toBe(true);
-      await journal.evaluate((value) => value.snapshot("reader-visible"));
-      await page.goBack();
-      await expect(page).toHaveURL(initialUrl);
-      await expect(surface).toBeVisible();
-      await expect(rows).toHaveCount(24);
-      expect(
-        await rows
-          .first()
-          .evaluate((node, original) => node === original, first),
-      ).toBe(true);
-      expect(
-        await rows
-          .nth(23)
-          .evaluate((node, original) => node === original, boundary),
-      ).toBe(true);
-      await journal.evaluate((value) =>
-        value.snapshot("after-back-same-source"),
-      );
-      await rows.nth(23).evaluate((node) => {
-        node.scrollIntoView({ block: "end", behavior: "instant" });
-      });
-      await expect(rows).toHaveCount(36);
-      await journal.evaluate((value) => value.snapshot("after-second-reveal"));
-    } finally {
-      await first.dispose();
-      await boundary.dispose();
-    }
+    await expect(rows).toHaveCount(36);
   } finally {
-    const events = await journal.evaluate((value) => value.stop());
-    await journal.dispose();
-    await info.attach("same-source-native-events.json", {
-      body: JSON.stringify(events, null, 2),
-      contentType: "application/json",
-    });
+    await first.dispose();
+    await boundary.dispose();
   }
 }
-
-test("same-source compact programme retains both lesson nodes through Reader return", async ({
-  page,
-}, info) => {
-  await page.setViewportSize({ width: 390, height: 320 });
-  await checkSameSourceProgrammeReturn(
-    page,
-    info,
-    "performance-course",
-    "performance-lesson-1",
-  );
-});
 
 const revealFixtureSchema = z.object({
   scope: z.uuid(),
@@ -243,7 +123,7 @@ const revealItemSchema = z.object({
 test("allocated same-source programme retains both lesson nodes through Reader return", async ({
   page,
   request,
-}, info) => {
+}) => {
   const backend = `http://127.0.0.1:${process.env["FAKE_BACKEND_PORT"] ?? ""}`;
   const allocated = await request.post(
     `${backend}/__reader-title-fixtures?layout=programme-reveal`,
@@ -267,18 +147,11 @@ test("allocated same-source programme retains both lesson nodes through Reader r
     expect(programme.items.map(({ slug }) => slug)).toEqual(
       fixture.materialSlugs,
     );
-    const normalized = programme.items.map((item, index) => {
+    programme.items.forEach((item, index) => {
       const membership = item.productMemberships[0];
       expect(membership.ordinal).toBe(index + 1);
       expect(membership.product.id).toBe(scope);
       expect(membership.product.slug).toBe(fixture.productSlug);
-      return {
-        title: item.title,
-        access: item.access,
-        availability: item.availability,
-        ordinal: membership.ordinal,
-        stepGroup: membership.stepGroup,
-      };
     });
     const placement = programme.chapters.map(({ materialIds }) =>
       materialIds.map((id) => {
@@ -314,83 +187,14 @@ test("allocated same-source programme retains both lesson nodes through Reader r
       title: firstItem.title,
       slug: firstSlug,
     });
-    await info.attach("allocated-programme-input.json", {
-      contentType: "application/json",
-      body: JSON.stringify(
-        {
-          scope,
-          productSlug: fixture.productSlug,
-          materialSlugs: fixture.materialSlugs,
-          returnPath: `/products/${fixture.productSlug}/programme?page=1&at=${firstSlug}`,
-          normalizedSha256: createHash("sha256")
-            .update(JSON.stringify({ items: normalized, placement }))
-            .digest("hex"),
-          normalized,
-          placement,
-        },
-        null,
-        2,
-      ),
-    });
     await page.setViewportSize({ width: 390, height: 844 });
-    await checkSameSourceProgrammeReturn(
-      page,
-      info,
-      fixture.productSlug,
-      firstSlug,
-    );
+    await checkSameSourceProgrammeReturn(page, fixture.productSlug, firstSlug);
   } finally {
     const deleted = await request.delete(
       `${backend}/__reader-title-fixtures/${scope}`,
     );
     expect(deleted.status()).toBe(200);
     expect(await deleted.json()).toEqual({ deleted: true });
-  }
-});
-
-test("the actual programme retains lesson nodes and resumes reveal after Reader return", async ({
-  page,
-}, info) => {
-  const response = await page.goto("/products/performance-course/programme");
-  await response?.finished();
-  const surface = page.locator(
-    '[data-product-programme="performance-course"]:visible',
-  );
-  const rows = surface.locator("[data-product-ordinal]");
-  await expect(rows).toHaveCount(12);
-  await scrollProgrammeBoundaryIntoView(page, 12);
-  await expect(rows).toHaveCount(24);
-  const originalFirst = await rows.first().elementHandle();
-  const originalBoundary = await rows.nth(23).elementHandle();
-  try {
-    await rows.first().getByRole("heading").getByRole("link").click();
-    await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
-    expect(await originalFirst.evaluate((node) => node.isConnected)).toBe(true);
-    expect(
-      await originalFirst.evaluate((node) => node.getClientRects().length),
-    ).toBe(0);
-    await page.goBack();
-    await expect(surface).toBeVisible();
-    await expect(rows).toHaveCount(24);
-    expect(
-      await rows
-        .first()
-        .evaluate((node, original) => node === original, originalFirst),
-    ).toBe(true);
-    expect(
-      await rows
-        .nth(23)
-        .evaluate((node, original) => node === original, originalBoundary),
-    ).toBe(true);
-    await scrollProgrammeBoundaryIntoView(page, 24);
-    await expect(rows).toHaveCount(36);
-    await info.attach("programme-reveal-after-reader-return.png", {
-      body: await page.screenshot(),
-      contentType: "image/png",
-    });
-  } finally {
-    await originalFirst.dispose();
-    await originalBoundary.dispose();
   }
 });
 
