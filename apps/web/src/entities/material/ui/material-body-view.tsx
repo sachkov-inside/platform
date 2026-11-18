@@ -5,7 +5,12 @@ import { materialSourceAnchors } from "../model/material-source-anchors";
 import {
   bodyBlockIndices,
   materialTableNames,
+  type MaterialTableNames,
 } from "../model/material-table-names";
+import {
+  MaterialOrderTablePlan,
+  MaterialTableCaption,
+} from "./material-table-names.client";
 import { cn } from "@/shared/lib/utils";
 import type { RenderedBlock, RenderedText } from "../../material.model";
 import { MaterialLessonBlock } from "./material-blocks";
@@ -75,7 +80,7 @@ export interface MaterialBodyRendering {
 interface BodyRendering extends MaterialBodyRendering {
   readonly sourceIds: ReadonlySet<string>;
   readonly legacyHeadingId: (path: readonly number[]) => string;
-  readonly tableNames: ReadonlyMap<string, string>;
+  readonly tableNames: MaterialTableNames;
 }
 
 /** Allocate source anchors once for the whole document, including nested branches. */
@@ -340,8 +345,8 @@ function BodyBlockView({
     case "key_point":
     case "labeled_list":
     case "resource_card":
-    case "takeaways":
-      return (
+    case "takeaways": {
+      const lesson = (
         <MaterialLessonBlock
           block={block}
           rendering={{
@@ -372,6 +377,17 @@ function BodyBlockView({
           }}
         />
       );
+      return block.kind === "order" ? (
+        <MaterialOrderTablePlan
+          scope={path.join("-")}
+          ranges={rendering.tableNames.orders.get(path.join("-")) ?? []}
+        >
+          {lesson}
+        </MaterialOrderTablePlan>
+      ) : (
+        lesson
+      );
+    }
     case "term_definition": {
       const term = rendering.glossary?.get(block.termId);
       return term === undefined ? null : <GlossaryDefinitionCard term={term} />;
@@ -437,10 +453,9 @@ function BodyTable({
   readonly path: readonly number[];
 }) {
   const columns = Math.max(0, ...block.rows.map((row) => row.cells.length));
-  const name =
-    rendering.tableNames.get(path.join("-")) ?? "Таблица в материале";
+  const name = rendering.tableNames.tables.get(path.join("-"));
   return (
-    <MaterialTableScroll label={name}>
+    <MaterialTableScroll name={name}>
       <table
         className="w-full table-fixed border-collapse [overflow-wrap:anywhere] text-left text-lesson"
         // Two columns fit a phone; each further column keeps a readable width and scrolls instead.
@@ -448,7 +463,7 @@ function BodyTable({
           columns > 2 ? { minWidth: `${String(columns * 9)}rem` } : undefined
         }
       >
-        <caption className="sr-only">{name}</caption>
+        <MaterialTableCaption name={name} />
         <tbody className="divide-y divide-border">
           {block.rows.map((row, rowIndex) => (
             <tr key={rowIndex}>

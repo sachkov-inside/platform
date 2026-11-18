@@ -1,5 +1,22 @@
 import type { RenderedBlock } from "@inside/material-blocks";
 
+export interface MaterialTableName {
+  readonly number: number;
+  readonly total: number;
+  readonly orderScopes: readonly string[];
+}
+
+export interface OrderTableRange {
+  readonly stepId: string;
+  readonly start: number;
+  readonly count: number;
+}
+
+export interface MaterialTableNames {
+  readonly tables: ReadonlyMap<string, MaterialTableName>;
+  readonly orders: ReadonlyMap<string, readonly OrderTableRange[]>;
+}
+
 export function bodyBlockIndices(
   blocks: readonly RenderedBlock[],
   order?: readonly number[],
@@ -20,37 +37,52 @@ export function materialTableNames(
   path: readonly number[],
   order?: readonly number[],
   comparison?: { readonly at: number; readonly labels: readonly string[] },
-): ReadonlyMap<string, string> {
-  const tables: string[] = [];
+): MaterialTableNames {
+  const tables: { path: string; orderScopes: readonly string[] }[] = [];
+  const orders = new Map<string, readonly OrderTableRange[]>();
   function visit(
     children: readonly RenderedBlock[],
     parent: readonly number[],
+    orderScopes: readonly string[] = [],
   ) {
-    children.forEach((block, index) => visitBlock(block, [...parent, index]));
+    children.forEach((block, index) =>
+      visitBlock(block, [...parent, index], orderScopes),
+    );
   }
-  function visitBlock(block: RenderedBlock, at: readonly number[]) {
+  function visitBlock(
+    block: RenderedBlock,
+    at: readonly number[],
+    orderScopes: readonly string[] = [],
+  ) {
     switch (block.kind) {
       case "table":
-        tables.push(at.join("-"));
+        tables.push({ path: at.join("-"), orderScopes });
         block.rows.forEach((row, r) => {
-          row.cells.forEach((cell, c) => visit(cell.content, [...at, r, c]));
+          row.cells.forEach((cell, c) =>
+            visit(cell.content, [...at, r, c], orderScopes),
+          );
         });
         break;
       case "blockquote":
       case "callout":
       case "takeaways":
-        visit(block.content, at);
+        visit(block.content, at, orderScopes);
         break;
       case "bullet_list":
       case "ordered_list":
-        block.items.forEach((item, branch) => visit(item, [...at, branch]));
+        block.items.forEach((item, branch) =>
+          visit(item, [...at, branch], orderScopes),
+        );
         break;
       case "quiz":
       case "match":
       case "order": {
         let branch = 0;
-        const rich = (content: readonly RenderedBlock[]) => {
-          visit(content, [...at, branch++]);
+        const rich = (
+          content: readonly RenderedBlock[],
+          scopes = orderScopes,
+        ) => {
+          visit(content, [...at, branch++], scopes);
         };
         if (block.context !== undefined) rich(block.context);
         rich(block.question);
@@ -64,11 +96,21 @@ export function materialTableNames(
             rich(row.content);
             rich(row.explanation);
           });
-        else
+        else {
+          const ranges: OrderTableRange[] = [];
           block.steps.forEach((step) => {
-            rich(step.content);
-            rich(step.explanation);
+            const start = tables.length + 1;
+            const scopes = [...orderScopes, at.join("-")];
+            rich(step.content, scopes);
+            rich(step.explanation, scopes);
+            ranges.push({
+              stepId: step.id,
+              start,
+              count: tables.length + 1 - start,
+            });
           });
+          orders.set(at.join("-"), ranges);
+        }
         if (block.dontKnow !== undefined) rich(block.dontKnow.explanation);
         break;
       }
@@ -90,12 +132,17 @@ export function materialTableNames(
     )
       visitBlock(block, [...path, index]);
   }
-  return new Map(
-    tables.map((table, index) => [
-      table,
-      tables.length === 1
-        ? "Таблица в материале"
-        : `Таблица ${String(index + 1)} в материале`,
-    ]),
-  );
+  return {
+    tables: new Map(
+      tables.map((table, index) => [
+        table.path,
+        {
+          number: index + 1,
+          total: tables.length,
+          orderScopes: table.orderScopes,
+        },
+      ]),
+    ),
+    orders,
+  };
 }

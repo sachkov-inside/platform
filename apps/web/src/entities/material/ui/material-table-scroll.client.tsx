@@ -1,6 +1,8 @@
 "use client";
 
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import type { MaterialTableName } from "../model/material-table-names";
+import { useMaterialTableName } from "./material-table-names.client";
 
 type Overflow = "none" | "start" | "end" | "both";
 
@@ -23,13 +25,14 @@ const fade =
  */
 export function MaterialTableScroll({
   children,
-  label = "Таблица в материале",
+  name,
 }: {
   readonly children: ReactNode;
-  readonly label?: string;
+  readonly name?: MaterialTableName | undefined;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
   const [overflow, setOverflow] = useState<Overflow>("none");
+  const label = useMaterialTableName(name);
 
   useEffect(() => {
     const element = scroller.current;
