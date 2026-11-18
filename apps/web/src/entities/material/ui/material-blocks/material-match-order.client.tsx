@@ -3,6 +3,7 @@
 import { checkExerciseAnswer } from "@inside/material-blocks";
 import { ChevronDown, ChevronUp, GripVertical } from "lucide-react";
 import {
+  useCallback,
   useEffect,
   useId,
   useRef,
@@ -454,7 +455,14 @@ function useStepDrag(onDrop: (from: number, to: number) => void) {
   const list = useRef<HTMLOListElement>(null);
   const [drag, setDrag] = useState<StepDrag | null>(null);
   const stop = useRef<(() => void) | null>(null);
-  useEffect(() => () => stop.current?.(), []);
+  const attachList = useCallback((element: HTMLOListElement) => {
+    list.current = element;
+    return () => {
+      stop.current?.();
+      setDrag(null);
+      list.current = null;
+    };
+  }, []);
 
   const start = (from: number, event: ReactPointerEvent<HTMLElement>) => {
     if (event.button !== 0 || list.current === null) return;
@@ -510,7 +518,7 @@ function useStepDrag(onDrop: (from: number, to: number) => void) {
     };
   };
 
-  return { list, drag, start };
+  return { list: attachList, drag, start };
 }
 
 /**
