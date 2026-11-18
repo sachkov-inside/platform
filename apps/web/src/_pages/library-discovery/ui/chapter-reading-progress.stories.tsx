@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState } from "react";
+import { Activity, useState } from "react";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 import { z } from "zod";
 
@@ -438,6 +438,191 @@ export const ReleasesOnlyTheRemovedOwner: Story = {
             cache.find({ queryKey: overlapKey(sharedId), exact: true }) ===
             shared,
           httpRequestsObserved: requested.length,
+          observerEvents,
+        }),
+      );
+    } finally {
+      releaseStates?.();
+    }
+  },
+};
+
+/** Same provider and retained Chapter DOM cross account readiness and actual Activity. */
+function PendingRetainedChapter() {
+  const [ready, setReady] = useState(false);
+  const [visible, setVisible] = useState(true);
+  return (
+    <QueryClientProvider client={client}>
+      <ReadingProgressProvider accountId={overlapAccount} resolved={ready}>
+        <h1>Готовность прогресса главы</h1>
+        <Button
+          disabled={ready}
+          onClick={() => {
+            setReady(true);
+          }}
+        >
+          Подтвердить аккаунт
+        </Button>
+        <Button
+          onClick={() => {
+            setVisible((value) => !value);
+          }}
+        >
+          {visible ? "Скрыть главу" : "Вернуть главу"}
+        </Button>
+        <Activity mode={visible ? "visible" : "hidden"}>
+          <ChapterReadingProgress materialIds={overlapIds} name="Ожидание" />
+        </Activity>
+      </ReadingProgressProvider>
+    </QueryClientProvider>
+  );
+}
+
+export const KeepsPendingOwnerAndRetainedChapter: Story = {
+  ...ReleasesOnlyTheRemovedOwner,
+  render: () => <PendingRetainedChapter />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const cache = client.getQueryCache();
+    try {
+      const counter = canvas.getByLabelText(
+        "Прогресс главы «Ожидание» загружается",
+      );
+      await expect(counter).toBeVisible();
+      await waitFor(() =>
+        expect(
+          cache.find({ queryKey: overlapKey(chapterOnlyId), exact: true }),
+        ).toBeDefined(),
+      );
+      const shared = cache.find({
+        queryKey: overlapKey(sharedId),
+        exact: true,
+      });
+      const chapterOnly = cache.find({
+        queryKey: overlapKey(chapterOnlyId),
+        exact: true,
+      });
+      if (shared === undefined || chapterOnly === undefined)
+        throw new Error("Missing pending reading-progress queries");
+      await expect(shared.isActive()).toBe(false);
+      await expect(chapterOnly.isActive()).toBe(false);
+      await expect(shared.getObserversCount()).toBe(1);
+      await expect(chapterOnly.getObserversCount()).toBe(1);
+      await expect(requested).toHaveLength(0);
+      console.info(
+        "Chapter DOM lease transition",
+        JSON.stringify({
+          phase: "pending",
+          sharedActive: shared.isActive(),
+          chapterOnlyActive: chapterOnly.isActive(),
+          sharedObservers: shared.getObserversCount(),
+          chapterOnlyObservers: chapterOnly.getObserversCount(),
+          httpRequestsObserved: requested.length,
+        }),
+      );
+
+      lifecyclePhase = "ready";
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Подтвердить аккаунт" }),
+      );
+      await waitFor(() => expect(requested.flat().sort()).toEqual(overlapIds));
+      await expect(shared.isActive()).toBe(true);
+      await expect(chapterOnly.isActive()).toBe(true);
+      await expect(
+        canvas.getByLabelText("Прогресс главы «Ожидание» загружается"),
+      ).toBe(counter);
+      await expect(
+        cache.find({ queryKey: overlapKey(sharedId), exact: true }),
+      ).toBe(shared);
+      await expect(
+        cache.find({ queryKey: overlapKey(chapterOnlyId), exact: true }),
+      ).toBe(chapterOnly);
+      releaseStates?.();
+      await waitFor(() =>
+        expect(counter).toHaveAttribute(
+          "aria-label",
+          "Изучено 1 из 2 материалов главы «Ожидание»",
+        ),
+      );
+      await expect(counter).toHaveTextContent("1 из 2");
+      console.info(
+        "Chapter DOM lease transition",
+        JSON.stringify({
+          phase: lifecyclePhase,
+          sameCounter:
+            canvas.getByLabelText(
+              "Изучено 1 из 2 материалов главы «Ожидание»",
+            ) === counter,
+          sharedActive: shared.isActive(),
+          chapterOnlyActive: chapterOnly.isActive(),
+          requested,
+        }),
+      );
+
+      lifecyclePhase = "hidden";
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Скрыть главу" }),
+      );
+      await expect(counter).toBeInTheDocument();
+      await expect(counter).not.toBeVisible();
+      await waitFor(() => expect(shared.isActive()).toBe(false));
+      await expect(chapterOnly.isActive()).toBe(false);
+      await expect(shared.getObserversCount()).toBe(0);
+      await expect(chapterOnly.getObserversCount()).toBe(0);
+      await expect(
+        cache.find({ queryKey: overlapKey(sharedId), exact: true }),
+      ).toBe(shared);
+      await expect(
+        cache.find({ queryKey: overlapKey(chapterOnlyId), exact: true }),
+      ).toBe(chapterOnly);
+      console.info(
+        "Chapter DOM lease transition",
+        JSON.stringify({
+          phase: lifecyclePhase,
+          counterInDocument: counter.isConnected,
+          sharedActive: shared.isActive(),
+          chapterOnlyActive: chapterOnly.isActive(),
+          sharedObservers: shared.getObserversCount(),
+          chapterOnlyObservers: chapterOnly.getObserversCount(),
+          httpRequestsObserved: requested.length,
+        }),
+      );
+
+      lifecyclePhase = "returned";
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Вернуть главу" }),
+      );
+      await waitFor(() => expect(shared.isActive()).toBe(true));
+      await expect(chapterOnly.isActive()).toBe(true);
+      await expect(shared.getObserversCount()).toBe(1);
+      await expect(chapterOnly.getObserversCount()).toBe(1);
+      await waitFor(() =>
+        expect(counter).toHaveAttribute(
+          "aria-label",
+          "Изучено 1 из 2 материалов главы «Ожидание»",
+        ),
+      );
+      await expect(counter).toBeVisible();
+      await expect(
+        canvas.getByLabelText("Изучено 1 из 2 материалов главы «Ожидание»"),
+      ).toBe(counter);
+      await expect(
+        cache.find({ queryKey: overlapKey(sharedId), exact: true }),
+      ).toBe(shared);
+      await expect(
+        cache.find({ queryKey: overlapKey(chapterOnlyId), exact: true }),
+      ).toBe(chapterOnly);
+      console.info(
+        "Chapter DOM lease transition",
+        JSON.stringify({
+          phase: lifecyclePhase,
+          sameCounter:
+            canvas.getByLabelText(
+              "Изучено 1 из 2 материалов главы «Ожидание»",
+            ) === counter,
+          sharedActive: shared.isActive(),
+          chapterOnlyActive: chapterOnly.isActive(),
+          requested,
           observerEvents,
         }),
       );
