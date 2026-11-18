@@ -22,6 +22,7 @@ const fixtureName = z.enum([
   "native-dialog",
   "material-authoring",
   "deletion-dialog",
+  "process-artwork",
 ]);
 const budget = z.number().int().positive().max(30_000);
 const configuration = z.object({
