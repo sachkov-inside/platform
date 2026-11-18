@@ -52,6 +52,126 @@ afterAll(async () => {
 }, 10_000);
 
 for (const engine of ["chromium", "webkit"] as const) {
+  test(`${engine}: native mouse reorder survives check/retry and unmount cancels a later drag`, async () => {
+    const browser = fixture.browsers.get(engine);
+    if (browser === undefined) throw new Error("Missing MaterialOrder engine");
+    const context = await browser.newContext({
+      viewport: { width: 900, height: 700 },
+    });
+    try {
+      const page = await context.newPage();
+      await page.addInitScript(observePointerListeners);
+      await page.goto(fixture.url);
+      const list = page.locator("[data-exercise-steps]");
+      const steps = list.locator("[data-order-step]");
+      const labels = () => steps.locator("[id*='-step-']").allTextContents();
+      const handle = await steps
+        .first()
+        .locator("[data-order-handle]")
+        .boundingBox();
+      const target = await steps.nth(2).boundingBox();
+      if (handle === null || target === null)
+        throw new Error("Missing exercise drag geometry");
+      await page.mouse.move(
+        handle.x + handle.width / 2,
+        handle.y + handle.height / 2,
+      );
+      await page.mouse.down();
+      await page.mouse.move(
+        handle.x + handle.width / 2,
+        target.y + target.height / 2 + 6,
+      );
+      await browserExpect(page.locator("[data-order-drop-line]")).toHaveCount(
+        1,
+      );
+      await page.mouse.up();
+      await browserExpect(list.locator("[data-dragging]")).toHaveCount(0);
+      await browserExpect
+        .poll(labels)
+        .toEqual([
+          "Посчитать эмбеддинги чанков",
+          "Нарезать документы на чанки",
+          "Сохранить векторы в индекс",
+          "Найти ближайшие чанки к вопросу",
+        ]);
+      await browserExpect(page.locator("[data-order-announcement]")).toHaveText(
+        "«Сохранить векторы в индекс»: место 3 из 4",
+      );
+      await page
+        .getByRole("button", { name: "Проверить", exact: true })
+        .click();
+      await browserExpect(page.locator("[data-order-handle]")).toHaveCount(0);
+      await page
+        .getByRole("button", { name: "Ответить ещё раз", exact: true })
+        .click();
+      await browserExpect(page.locator("[data-order-handle]")).toHaveCount(4);
+      await browserExpect
+        .poll(labels)
+        .toEqual([
+          "Посчитать эмбеддинги чанков",
+          "Нарезать документы на чанки",
+          "Сохранить векторы в индекс",
+          "Найти ближайшие чанки к вопросу",
+        ]);
+      const oldList = await list.elementHandle();
+      if (oldList === null) throw new Error("Missing mounted exercise");
+      await page
+        .getByRole("button", { name: "Remove exercise", exact: true })
+        .focus();
+      const secondHandle = await steps
+        .first()
+        .locator("[data-order-handle]")
+        .boundingBox();
+      if (secondHandle === null) throw new Error("Missing retry drag handle");
+      await page.mouse.move(
+        secondHandle.x + secondHandle.width / 2,
+        secondHandle.y + secondHandle.height / 2,
+      );
+      await page.mouse.down();
+      await page.mouse.move(
+        secondHandle.x + secondHandle.width / 2,
+        secondHandle.y + secondHandle.height / 2 + 110,
+      );
+      await browserExpect(list.locator("[data-dragging]")).toHaveCount(1);
+      const activeListeners = await page.evaluate(() =>
+        window.materialOrderPointerListeners?.(),
+      );
+      if (activeListeners === undefined)
+        throw new Error("Missing native observation");
+      await page.keyboard.press("Enter");
+      await browserExpect(list).toHaveCount(0);
+      await browserExpect
+        .poll(() =>
+          page.evaluate(() => window.materialOrderPointerListeners?.()),
+        )
+        .toBe(activeListeners - 3);
+      await browserExpect
+        .poll(() => oldList.evaluate((element) => element.isConnected))
+        .toBe(false);
+      await page
+        .getByRole("button", { name: "Mount exercise", exact: true })
+        .focus();
+      await page.keyboard.press("Enter");
+      await browserExpect(steps).toHaveCount(4);
+      await page.mouse.move(
+        secondHandle.x + secondHandle.width / 2,
+        secondHandle.y + secondHandle.height / 2 + 180,
+      );
+      await page.mouse.up();
+      await browserExpect
+        .poll(labels)
+        .toEqual([
+          "Сохранить векторы в индекс",
+          "Посчитать эмбеддинги чанков",
+          "Нарезать документы на чанки",
+          "Найти ближайшие чанки к вопросу",
+        ]);
+      await oldList.dispose();
+    } finally {
+      await context.close();
+    }
+  }, 15_000);
+
   test(`${engine}: native keyboard moves keep an enabled button of the same step focused at both edges`, async () => {
     const browser = fixture.browsers.get(engine);
     if (browser === undefined) throw new Error("Missing MaterialOrder engine");

@@ -25,6 +25,9 @@ function App() {
       <button type="button" onClick={() => setMounted(false)}>
         Remove exercise
       </button>
+      <button type="button" onClick={() => setMounted(true)}>
+        Mount exercise
+      </button>
       <main className="mx-auto max-w-3xl p-3">
         {mounted ? (
           <Activity mode={visible ? "visible" : "hidden"}>
