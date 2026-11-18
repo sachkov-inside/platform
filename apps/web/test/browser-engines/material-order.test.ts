@@ -14,8 +14,16 @@ declare global {
 
 function observePointerListeners() {
   const listeners = new Map<string, Set<EventListenerOrEventListenerObject>>();
-  const add = EventTarget.prototype.addEventListener;
-  const remove = EventTarget.prototype.removeEventListener;
+  const add: unknown = Object.getOwnPropertyDescriptor(
+    EventTarget.prototype,
+    "addEventListener",
+  )?.value;
+  const remove: unknown = Object.getOwnPropertyDescriptor(
+    EventTarget.prototype,
+    "removeEventListener",
+  )?.value;
+  if (typeof add !== "function" || typeof remove !== "function")
+    throw new Error("Missing native EventTarget methods");
   EventTarget.prototype.addEventListener = function (type, listener, options) {
     Reflect.apply(add, this, [type, listener, options]);
     if (
@@ -114,7 +122,6 @@ for (const engine of ["chromium", "webkit"] as const) {
           "Найти ближайшие чанки к вопросу",
         ]);
       const oldList = await list.elementHandle();
-      if (oldList === null) throw new Error("Missing mounted exercise");
       await page
         .getByRole("button", { name: "Remove exercise", exact: true })
         .focus();
@@ -250,7 +257,6 @@ for (const engine of ["chromium", "webkit"] as const) {
           "Найти ближайшие чанки к вопросу",
         ]);
       const originalList = await list.elementHandle();
-      if (originalList === null) throw new Error("Missing exercise list");
       await page
         .getByRole("button", { name: "Hide exercise", exact: true })
         .focus();

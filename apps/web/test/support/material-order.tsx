@@ -16,16 +16,36 @@ function App() {
   const [mounted, setMounted] = useState(true);
   return (
     <>
-      <button type="button" onClick={() => setVisible(false)}>
+      <button
+        type="button"
+        onClick={() => {
+          setVisible(false);
+        }}
+      >
         Hide exercise
       </button>
-      <button type="button" onClick={() => setVisible(true)}>
+      <button
+        type="button"
+        onClick={() => {
+          setVisible(true);
+        }}
+      >
         Return exercise
       </button>
-      <button type="button" onClick={() => setMounted(false)}>
+      <button
+        type="button"
+        onClick={() => {
+          setMounted(false);
+        }}
+      >
         Remove exercise
       </button>
-      <button type="button" onClick={() => setMounted(true)}>
+      <button
+        type="button"
+        onClick={() => {
+          setMounted(true);
+        }}
+      >
         Mount exercise
       </button>
       <main className="mx-auto max-w-3xl p-3">
