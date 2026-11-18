@@ -1,8 +1,9 @@
 "use client";
 
 import { RotateCcw, Trash2 } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useState } from "react";
 
+import { useNativeDialog } from "@/shared/lib/native-dialog.client";
 import { Button } from "@/shared/ui/button";
 
 import type {
@@ -44,15 +45,15 @@ export function MaterialDeleteDialog({
   readonly submissionId: string;
   readonly title: string | null;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  // A modal `<dialog>` opens only through `showModal()`: the effect keeps the element in step with
-  // the caller's `open`.
-  useEffect(() => {
-    const element = dialog.current;
-    if (open === undefined || element === null) return;
-    if (open && !element.open) element.showModal();
-    if (!open && element.open) element.close();
-  }, [open]);
+  const [ownOpen, setOwnOpen] = useState(false);
+  const changeOpen = (next: boolean) => {
+    setOwnOpen(next);
+    onOpenChange?.(next);
+  };
+  const { ref: dialogRef, ...dialogEvents } = useNativeDialog({
+    open: open ?? ownOpen,
+    onOpenChange: changeOpen,
+  });
   const [deleteOwnedVideo, setDeleteOwnedVideo] = useState(false);
   const dialogId = useId();
   const trimmedTitle = title?.trim();
@@ -70,7 +71,7 @@ export function MaterialDeleteDialog({
           className="min-h-11"
           onClick={() => {
             setDeleteOwnedVideo(false);
-            dialog.current?.showModal();
+            setOwnOpen(true);
           }}
           type="button"
           variant="destructive"
@@ -84,12 +85,14 @@ export function MaterialDeleteDialog({
         aria-labelledby={headingId}
         className="m-auto w-[min(34rem,calc(100%-2rem))] rounded-2xl border border-border bg-card p-0 text-foreground shadow-card backdrop:bg-foreground/45"
         onCancel={() => {
-          dialog.current?.close();
+          dialogRef.current?.close();
         }}
-        onClose={() => {
-          onOpenChange?.(false);
+        onClose={(event) => {
+          // A controlled caller still receives completion of its explicit close (#2415).
+          if (open === false && !event.currentTarget.open) changeOpen(false);
+          else dialogEvents.onClose(event);
         }}
-        ref={dialog}
+        ref={dialogRef}
       >
         <div className="p-6 sm:p-8">
           <h2
@@ -138,7 +141,7 @@ export function MaterialDeleteDialog({
               className="min-h-11 px-4"
               disabled={pending}
               onClick={() => {
-                dialog.current?.close();
+                dialogRef.current?.close();
               }}
               type="button"
               variant="outline"
