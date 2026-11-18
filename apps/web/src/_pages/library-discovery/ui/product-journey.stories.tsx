@@ -2606,7 +2606,20 @@ function ProgrammeQueryScopeSwitch() {
         >
           Принять адрес второй программы
         </Button>
-      ) : null}
+      ) : stage === 2 ? (
+        <Button
+          onClick={() => {
+            mocked(useSearchParams).mockReturnValue(
+              new ReadonlyURLSearchParams("part=artifacts&page=3"),
+            );
+            setStage(3);
+          }}
+        >
+          Доставить новый объект тех же параметров
+        </Button>
+      ) : (
+        <output>Новый объект параметров обработан</output>
+      )}
     </ProductLearningProvider>
   );
 }
@@ -2667,6 +2680,27 @@ export const ProgrammeQueryFollowsProductScope: Story = {
         canvas.getByRole("button", { name: "Принять адрес второй программы" }),
       );
       await expect(committedCounts[0]).toBe(36);
+      const last = canvasElement.querySelector<HTMLElement>(
+        '[data-product-ordinal="36"]',
+      );
+      if (last === null) throw new Error("Missing current Programme boundary");
+      last.scrollIntoView({ block: "end", behavior: "instant" });
+      await waitFor(async () => {
+        await expect(
+          canvasElement.querySelectorAll("[data-product-ordinal]"),
+        ).toHaveLength(48);
+      });
+      await userEvent.click(
+        canvas.getByRole("button", {
+          name: "Доставить новый объект тех же параметров",
+        }),
+      );
+      await expect(
+        canvas.getByText("Новый объект параметров обработан"),
+      ).toBeVisible();
+      await expect(
+        canvasElement.querySelectorAll("[data-product-ordinal]"),
+      ).toHaveLength(48);
     } finally {
       observer.disconnect();
     }

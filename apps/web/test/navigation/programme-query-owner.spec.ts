@@ -36,11 +36,6 @@ test("an active programme accepts semantic native query changes and History retu
       node.scrollIntoView({ block: "end", behavior: "instant" });
     });
     await expect(rows).toHaveCount(24);
-    // The same semantic query must not reset the revealed range when Next publishes a new object.
-    await page.evaluate((url) => {
-      window.history.replaceState(null, "", url);
-    }, initial);
-    await expect(rows).toHaveCount(24);
     const deep = `${path}?page=3&at=${later}`;
     await page.evaluate((url) => {
       window.history.pushState(null, "", url);
@@ -77,7 +72,7 @@ test("an active programme accepts semantic native query changes and History retu
           initial,
           deep,
           catalogue,
-          sequence: [12, 24, 24, 36, 12, 36, "catalogue", 36],
+          sequence: [12, 24, 36, 12, 36, "catalogue", 36],
           nativeHistory: true,
         },
         null,
