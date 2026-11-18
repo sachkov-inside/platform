@@ -465,7 +465,8 @@ function useStepDrag(onDrop: (from: number, to: number) => void) {
   }, []);
 
   const start = (from: number, event: ReactPointerEvent<HTMLElement>) => {
-    if (event.button !== 0 || list.current === null) return;
+    if (event.button !== 0 || list.current === null || stop.current !== null)
+      return;
     event.preventDefault();
     const top = list.current.getBoundingClientRect().top;
     const boxes = [...list.current.children].map((item) => {
@@ -492,6 +493,7 @@ function useStepDrag(onDrop: (from: number, to: number) => void) {
     let current = measure(0);
     setDrag(current);
     const move = (moveEvent: PointerEvent) => {
+      if (moveEvent.pointerId !== event.pointerId) return;
       current = measure(moveEvent.clientY - startY);
       setDrag(current);
     };
@@ -501,10 +503,12 @@ function useStepDrag(onDrop: (from: number, to: number) => void) {
       if (dropped && current.to !== current.from)
         onDrop(current.from, current.to);
     };
-    const up = () => {
+    const up = (upEvent: PointerEvent) => {
+      if (upEvent.pointerId !== event.pointerId) return;
       finish(true);
     };
-    const cancel = () => {
+    const cancel = (cancelEvent: PointerEvent) => {
+      if (cancelEvent.pointerId !== event.pointerId) return;
       finish(false);
     };
     window.addEventListener("pointermove", move);
@@ -563,7 +567,6 @@ export function MaterialOrder(props: MaterialOrderPresentation) {
         `«${step.label}»: место ${String(target + 1)} из ${String(shown.length)}`,
       );
     });
-    // The move's DOM commit owns focus; at the edge its enabled counterpart takes it.
     const button = buttons.current.get(`${step.id}:${direction}`);
     if (button?.disabled === false) button.focus();
     else
