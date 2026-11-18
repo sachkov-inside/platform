@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, useEffect, useRef } from "react";
+import { type CSSProperties, useCallback } from "react";
 
 import {
   mountProcessArtwork,
@@ -22,12 +22,13 @@ export function AiFirstProcessArtwork({
   scene = 5,
   loop = true,
 }: Partial<ProcessArtworkOptions>) {
-  const host = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    return host.current
-      ? mountProcessArtwork(host.current, { mode, scene, loop })
-      : undefined;
-  }, [mode, scene, loop]);
+  const host = useCallback(
+    (element: HTMLDivElement | null) =>
+      element === null
+        ? undefined
+        : mountProcessArtwork(element, { mode, scene, loop }),
+    [mode, scene, loop],
+  );
   return (
     <div className="ai-process-artwork" style={artworkTiming} ref={host}>
       <ProcessArtworkScenes />
