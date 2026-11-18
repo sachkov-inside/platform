@@ -6,6 +6,7 @@ import { CopyAccountId, personLabel } from "@/entities/authoring-person";
 import {
   useProductAccessActions,
   type AccessCardProduct,
+  type ProductAccessActionsInput,
 } from "@/features/product-access-actions";
 import { formatMoscowDate } from "@/shared/lib/moscow-format";
 import { hasText } from "@/shared/lib/text";
@@ -38,7 +39,7 @@ export interface AuthoringPersonViewProps {
   /** «Обновить данные» после конфликта ревизии: перечитывает карточку. */
   readonly onRefresh: () => Promise<unknown>;
   /** Сервер принял запись доступа: страница перечитывает карточку и список людей. */
-  readonly onWritten: () => void;
+  readonly onWritten: ProductAccessActionsInput["onWritten"];
 }
 
 /**
@@ -76,7 +77,7 @@ function PersonCardContent({
   readonly isRefreshing: boolean;
   readonly onRefresh: () => Promise<unknown>;
   readonly onRetry: () => void;
-  readonly onWritten: () => void;
+  readonly onWritten: ProductAccessActionsInput["onWritten"];
 }) {
   const label = personLabel(card.person);
   const title = label.title ?? label.missing;

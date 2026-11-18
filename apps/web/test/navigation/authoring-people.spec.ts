@@ -549,3 +549,103 @@ test("the «Люди» group of the global search opens the person card", async 
     page.getByRole("heading", { level: 1, name: anna.name }),
   ).toBeVisible();
 });
+
+test("an enrollment announcement replaces the People read held before a grant in another tab (#2379)", async ({
+  baseURL,
+  context,
+  page,
+}) => {
+  await signIn(context, baseURL);
+  const release = Promise.withResolvers<undefined>();
+  const started = Promise.withResolvers<undefined>();
+  const finished = Promise.withResolvers<undefined>();
+  const responseState = { held: false };
+  await page.route("**/api/authoring/people**", async (route) => {
+    if (
+      responseState.held ||
+      new URL(route.request().url()).pathname !== "/api/authoring/people"
+    ) {
+      await route.continue();
+      return;
+    }
+    responseState.held = true;
+    try {
+      const response = await route.fetch();
+      expect(response.status()).toBe(200);
+      expect(await response.json()).toMatchObject({
+        kind: "ready",
+        items: [],
+        total: 0,
+      });
+      started.resolve(undefined);
+      await release.promise;
+      try {
+        await route.fulfill({ response });
+      } catch (error: unknown) {
+        if (route.request().failure() === null) throw error;
+      }
+    } finally {
+      finished.resolve(undefined);
+    }
+  });
+  const card = await context.newPage();
+  try {
+    await page.goto(
+      `/authoring/people?q=${encodeURIComponent(anna.name)}&product=${products.practice.productId}&state=active`,
+    );
+    await started.promise;
+    await openCard(card, anna.accountId, anna.name);
+    await card
+      .getByRole("button", { name: "Выдать продукт", exact: true })
+      .click();
+    const grant = card.getByRole("dialog", { name: "Выдать продукт" });
+    await grant.getByRole("radio", { name: products.practice.name }).check();
+    await grant.getByRole("radio", { name: "Подарок" }).check();
+    await grant
+      .getByRole("button", { name: "Выдать продукт", exact: true })
+      .click();
+    await expect(card.getByText("Доступ выдан.")).toBeVisible();
+    await expect(grant).toBeHidden();
+    // The held response is still empty; the new row must come from the announced post-write read.
+    await expect(personRow(page, anna.name)).toBeVisible();
+  } finally {
+    release.resolve(undefined);
+    if (responseState.held) await finished.promise;
+    await card.close();
+  }
+});
+
+test("one local card grant shares one People reread with its announcement (#2379)", async ({
+  baseURL,
+  context,
+  page,
+}) => {
+  await signIn(context, baseURL);
+  await openCard(page, anna.accountId, anna.name);
+  await expect(
+    productPanel(page, products.ai.name).getByText("Доступ открыт"),
+  ).toBeVisible();
+  let reads = 0;
+  await page.route(
+    `**/api/authoring/people/${anna.accountId}`,
+    async (route) => {
+      reads++;
+      await route.continue();
+    },
+  );
+  await page
+    .getByRole("button", { name: "Выдать продукт", exact: true })
+    .click();
+  const grant = page.getByRole("dialog", { name: "Выдать продукт" });
+  await grant.getByRole("radio", { name: products.practice.name }).check();
+  await grant.getByRole("radio", { name: "Подарок" }).check();
+  await grant
+    .getByRole("button", { name: "Выдать продукт", exact: true })
+    .click();
+  await expect(page.getByText("Доступ выдан.")).toBeVisible();
+  await expect(grant).toBeHidden();
+  await expect(
+    productPanel(page, products.practice.name).getByText("Доступ открыт"),
+  ).toBeVisible();
+  expect(reads).toBe(1);
+});
