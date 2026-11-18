@@ -52,7 +52,7 @@ const studiedIds = [
 const materials = chapterIds.map((materialId, index): MaterialPreview => ({
   materialId,
   slug: `chapter-progress-lesson-${String(index + 1)}`,
-  // Ordinary long titles keep the twelfth row outside the native reveal-ahead area.
+  // Long titles keep row 12 beyond the 600px reveal margin (product-journey-controls.client.tsx).
   title:
     `Урок ${String(index + 1)}. Как собрать понятный учебный проект: ` +
     "от первой идеи и сценариев пользователя до работающего приложения, " +
@@ -275,7 +275,6 @@ const observedKey = z.tuple([
   z.enum([sharedId, chapterOnlyId]),
 ]);
 
-/** Each real consumer can unmount independently while the provider stays mounted. */
 function OverlappingOwners() {
   const [chapter, setChapter] = useState(true);
   const [marker, setMarker] = useState(true);
@@ -310,42 +309,66 @@ function OverlappingOwners() {
   );
 }
 
+function findOverlapQuery(materialId: string) {
+  return client
+    .getQueryCache()
+    .find({ queryKey: overlapKey(materialId), exact: true });
+}
+
+function recordOverlapQueries(counter: HTMLElement) {
+  console.info(
+    "Chapter query lifecycle",
+    JSON.stringify({
+      phase: lifecyclePhase,
+      counterConnected: counter.isConnected,
+      counter: counter.textContent,
+      accessibleName: counter.getAttribute("aria-label"),
+      queries: overlapIds.map((materialId) => {
+        const query = findOverlapQuery(materialId);
+        return {
+          materialId,
+          cached: query !== undefined,
+          active: query?.isActive() ?? false,
+          observers: query?.getObserversCount() ?? 0,
+        };
+      }),
+      requested,
+      observerEvents,
+    }),
+  );
+}
+
+function observeOverlapQueries() {
+  observerEvents.length = 0;
+  lifecyclePhase = "initial";
+  return client.getQueryCache().subscribe((event) => {
+    const key = observedKey.safeParse(event.query.queryKey);
+    if (
+      !key.success ||
+      (event.type !== "observerAdded" && event.type !== "observerRemoved")
+    )
+      return;
+    observerEvents.push({
+      phase: lifecyclePhase,
+      type: event.type,
+      materialId: key.data[3],
+      active: event.query.isActive(),
+      observers: event.query.getObserversCount(),
+      at: performance.now(),
+    });
+  });
+}
+
 /** Public cache membership distinguishes active subscriptions from retained cached data. */
 export const ReleasesOnlyTheRemovedOwner: Story = {
   render: () => <OverlappingOwners />,
-  beforeEach: () => {
-    observerEvents.length = 0;
-    lifecyclePhase = "initial";
-    return client.getQueryCache().subscribe((event) => {
-      const key = observedKey.safeParse(event.query.queryKey);
-      if (
-        !key.success ||
-        (event.type !== "observerAdded" && event.type !== "observerRemoved")
-      )
-        return;
-      observerEvents.push({
-        phase: lifecyclePhase,
-        type: event.type,
-        materialId: key.data[3],
-        active: event.query.isActive(),
-        observers: event.query.getObserversCount(),
-        at: performance.now(),
-      });
-    });
-  },
+  beforeEach: observeOverlapQueries,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const cache = client.getQueryCache();
     try {
       await waitFor(() => expect(requested.flat().sort()).toEqual(overlapIds));
-      const shared = cache.find({
-        queryKey: overlapKey(sharedId),
-        exact: true,
-      });
-      const chapterOnly = cache.find({
-        queryKey: overlapKey(chapterOnlyId),
-        exact: true,
-      });
+      const shared = findOverlapQuery(sharedId);
+      const chapterOnly = findOverlapQuery(chapterOnlyId);
       if (shared === undefined || chapterOnly === undefined)
         throw new Error("Missing actual reading-progress queries");
       await expect(shared.isActive()).toBe(true);
@@ -369,9 +392,7 @@ export const ReleasesOnlyTheRemovedOwner: Story = {
       await waitFor(() => expect(chapterOnly.isActive()).toBe(false));
       await expect(counter).not.toBeInTheDocument();
       await expect(chapterOnly.getObserversCount()).toBe(0);
-      await expect(
-        cache.find({ queryKey: overlapKey(chapterOnlyId), exact: true }),
-      ).toBe(chapterOnly);
+      await expect(findOverlapQuery(chapterOnlyId)).toBe(chapterOnly);
       await expect(shared.isActive()).toBe(true);
       await expect(shared.getObserversCount()).toBe(1);
       await expect(
@@ -388,21 +409,7 @@ export const ReleasesOnlyTheRemovedOwner: Story = {
           }),
         ]),
       );
-      console.info(
-        "Chapter query overlap",
-        JSON.stringify({
-          phase: lifecyclePhase,
-          chapterOnlyActive: chapterOnly.isActive(),
-          sharedActive: shared.isActive(),
-          chapterOnlyCached:
-            cache.find({ queryKey: overlapKey(chapterOnlyId), exact: true }) ===
-            chapterOnly,
-          sharedCached:
-            cache.find({ queryKey: overlapKey(sharedId), exact: true }) ===
-            shared,
-          httpRequestsObserved: requested.length,
-        }),
-      );
+      recordOverlapQueries(counter);
 
       lifecyclePhase = "remove-last-consumer";
       await userEvent.click(
@@ -411,9 +418,7 @@ export const ReleasesOnlyTheRemovedOwner: Story = {
       await waitFor(() => expect(shared.isActive()).toBe(false));
       await expect(marker).not.toBeInTheDocument();
       await expect(shared.getObserversCount()).toBe(0);
-      await expect(
-        cache.find({ queryKey: overlapKey(sharedId), exact: true }),
-      ).toBe(shared);
+      await expect(findOverlapQuery(sharedId)).toBe(shared);
       await expect(observerEvents).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
@@ -425,29 +430,13 @@ export const ReleasesOnlyTheRemovedOwner: Story = {
           }),
         ]),
       );
-      console.info(
-        "Chapter query overlap",
-        JSON.stringify({
-          phase: lifecyclePhase,
-          chapterOnlyActive: chapterOnly.isActive(),
-          sharedActive: shared.isActive(),
-          chapterOnlyCached:
-            cache.find({ queryKey: overlapKey(chapterOnlyId), exact: true }) ===
-            chapterOnly,
-          sharedCached:
-            cache.find({ queryKey: overlapKey(sharedId), exact: true }) ===
-            shared,
-          httpRequestsObserved: requested.length,
-          observerEvents,
-        }),
-      );
+      recordOverlapQueries(counter);
     } finally {
       releaseStates?.();
     }
   },
 };
 
-/** Same provider and retained Chapter DOM cross account readiness and actual Activity. */
 function PendingRetainedChapter() {
   const [ready, setReady] = useState(false);
   const [visible, setVisible] = useState(true);
@@ -479,29 +468,21 @@ function PendingRetainedChapter() {
 }
 
 export const KeepsPendingOwnerAndRetainedChapter: Story = {
-  ...ReleasesOnlyTheRemovedOwner,
+  beforeEach: observeOverlapQueries,
   render: () => <PendingRetainedChapter />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const cache = client.getQueryCache();
     try {
+      lifecyclePhase = "pending";
       const counter = canvas.getByLabelText(
         "Прогресс главы «Ожидание» загружается",
       );
       await expect(counter).toBeVisible();
       await waitFor(() =>
-        expect(
-          cache.find({ queryKey: overlapKey(chapterOnlyId), exact: true }),
-        ).toBeDefined(),
+        expect(findOverlapQuery(chapterOnlyId)).toBeDefined(),
       );
-      const shared = cache.find({
-        queryKey: overlapKey(sharedId),
-        exact: true,
-      });
-      const chapterOnly = cache.find({
-        queryKey: overlapKey(chapterOnlyId),
-        exact: true,
-      });
+      const shared = findOverlapQuery(sharedId);
+      const chapterOnly = findOverlapQuery(chapterOnlyId);
       if (shared === undefined || chapterOnly === undefined)
         throw new Error("Missing pending reading-progress queries");
       await expect(shared.isActive()).toBe(false);
@@ -509,17 +490,7 @@ export const KeepsPendingOwnerAndRetainedChapter: Story = {
       await expect(shared.getObserversCount()).toBe(1);
       await expect(chapterOnly.getObserversCount()).toBe(1);
       await expect(requested).toHaveLength(0);
-      console.info(
-        "Chapter DOM lease transition",
-        JSON.stringify({
-          phase: "pending",
-          sharedActive: shared.isActive(),
-          chapterOnlyActive: chapterOnly.isActive(),
-          sharedObservers: shared.getObserversCount(),
-          chapterOnlyObservers: chapterOnly.getObserversCount(),
-          httpRequestsObserved: requested.length,
-        }),
-      );
+      recordOverlapQueries(counter);
 
       lifecyclePhase = "ready";
       await userEvent.click(
@@ -531,12 +502,8 @@ export const KeepsPendingOwnerAndRetainedChapter: Story = {
       await expect(
         canvas.getByLabelText("Прогресс главы «Ожидание» загружается"),
       ).toBe(counter);
-      await expect(
-        cache.find({ queryKey: overlapKey(sharedId), exact: true }),
-      ).toBe(shared);
-      await expect(
-        cache.find({ queryKey: overlapKey(chapterOnlyId), exact: true }),
-      ).toBe(chapterOnly);
+      await expect(findOverlapQuery(sharedId)).toBe(shared);
+      await expect(findOverlapQuery(chapterOnlyId)).toBe(chapterOnly);
       releaseStates?.();
       await waitFor(() =>
         expect(counter).toHaveAttribute(
@@ -545,19 +512,7 @@ export const KeepsPendingOwnerAndRetainedChapter: Story = {
         ),
       );
       await expect(counter).toHaveTextContent("1 из 2");
-      console.info(
-        "Chapter DOM lease transition",
-        JSON.stringify({
-          phase: lifecyclePhase,
-          sameCounter:
-            canvas.getByLabelText(
-              "Изучено 1 из 2 материалов главы «Ожидание»",
-            ) === counter,
-          sharedActive: shared.isActive(),
-          chapterOnlyActive: chapterOnly.isActive(),
-          requested,
-        }),
-      );
+      recordOverlapQueries(counter);
 
       lifecyclePhase = "hidden";
       await userEvent.click(
@@ -569,24 +524,9 @@ export const KeepsPendingOwnerAndRetainedChapter: Story = {
       await expect(chapterOnly.isActive()).toBe(false);
       await expect(shared.getObserversCount()).toBe(0);
       await expect(chapterOnly.getObserversCount()).toBe(0);
-      await expect(
-        cache.find({ queryKey: overlapKey(sharedId), exact: true }),
-      ).toBe(shared);
-      await expect(
-        cache.find({ queryKey: overlapKey(chapterOnlyId), exact: true }),
-      ).toBe(chapterOnly);
-      console.info(
-        "Chapter DOM lease transition",
-        JSON.stringify({
-          phase: lifecyclePhase,
-          counterInDocument: counter.isConnected,
-          sharedActive: shared.isActive(),
-          chapterOnlyActive: chapterOnly.isActive(),
-          sharedObservers: shared.getObserversCount(),
-          chapterOnlyObservers: chapterOnly.getObserversCount(),
-          httpRequestsObserved: requested.length,
-        }),
-      );
+      await expect(findOverlapQuery(sharedId)).toBe(shared);
+      await expect(findOverlapQuery(chapterOnlyId)).toBe(chapterOnly);
+      recordOverlapQueries(counter);
 
       lifecyclePhase = "returned";
       await userEvent.click(
@@ -606,26 +546,10 @@ export const KeepsPendingOwnerAndRetainedChapter: Story = {
       await expect(
         canvas.getByLabelText("Изучено 1 из 2 материалов главы «Ожидание»"),
       ).toBe(counter);
-      await expect(
-        cache.find({ queryKey: overlapKey(sharedId), exact: true }),
-      ).toBe(shared);
-      await expect(
-        cache.find({ queryKey: overlapKey(chapterOnlyId), exact: true }),
-      ).toBe(chapterOnly);
-      console.info(
-        "Chapter DOM lease transition",
-        JSON.stringify({
-          phase: lifecyclePhase,
-          sameCounter:
-            canvas.getByLabelText(
-              "Изучено 1 из 2 материалов главы «Ожидание»",
-            ) === counter,
-          sharedActive: shared.isActive(),
-          chapterOnlyActive: chapterOnly.isActive(),
-          requested,
-          observerEvents,
-        }),
-      );
+      await expect(findOverlapQuery(sharedId)).toBe(shared);
+      await expect(findOverlapQuery(chapterOnlyId)).toBe(chapterOnly);
+      await waitFor(() => expect(requested).toEqual([overlapIds, overlapIds]));
+      recordOverlapQueries(counter);
     } finally {
       releaseStates?.();
     }
