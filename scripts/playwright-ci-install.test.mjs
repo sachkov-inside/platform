@@ -232,7 +232,9 @@ test("observed Microsoft 429 does not block browser dependencies or change the o
   assert.match(result.log, /playwright install chromium webkit/u);
   assert.equal(result.otherFeedIndexRetained, true);
   assert.equal(result.scopesRemoved, true);
-  assert.equal(result.aptCalls[0].preserveLists, true);
+  const firstAptCall = result.aptCalls[0];
+  assert.ok(firstAptCall);
+  assert.equal(firstAptCall.preserveLists, true);
   assert.equal(
     result.originalSources["sources.list.d/microsoft-prod.list"],
     "deb [arch=amd64,arm64,armhf signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/ubuntu/24.04/prod noble main\n",
