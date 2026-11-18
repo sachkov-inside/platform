@@ -39,14 +39,15 @@ export function TelegramContinuationPage({
     refetchOnWindowFocus: true,
   });
   const state = query.data;
-  useEffect(() => {
-    if (state?.state === "active")
-      router.replace(
-        internalRoute(
+  const programme =
+    state?.state === "active"
+      ? internalRoute(
           `/products/${encodeURIComponent(state.product.slug)}/programme`,
-        ),
-      );
-  }, [state, router]);
+        )
+      : null;
+  useEffect(() => {
+    if (programme !== null) router.replace(programme);
+  }, [programme, router]);
   const presentation =
     account.data?.kind === "ready" ? account.data.presentation : null;
   const unauthorized =
