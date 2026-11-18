@@ -34,9 +34,7 @@ export function PeopleSearchCombobox({
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
-  const pendingSearch = useRef<
-    ReturnType<typeof window.setTimeout> | undefined
-  >(undefined);
+  const pendingSearch = useRef<number | undefined>(undefined);
   const lastEnteredText = useRef("");
   const scheduleQuery = useCallback((next: string) => {
     lastEnteredText.current = next;
