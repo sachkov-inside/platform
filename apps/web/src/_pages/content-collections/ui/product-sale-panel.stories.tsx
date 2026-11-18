@@ -1,5 +1,17 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, userEvent, waitFor, within } from "storybook/test";
+import { expect, spyOn, userEvent, waitFor, within } from "storybook/test";
+
+import { PaymentLinksPanel } from "@/features/payment-links";
+import {
+  storyPaymentLinks,
+  storyPriceSnapshot,
+} from "@/storybook/sales-catalog.fixtures";
+import { z } from "zod";
+
+import {
+  paymentLinksPageSchema,
+  paymentLinksQueryKey,
+} from "@/entities/subscription";
 
 import { ProductSalePanel } from "@/features/product-sale-settings";
 import { factAnnouncement } from "@/shared/api/fact-announcement";
@@ -446,3 +458,238 @@ export const ForbiddenDesktop: Story = {
   },
 };
 export const ForbiddenMobile: Story = { ...ForbiddenDesktop, ...mobile };
+
+/** Observe the real SDK/query promises; no callback implementation or result is replaced. */
+function observeFirstLinkRead() {
+  let readPromise: (() => Promise<unknown>) | undefined;
+  let queryPromise: (() => Promise<unknown>) | undefined;
+  let currentData: (() => unknown) | undefined;
+  const restorers: (() => void)[] = [];
+  const stop = getQueryClient()
+    .getQueryCache()
+    .subscribe((event) => {
+      const key: unknown = event.query.queryKey;
+      if (!Array.isArray(key) || key[0] !== paymentLinksQueryKey[0]) return;
+      if (event.type === "added") {
+        const actualFetch = spyOn(event.query, "fetch");
+        queryPromise = () => returnedPromise(actualFetch.mock.results[0]);
+        currentData = () => event.query.state.data;
+        restorers.push(() => {
+          actualFetch.mockRestore();
+        });
+      }
+      if (event.type === "observerAdded") {
+        const options: { queryFn?: unknown } = event.observer.options;
+        if (!hasReadFunction(options))
+          throw new Error("Missing actual query function");
+        const actualRead = spyOn(options, "queryFn");
+        readPromise = () => returnedPromise(actualRead.mock.results[0]);
+        restorers.push(() => {
+          actualRead.mockRestore();
+        });
+      }
+    });
+  return {
+    first: () => {
+      if (readPromise === undefined || queryPromise === undefined)
+        throw new Error("Missing actual first link read");
+      return Promise.allSettled([readPromise(), queryPromise()]);
+    },
+    current: () => {
+      if (currentData === undefined)
+        throw new Error("Missing current link query");
+      return z
+        .object({ pages: z.array(paymentLinksPageSchema) })
+        .parse(currentData());
+    },
+    close: () => {
+      stop();
+      for (const restore of restorers) restore();
+    },
+  };
+}
+
+function hasReadFunction(options: {
+  queryFn?: unknown;
+}): options is { queryFn: (...args: never[]) => unknown } {
+  return typeof options.queryFn === "function";
+}
+
+function returnedPromise(
+  result: { readonly type: string; readonly value: unknown } | undefined,
+): Promise<unknown> {
+  if (result?.type !== "return" || !(result.value instanceof Promise))
+    throw new Error("Actual read did not return a Promise");
+  return result.value;
+}
+
+function delayedLinksAfterPriceArchive() {
+  const firstRead = Promise.withResolvers<undefined>();
+  const release = Promise.withResolvers<undefined>();
+  const firstReplyReleased = Promise.withResolvers<undefined>();
+  const sale = productSaleBff({
+    price: runningPrice,
+    salesState: runningState,
+  });
+  const originalLink = storyPaymentLinks(1)[0];
+  if (originalLink === undefined)
+    throw new Error("Missing canonical payment link");
+  const priceFacts = {
+    id: saleProductId,
+    name: saleProductName,
+    priceKopecks: runningPrice.priceKopecks,
+  };
+  const snapshot = storyPriceSnapshot(priceFacts);
+  const link = {
+    ...originalLink,
+    snapshot: storyPriceSnapshot(
+      priceFacts,
+      runningPrice.priceKopecks,
+      originalLink.id,
+    ),
+  };
+  let archived = false;
+  let reads = 0;
+  const fetch: Parameters<typeof fetchBeforeRender>[0] = async (
+    input,
+    init,
+  ) => {
+    const path = new URL(
+      input instanceof Request ? input.url : String(input),
+      window.location.origin,
+    ).pathname;
+    if (path === "/api/authoring/billing/catalog")
+      return Response.json({
+        ok: true,
+        value: {
+          items: archived ? [] : [snapshot],
+          archivedProductIds: archived ? [saleProductId] : [],
+        },
+      });
+    if (path === "/api/authoring/billing/payment-links/list") {
+      reads += 1;
+      const reply = Response.json({
+        ok: true,
+        value: {
+          operationRef: originalLink.id,
+          result: {
+            outcome: "paymentLinks",
+            items: [{ ...link, state: archived ? "changed" : "active" }],
+            nextCursor: null,
+          },
+        },
+      });
+      if (reads === 1) {
+        firstRead.resolve(undefined);
+        await release.promise;
+        firstReplyReleased.resolve(undefined);
+      }
+      return reply;
+    }
+    const reply = await sale(input, init);
+    if (path === "/api/authoring/billing/product-prices/archive") {
+      const success = z
+        .object({ ok: z.literal(true) })
+        .safeParse(await reply.clone().json());
+      if (success.success) archived = true;
+    }
+    return reply;
+  };
+  return {
+    fetch,
+    firstRead: firstRead.promise,
+    release: () => {
+      release.resolve(undefined);
+    },
+    firstReplyReleased: firstReplyReleased.promise,
+    reads: () => reads,
+  };
+}
+
+let priceArchiveLinks:
+  | (ReturnType<typeof delayedLinksAfterPriceArchive> & {
+      readonly observation: ReturnType<typeof observeFirstLinkRead>;
+    })
+  | undefined;
+export const PriceArchiveOutrunsOldLinkRead: Story = {
+  ...desktop,
+  args: { paymentLinks: <PaymentLinksPanel productId={saleProductId} /> },
+  beforeEach: [
+    environment.beforeEach,
+    () => {
+      getQueryClient().clear();
+      const observation = observeFirstLinkRead();
+      const scenario = { ...delayedLinksAfterPriceArchive(), observation };
+      priceArchiveLinks = scenario;
+      const restore = fetchBeforeRender(scenario.fetch)();
+      return () => {
+        scenario.release();
+        restore();
+        observation.close();
+        if (priceArchiveLinks === scenario) priceArchiveLinks = undefined;
+      };
+    },
+  ],
+  play: async ({ canvasElement }) => {
+    const scenario = priceArchiveLinks;
+    if (scenario === undefined)
+      throw new Error("Missing current link-read scenario");
+    const page = routeContent(canvasElement);
+    const facts = listenToSaleFacts();
+    const processing: { first?: Promise<PromiseSettledResult<unknown>[]> } = {};
+    try {
+      await scenario.firstRead;
+      const firstProcessingFinished = scenario.observation.first();
+      processing.first = firstProcessingFinished;
+      await userEvent.click(
+        await page.findByRole("button", {
+          name: `Действия с ценой «${saleProductName}»`,
+        }),
+      );
+      const body = within(canvasElement.ownerDocument.body);
+      await userEvent.click(
+        await body.findByRole("menuitem", { name: "Архивировать цену" }),
+      );
+      const dialog = await body.findByRole("dialog", {
+        name: "Архивировать цену?",
+      });
+      await userEvent.click(
+        within(dialog).getByRole("button", { name: "Архивировать цену" }),
+      );
+      await expect(
+        await page.findByText("Цена в архиве", { selector: ".admin-badge" }),
+      ).toBeVisible();
+      await waitFor(() =>
+        expect(facts.heard()).toEqual({
+          "inside.owner.price-catalog.changed": 1,
+          "inside.owner.product-sale.changed": 1,
+        }),
+      );
+      await waitFor(() => expect(scenario.reads()).toBe(2));
+      const table = await page.findByRole("table", {
+        name: "Ссылки на оплату, новые сверху",
+      });
+      await expect(within(table).getByText("Продажа закрыта")).toBeVisible();
+      scenario.release();
+      const completed = await firstProcessingFinished;
+      const sdk = completed[0];
+      if (sdk.status !== "fulfilled")
+        throw new Error("Old SDK read did not return its original result");
+      await expect(
+        paymentLinksPageSchema.parse(sdk.value).items.map((item) => item.state),
+      ).toEqual(["active"]);
+      await expect(
+        scenario.observation
+          .current()
+          .pages.flatMap((page) => page.items.map((item) => item.state)),
+      ).toEqual(["changed"]);
+      await expect(within(table).getByText("Продажа закрыта")).toBeVisible();
+      await expect(within(table).queryByText("Готова к оплате")).toBeNull();
+    } finally {
+      scenario.release();
+      await scenario.firstReplyReleased;
+      await processing.first;
+      facts.close();
+    }
+  },
+};

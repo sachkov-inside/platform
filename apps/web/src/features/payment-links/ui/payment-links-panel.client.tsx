@@ -1,19 +1,12 @@
 "use client";
 
-import {
-  useInfiniteQuery,
-  useMutation,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 import {
-  BillingReadError,
   isBillingRefusal,
-  ownerPriceCatalogChanged,
   paymentLinkHref,
-  paymentLinksQueryKey,
   productPriceChoices,
   useOwnerPriceCatalog,
   type PaymentLink,
@@ -38,14 +31,8 @@ import {
 } from "@/shared/ui/admin";
 import { Button } from "@/shared/ui/button";
 
-import {
-  listPaymentLinks,
-  revokePaymentLink,
-} from "../api/payment-links.browser";
-import {
-  announcePaymentLinkChange,
-  subscribePaymentLinkChange,
-} from "../model/payment-link-events";
+import { revokePaymentLink } from "../api/payment-links.browser";
+import { usePaymentLinks } from "../model/use-payment-links.client";
 import { paymentLinkExpiryLabel } from "../model/payment-link-expiry";
 import {
   allPaymentLinks,
@@ -63,7 +50,6 @@ import {
 import { PaymentLinkDetailsDialog } from "./payment-link-details-dialog.client";
 import { copyPaymentLink, paymentLinkUrl } from "./payment-link-share.client";
 
-const pageSize = 30;
 const allValue = "all";
 const headingId = "payment-links-heading";
 
@@ -88,7 +74,6 @@ export function PaymentLinksPanel({
   filter: requestedFilter,
   onFilterChange,
 }: PaymentLinksPanelProps) {
-  const cache = useQueryClient();
   const [ownFilter, setOwnFilter] = useState(allPaymentLinks);
   const baseFilter = requestedFilter ?? ownFilter;
   const filter: PaymentLinksFilter =
@@ -104,8 +89,6 @@ export function PaymentLinksPanel({
   const [revokeConflict, setRevokeConflict] = useState(false);
   const [status, setStatus] = useState("");
   const repeat = useRepeatableOperations();
-  // Своё объявление уже перечитало список здесь: подписка его пропускает.
-  const ownAnnouncement = useRef<string | null>(null);
 
   const catalog = useOwnerPriceCatalog();
   const choices: readonly ProductPriceChoice[] =
@@ -121,50 +104,7 @@ export function PaymentLinksPanel({
         }
       : { kind: "pending" };
 
-  const list = useInfiniteQuery({
-    queryKey: [...paymentLinksQueryKey, filter.productId, filter.state],
-    // Отказ и недоступность показываются сразу, с кнопкой повтора: чтение не повторяется молча.
-    retry: false,
-    initialPageParam: null as string | null,
-    queryFn: async ({ pageParam }) => {
-      const result = await listPaymentLinks({
-        operationId: crypto.randomUUID(),
-        limit: pageSize,
-        ...(filter.productId === null ? {} : { productId: filter.productId }),
-        ...(filter.state === null ? {} : { state: filter.state }),
-        ...(pageParam === null ? {} : { cursor: pageParam }),
-      });
-      if (!result.ok) throw new BillingReadError(result.code);
-      return result.value.result;
-    },
-    getNextPageParam: (page) => page.nextCursor,
-  });
-  const refresh = () => {
-    void cache.invalidateQueries({ queryKey: paymentLinksQueryKey });
-  };
-  const announce = () => {
-    ownAnnouncement.current = announcePaymentLinkChange();
-    refresh();
-  };
-  useEffect(
-    () =>
-      subscribePaymentLinkChange((announcementId) => {
-        if (announcementId === ownAnnouncement.current) return;
-        void cache.invalidateQueries({ queryKey: paymentLinksQueryKey });
-      }),
-    [cache],
-  );
-  // Архив цены продукта закрывает его ссылки («Продажа закрыта»), поэтому список перечитывается.
-  useEffect(
-    () =>
-      ownerPriceCatalogChanged.subscribe(() => {
-        void cache.invalidateQueries(
-          { queryKey: paymentLinksQueryKey },
-          { cancelRefetch: false },
-        );
-      }),
-    [cache],
-  );
+  const { list, refresh, written: announce } = usePaymentLinks(filter);
 
   const revoke = useMutation({
     mutationFn: revokePaymentLink,
