@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { useState } from "react";
-import { expect, fn, userEvent, waitFor, within } from "storybook/test";
+import { Activity, useState } from "react";
+import { expect, fn, spyOn, userEvent, waitFor, within } from "storybook/test";
 
 import { getQueryClient } from "@/shared/api/query-client";
 import { fetchBeforeRender } from "@/storybook/mutation-mock";
@@ -60,6 +60,42 @@ function Picker() {
     <div className="max-w-md">
       <PeopleSearchCombobox label="Кому" value={person} onChange={setPerson} />
     </div>
+  );
+}
+
+function RetainedPicker() {
+  const [visible, setVisible] = useState(true);
+  const [mounted, setMounted] = useState(true);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          setVisible(false);
+        }}
+      >
+        Скрыть выбор
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setVisible(true);
+        }}
+      >
+        Вернуть выбор
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setMounted(false);
+        }}
+      >
+        Удалить выбор
+      </button>
+      <Activity mode={visible ? "visible" : "hidden"}>
+        {mounted ? <Picker /> : null}
+      </Activity>
+    </>
   );
 }
 
@@ -129,4 +165,49 @@ export const NameSearchUnavailableDesktop: Story = {
 export const NameSearchUnavailableMobile: Story = {
   ...NameSearchUnavailableDesktop,
   ...mobile,
+};
+
+export const RetainsInputAndReleasesPendingSearch: Story = {
+  ...desktop,
+  render: () => <RetainedPicker />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const input = canvas.getByRole("combobox", { name: "Кому" });
+    const timeouts = spyOn(window, "setTimeout");
+    const clears = spyOn(window, "clearTimeout");
+    const pendingTimer = () => {
+      const at = timeouts.mock.calls.findLastIndex((args) => args[1] === 250);
+      const scheduled = timeouts.mock.results[at];
+      if (scheduled?.type !== "return")
+        throw new Error("Missing native input debounce");
+      return scheduled.value;
+    };
+    try {
+      await userEvent.type(input, "Анна");
+      const firstTimer = pendingTimer();
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Скрыть выбор", exact: true }),
+      );
+      await expect(input).not.toBeVisible();
+      await expect(input.isConnected).toBe(true);
+      await expect(clears).toHaveBeenCalledWith(firstTimer);
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Вернуть выбор", exact: true }),
+      );
+      await expect(canvas.getByRole("combobox", { name: "Кому" })).toBe(input);
+      await expect(input).toHaveValue("Анна");
+      await expect(await canvas.findAllByRole("option")).toHaveLength(2);
+      await expect(searchRequests).toHaveBeenLastCalledWith("Анна");
+      await userEvent.type(input, "я");
+      const lastTimer = pendingTimer();
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Удалить выбор", exact: true }),
+      );
+      await expect(input.isConnected).toBe(false);
+      await expect(clears).toHaveBeenCalledWith(lastTimer);
+    } finally {
+      timeouts.mockRestore();
+      clears.mockRestore();
+    }
+  },
 };
