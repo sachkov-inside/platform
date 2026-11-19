@@ -4,6 +4,7 @@ import {
   type APIRequestContext,
   type BrowserContext,
   type Page,
+  type Route,
 } from "@playwright/test";
 
 const backendPort = process.env["FAKE_BACKEND_PORT"];
@@ -379,39 +380,27 @@ test("leaving a pending Telegram continuation keeps the home page after a late a
   await expect(
     page.getByText("Проверяем доступ к выбранному курсу…"),
   ).toBeVisible();
-  await control(request, "active");
-  const ready = Promise.withResolvers<void>();
-  const release = Promise.withResolvers<void>();
-  const settled = Promise.withResolvers<void>();
+  const nextPoll = Promise.withResolvers<Route>();
   await page.route(
     `**/api/account/telegram-activation/${attemptId}`,
-    async (route) => {
-      try {
-        const response = await route.fetch();
-        expect(await response.json()).toMatchObject({ state: "active" });
-        ready.resolve();
-        await release.promise;
-        await route.fulfill({ response });
-        settled.resolve();
-      } catch (error) {
-        ready.reject(error);
-        settled.reject(error);
-      }
-    },
+    (route) => nextPoll.resolve(route),
+    { times: 1 },
   );
-  try {
-    await ready.promise;
-    await page
-      .getByRole("link", { name: /^sachkov\.dev(?:, Главная)?$/u })
-      .click();
-    await expect(page).toHaveURL(/\/$/u);
-    await expect(
-      page.getByText("Проверяем доступ к выбранному курсу…"),
-    ).toBeHidden();
-  } finally {
-    release.resolve();
-  }
-  await settled.promise;
-  await browserTurn(page);
+  const poll = await nextPoll.promise;
+  await control(request, "active");
+  const response = await poll.fetch();
+  expect(await response.json()).toMatchObject({ state: "active" });
+  const cancelled = page.waitForEvent("requestfailed", {
+    predicate: (entry) => entry === poll.request(),
+  });
+  await page
+    .getByRole("link", { name: /^sachkov\.dev(?:, Главная)?$/u })
+    .click();
+  await expect(page).toHaveURL(/\/$/u);
+  await expect(
+    page.getByText("Проверяем доступ к выбранному курсу…"),
+  ).toBeHidden();
+  await poll.fulfill({ response });
+  await cancelled;
   await expect(page).toHaveURL(/\/$/u);
 });
