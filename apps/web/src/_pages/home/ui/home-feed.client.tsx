@@ -1,39 +1,27 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import {
   InfiniteMaterialCatalog,
   homeFeedQueryOptions,
   libraryHref,
-  parseLibrarySearchParams,
   useLibraryCatalogQuery,
-  withoutLibraryCursor,
   type LibrarySearchQuery,
   type LibraryCatalogQueryOptions,
 } from "@/features/library-catalog";
 import { Button } from "@/shared/ui/button";
+import {
+  replaceHomeQuery,
+  useHomeFeedLocation,
+} from "../model/use-home-feed-location.client";
+
 export function HomeFeed() {
-  const search = useSearchParams().toString();
-  // Поиска на Главной нет (решение владельца 09.10.2026): текст запроса из старой ссылки
-  // `/?q=…` не применяется, иначе лента сузилась бы без видимой причины. Синхронизация адреса
-  // ниже убирает его из адреса.
-  const initialQuery = useMemo(() => {
-    const query = withoutLibraryCursor(
-      parseLibrarySearchParams(new URLSearchParams(search)).query,
-    );
-    return {
-      ...query,
-      q: "",
-      formatSlugs: [],
-      sort: query.sort === "relevance" ? ("newest" as const) : query.sort,
-    };
-  }, [search]);
+  const initialQuery = useHomeFeedLocation();
   return (
     <HomeFeedView
       initialQuery={initialQuery}
       createQueryOptions={homeFeedQueryOptions}
-      syncLocation
+      onQueryChange={replaceHomeQuery}
     />
   );
 }
@@ -41,9 +29,9 @@ export function HomeFeed() {
 export function HomeFeedView({
   initialQuery,
   createQueryOptions,
-  syncLocation = false,
+  onQueryChange,
 }: {
-  readonly syncLocation?: boolean;
+  readonly onQueryChange?: (query: LibrarySearchQuery) => void;
   readonly initialQuery: LibrarySearchQuery;
   readonly createQueryOptions: (
     query: LibrarySearchQuery,
@@ -57,12 +45,9 @@ export function HomeFeedView({
     initialQuery: topicQuery,
     createQueryOptions,
   });
-  useEffect(() => {
-    if (syncLocation) replaceHomeQuery(topicQuery);
-  }, [topicQuery, syncLocation]);
   const changeQuery = (next: LibrarySearchQuery) => {
     catalog.changeQuery(next);
-    if (syncLocation) replaceHomeQuery(next);
+    onQueryChange?.(next);
   };
   const page = catalog.firstPage;
   const unavailable =
@@ -233,15 +218,4 @@ export function HomeFeedLoading() {
       <FeedSkeleton />
     </section>
   );
-}
-
-function replaceHomeQuery(query: LibrarySearchQuery) {
-  const destination = new URL(libraryHref(query), window.location.origin);
-  for (const value of new URLSearchParams(window.location.search).getAll(
-    "authentication",
-  ))
-    destination.searchParams.append("authentication", value);
-  const href = `${destination.pathname}${destination.search}`;
-  if (`${window.location.pathname}${window.location.search}` !== href)
-    window.history.replaceState(null, "", href);
 }
