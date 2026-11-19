@@ -203,3 +203,39 @@ export const ClosedShortcutWhileHidden: Story = {
     }
   },
 };
+
+export const ShortcutModifiersAndDraft: Story = {
+  render: () => (
+    <AuthoringSearchRoot>
+      <AuthoringSearchTrigger />
+    </AuthoringSearchRoot>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const modal = () =>
+      canvas.queryByRole("dialog", { name: "Поиск по админке" });
+    await userEvent.keyboard("{Control>}{Alt>}k{/Alt}{/Control}");
+    await expect(modal()).toBeNull();
+    await userEvent.keyboard("{Control>}{Shift>}K{/Shift}{/Control}");
+    await expect(modal()).toBeNull();
+    await userEvent.keyboard("{Meta>}k{/Meta}");
+    const dialog = canvas.getByRole<HTMLDialogElement>("dialog", {
+      name: "Поиск по админке",
+    });
+    const input = within(dialog).getByRole("combobox", { name: "Что найти" });
+    await expect(input).toHaveFocus();
+    await userEvent.type(input, "  ");
+    await userEvent.keyboard("{Control>}k{/Control}");
+    await expect(input).toHaveValue("  ");
+    await expect(dialog.matches(":modal")).toBe(true);
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(dialog.matches(":modal")).toBe(false));
+    await userEvent.keyboard("{Control>}k{/Control}");
+    await expect(dialog.matches(":modal")).toBe(true);
+    await expect(
+      within(dialog).getByRole("combobox", { name: "Что найти" }),
+    ).toHaveValue("");
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(dialog.matches(":modal")).toBe(false));
+  },
+};

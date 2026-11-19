@@ -259,3 +259,34 @@ test("global search refuses an account without the right instead of answering em
   ).toBeVisible();
   await expect(dialog.getByRole("option")).toHaveCount(0);
 });
+
+test("the mobile more sheet stays closed after a desktop round trip (#2424)", async ({
+  context,
+  page,
+  baseURL,
+}) => {
+  if (baseURL === undefined) throw new Error("baseURL required");
+  await context.addCookies([await authorCookie(baseURL)]);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/authoring/topics");
+  await expect(
+    page.getByRole("heading", { name: "Темы", level: 1 }),
+  ).toBeVisible();
+  const more = page
+    .getByRole("navigation", { name: "Основные разделы" })
+    .getByRole("button", { name: "Ещё" });
+  const sheet = page.getByRole("dialog", { name: "Ещё" });
+  await more.click();
+  await expect(sheet).toBeVisible();
+  await page.setViewportSize({ width: 1440, height: 1024 });
+  await expect(sheet).toBeHidden();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(more).toBeVisible();
+  await expect(more).toHaveAttribute("aria-expanded", "false");
+  await expect(sheet).toBeHidden();
+  await more.click();
+  await expect(sheet).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+  await expect(more).toBeFocused();
+});

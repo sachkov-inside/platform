@@ -19,13 +19,17 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useState, useSyncExternalStore, type ReactNode } from "react";
 
 import {
   AuthoringSearchRoot,
   AuthoringSearchTrigger,
 } from "@/features/authoring-search";
-import { subscribeShellBreakpoint } from "@/shared/lib/shell-scroll";
+import { useNativeDialog } from "@/shared/lib/native-dialog.client";
+import {
+  readShellDesktop,
+  subscribeShellBreakpoint,
+} from "@/shared/lib/shell-scroll";
 import { authoringOverviewHref } from "@/shared/routing/authoring";
 import { FullLoadLink } from "@/shared/ui/full-load-link.client";
 
@@ -71,19 +75,18 @@ export function AuthoringShell({
   const location = authoringLocation(pathname);
   const [moreOpen, setMoreOpen] = useState(false);
   const [openedAt, setOpenedAt] = useState(pathname);
+  const desktop = useSyncExternalStore(
+    subscribeShellBreakpoint,
+    readShellDesktop,
+    () => false,
+  );
   // A retained shell closes the «Ещё» sheet when the destination changes.
   if (openedAt !== pathname) {
     setOpenedAt(pathname);
     setMoreOpen(false);
   }
-  useEffect(
-    () =>
-      // From 64rem the sidebar replaces the bottom panel, so an open sheet has nothing to belong to.
-      subscribeShellBreakpoint((desktop) => {
-        if (desktop) setMoreOpen(false);
-      }),
-    [],
-  );
+  // The sidebar replaces this sheet: https://github.com/sachkov-inside/platform/issues/2424.
+  if (desktop && moreOpen) setMoreOpen(false);
   // The sidebar names the preview in full; the narrow top row keeps one short word.
   const title = location.preview
     ? "Предпросмотр"
@@ -311,13 +314,12 @@ function MoreSheet({
   readonly onClose: () => void;
   readonly open: boolean;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const node = dialog.current;
-    if (node === null) return;
-    if (open && !node.open) node.showModal();
-    if (!open && node.open) node.close();
-  }, [open]);
+  const dialog = useNativeDialog({
+    open,
+    onOpenChange(next) {
+      if (!next) onClose();
+    },
+  });
   return (
     <dialog
       aria-labelledby="authoring-more-title"
@@ -326,15 +328,7 @@ function MoreSheet({
         // A click on the backdrop lands on the dialog element itself.
         if (event.target === event.currentTarget) onClose();
       }}
-      onClose={onClose}
-      onKeyDown={(event) => {
-        // Synthetic and assistive Escape presses do not always reach the native cancel.
-        if (event.key === "Escape") {
-          event.preventDefault();
-          onClose();
-        }
-      }}
-      ref={dialog}
+      {...dialog}
     >
       <div className="authoring-more-body">
         <header className="authoring-more-header">

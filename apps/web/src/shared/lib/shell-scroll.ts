@@ -19,6 +19,11 @@ function desktopMedia(): MediaQueryList {
   return window.matchMedia(desktopQuery);
 }
 
+/** The same browser breakpoint that owns shell scrolling and desktop navigation. */
+export function readShellDesktop(): boolean {
+  return desktopMedia().matches;
+}
+
 /** A node inside or around one shell; without one, the first shell in the document. */
 type ShellScope = ParentNode | null | undefined;
 
