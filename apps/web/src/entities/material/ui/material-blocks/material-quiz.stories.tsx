@@ -4,9 +4,10 @@ import {
   expectCalmDisabledCheck,
   expectReadableDarkExercise,
 } from "@/storybook/exercise-actions";
-import { expect, userEvent, within } from "storybook/test";
-import { useState } from "react";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
+import { startTransition, Suspense, useState } from "react";
 import {
+  ExerciseAnswersObserver,
   ExerciseAnswersProvider,
   type ExerciseAnswerRecord,
 } from "../../model/exercise-answers.client";
@@ -316,5 +317,68 @@ export const UpdatedPastAnswer: Story = {
     await expect(
       quiz.queryByText("Упражнение обновлено, ответь ещё раз"),
     ).toBeNull();
+  },
+};
+
+const answerReported = fn<(listener: string, exercise: string) => void>();
+const pendingListenerRendered = fn();
+const pendingListener = new Promise<void>(() => {});
+
+function SuspendListener({ listener }: { readonly listener: string }) {
+  if (listener === "B") {
+    pendingListenerRendered();
+    throw pendingListener;
+  }
+  return null;
+}
+
+function QuizWithChangingListener(props: MaterialQuizPresentation) {
+  const [listener, setListener] = useState("A");
+  return (
+    <>
+      <button onClick={() => startTransition(() => setListener("B"))}>
+        Отложить смену
+      </button>
+      <button onClick={() => setListener("C")}>
+        Принять другой обработчик
+      </button>
+      <Suspense fallback={<span>Загрузка</span>}>
+        <ExerciseAnswersObserver
+          onAnswered={(exercise) => answerReported(listener, exercise)}
+        >
+          <MaterialQuiz {...props} />
+          <span>Обработчик {listener}</span>
+          <SuspendListener listener={listener} />
+        </ExerciseAnswersObserver>
+      </Suspense>
+    </>
+  );
+}
+
+export const AnswersReachCommittedListener: Story = {
+  beforeEach: () => {
+    answerReported.mockClear();
+    pendingListenerRendered.mockClear();
+  },
+  render: (args) => <QuizWithChangingListener {...args} />,
+  play: async ({ canvasElement, args }) => {
+    const quiz = within(canvasElement);
+    const press = (name: string) =>
+      userEvent.click(quiz.getByRole("button", { name }));
+    await press("Отложить смену");
+    await waitFor(() => expect(pendingListenerRendered).toHaveBeenCalled());
+    await expect(quiz.getByText("Обработчик A")).toBeVisible();
+    await press("Не знаю");
+    await expect(answerReported.mock.calls).toEqual([["A", args.id]]);
+    await press("Принять другой обработчик");
+    await expect(quiz.getByText("Обработчик C")).toBeVisible();
+    await expect(quiz.getByText("Не знаю · без оценки")).toBeVisible();
+    await expect(answerReported.mock.calls).toEqual([["A", args.id]]);
+    await press("Ответить ещё раз");
+    await press("Не знаю");
+    await expect(answerReported.mock.calls).toEqual([
+      ["A", args.id],
+      ["C", args.id],
+    ]);
   },
 };
