@@ -1579,21 +1579,20 @@ test("подтверждение оплаты открывает сохранё�
   await expect(page).toHaveURL(returnUrl.href);
   const notification = await page.evaluateHandle(() => {
     const name = "inside.account.billing.changed";
-    const held = Promise.withResolvers<string>();
-    window.addEventListener(
-      name,
-      (event) => {
-        if (!(event instanceof CustomEvent) || typeof event.detail !== "string")
-          return;
-        event.stopImmediatePropagation();
-        held.resolve(event.detail);
-      },
-      { capture: true, once: true },
-    );
+    let heldId: string | undefined;
+    const hold = (event: Event) => {
+      if (!(event instanceof CustomEvent) || typeof event.detail !== "string")
+        return;
+      event.stopImmediatePropagation();
+      heldId = event.detail;
+    };
+    window.addEventListener(name, hold, { capture: true, once: true });
     return {
-      heard: held.promise,
-      release: (id: string) => {
-        window.dispatchEvent(new CustomEvent(name, { detail: id }));
+      id: () => heldId,
+      release: () => {
+        window.removeEventListener(name, hold, true);
+        if (heldId !== undefined)
+          window.dispatchEvent(new CustomEvent(name, { detail: heldId }));
       },
     };
   });
@@ -1601,24 +1600,22 @@ test("подтверждение оплаты открывает сохранё�
     await controlBackend({ returnPurchaseReady: true });
     await page.getByRole("button", { name: "Проверить статус" }).click();
     await expect(page.getByText("Открыт", { exact: true })).toBeVisible();
-    const id = await notification.evaluate((event) => event.heard);
-    expect(id).toMatch(z.regexes.uuid());
-    try {
-      await page.goForward();
-      await page.goForward();
-      await expect(page).toHaveURL(lessonUrl);
-      expect(await page.evaluate(() => performance.timeOrigin)).toBe(
-        documentOrigin,
-      );
-      await expect(
-        page.getByText(protectedBodyMarker, { exact: false }).first(),
-      ).toBeVisible();
-    } finally {
-      await notification.evaluate((event, id) => {
-        event.release(id);
-      }, id);
-    }
+    await expect
+      .poll(() => notification.evaluate((event) => event.id()))
+      .toMatch(z.regexes.uuid());
+    await page.goForward();
+    await page.goForward();
+    await expect(page).toHaveURL(lessonUrl);
+    expect(await page.evaluate(() => performance.timeOrigin)).toBe(
+      documentOrigin,
+    );
+    await expect(
+      page.getByText(protectedBodyMarker, { exact: false }).first(),
+    ).toBeVisible();
   } finally {
+    await notification.evaluate((event) => {
+      event.release();
+    });
     await notification.dispose();
     await controlBackend({ returnPurchaseReady: false });
   }
