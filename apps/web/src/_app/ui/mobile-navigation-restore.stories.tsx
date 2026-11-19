@@ -33,7 +33,7 @@ export const OrdinaryLinkRestoresOnlyItsDestination = {
     const previousTop = window.scrollY;
     const cache = new QueryClient();
     const original = location.href;
-    const historyState = history.state;
+    const historyState: unknown = history.state;
     const home = "/?topic=platform";
     function show(url: string, tall: boolean) {
       history.replaceState(historyState, "", url);
@@ -44,7 +44,11 @@ export const OrdinaryLinkRestoresOnlyItsDestination = {
       );
     }
     const nextFrame = () =>
-      new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => {
+          resolve();
+        }),
+      );
     try {
       show(home, true);
       const content = canvasElement.querySelector<HTMLElement>(
@@ -62,12 +66,12 @@ export const OrdinaryLinkRestoresOnlyItsDestination = {
       await waitFor(() => expect(link).toHaveAttribute("href", home));
       show("/account", false);
       await expect(scroller.scrollTop).toBe(0);
-      fireEvent.click(link);
+      await fireEvent.click(link);
       show(home, true);
       await waitFor(() => expect(scroller.scrollTop).toBe(500));
 
       show("/account", false);
-      fireEvent.click(link);
+      await fireEvent.click(link);
       show(home, false);
       await nextFrame();
       await expect(scroller.scrollTop).toBe(0);
