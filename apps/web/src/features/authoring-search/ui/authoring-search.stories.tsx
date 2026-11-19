@@ -127,3 +127,69 @@ export const QueuedNativeClose: Story = {
     }
   },
 };
+
+function ClosedRetainedSearch() {
+  const [visible, setVisible] = useState(true);
+  return (
+    <section>
+      <button onClick={() => setVisible(false)} type="button">
+        Скрыть поиск
+      </button>
+      <button onClick={() => setVisible(true)} type="button">
+        Вернуться к поиску
+      </button>
+      <Activity mode={visible ? "visible" : "hidden"}>
+        <AuthoringSearchRoot>
+          <AuthoringSearchTrigger />
+        </AuthoringSearchRoot>
+      </Activity>
+    </section>
+  );
+}
+
+export const ClosedShortcutWhileHidden: Story = {
+  render: () => <ClosedRetainedSearch />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const trigger = canvas.getByRole("button", { name: /^Поиск по людям/ });
+    const dialog = canvasElement.querySelector("dialog");
+    if (dialog === null) throw new Error("Missing persistent search dialog");
+    await expect(dialog.open).toBe(false);
+    await expect(dialog.matches(":modal")).toBe(false);
+    const outside = canvas.getByRole("button", { name: "Скрыть поиск" });
+    await userEvent.click(outside);
+    await waitFor(() => expect(trigger).not.toBeVisible());
+    await expect(outside).toHaveFocus();
+    const hiddenKeys: KeyboardEvent[] = [];
+    const recordKey = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() === "k") hiddenKeys.push(event);
+    };
+    outside.addEventListener("keydown", recordKey);
+    try {
+      // Story userEvent delivery, not a trusted physical keyboard assertion.
+      await userEvent.keyboard("{Control>}k{/Control}");
+      await expect(hiddenKeys).toHaveLength(1);
+      const key = hiddenKeys[0];
+      if (key === undefined)
+        throw new Error("Hidden shortcut was not delivered");
+      await expect(key.ctrlKey).toBe(true);
+      await expect(key.target).toBe(outside);
+      await expect(key.defaultPrevented).toBe(false);
+      await expect(dialog.open).toBe(false);
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Вернуться к поиску" }),
+      );
+      await waitFor(() => expect(trigger).toBeVisible());
+      await expect(canvasElement.querySelector("dialog")).toBe(dialog);
+      await expect(dialog.isConnected).toBe(true);
+      await expect(dialog.open).toBe(false);
+      await expect(dialog.matches(":modal")).toBe(false);
+      await userEvent.keyboard("{Control>}k{/Control}");
+      await waitFor(() => expect(dialog.matches(":modal")).toBe(true));
+      await userEvent.keyboard("{Escape}");
+      await waitFor(() => expect(dialog.matches(":modal")).toBe(false));
+    } finally {
+      outside.removeEventListener("keydown", recordKey);
+    }
+  },
+};
