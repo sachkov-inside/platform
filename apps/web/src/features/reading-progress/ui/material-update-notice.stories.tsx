@@ -210,7 +210,6 @@ export const OpenWaitsForViewportAfterStates: Story = {
     );
     if (reader === null) throw new Error("Missing viewport Reader fixture");
     let entry: IntersectionObserverEntry | undefined;
-    // A second native observer only records geometry; the production observer is unchanged.
     const observer = new IntersectionObserver((entries) => {
       entry = entries[0];
     });
@@ -248,7 +247,6 @@ export const OpenWaitsForViewportAfterStates: Story = {
       await expect(flow.requests).not.toContain("/api/reading-progress/open");
       await expect(reader).toHaveAttribute("data-material-open-state", "idle");
 
-      // One native DOM scroll; no clock, observer or document visibility replacement.
       reader.scrollIntoView({ block: "center" });
       await waitFor(() => expect(entry?.isIntersecting).toBe(true));
       await waitFor(() =>
