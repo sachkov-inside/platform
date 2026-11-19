@@ -705,3 +705,54 @@ test("leaving a changed product saves its title and opens the list without a bef
     release.resolve(undefined);
   }
 });
+
+test("a later product order read supplies the version for the next chapter save", async ({
+  page,
+  request,
+}) => {
+  const control = backend + "/__collections/order-version";
+  try {
+    expect((await request.post(control)).ok()).toBe(true);
+    await page.goto(
+      "/authoring/products/c0110000-0000-4000-8000-000000000053?tab=program",
+    );
+    const editor = (name: string) =>
+      page
+        .locator("details")
+        .filter({ has: page.locator("summary", { hasText: name }) });
+    const first = editor("Первая глава");
+    const second = editor("Вторая глава");
+    for (const chapter of [first, second]) {
+      await chapter.locator("summary").click();
+      await chapter
+        .getByRole("button", { name: "Первый шаг программы" })
+        .click();
+    }
+    const save = "Сохранить привязки";
+    await first.getByRole("button", { name: save }).click();
+    await expect(first.getByRole("status")).toHaveText("Сохранено");
+    await expect
+      .poll(async () => {
+        const result = await request.get(control);
+        return result.ok() && (await result.json()).pending === true;
+      })
+      .toBe(true);
+    await second.getByRole("button", { name: save }).click();
+    await expect(second.getByRole("alert")).toContainText("Состав изменился");
+    expect((await request.post(control + "/release")).ok()).toBe(true);
+    await expect(second.locator("summary")).toContainText(
+      "Вторая глава обновлена",
+    );
+    await second.getByRole("button", { name: save }).click();
+    await expect(second.getByRole("status")).toHaveText("Сохранено");
+    const result = await request.get(control);
+    expect(result.ok()).toBe(true);
+    expect((await result.json()).writes).toEqual([
+      "a".repeat(64),
+      "b".repeat(64),
+      "c".repeat(64),
+    ]);
+  } finally {
+    expect((await request.delete(control)).ok()).toBe(true);
+  }
+});
