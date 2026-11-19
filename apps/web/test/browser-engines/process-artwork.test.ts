@@ -5,6 +5,11 @@ import { expect as browserExpect, type Video } from "@playwright/test";
 import { afterAll, beforeAll, test } from "vitest";
 
 import {
+  type FirstTextAssertion,
+  createFirstTextTrace,
+  saveFirstTextFailure,
+} from "../support/artwork-first-text";
+import {
   createOwnedBrowserFixture,
   type BrowserFixture,
 } from "../support/owned-browser-fixture";
@@ -28,6 +33,11 @@ function observeArtworkResources() {
   const visibility = new Set<EventListenerOrEventListenerObject>();
   const media = new Map<EventTarget, Set<EventListenerOrEventListenerObject>>();
   let executedFrames = 0;
+  let insideClockTrigger = false;
+  const visibilityHandlers = new WeakMap<
+    EventListenerOrEventListenerObject,
+    EventListener
+  >();
   const add: unknown = Object.getOwnPropertyDescriptor(
     EventTarget.prototype,
     "addEventListener",
@@ -39,7 +49,30 @@ function observeArtworkResources() {
   if (typeof add !== "function" || typeof remove !== "function")
     throw new Error("Native EventTarget unavailable");
   EventTarget.prototype.addEventListener = function (type, listener, options) {
-    Reflect.apply(add, this, [type, listener, options]);
+    let registered = listener;
+    if (
+      listener &&
+      this === document &&
+      type === "visibilitychange" &&
+      window.artworkFirstText
+    ) {
+      let handler = visibilityHandlers.get(listener);
+      if (!handler) {
+        handler = function (this: EventTarget, event) {
+          const previous = insideClockTrigger;
+          insideClockTrigger = true;
+          try {
+            if (typeof listener === "function") listener.call(this, event);
+            else listener.handleEvent(event);
+          } finally {
+            insideClockTrigger = previous;
+          }
+        };
+        visibilityHandlers.set(listener, handler);
+      }
+      registered = handler;
+    }
+    Reflect.apply(add, this, [type, registered, options]);
     if (listener === null) return;
     if (this === document && type === "visibilitychange")
       visibility.add(listener);
@@ -59,7 +92,11 @@ function observeArtworkResources() {
     listener,
     options,
   ) {
-    Reflect.apply(remove, this, [type, listener, options]);
+    const registered =
+      this === document && type === "visibilitychange" && listener
+        ? (visibilityHandlers.get(listener) ?? listener)
+        : listener;
+    Reflect.apply(remove, this, [type, registered, options]);
     if (listener === null) return;
     if (this === document && type === "visibilitychange")
       visibility.delete(listener);
@@ -74,8 +111,30 @@ function observeArtworkResources() {
     }
   };
   const NativeIntersection = window.IntersectionObserver;
+  const artworkCallbacks = new WeakSet<FrameRequestCallback>();
   window.IntersectionObserver = class extends NativeIntersection {
+    constructor(
+      callback: IntersectionObserverCallback,
+      options?: IntersectionObserverInit,
+    ) {
+      super((entries, observer) => {
+        const trace = window.artworkFirstText;
+        const entry =
+          trace &&
+          entries.find(({ target }) => target.matches(".ai-process-artwork"));
+        if (entry) trace.intersection(entry.isIntersecting);
+        const previous = insideClockTrigger;
+        insideClockTrigger ||= Boolean(entry);
+        try {
+          callback.call(observer, entries, observer);
+        } finally {
+          insideClockTrigger = previous;
+        }
+      }, options);
+    }
     override observe(element: Element) {
+      if (element.matches(".ai-process-artwork"))
+        window.artworkFirstText?.observe(element);
       super.observe(element);
       const targets = intersection.get(this) ?? new Set<Element>();
       targets.add(element);
@@ -95,9 +154,15 @@ function observeArtworkResources() {
   const request = window.requestAnimationFrame.bind(window);
   const cancel = window.cancelAnimationFrame.bind(window);
   window.requestAnimationFrame = (callback) => {
+    if (insideClockTrigger) artworkCallbacks.add(callback);
+    const clock = artworkCallbacks.has(callback)
+      ? window.artworkFirstText
+      : undefined;
+    clock?.request();
     const frame = request(function (this: unknown, time) {
       frames.delete(frame);
       executedFrames += 1;
+      clock?.frame(time);
       Reflect.apply(callback, this, [time]);
     });
     frames.add(frame);
@@ -132,21 +197,41 @@ for (const engine of ["chromium", "webkit"] as const) {
       viewport: { width: 900, height: 700 },
       reducedMotion: "no-preference",
     });
+    let completed = false;
     try {
       const page = await context.newPage();
+      if (engine === "webkit") await page.addInitScript(createFirstTextTrace);
       await page.addInitScript(observeArtworkResources);
       await page.goto(fixture.url);
       const host = page.locator(".ai-process-artwork");
       const stage = host.locator(".stage");
       const resources = () =>
         page.evaluate(() => window.processArtworkResources?.());
-      await browserExpect(stage).toHaveAttribute("data-scene", "1");
-      await browserExpect
-        .poll(resources)
-        .toMatchObject({ intersection: 1, frames: 1, visibility: 1, media: 1 });
-      await browserExpect
-        .poll(() => host.locator(".scene-1 .type").textContent())
-        .toContain("Добавь");
+      let assertion: FirstTextAssertion = "scene";
+      try {
+        await browserExpect(stage).toHaveAttribute("data-scene", "1");
+        assertion = "resources";
+        await browserExpect.poll(resources).toMatchObject({
+          intersection: 1,
+          frames: 1,
+          visibility: 1,
+          media: 1,
+        });
+        assertion = "first-text";
+        await browserExpect
+          .poll(() => host.locator(".scene-1 .type").textContent())
+          .toContain("Добавь");
+      } catch (error) {
+        if (engine === "webkit")
+          await saveFirstTextFailure(page, assertion).catch(() => {
+            console.warn(
+              "[process-artwork] Could not save first-text diagnostics",
+            );
+          });
+        throw error;
+      }
+      if (engine === "webkit")
+        await page.evaluate(() => window.artworkFirstText?.stop());
       const savedStage = await stage.elementHandle();
       await page
         .getByRole("button", { name: "Hide artwork", exact: true })
@@ -247,8 +332,11 @@ for (const engine of ["chromium", "webkit"] as const) {
           text: "Добавь уведомления о новых заявках",
         });
       await savedStage.dispose();
+      completed = true;
     } finally {
-      await context.close();
+      await context.close().catch((error: unknown) => {
+        if (completed) throw error;
+      });
     }
   }, 20_000);
 
