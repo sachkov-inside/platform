@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 import { z } from "zod";
+import { Activity, useState, type ReactNode } from "react";
 
 import { productPurchaseHref } from "@/shared/routing/subscription-route";
 import { chooseInSelect } from "@/storybook/select-choice";
@@ -690,6 +691,27 @@ export const VideoContinuationPreview: Story = {
   },
 };
 
+function ScrollableLesson({ children }: { readonly children: ReactNode }) {
+  const [visible, setVisible] = useState(true);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          setVisible(!visible);
+        }}
+      >
+        {visible ? "Скрыть урок" : "Вернуться к уроку"}
+      </button>
+      <section
+        aria-label="Страница урока"
+        style={{ height: 400, overflowY: "auto" }}
+      >
+        <Activity mode={visible ? "visible" : "hidden"}>{children}</Activity>
+      </section>
+    </>
+  );
+}
 /** A guest reopens a long lesson at the restored gate and can continue past it. */
 export const RestoredGateScrollsOnce: Story = {
   parameters: { guestParts: 3 },
@@ -707,12 +729,9 @@ export const RestoredGateScrollsOnce: Story = {
   },
   decorators: [
     (Story) => (
-      <section
-        aria-label="Страница урока"
-        style={{ height: 400, overflowY: "auto" }}
-      >
+      <ScrollableLesson>
         <Story />
-      </section>
+      </ScrollableLesson>
     ),
   ],
   play: async ({ canvasElement }) => {
@@ -726,8 +745,37 @@ export const RestoredGateScrollsOnce: Story = {
       return panel.scrollTop > 0 && y >= frame.top && y < frame.bottom;
     };
     await waitFor(() => expect(inView()).toBe(true));
-    await userEvent.click(canvas.getByRole("button", { name: "Готово!" }));
-    await expect(canvas.getByRole("heading", { name: "Итог" })).toBeVisible();
-    await waitFor(() => expect(inView()).toBe(false));
+    panel.scrollTo({ top: 0, behavior: "instant" });
+    await expect(panel.scrollTop).toBe(0);
+    await userEvent.click(canvas.getByRole("button", { name: "Скрыть урок" }));
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Вернуться к уроку" }),
+    );
+    await expect(
+      canvas.getByText("Разбор: проверяйте то, что видит пользователь."),
+    ).toBeVisible();
+    await expect(panel.scrollTop).toBe(0);
+  },
+};
+
+export const RestoredGateScrollsOnceMobile: Story = {
+  ...RestoredGateScrollsOnce,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+export const FirstVisitKeepsScrollAtTop: Story = {
+  ...RestoredGateScrollsOnce,
+  parameters: {},
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("button", { name: "А как проверить результат?" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByText("Разбор: проверяйте то, что видит пользователь."),
+    ).not.toBeVisible();
+    await expect(
+      canvas.getByRole("region", { name: "Страница урока" }).scrollTop,
+    ).toBe(0);
   },
 };
