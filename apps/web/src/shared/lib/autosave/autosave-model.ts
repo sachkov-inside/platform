@@ -13,6 +13,26 @@ export interface AutosaveStatus {
   readonly rejection: { key: string; result: "invalid" | "failed" } | null;
 }
 
+function blocksAutomaticSave(
+  rejection: AutosaveStatus["rejection"],
+  key: string,
+) {
+  return rejection?.result === "failed" || rejection?.key === key;
+}
+
+export function shouldScheduleAutosave(
+  status: AutosaveStatus,
+  key: string,
+  enabled: boolean,
+) {
+  return (
+    enabled &&
+    key !== status.savedKey &&
+    !status.pending &&
+    !blocksAutomaticSave(status.rejection, key)
+  );
+}
+
 export function createAutosaveModel<T>(
   initial: AutosaveInput<T>,
   publishStatus: (status: AutosaveStatus) => void,
@@ -20,7 +40,8 @@ export function createAutosaveModel<T>(
   let committed = initial;
   let savedKey = initial.key;
   let rejected: {
-    input: Pick<AutosaveInput<T>, "key" | "value">;
+    key: string;
+    value: T;
     result: "invalid" | "failed";
   } | null = null;
   let running: Promise<boolean> | null = null;
@@ -29,7 +50,7 @@ export function createAutosaveModel<T>(
       savedKey,
       pending,
       rejection: rejected && {
-        key: rejected.input.key,
+        key: rejected.key,
         result: rejected.result,
       },
     });
@@ -48,7 +69,7 @@ export function createAutosaveModel<T>(
     } else if (result === "invalid" && committed.key === savedKey) {
       rejected = null;
     } else {
-      rejected = { input: { value: input.value, key: input.key }, result };
+      rejected = { value: input.value, key: input.key, result };
     }
     return result === "saved";
   }
@@ -58,14 +79,9 @@ export function createAutosaveModel<T>(
       if (!(await running)) return false;
     }
     if (!committed.enabled) return false;
-    if (
-      !retry &&
-      rejected &&
-      (rejected.result === "failed" || rejected.input.key === committed.key)
-    )
-      return false;
+    if (!retry && blocksAutomaticSave(rejected, committed.key)) return false;
     if (!rejected && committed.key === savedKey) return true;
-    const input = rejected?.result === "failed" ? rejected.input : committed;
+    const input = rejected?.result === "failed" ? rejected : committed;
     running = write(input);
     publish(true);
     const saved = await running;

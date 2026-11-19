@@ -64,12 +64,23 @@ test("a failed save retries its snapshot before a newer edit; an upload keeps th
     await page.getByLabel("Draft").fill("first");
     await started.promise;
     await page.getByLabel("Draft").fill("second");
-    await page.getByText("Toggle upload").click();
     await page.getByRole("link").click();
     release.resolve(undefined);
     await ui(page.locator("output")).toHaveText("error");
+    const intercepted = await page.evaluateHandle(() => {
+      let click: MouseEvent | undefined;
+      window.addEventListener(
+        "click",
+        (event) => {
+          click = event;
+        },
+        { capture: true, once: true },
+      );
+      return () => click?.defaultPrevented;
+    });
     await page.getByRole("link").click();
-    await ui(page.getByLabel("Draft")).toHaveValue("second");
+    ui(await intercepted.evaluate((read) => read())).toBe(true);
+    await page.getByText("Toggle upload").click();
     ui(writes).toEqual(["first"]);
     await page.getByText("Retry").click();
     await ui(page.locator("output")).toHaveText("saved");
@@ -108,9 +119,11 @@ test("hiding before debounce cancels the write; an invalid edit can be undone wi
     const title = page.getByLabel("Draft");
     await title.fill("invalid");
     await page.getByText("Toggle editor").click();
+    await ui(title).toBeHidden();
     await page.clock.runFor(1400);
     ui(writes).toEqual([]);
     await page.getByText("Toggle editor").click();
+    await ui(title).toBeVisible();
     await ui(title).toHaveValue("invalid");
     await page.clock.runFor(700);
     await ui(page.locator("output")).toHaveText("error");
@@ -125,6 +138,54 @@ test("hiding before debounce cancels the write; an invalid edit can be undone wi
     await ui(page.locator("output")).toHaveText("saved");
     ui(writes).toEqual(["invalid", "corrected"]);
   } finally {
+    await page.close();
+  }
+}, 30_000);
+
+test("undoing an edit while its validation is pending leaves the saved baseline after 422", async () => {
+  const page = await editor();
+  const release = Promise.withResolvers<undefined>();
+  try {
+    const writes: string[] = [];
+    await page.route("**/save/*", async (route) => {
+      writes.push(route.request().postData() ?? "");
+      await release.promise;
+      await route.fulfill({ status: 422 });
+    });
+    const draft = page.getByLabel("Draft");
+    await draft.fill("invalid");
+    await ui(page.locator("output")).toHaveText("pending");
+    await draft.fill("");
+    release.resolve(undefined);
+    await ui(page.locator("output")).toHaveText("saved");
+    await page.getByRole("link").click();
+    await ui(page.getByRole("heading")).toHaveText("Destination");
+    ui(writes).toEqual(["invalid"]);
+  } finally {
+    release.resolve(undefined);
+    await page.close();
+  }
+}, 30_000);
+
+test("an upload started while a link waits for a successful save blocks that navigation", async () => {
+  const page = await editor();
+  const release = Promise.withResolvers<undefined>();
+  try {
+    await page.route("**/save/*", async (route) => {
+      await release.promise;
+      await route.fulfill({ status: 204 });
+    });
+    await page.getByLabel("Draft").fill("first");
+    await page.getByRole("link").click();
+    await ui(page.locator("output")).toHaveText("pending");
+    await page.getByText("Toggle upload").click();
+    release.resolve(undefined);
+    await ui(page.locator("output")).toHaveText("saved");
+    await page.getByText("Toggle upload").click();
+    await page.getByRole("link").click();
+    await ui(page.getByRole("heading")).toHaveText("Destination");
+  } finally {
+    release.resolve(undefined);
     await page.close();
   }
 }, 30_000);

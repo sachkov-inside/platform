@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 
 import {
   createAutosaveModel,
+  shouldScheduleAutosave,
   type AutosaveResult,
   type AutosaveStatus,
 } from "./autosave-model";
@@ -36,12 +37,7 @@ export function useAutosave<T>({
     model.commit({ value, key, save, enabled });
   });
   const dirty = key !== status.savedKey;
-  const shouldSchedule =
-    enabled &&
-    dirty &&
-    !status.pending &&
-    status.rejection?.result !== "failed" &&
-    status.rejection?.key !== key;
+  const shouldSchedule = shouldScheduleAutosave(status, key, enabled);
   useEffect(() => {
     if (!shouldSchedule) return;
     const timer = window.setTimeout(() => {

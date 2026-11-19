@@ -1,8 +1,11 @@
 const pendingSaves = new Set<() => Promise<boolean>>();
 
 export async function flushPendingEdits(): Promise<boolean> {
-  return (await Promise.all([...pendingSaves].map((flush) => flush()))).every(
-    Boolean,
+  const participants = new Set(pendingSaves);
+  const results = await Promise.all([...participants].map((flush) => flush()));
+  return (
+    results.every(Boolean) &&
+    [...pendingSaves].every((flush) => participants.has(flush))
   );
 }
 
