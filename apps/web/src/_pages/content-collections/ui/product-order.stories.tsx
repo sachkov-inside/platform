@@ -65,7 +65,7 @@ const meta = {
   ...environment,
   decorators: [
     (Story, { args }) =>
-      args.embedded ? (
+      args.embedded === true ? (
         <ProductEditorPageFrame>
           <Story />
         </ProductEditorPageFrame>
@@ -158,9 +158,9 @@ const guardAfterOrderSave = fn(async () => {
 export const LeaveJustAfterOrderSave: Story = {
   args: {
     embedded: false,
-    onBack: () => {
+    onBack: fn(() => {
       void guardAfterOrderSave();
-    },
+    }),
   },
   decorators: [withMutationFetch(saveOrderSpy)],
   play: async ({ canvasElement }) => {
