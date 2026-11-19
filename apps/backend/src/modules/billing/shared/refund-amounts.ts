@@ -34,6 +34,20 @@ export function refundTotalsOf(
   };
 }
 
+/** Суммы для владельца: до подтверждения оплаты возвращать нечего. */
+export function ownerRefundAmounts(
+  purchase: { state: string; refundReviewRequired: boolean },
+  totals: RefundTotals,
+) {
+  if (purchase.refundReviewRequired)
+    return { refundedKopecks: null, refundableKopecks: null };
+  return {
+    refundedKopecks: totals.refundedKopecks,
+    refundableKopecks:
+      purchase.state === "confirmed" ? totals.refundableKopecks : 0,
+  };
+}
+
 /** Тот же остаток, прочитанный под замком платежа перед решением и отправкой. */
 export async function refundTotals(
   tx: BillingPrisma,

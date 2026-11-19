@@ -20,7 +20,10 @@ import {
 } from "../../domain/owner-operations.js";
 import { reviewPaymentEventKinds } from "../../domain/payment-events.js";
 import { bankCancelOpenSql } from "../../shared/open-bank-cancel.js";
-import { refundTotalsOf } from "../../shared/refund-amounts.js";
+import {
+  ownerRefundAmounts,
+  refundTotalsOf,
+} from "../../shared/refund-amounts.js";
 
 type PurchaseRow = Awaited<
   ReturnType<BillingPrisma["billingPurchase"]["findUniqueOrThrow"]>
@@ -82,10 +85,7 @@ export async function paymentViews(
             : waiting
               ? "preparing"
               : "ready",
-      refundedKopecks: row.refundReviewRequired ? null : totals.refundedKopecks,
-      refundableKopecks: row.refundReviewRequired
-        ? null
-        : totals.refundableKopecks,
+      ...ownerRefundAmounts(row, totals),
     });
   });
 }
