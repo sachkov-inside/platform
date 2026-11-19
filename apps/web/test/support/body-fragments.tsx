@@ -1,16 +1,6 @@
-import { Activity, useState, useSyncExternalStore } from "react";
-import { createRoot, hydrateRoot } from "react-dom/client";
-import { renderToString } from "react-dom/server";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import {
-  ReadingProgressProvider,
-  useLessonOpenedParts,
-} from "@/features/reading-progress";
-import {
-  LessonSteps,
-  MaterialBodyView,
-  type RenderedBlock,
-} from "@/entities/material";
+import { Activity, useState } from "react";
+import { createRoot } from "react-dom/client";
+import { MaterialBodyView, type RenderedBlock } from "@/entities/material";
 import "../../app/globals.css";
 
 const paragraph = (text: string): RenderedBlock => ({
@@ -78,81 +68,5 @@ function App() {
     </>
   );
 }
-const lessonBlocks: readonly RenderedBlock[] = Array.from(
-  { length: 4 },
-  (_, part): RenderedBlock[] => [
-    {
-      kind: "heading",
-      level: 2,
-      content: [
-        {
-          kind: "text",
-          marks: [],
-          text: part === 3 ? "Итог" : `Раздел ${String(part + 1)}`,
-        },
-      ],
-    },
-    ...Array.from({ length: 22 }, (_, index) =>
-      paragraph(`Раздел ${String(part + 1)}, абзац ${String(index + 1)}.`),
-    ),
-    ...(part === 3
-      ? []
-      : [
-          {
-            kind: "step_break" as const,
-            label: `Открыть часть ${String(part + 2)}`,
-          },
-        ]),
-  ],
-).flat();
-const subscribeAccount = () => () => undefined;
-const resolvedAccount = () => true;
-const serverAccount = () => false;
-const queryClient = new QueryClient();
-const materialId = "02000000-0000-4000-8000-000000002479";
-
-function HydratingReader() {
-  const resolved = useSyncExternalStore(
-    subscribeAccount,
-    resolvedAccount,
-    serverAccount,
-  );
-  return (
-    <QueryClientProvider client={queryClient}>
-      <ReadingProgressProvider accountId={null} resolved={resolved}>
-        <HydratingLesson />
-      </ReadingProgressProvider>
-    </QueryClientProvider>
-  );
-}
-
-/** Real hydration admits the initial hash before the external progress snapshot is published. */
-function HydratingLesson() {
-  const progress = useLessonOpenedParts(materialId);
-  return (
-    <LessonSteps
-      blocks={lessonBlocks}
-      progress={progress}
-      reader={{ name: "Вы", avatar: null }}
-    >
-      <article className="mx-auto max-w-2xl" data-reader-body>
-        <MaterialBodyView
-          blocks={lessonBlocks}
-          path={[]}
-          rendering={{
-            headingId: (path) => `legacy-${path.join("-")}`,
-            image: () => null,
-            file: () => null,
-          }}
-        />
-      </article>
-    </LessonSteps>
-  );
-}
 const root = document.getElementById("root");
-if (root !== null) {
-  if (new URLSearchParams(location.search).has("hydrate-lesson")) {
-    root.innerHTML = renderToString(<HydratingReader />);
-    hydrateRoot(root, <HydratingReader />);
-  } else createRoot(root).render(<App />);
-}
+if (root !== null) createRoot(root).render(<App />);

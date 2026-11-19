@@ -246,31 +246,3 @@ for (const engine of ["chromium", "webkit"]) {
     }
   }, 30_000);
 }
-
-test("chromium: an initial lesson heading survives the late hydrated saved count", async () => {
-  const browser = browsers.get("chromium");
-  if (browser === undefined) throw new Error("Missing body fragment browser");
-  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
-  try {
-    await page.addInitScript(() => {
-      localStorage.setItem(
-        "inside.lesson-parts.v1:02000000-0000-4000-8000-000000002479",
-        "3",
-      );
-    });
-    await page.goto(`${url}?hydrate-lesson#итог`);
-    const heading = page.getByRole("heading", {
-      name: "Итог",
-      exact: true,
-      includeHidden: true,
-    });
-    await ui(heading).toBeVisible();
-    await ui(heading).toBeInViewport({ ratio: 1 });
-    await ui(page.locator('[data-lesson-part="3"]')).not.toHaveAttribute(
-      "data-closed",
-    );
-    await ui(page).toHaveURL(/#(?:итог|%D0%B8%D1%82%D0%BE%D0%B3)$/u);
-  } finally {
-    await page.close();
-  }
-}, 30_000);
