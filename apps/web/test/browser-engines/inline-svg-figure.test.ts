@@ -44,8 +44,7 @@ for (const engine of [chromium, webkit]) {
     const capture =
       engine === webkit ? captureWebkitFailureDiagnostics() : undefined;
     const started = performance.now();
-    let launchedBrowser: Browser | undefined;
-    let closeStarted: number | undefined;
+    const closeObservation: { browser?: Browser; started?: number } = {};
     let pendingStep: string | null = null;
     let bodyPendingStep: string | null = null;
     const steps: { name: string; milliseconds: number }[] = [];
@@ -69,8 +68,10 @@ for (const engine of [chromium, webkit]) {
       const webkitClose = capture && {
         phase: "onTestFailed-after-restore",
         millisecondsSinceCloseStart:
-          closeStarted === undefined ? "unknown" : observedAt - closeStarted,
-        clientConnected: launchedBrowser?.isConnected() ?? "unknown",
+          closeObservation.started === undefined
+            ? "unknown"
+            : observedAt - closeObservation.started,
+        clientConnected: closeObservation.browser?.isConnected() ?? "unknown",
         ...capture.processObservation(),
       };
       try {
@@ -106,9 +107,9 @@ for (const engine of [chromium, webkit]) {
     const browser = await step("launch", () =>
       engine.launch({ headless: true }),
     );
-    launchedBrowser = browser;
+    closeObservation.browser = browser;
     t.onTestFinished(() => {
-      closeStarted = performance.now();
+      closeObservation.started = performance.now();
       bodyPendingStep = pendingStep;
       return step("close", () => browser.close());
     });
