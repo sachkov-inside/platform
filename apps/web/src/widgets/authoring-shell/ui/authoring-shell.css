@@ -392,8 +392,7 @@
   }
   .authoring-topbar-title,
   .authoring-section-tabs,
-  .authoring-bottom-nav,
-  .authoring-more-sheet {
+  .authoring-bottom-nav {
     display: none;
   }
 }
