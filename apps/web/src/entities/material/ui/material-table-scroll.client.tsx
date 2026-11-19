@@ -6,6 +6,8 @@ import { useMaterialTableName } from "./material-table-names.client";
 
 type Overflow = "none" | "start" | "end" | "both";
 
+const retainedPositions = new WeakMap<HTMLElement, number>();
+
 function overflowOf(element: HTMLElement): Overflow {
   const hidden = element.scrollWidth - element.clientWidth;
   if (hidden <= 1) return "none";
@@ -37,7 +39,13 @@ export function MaterialTableScroll({
   useEffect(() => {
     const element = scroller.current;
     if (element === null) return;
+    // Next can move the hidden reader DOM and reset its table scroller (#2421).
+    const retained = retainedPositions.get(element);
+    if (retained !== undefined && retained !== 0 && element.scrollLeft === 0)
+      element.scrollLeft = retained;
+    let lastVisibleLeft = element.scrollLeft;
     const update = () => {
+      if (element.clientWidth > 0) lastVisibleLeft = element.scrollLeft;
       setOverflow(overflowOf(element));
     };
     update();
@@ -45,6 +53,10 @@ export function MaterialTableScroll({
     const resize = new ResizeObserver(update);
     resize.observe(element);
     return () => {
+      retainedPositions.set(
+        element,
+        element.clientWidth > 0 ? element.scrollLeft : lastVisibleLeft,
+      );
       element.removeEventListener("scroll", update);
       resize.disconnect();
     };
