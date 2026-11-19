@@ -130,7 +130,9 @@ function useNavigationSave(
   flush: () => Promise<boolean>,
   active: boolean,
 ): void {
-  useEffect(() => {
+  // Release before the saved status becomes visible.
+  // See [BeforeUnloadFollowsActivity](../../../_pages/content-collections/ui/product-editor-page.stories.tsx).
+  useLayoutEffect(() => {
     if (!active) return;
     const guard = (event: BeforeUnloadEvent) => {
       event.preventDefault();
