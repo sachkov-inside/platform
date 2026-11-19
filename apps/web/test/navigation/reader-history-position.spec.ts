@@ -13,25 +13,21 @@ test("Back restores the reading position at the click that leaves for home", asy
   const body = page.locator("[data-reader-body]:visible");
   await expect(body).toBeVisible();
   const href = page.url();
-  const link = page.getByRole("link", {
-    name: /^sachkov\.dev(?:, Главная)?$/u,
-  });
-  const root = await body.evaluateHandle((node) => {
-    const shell = node.closest<HTMLElement>("[data-application-content]");
-    if (shell !== null && getComputedStyle(shell).overflowY === "auto")
-      return shell;
-    return document.documentElement;
-  });
-  const desired = await root.evaluate((node) => {
+  await page.waitForFunction(
+    () => history.state?.insideReader?.href === location.href,
+  );
+
+  const root = () =>
+    page.locator(isMobile ? "html" : "[data-application-content]:visible");
+  const desired = await root().evaluate((node) => {
     const top = Math.floor((node.scrollHeight - node.clientHeight) / 2);
     node.scrollTo({ top, behavior: "instant" });
     return top;
   });
   expect(desired).toBeGreaterThan(0);
-  await expect
-    .poll(() => root.evaluate((node) => node.scrollTop))
-    .toBe(desired);
-  const atClick = root.evaluate(
+  const position = () => root().evaluate((node) => node.scrollTop);
+  await expect.poll(position).toBe(desired);
+  const atClick = root().evaluate(
     (node) =>
       new Promise<number>((resolve) => {
         document.addEventListener(
@@ -39,22 +35,30 @@ test("Back restores the reading position at the click that leaves for home", asy
           () => {
             resolve(node.scrollTop);
           },
-          {
-            capture: true,
-            once: true,
-          },
+          { capture: true, once: true },
         );
       }),
   );
-  await link.click();
-  const position = await atClick;
-  // Revealing the header link may move the mobile document before the click.
-  if (!isMobile) expect(position).toBe(desired);
+  await page
+    .getByRole("link", { name: /^sachkov\.dev(?:, Главная)?$/u })
+    .click();
+  const departure = await atClick;
+  if (!isMobile) expect(departure).toBe(desired);
+
   await expect(page).toHaveURL(/\/$/u);
+  await expect(
+    page.getByRole("heading", { name: "Главная", exact: true }),
+  ).toBeVisible();
+  // Keep the two pages distinguishable even if revealing the mobile header moved the document.
+  const home = await root().evaluate((node) => {
+    const top = node.scrollHeight - node.clientHeight;
+    node.scrollTo({ top, behavior: "instant" });
+    return top;
+  });
+  expect(home).not.toBe(departure);
+  await expect.poll(position).toBe(home);
   await page.goBack();
   await expect(page).toHaveURL(href);
   await expect(body).toBeVisible();
-  await expect
-    .poll(() => root.evaluate((node) => node.scrollTop))
-    .toBe(position);
+  await expect.poll(position).toBe(departure);
 });
