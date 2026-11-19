@@ -184,6 +184,69 @@ for (const scenario of [
   });
 }
 
+test("each product resumes its own ready waitlist intent across a client navigation", async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  if (baseURL === undefined) throw new Error("Web origin required");
+  const first = {
+    productSlug: "reader-state-waitlist",
+    productId: "17100000-0000-4000-8000-000000000006",
+  };
+  const next = {
+    productSlug: "reader-state-waitlist-mobile",
+    productId: "17100000-0000-4000-8000-000000000106",
+  };
+  await signIn(context, baseURL, "reader-state-paid");
+  const begin = async (product: typeof first) => {
+    const response = await context.request.post(
+      new URL("/api/product-waitlist/intent", baseURL).href,
+      {
+        headers: { origin: new URL(baseURL).origin },
+        data: product,
+      },
+    );
+    expect(response.ok()).toBe(true);
+    const result = z
+      .object({ kind: z.literal("continue"), returnTo: z.string() })
+      .parse(await response.json());
+    return new URL(result.returnTo, baseURL);
+  };
+  const firstReturn = await begin(first);
+  const nextPath = "/products/" + next.productSlug;
+  firstReturn.searchParams.set("from", nextPath);
+  const writes: unknown[] = [];
+  page.on("request", (request) => {
+    if (
+      new URL(request.url()).pathname === "/api/product-waitlist/join" &&
+      request.method() === "POST"
+    )
+      writes.push(request.postDataJSON());
+  });
+  const expired =
+    "Время подтверждения истекло. Вы ещё не в списке. Попробуйте снова.";
+  await page.goto(firstReturn.href);
+  await expect(page.getByText(expired, { exact: true })).toHaveCount(2);
+  expect(writes).toEqual([{ productId: first.productId }]);
+  const timeOrigin = await page.evaluate(() => performance.timeOrigin);
+  await begin(next);
+  const link = page.getByRole("link", { name: "Назад к продукту" });
+  await expect(link).toHaveAttribute("href", nextPath);
+  await link.click();
+  await expect(page).toHaveURL(new URL(nextPath, baseURL).href);
+  await expect(
+    page
+      .locator(`[data-product-landing="${next.productSlug}"]:visible`)
+      .getByText(expired, { exact: true }),
+  ).toHaveCount(2);
+  expect(await page.evaluate(() => performance.timeOrigin)).toBe(timeOrigin);
+  expect(writes).toEqual([
+    { productId: first.productId },
+    { productId: next.productId },
+  ]);
+});
+
 for (const result of ["ready", "failed"] as const) {
   test(`the restored ${result} purchase refreshes its individual payment link`, async ({
     page,

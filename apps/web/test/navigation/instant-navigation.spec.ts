@@ -65,9 +65,12 @@ const protectedBodyMarker = "ЗАКРЫТОЕ-ТЕЛО-УРОКА";
 
 /**
  * Сессия вошедшего читателя. Web берёт действующий токен прямо из cookie и к провайдеру входа не
- * обращается, а подставной backend открывает платные уроки любому, кто предъявил токен.
+ * обращается, а подставной backend определяет доступ к уроку по токену и состоянию покупки тестового читателя.
  */
-async function memberSessionCookie(baseURL: string) {
+async function memberSessionCookie(
+  baseURL: string,
+  token = "navigation-member-token",
+) {
   // Пакет поставляется только как ES-модуль, а набор собирается в CommonJS.
   const { wrapSession } = await import("@logto/node");
   const session = await wrapSession(
@@ -77,7 +80,7 @@ async function memberSessionCookie(baseURL: string) {
           // deterministic-test-allow wall-clock: The separate Web process and Logto SDK validate this live session cookie against their real UTC clock.
           expiresAt: Math.floor(Date.now() / 1_000) + 3_600,
           scope: "",
-          token: "navigation-member-token",
+          token,
         },
       }),
       idToken: "navigation.id.token",
@@ -144,6 +147,7 @@ interface TransitionMetrics {
 }
 
 async function controlBackend(control: {
+  readonly returnPurchaseReady?: boolean;
   readonly delayMs?: number;
   readonly unavailable?: boolean;
 }) {
@@ -529,7 +533,11 @@ test.beforeEach(async ({ baseURL }) => {
   await expireServerCatalogCache(baseURL);
 });
 test.afterEach(async () => {
-  await controlBackend({ delayMs: 0, unavailable: false });
+  await controlBackend({
+    delayMs: 0,
+    unavailable: false,
+    returnPurchaseReady: false,
+  });
 });
 
 test("shared navigation fixture returns complete private Product sale admission for guest and viewer", async ({
@@ -1530,4 +1538,89 @@ test("public course body renders while personal Task workspace is held", async (
       body: JSON.stringify({ hold: false }),
     });
   }
+});
+
+test("подтверждение оплаты открывает сохранённый урок до доставки объявления оболочке", async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  if (baseURL === undefined) throw new Error("Проверке нужен адрес приложения");
+  await context.addCookies([
+    await memberSessionCookie(baseURL, "navigation-return-buyer"),
+  ]);
+  await controlBackend({ returnPurchaseReady: false });
+  // Exercise the supported window transport. Delay billing events until the
+  // next visit to the lesson, so the shell cannot account for the panel's own refresh.
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "BroadcastChannel", { value: undefined });
+    const name = "inside.account.billing.changed";
+    const heldIds: string[] = [];
+    const hold = (event: Event) => {
+      if (!(event instanceof CustomEvent) || typeof event.detail !== "string")
+        return;
+      event.stopImmediatePropagation();
+      heldIds.push(event.detail);
+      sessionStorage.setItem("test.return-announcement", event.detail);
+    };
+    window.addEventListener(name, hold, true);
+    window.addEventListener(
+      "test.release-return-announcements",
+      () => {
+        window.removeEventListener(name, hold, true);
+        for (const id of heldIds)
+          window.dispatchEvent(new CustomEvent(name, { detail: id }));
+      },
+      { once: true },
+    );
+  });
+  const reference = "00000000-0000-4000-8000-000000000b03";
+  const returnUrl = new URL(
+    `/payment/return?purchaseRef=${reference}`,
+    baseURL,
+  );
+  await page.goto(returnUrl.href);
+  await expect(
+    page.getByText("Ждёт подтверждения оплаты", { exact: true }),
+  ).toBeVisible();
+  const documentOrigin = await page.evaluate(() => performance.timeOrigin);
+  await page
+    .getByRole("link", { name: /^sachkov\.dev(?:, Главная)?$/u })
+    .first()
+    .click();
+  await expect(page).toHaveURL(new URL("/", baseURL).href);
+  await page
+    .locator(`main a:visible[href*='/materials/${paidLesson}']`)
+    .first()
+    .click();
+  await expect(
+    page.locator("[data-material-reader-state='access-required']:visible"),
+  ).toBeVisible();
+  const lessonUrl = page.url();
+  await page.goBack();
+  await page.goBack();
+  await expect(page).toHaveURL(returnUrl.href);
+  await expect(
+    page.getByText("Ждёт подтверждения оплаты", { exact: true }),
+  ).toBeVisible();
+  await controlBackend({ returnPurchaseReady: true });
+  await page.getByRole("button", { name: "Проверить статус" }).click();
+  await expect(page.getByText("Открыт", { exact: true })).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(() => sessionStorage.getItem("test.return-announcement")),
+    )
+    .toMatch(z.regexes.uuid());
+  await page.goForward();
+  await page.goForward();
+  await expect(page).toHaveURL(lessonUrl);
+  expect(await page.evaluate(() => performance.timeOrigin)).toBe(
+    documentOrigin,
+  );
+  await expect(
+    page.getByText(protectedBodyMarker, { exact: false }).first(),
+  ).toBeVisible();
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event("test.release-return-announcements"));
+  });
 });

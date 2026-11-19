@@ -54,7 +54,11 @@ import { accountAccessRoute } from "./account-access-backend.mjs";
 
 // Request bodies the checks send to the double; a malformed body fails the request.
 const controlSchema = z
-  .object({ delayMs: z.unknown(), unavailable: z.unknown() })
+  .object({
+    delayMs: z.unknown(),
+    unavailable: z.unknown(),
+    returnPurchaseReady: z.boolean(),
+  })
   .partial()
   .passthrough();
 const homePinSchema = z
@@ -65,6 +69,34 @@ const homePinSchema = z
 const [port] = browserTestPorts(["FAKE_BACKEND_PORT"]).map(Number);
 const productId = "11111111-1111-4111-8111-111111111111";
 const productSlug = "navigation-proof";
+const offerId = "66666666-6666-4666-8666-666666666601";
+const publicPrice = {
+  product: { id: productId, name: "Проверочный продукт", priceRevision: 1 },
+  supportMonths: 3,
+  currency: "RUB",
+  firstPriceKopecks: 990_000,
+  offer: {
+    archived: false,
+    benefitPeriods: [{ capability: `product:${productId}`, months: null }],
+    benefits: [`product:${productId}`],
+    id: offerId,
+    name: "Проверочный продукт",
+    published: true,
+    revision: 1,
+  },
+  paymentOption: {
+    archived: false,
+    id: "66666666-6666-4666-8666-666666666602",
+    mode: "one_time",
+    months: 1,
+    offerId,
+    priceKopecks: 990_000,
+    revision: 1,
+  },
+  promotion: null,
+  renewalPriceKopecks: 990_000,
+  timezone: "Europe/Moscow",
+};
 const topic = navigationReadingTopic;
 const format = { id: "guide", name: "Гайд", slug: "guide" };
 export const protectedBodyMarker = "ЗАКРЫТОЕ-ТЕЛО-УРОКА";
@@ -321,9 +353,15 @@ const lessonsOf = (product) =>
  *   delayMs: number;
  *   requests: { authorized: boolean; method: string | undefined; path: string }[];
  *   unavailable: boolean;
+ *   returnPurchaseReady: boolean;
  * }}
  */
-const state = { delayMs: 0, requests: [], unavailable: false };
+const state = {
+  delayMs: 0,
+  requests: [],
+  unavailable: false,
+  returnPurchaseReady: false,
+};
 /** @type {Promise<void> | undefined} */
 let practiceGate;
 /** @type {(() => void) | undefined} */
@@ -1015,34 +1053,6 @@ function route(method, url, entitled) {
   if (path === "/accounts/current/billing/contact")
     return json({ ok: true, contact: null, documents: [] });
   if (path === "/billing/product-prices") {
-    const offerId = "66666666-6666-4666-8666-666666666601";
-    const publicPrice = {
-      product: { id: productId, name: "Проверочный продукт", priceRevision: 1 },
-      supportMonths: 3,
-      currency: "RUB",
-      firstPriceKopecks: 990_000,
-      offer: {
-        archived: false,
-        benefitPeriods: [{ capability: `product:${productId}`, months: null }],
-        benefits: [`product:${productId}`],
-        id: offerId,
-        name: "Проверочный продукт",
-        published: true,
-        revision: 1,
-      },
-      paymentOption: {
-        archived: false,
-        id: "66666666-6666-4666-8666-666666666602",
-        mode: "one_time",
-        months: 1,
-        offerId,
-        priceKopecks: 990_000,
-        revision: 1,
-      },
-      promotion: null,
-      renewalPriceKopecks: 990_000,
-      timezone: "Europe/Moscow",
-    };
     const secondPrice = {
       ...publicPrice,
       product: {
@@ -1356,6 +1366,8 @@ const server = createServer(async (request, response) => {
   if (url.pathname === "/__control" && request.method === "POST") {
     const control = controlSchema.parse(JSON.parse(await readBody(request)));
     if (typeof control.delayMs === "number") state.delayMs = control.delayMs;
+    if (control.returnPurchaseReady !== undefined)
+      state.returnPurchaseReady = control.returnPurchaseReady;
     if (typeof control.unavailable === "boolean")
       state.unavailable = control.unavailable;
     send(200, { delayMs: state.delayMs, unavailable: state.unavailable });
@@ -1426,6 +1438,27 @@ const server = createServer(async (request, response) => {
     path: `${url.pathname}${url.search}`,
   });
   await waitNavigationTask(url.pathname);
+  const returnBuyer =
+    request.headers.authorization === "Bearer navigation-return-buyer";
+  const returnRef = "00000000-0000-4000-8000-000000000b03";
+  if (
+    returnBuyer &&
+    url.pathname === `/accounts/current/billing/purchases/${returnRef}`
+  ) {
+    const ready = state.returnPurchaseReady;
+    send(200, {
+      purchaseRef: returnRef,
+      state: ready ? "confirmed" : "pending",
+      paymentUrl: null,
+      snapshot: publicPrice,
+      access: ready ? "ready" : "awaiting_payment",
+      fiscalization: ready ? "confirmed" : "pending",
+      confirmedAt: ready ? "2026-08-20T12:00:00.000Z" : null,
+      periodEndsAt: null,
+      retirementReason: null,
+    });
+    return;
+  }
   const commerce = await commerceScenarioRoute(request, url, readBody);
   if (commerce !== null) return send(commerce.status, commerce.value);
   const search = authoringSearchRoute(request, url);
@@ -1577,6 +1610,10 @@ const server = createServer(async (request, response) => {
       return;
     }
   }
+  const awaitingLessonPayment =
+    returnBuyer &&
+    !state.returnPurchaseReady &&
+    url.pathname === "/materials/navigation-lesson-3";
   const result = state.unavailable
     ? json(
         {
@@ -1588,7 +1625,7 @@ const server = createServer(async (request, response) => {
         },
         503,
       )
-    : route(request.method, url, authorized);
+    : route(request.method, url, authorized && !awaitingLessonPayment);
   if (state.delayMs > 0)
     // deterministic-test-allow duration-wait: Synthetic backend latency exercises navigation; the browser assertions observe rendered state.
     await new Promise((resolve) => setTimeout(resolve, state.delayMs));

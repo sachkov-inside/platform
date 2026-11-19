@@ -10,7 +10,7 @@ import {
 } from "node:fs";
 import { join, resolve } from "node:path";
 
-const [sourceArgument, destinationArgument] = process.argv.slice(2);
+const [sourceArgument, destinationArgument, mode] = process.argv.slice(2);
 if (sourceArgument === undefined || destinationArgument === undefined)
   throw new Error(
     "Expected the APT source directory and an empty scope directory",
@@ -30,8 +30,23 @@ const mirror = "apt-mirrors.txt";
 const hasMirror = existsSync(join(source, mirror));
 const originalMirrorUri = `mirror+file:${join(source, mirror)}`;
 const scopedMirrorUri = `mirror+file:${join(destination, mirror)}`;
-/** @param {string} uri */
-function scopedUri(uri) {
+const httpSecuritySource = /^http:\/\/security\.ubuntu\.com\/ubuntu\/?$/u;
+
+/** @param {string} uri @param {boolean} securityPocket @param {"deb822" | "one-line"} format */
+function scopedUri(uri, securityPocket, format) {
+  if (securityPocket && httpSecuritySource.test(uri)) {
+    const selected =
+      mode === "--security-fallback"
+        ? uri.replace(
+            "http://security.ubuntu.com",
+            "https://archive.ubuntu.com",
+          )
+        : uri;
+    console.log(
+      `Playwright APT ${format} source for noble-security: ${selected}`,
+    );
+    return selected;
+  }
   return hasMirror && uri === originalMirrorUri ? scopedMirrorUri : uri;
 }
 
@@ -48,7 +63,7 @@ function filterList(text) {
       const [, prefix = "", uri = "", suffix = ""] = entry;
       return microsoftFeed.has(uri)
         ? ""
-        : `${prefix}${scopedUri(uri)}${suffix}`;
+        : `${prefix}${scopedUri(uri, /^\s+noble-security(?:\s|$)/u.test(suffix), "one-line")}${suffix}`;
     })
     .join("");
 }
@@ -66,20 +81,56 @@ function filterDeb822(text) {
       if (fields.length !== 1) return paragraph;
       const field = fields[0];
       if (field === undefined) return paragraph;
-      const uris = field[0]
+      const uriField = field[0];
+      const uris = uriField
         .replace(/^URIs:\s*/iu, "")
         .trim()
         .split(/\s+/u);
       if (!uris.every((uri) => /^[a-z][a-z0-9+.-]*:/iu.test(uri)))
         return paragraph;
-      const kept = uris.filter((uri) => !microsoftFeed.has(uri)).map(scopedUri);
+      const suites = /^Suites:([^\r\n]*(?:\r?\n[ \t][^\r\n]*)*)/imu.exec(
+        paragraph,
+      );
+      const names = suites?.[1]?.trim().split(/\s+/u) ?? [];
+      const securityPocket = names.includes("noble-security");
+      const retained = uris.filter((uri) => !microsoftFeed.has(uri));
+      if (retained.length === 0) return "";
+
+      /** @param {string} stanza @param {boolean} forSecurity */
+      function withUris(stanza, forSecurity) {
+        const selected = retained.map((uri) =>
+          scopedUri(uri, forSecurity, "deb822"),
+        );
+        if (
+          selected.length === uris.length &&
+          selected.every((uri, index) => uri === uris[index])
+        )
+          return stanza;
+        return stanza.replace(uriField, `URIs: ${selected.join(" ")}`);
+      }
+
+      const otherSuites = names.filter((name) => name !== "noble-security");
       if (
-        kept.length === uris.length &&
-        kept.every((uri, index) => uri === uris[index])
-      )
-        return paragraph;
-      if (kept.length === 0) return "";
-      return paragraph.replace(field[0], `URIs: ${kept.join(" ")}`);
+        mode === "--security-fallback" &&
+        suites !== null &&
+        securityPocket &&
+        otherSuites.length > 0 &&
+        retained.some((uri) => httpSecuritySource.test(uri))
+      ) {
+        const other = paragraph.replace(
+          suites[0],
+          `Suites: ${otherSuites.join(" ")}`,
+        );
+        const security = paragraph.replace(suites[0], "Suites: noble-security");
+        const newline = paragraph.includes("\r\n") ? "\r\n" : "\n";
+        return (
+          withUris(other, false).replace(/\r?\n$/u, "") +
+          newline +
+          newline +
+          withUris(security, true)
+        );
+      }
+      return withUris(paragraph, securityPocket);
     })
     .join("");
 }

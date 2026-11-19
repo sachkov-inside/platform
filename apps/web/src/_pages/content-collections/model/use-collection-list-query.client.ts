@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 
 import {
   authoringProductsHref,
@@ -20,6 +20,13 @@ const listPaths: Record<ContentCollectionKind, readonly string[]> = {
   topic: [authoringTopicsHref],
 };
 
+function subscribeToHistoryTraversal(notify: () => void) {
+  window.addEventListener("popstate", notify);
+  return () => {
+    window.removeEventListener("popstate", notify);
+  };
+}
+
 export interface CollectionListNavigation {
   /** Поиск и фильтр: заменяет текущую запись истории. */
   readonly replace: (next: CollectionListQuery) => void;
@@ -36,7 +43,17 @@ export function useCollectionListQuery(
   kind: ContentCollectionKind,
 ): readonly [CollectionListQuery, CollectionListNavigation] {
   const pathname = usePathname();
-  const urlSearch = useSearchParams().toString();
+  const routeSearch = useSearchParams().toString();
+  // Next can coalesce a native push and Back. Read the browser address on traversal
+  // before choosing the visible editor. [Topic Back](../../../../test/navigation/content-collections.spec.ts)
+  const urlSearch = useSyncExternalStore(
+    subscribeToHistoryTraversal,
+    () =>
+      listPaths[kind].includes(window.location.pathname)
+        ? new URLSearchParams(window.location.search).toString()
+        : routeSearch,
+    () => routeSearch,
+  );
   const onList = listPaths[kind].includes(pathname);
   const [state, setState] = useState(() => ({
     urlSearch,

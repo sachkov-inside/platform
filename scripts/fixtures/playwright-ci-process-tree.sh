@@ -53,7 +53,9 @@ SH
 cat > "$fixture/node" <<'SH'
 #!/usr/bin/env bash
 if [[ "$1" = */prepare-playwright-apt-sources.mjs ]]; then
-  exec "$INSTALL_TEST_NODE" "$1" "$INSTALL_TEST_SOURCES" "$3"
+  source_dir=$2
+  [[ "$source_dir" != /etc/apt ]] || source_dir=$INSTALL_TEST_SOURCES
+  exec "$INSTALL_TEST_NODE" "$1" "$source_dir" "${@:3}"
 fi
 exec "$INSTALL_TEST_NODE" "$@"
 SH
