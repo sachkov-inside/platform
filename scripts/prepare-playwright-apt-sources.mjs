@@ -10,7 +10,7 @@ import {
 } from "node:fs";
 import { join, resolve } from "node:path";
 
-const [sourceArgument, destinationArgument] = process.argv.slice(2);
+const [sourceArgument, destinationArgument, mode] = process.argv.slice(2);
 if (sourceArgument === undefined || destinationArgument === undefined)
   throw new Error(
     "Expected the APT source directory and an empty scope directory",
@@ -30,8 +30,24 @@ const mirror = "apt-mirrors.txt";
 const hasMirror = existsSync(join(source, mirror));
 const originalMirrorUri = `mirror+file:${join(source, mirror)}`;
 const scopedMirrorUri = `mirror+file:${join(destination, mirror)}`;
-/** @param {string} uri */
-function scopedUri(uri) {
+/** @param {string} uri @param {boolean} securityPocket @param {"deb822" | "one-line"} format */
+function scopedUri(uri, securityPocket, format) {
+  if (
+    securityPocket &&
+    /^http:\/\/security\.ubuntu\.com\/ubuntu\/?$/u.test(uri)
+  ) {
+    const selected =
+      mode === "--security-fallback"
+        ? uri.replace(
+            "http://security.ubuntu.com",
+            "https://archive.ubuntu.com",
+          )
+        : uri;
+    console.log(
+      `Playwright APT ${format} source for noble-security: ${selected}`,
+    );
+    return selected;
+  }
   return hasMirror && uri === originalMirrorUri ? scopedMirrorUri : uri;
 }
 
@@ -48,7 +64,7 @@ function filterList(text) {
       const [, prefix = "", uri = "", suffix = ""] = entry;
       return microsoftFeed.has(uri)
         ? ""
-        : `${prefix}${scopedUri(uri)}${suffix}`;
+        : `${prefix}${scopedUri(uri, /^\s+noble-security(?:\s|$)/u.test(suffix), "one-line")}${suffix}`;
     })
     .join("");
 }
@@ -72,7 +88,14 @@ function filterDeb822(text) {
         .split(/\s+/u);
       if (!uris.every((uri) => /^[a-z][a-z0-9+.-]*:/iu.test(uri)))
         return paragraph;
-      const kept = uris.filter((uri) => !microsoftFeed.has(uri)).map(scopedUri);
+      const suites = /^Suites:([^\r\n]*(?:\r?\n[ \t][^\r\n]*)*)/imu.exec(
+        paragraph,
+      );
+      const securityPocket =
+        suites?.[1]?.split(/\s+/u).includes("noble-security") ?? false;
+      const kept = uris
+        .filter((uri) => !microsoftFeed.has(uri))
+        .map((uri) => scopedUri(uri, securityPocket, "deb822"));
       if (
         kept.length === uris.length &&
         kept.every((uri, index) => uri === uris[index])
