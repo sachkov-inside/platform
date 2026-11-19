@@ -313,7 +313,7 @@ test("a backdrop click dismisses the mobile More sheet and restores its trigger"
   await expect(trigger).toBeFocused();
 });
 
-test("the desktop breakpoint never leaves an invisible More sheet blocking the page", async ({
+test("the More sheet is visible or released at the desktop resize event", async ({
   context,
   page,
   baseURL,
@@ -326,28 +326,44 @@ test("the desktop breakpoint never leaves an invisible More sheet blocking the p
   const sheet = page.getByRole("dialog", { name: "Ещё", exact: true });
   await trigger.click();
   await expect(sheet).toBeVisible();
-  const desktopResize = await page.evaluateHandle(() => ({
-    invisible: new Promise<boolean>((resolve) => {
-      window.addEventListener(
-        "resize",
-        () => {
-          const modal = document.querySelector(
-            "dialog.authoring-more-sheet:modal",
-          );
-          resolve(modal !== null && getComputedStyle(modal).display === "none");
-        },
-        { once: true },
-      );
-    }),
-  }));
+  const dialog = await sheet.elementHandle();
+  const sample = await dialog.evaluateHandle((element) => {
+    if (
+      !(element instanceof HTMLDialogElement) ||
+      !element.open ||
+      !element.matches(":modal")
+    )
+      throw new Error("Expected the open native More dialog");
+    return {
+      resize: new Promise<boolean>((resolve) => {
+        window.addEventListener(
+          "resize",
+          () => {
+            resolve(
+              element.open &&
+                element.matches(":modal") &&
+                getComputedStyle(element).display === "none",
+            );
+          },
+          { once: true },
+        );
+      }),
+    };
+  });
   await page.setViewportSize({ width: 1440, height: 1024 });
-  expect(await desktopResize.evaluate((sample) => sample.invisible)).toBe(
+  expect(await sample.evaluate((observation) => observation.resize)).toBe(
     false,
   );
-  await expect(page.locator(".authoring-more-sheet")).not.toHaveAttribute(
-    "open",
-    "",
-  );
+  await expect
+    .poll(() =>
+      dialog.evaluate(
+        (element) =>
+          element.isConnected &&
+          !element.hasAttribute("open") &&
+          !element.matches(":modal"),
+      ),
+    )
+    .toBe(true);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(trigger).toHaveAttribute("aria-expanded", "false");
 });
