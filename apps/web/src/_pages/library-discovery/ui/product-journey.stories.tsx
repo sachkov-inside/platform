@@ -2147,6 +2147,31 @@ export const RetainedProgrammeRevealLifetime: Story = {
       await expect(resources.disconnectedOwners()).toContain(returnedOwner);
       await expect(resources.activeOwnersFor(last)).toHaveLength(0);
     });
+    // A complete batch has no observer. Mount a fresh partial programme so removal
+    // must release a still-active DOM owner, independently of the reveal cleanup.
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Вернуть программу" }),
+    );
+    const mountedLast = canvasElement.querySelector<HTMLElement>(
+      '[data-product-ordinal="12"]',
+    );
+    if (mountedLast === null) throw new Error("Missing remounted boundary");
+    await expect(mountedLast).not.toBe(last);
+    await expect(
+      canvasElement.querySelectorAll("[data-product-ordinal]"),
+    ).toHaveLength(12);
+    await waitFor(async () => {
+      await expect(resources.activeOwnersFor(mountedLast)).toHaveLength(1);
+    });
+    const mountedOwner = resources.activeOwnersFor(mountedLast)[0];
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Убрать программу" }),
+    );
+    await waitFor(async () => {
+      await expect(mountedLast.isConnected).toBe(false);
+      await expect(resources.disconnectedOwners()).toContain(mountedOwner);
+      await expect(resources.activeOwnersFor(mountedLast)).toHaveLength(0);
+    });
   },
 };
 
