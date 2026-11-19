@@ -1308,6 +1308,62 @@ const server = createServer(async (request, response) => {
     send(glossaryLifetime.status, glossaryLifetime.value);
     return;
   }
+  // #2479: a public, guest-readable four-part lesson for real AppShell hydration.
+  if (
+    request.method === "GET" &&
+    url.pathname === "/materials/initial-fragment-2479"
+  ) {
+    /** @param {string} text */
+    const paragraph = (text) => ({
+      kind: "paragraph",
+      content: [{ kind: "text", marks: [], text }],
+    });
+    send(200, {
+      kind: "available",
+      cacheScope: "public",
+      glossaryTerms: [],
+      lessonTerms: [],
+      primaryVideo: null,
+      projection: {
+        ...readerProjection(readerFixture),
+        materialId: "50002479-0000-4000-8000-000000000001",
+        slug: "initial-fragment-2479",
+        title: "Пошаговый урок с прямым якорем",
+        productMemberships: [],
+        access: "free",
+      },
+      body: {
+        schemaVersion: 1,
+        blocks: Array.from({ length: 4 }, (_, part) => [
+          {
+            kind: "heading",
+            level: 2,
+            content: [
+              {
+                kind: "text",
+                marks: [],
+                text: part === 3 ? "Итог" : `Раздел ${String(part + 1)}`,
+              },
+            ],
+          },
+          ...Array.from({ length: 22 }, (_, index) =>
+            paragraph(
+              `Раздел ${String(part + 1)}, абзац ${String(index + 1)}.`,
+            ),
+          ),
+          ...(part === 3
+            ? []
+            : [
+                {
+                  kind: "step_break",
+                  label: `Открыть часть ${String(part + 2)}`,
+                },
+              ]),
+        ]).flat(),
+      },
+    });
+    return;
+  }
   const tableNames = tableNamesRoute(
     request.method,
     url,
