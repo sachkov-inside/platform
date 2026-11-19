@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useCallback, useRef, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMaterialReading } from "@/entities/material";
 import { recordMaterialOpen } from "../api/material-open.browser";
@@ -21,7 +21,6 @@ export function VisibleMaterialOpen({
   readonly contentVersion: number;
   readonly children: ReactNode;
 }) {
-  const reader = useRef<HTMLDivElement>(null);
   const currentAccount = useRef<string | null>(null);
   const command = useRef<{
     accountId: string;
@@ -57,50 +56,52 @@ export function VisibleMaterialOpen({
     retry: 2,
     retryDelay: OPEN_RETRY_DELAY_MS,
   });
-  useEffect(() => {
-    const accountId = reading.resolved ? reading.accountId : null;
-    currentAccount.current = accountId;
-    if (accountId === null || !stateKnown) return;
-    if (command.current?.accountId !== accountId)
-      command.current = {
-        accountId,
-        value: { materialId, contentVersion, commandId: crypto.randomUUID() },
-        sent: false,
+  const reader = useCallback(
+    (element: HTMLDivElement | null) => {
+      if (element === null) return;
+      const accountId = reading.resolved ? reading.accountId : null;
+      currentAccount.current = accountId;
+      if (accountId === null || !stateKnown) return;
+      if (command.current?.accountId !== accountId)
+        command.current = {
+          accountId,
+          value: { materialId, contentVersion, commandId: crypto.randomUUID() },
+          sent: false,
+        };
+      let visible = false;
+      const send = () => {
+        const signal = command.current;
+        if (
+          !visible ||
+          document.visibilityState !== "visible" ||
+          signal === null ||
+          signal.sent
+        )
+          return;
+        signal.sent = true;
+        mutate({ accountId, value: signal.value });
       };
-    const element = reader.current;
-    if (element === null) return;
-    let visible = false;
-    const send = () => {
-      const signal = command.current;
-      if (
-        !visible ||
-        document.visibilityState !== "visible" ||
-        signal === null ||
-        signal.sent
-      )
-        return;
-      signal.sent = true;
-      mutate({ accountId, value: signal.value });
-    };
-    const observer = new IntersectionObserver(([entry]) => {
-      visible = entry?.isIntersecting === true;
-      send();
-    });
-    observer.observe(element);
-    document.addEventListener("visibilitychange", send);
-    return () => {
-      currentAccount.current = null;
-      observer.disconnect();
-      document.removeEventListener("visibilitychange", send);
-    };
-  }, [
-    reading.accountId,
-    reading.resolved,
-    stateKnown,
-    materialId,
-    contentVersion,
-    mutate,
-  ]);
+      const observer = new IntersectionObserver(([entry]) => {
+        visible = entry?.isIntersecting === true;
+        send();
+      });
+      observer.observe(element);
+      document.addEventListener("visibilitychange", send);
+      return () => {
+        currentAccount.current = null;
+        observer.disconnect();
+        document.removeEventListener("visibilitychange", send);
+      };
+    },
+    [
+      reading.accountId,
+      reading.resolved,
+      stateKnown,
+      materialId,
+      contentVersion,
+      mutate,
+    ],
+  );
   const savedCurrentOpen =
     status === "success" &&
     reading.resolved &&
