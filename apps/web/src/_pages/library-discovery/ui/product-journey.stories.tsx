@@ -2579,11 +2579,17 @@ type ProgrammeScopeStage =
 function ProgrammeQueryScopeSwitch({
   onCommit,
 }: {
-  readonly onCommit?: (stage: ProgrammeScopeStage) => void;
+  readonly onCommit?: (
+    stage: ProgrammeScopeStage,
+    pathname: string,
+    query: string,
+  ) => void;
 }) {
   const [stage, setStage] = useState<ProgrammeScopeStage>("first product");
+  const pathname = usePathname();
+  const query = useSearchParams().toString();
   useLayoutEffect(() => {
-    onCommit?.(stage);
+    onCommit?.(stage, pathname, query);
   });
   return (
     <ProductLearningProvider learning={{ kind: "guest" }}>
@@ -2654,26 +2660,48 @@ export const ProgrammeQueryFollowsProductScope: Story = {
   render: () => <ProgrammeQueryScopeSwitch />,
   play: async ({ canvasElement, mount }) => {
     const canvas = within(canvasElement);
-    const commits: {
+    const observations: {
+      event: "input commit" | "native reveal";
       stage: ProgrammeScopeStage;
       slug: string | null;
-      pathname: string | null | undefined;
-      query: string | undefined;
+      pathname: string;
+      query: string;
       rows: number;
     }[] = [];
+    async function scrollToRowAndWaitForCount(ordinal: number, count: number) {
+      const boundary = canvasElement.querySelector<HTMLElement>(
+        `[data-product-ordinal="${String(ordinal)}"]`,
+      );
+      if (!boundary)
+        throw new Error(`Missing Programme row ${String(ordinal)}`);
+      boundary.scrollIntoView({ block: "end", behavior: "instant" });
+      await waitFor(async () => {
+        await expect(
+          canvasElement.querySelectorAll("[data-product-ordinal]"),
+        ).toHaveLength(count);
+      });
+      const inputs = observations.at(-1);
+      if (!inputs) throw new Error("Missing Programme input commit");
+      const programme = canvasElement.querySelector("[data-product-programme]");
+      observations.push({
+        ...inputs,
+        event: "native reveal",
+        slug: programme?.getAttribute("data-product-programme") ?? null,
+        rows: programme?.querySelectorAll("[data-product-ordinal]").length ?? 0,
+      });
+    }
     await mount(
       <ProgrammeQueryScopeSwitch
-        onCommit={(stage) => {
+        onCommit={(stage, pathname, query) => {
           const programme = canvasElement.querySelector(
             "[data-product-programme]",
           );
-          commits.push({
+          observations.push({
+            event: "input commit",
             stage,
             slug: programme?.getAttribute("data-product-programme") ?? null,
-            pathname: mocked(usePathname).mock.results.at(-1)?.value,
-            query: mocked(useSearchParams)
-              .mock.results.at(-1)
-              ?.value?.toString(),
+            pathname,
+            query,
             rows:
               programme?.querySelectorAll("[data-product-ordinal]").length ?? 0,
           });
@@ -2692,8 +2720,11 @@ export const ProgrammeQueryFollowsProductScope: Story = {
       canvas.getByRole("heading", { name: "Вторая программа", level: 1 }),
     ).toBeVisible();
     await expect(
-      commits.find((commit) => commit.stage === "off route"),
-      JSON.stringify(commits),
+      observations.find(
+        (entry) =>
+          entry.event === "input commit" && entry.stage === "off route",
+      ),
+      JSON.stringify(observations),
     ).toMatchObject({
       slug: "owned-programme-b",
       pathname: "/materials/synthetic-reader",
@@ -2701,39 +2732,22 @@ export const ProgrammeQueryFollowsProductScope: Story = {
       rows: 12,
     });
     // A native reveal can commit before the second product accepts its address.
-    const offRouteBoundary = canvasElement.querySelector<HTMLElement>(
-      '[data-product-ordinal="12"]',
-    );
-    if (!offRouteBoundary)
-      throw new Error("Missing off-route Programme boundary");
-    offRouteBoundary.scrollIntoView({ block: "end", behavior: "instant" });
-    await waitFor(async () => {
-      await expect(
-        canvasElement.querySelectorAll("[data-product-ordinal]"),
-      ).toHaveLength(24);
-    });
+    await scrollToRowAndWaitForCount(12, 24);
     await userEvent.click(
       canvas.getByRole("button", { name: "Принять адрес второй программы" }),
     );
     await expect(
-      commits.find((commit) => commit.stage === "accepted"),
-      JSON.stringify(commits),
+      observations.find(
+        (entry) => entry.event === "input commit" && entry.stage === "accepted",
+      ),
+      JSON.stringify(observations),
     ).toMatchObject({
       slug: "owned-programme-b",
       pathname: "/products/owned-programme-b/programme",
       query: "page=3",
       rows: 36,
     });
-    const last = canvasElement.querySelector<HTMLElement>(
-      '[data-product-ordinal="36"]',
-    );
-    if (last === null) throw new Error("Missing current Programme boundary");
-    last.scrollIntoView({ block: "end", behavior: "instant" });
-    await waitFor(async () => {
-      await expect(
-        canvasElement.querySelectorAll("[data-product-ordinal]"),
-      ).toHaveLength(48);
-    });
+    await scrollToRowAndWaitForCount(36, 48);
     await userEvent.click(
       canvas.getByRole("button", {
         name: "Доставить новый объект тех же параметров",
