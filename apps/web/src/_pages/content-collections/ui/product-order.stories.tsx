@@ -59,11 +59,21 @@ const failedOrderSpy = fn((_input: RequestInfo | URL, _init?: RequestInit) =>
 
 const environment = authoringPageEnvironment(
   "/authoring/products/95000000-0000-4000-8000-000000000010",
-  { frame: ProductEditorPageFrame },
 );
 
 const meta = {
   ...environment,
+  decorators: [
+    (Story, { args }) =>
+      args.embedded ? (
+        <ProductEditorPageFrame>
+          <Story />
+        </ProductEditorPageFrame>
+      ) : (
+        <Story />
+      ),
+    ...environment.decorators,
+  ],
   args: {
     // На маршруте состав руководства встроен в страницу редактора: свой `main` он не рисует.
     embedded: true,
@@ -146,7 +156,12 @@ const guardAfterOrderSave = fn(async () => {
 });
 
 export const LeaveJustAfterOrderSave: Story = {
-  args: { embedded: false, onBack: guardAfterOrderSave },
+  args: {
+    embedded: false,
+    onBack: () => {
+      void guardAfterOrderSave();
+    },
+  },
   decorators: [withMutationFetch(saveOrderSpy)],
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);

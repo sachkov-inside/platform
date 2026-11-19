@@ -78,17 +78,11 @@ export function useAutosave<T>({
         failed.current = null;
       } else
         failed.current = { value: snapshot.value, key: snapshot.key, result };
-      function publishOutcome() {
-        setSavedKey(baseline.current);
-        setPending(false);
-        setError(result !== "saved");
-        setRevision((n) => n + 1);
-      }
-      // A link may leave as soon as flush resolves. Commit the clean guard before that navigation.
-      // See [prompt-free product navigation](../../../../test/navigation/content-collections.spec.ts).
-      if (result === "saved" && latest.current.key === baseline.current)
-        flushSync(publishOutcome);
-      else publishOutcome();
+      // Activity preserves state while hidden; the completed outcome must survive too.
+      setSavedKey(baseline.current);
+      setPending(false);
+      setError(result !== "saved");
+      setRevision((n) => n + 1);
       return result === "saved";
     };
     running.current = execute();
@@ -125,7 +119,21 @@ export function useAutosave<T>({
   }, [key, enabled, delay, flush, revision]);
 
   const dirty = key !== savedKey;
-  useNavigationSave(flush, dirty || pending);
+  const flushForNavigation = useCallback(async () => {
+    if (!(await flush())) return false;
+    // The write can finish before React commits its outcome. A browser navigation reads the guard immediately.
+    // See [prompt-free product navigation](../../../../test/navigation/content-collections.spec.ts).
+    flushSync(() => {
+      setSavedKey(baseline.current);
+      setPending(running.current !== null);
+    });
+    return (
+      !running.current &&
+      !failed.current &&
+      latest.current.key === baseline.current
+    );
+  }, [flush]);
+  useNavigationSave(flushForNavigation, dirty || pending);
   return { dirty, pending, error, flush, retry: () => flush(true) };
 }
 
