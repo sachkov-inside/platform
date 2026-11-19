@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { cpus, freemem, loadavg, totalmem } from "node:os";
-import { format } from "node:util";
+import { format, stripVTControlCharacters } from "node:util";
 import { z } from "zod";
 
 interface Debug {
@@ -133,9 +133,14 @@ export function captureWebkitFailureDiagnostics() {
     processObservation() {
       const messages = [...entries, ...tail]
         .filter(({ namespace }) => namespace === "pw:browser")
-        .map(({ message }) => message);
+        .map(({ message }) =>
+          stripVTControlCharacters(message)
+            .trimStart()
+            .replace(/^\d{4}-\d{2}-\d{2}T\S+ /u, "")
+            .replace(/ \+\d+[a-z]+$/u, ""),
+        );
       const launches = messages.flatMap((message) => {
-        const match = /^\S+ pw:browser <launched> pid=(\d+)$/u.exec(message);
+        const match = /^pw:browser <launched> pid=(\d+)$/u.exec(message);
         return match ? [Number(match[1])] : [];
       });
       const pid =
@@ -144,7 +149,7 @@ export function captureWebkitFailureDiagnostics() {
         pid !== undefined &&
         messages.some(
           (message) =>
-            /^\S+ pw:browser \[pid=(\d+)\] <process did exit:/u.exec(
+            /^pw:browser \[pid=(\d+)\] <process did exit:/u.exec(
               message,
             )?.[1] === String(pid),
         );
