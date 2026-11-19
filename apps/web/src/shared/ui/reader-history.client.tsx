@@ -66,6 +66,8 @@ function Tracker({
     window.addEventListener("popstate", pop);
     return () => {
       stopRestoring?.();
+      // Home has no Reader tracker to invalidate this entry when Back starts there.
+      if (!matchesDocument()) resetReaderHistoryActivation();
       if (frame !== undefined) cancelAnimationFrame(frame);
       document.removeEventListener("scroll", scroll, true);
       document.removeEventListener("click", click, true);
