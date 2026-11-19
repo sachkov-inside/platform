@@ -70,7 +70,20 @@ for (const identity of ["guest", "account"] as const) {
         page.getByRole("button", { name: "Ответить ещё раз" }),
       ).toBeVisible();
       const stored = () =>
-        page.evaluate((key) => localStorage.getItem(key), storeKey);
+        page.evaluate(
+          (key): unknown => JSON.parse(localStorage.getItem(key) ?? "null"),
+          storeKey,
+        );
+      const expectedStored =
+        identity === "guest"
+          ? {
+              "rag-wrong-platform": {
+                answer: { kind: "options", optionIds: ["prompt"] },
+                result: "correct",
+                fingerprint: expect.stringMatching(/^[0-9a-f]{16}$/u),
+              },
+            }
+          : null;
       expect(await stored()).toBeNull();
       expect(writes).toEqual([]);
       const accepted = page.waitForResponse(
@@ -99,7 +112,7 @@ for (const identity of ["guest", "account"] as const) {
         });
         expect(await stored()).toBeNull();
       } else {
-        await expect.poll(stored).toContain('"optionIds":["prompt"]');
+        await expect.poll(stored).toEqual(expectedStored);
       }
       const documentStart = await page.evaluate(() => performance.timeOrigin);
       const retry = page.getByRole("button", { name: "Ответить ещё раз" });
@@ -110,9 +123,29 @@ for (const identity of ["guest", "account"] as const) {
         .getByRole("link", { name: /^sachkov\.dev(?:, Главная)?$/u })
         .click();
       await expect(page).toHaveURL(new URL("/", baseURL).href);
+      if (identity === "guest") {
+        const other = await context.newPage();
+        try {
+          await other.goto(lesson);
+          await other.getByRole("button", { name: "Ответить ещё раз" }).click();
+          await other
+            .getByRole("button", { name: "1 Эмбеддинги", exact: true })
+            .click();
+          await expect.poll(stored).toMatchObject({
+            "rag-wrong-platform": {
+              answer: { optionIds: ["embed"] },
+              result: "incorrect",
+            },
+          });
+        } finally {
+          await other.close();
+        }
+      }
+      const latestStored = await stored();
       await page.goBack();
       await expect(retry).toHaveAttribute("data-before-leaving", "yes");
       await expect(retry).toBeVisible();
+      expect(await stored()).toEqual(latestStored);
       await signIn(context, baseURL, "exercise-owner-second");
       const changed = page.waitForResponse(
         (r) => new URL(r.url()).pathname === "/auth/status",

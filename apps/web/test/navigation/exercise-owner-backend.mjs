@@ -66,15 +66,27 @@ export async function exerciseOwnerRoute(request, url, readBody) {
   if (request.method === "GET" && url.pathname === "/accounts/current")
     return { status: 200, value: { account: { accountId: account } } };
   const attempts = "/exercise-attempts/materials/" + materialId;
+  const first = request.headers.authorization === "Bearer exercise-owner-first";
   if (request.method === "GET" && url.pathname === attempts)
-    return { status: 200, value: { items: [] } };
+    return {
+      status: 200,
+      value: {
+        items: first ? [{ ...attempt, exerciseId: "previous-question" }] : [],
+      },
+    };
   if (
     request.method === "POST" &&
     url.pathname === attempts + "/exercises/" + exercise.id
   ) {
-    const body = await readBody(request);
+    if (!first) return problem(403, "access_denied");
+    /** @type {unknown} */
+    let value;
+    try {
+      value = JSON.parse(await readBody(request));
+    } catch {
+      return problem(400, "invalid_request");
+    }
     if (
-      request.headers.authorization !== "Bearer exercise-owner-first" ||
       !z
         .strictObject({
           answer: z.strictObject({
@@ -82,10 +94,18 @@ export async function exerciseOwnerRoute(request, url, readBody) {
             optionIds: z.tuple([z.literal("prompt")]),
           }),
         })
-        .safeParse(JSON.parse(body)).success
+        .safeParse(value).success
     )
-      return { status: 403, value: { code: "forbidden" } };
+      return problem(400, "invalid_request");
     return { status: 200, value: attempt };
   }
   return null;
+}
+
+/** @param {number} status @param {string} code */
+function problem(status, code) {
+  return {
+    status,
+    value: { type: "urn:inside:problem:" + code, title: code, status, code },
+  };
 }
