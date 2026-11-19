@@ -31,7 +31,9 @@ function Editor({ destination }: { readonly destination: string }) {
         Draft
         <input
           value={draft}
-          onChange={(event) => setDraft(event.target.value)}
+          onChange={(event) => {
+            setDraft(event.target.value);
+          }}
         />
       </label>
       <output>
@@ -56,20 +58,41 @@ function Surface() {
   usePendingUploadGuard(upload);
   return (
     <>
-      <button onClick={() => setDestination("second")}>Change writer</button>
       <button
-        onClick={() => startTransition(() => setDestination("suspended"))}
+        onClick={() => {
+          setDestination("second");
+        }}
+      >
+        Change writer
+      </button>
+      <button
+        onClick={() => {
+          startTransition(() => {
+            setDestination("suspended");
+          });
+        }}
       >
         Suspend writer
       </button>
-      <button onClick={() => setVisible(!visible)}>Toggle editor</button>
-      <button onClick={() => setUpload(!upload)}>Toggle upload</button>
+      <button
+        onClick={() => {
+          setVisible(!visible);
+        }}
+      >
+        Toggle editor
+      </button>
+      <button
+        onClick={() => {
+          setUpload(!upload);
+        }}
+      >
+        Toggle upload
+      </button>
       <Suspense fallback="Loading">
         <Activity mode={visible ? "visible" : "hidden"}>
           <Editor destination={destination} />
         </Activity>
       </Suspense>
-      <a href="?done">Leave</a>
     </>
   );
 }

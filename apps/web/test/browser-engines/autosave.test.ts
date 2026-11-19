@@ -27,7 +27,9 @@ test("a suspended render cannot replace the committed writer, value or permissio
     const writes: string[] = [];
     await page.route("**/save/*", async (route) => {
       const request = route.request();
-      writes.push(new URL(request.url()).pathname + " " + request.postData());
+      writes.push(
+        new URL(request.url()).pathname + " " + (request.postData() ?? ""),
+      );
       await route.fulfill({ status: 204 });
     });
     await page.getByLabel("Draft").fill("committed");
@@ -73,11 +75,11 @@ test("a failed save retries its snapshot before a newer edit; an upload keeps th
     await ui(page.locator("output")).toHaveText("saved");
     ui(writes).toEqual(["first", "first", "second"]);
     const target = page.getByRole("link");
-    await target.evaluate((link) =>
-      link.addEventListener("click", () =>
-        sessionStorage.setItem("target", "reached"),
-      ),
-    );
+    await target.evaluate((link) => {
+      link.addEventListener("click", () => {
+        sessionStorage.setItem("target", "reached");
+      });
+    });
     await target.click();
     ui(await page.evaluate(() => sessionStorage.getItem("target"))).toBeNull();
     await page.getByText("Toggle upload").click();
