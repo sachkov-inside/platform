@@ -312,3 +312,42 @@ test("a backdrop click dismisses the mobile More sheet and restores its trigger"
   await expect(trigger).toHaveAttribute("aria-expanded", "false");
   await expect(trigger).toBeFocused();
 });
+
+test("the desktop breakpoint never leaves an invisible More sheet blocking the page", async ({
+  context,
+  page,
+  baseURL,
+}) => {
+  if (baseURL === undefined) throw new Error("baseURL required");
+  await context.addCookies([await authorCookie(baseURL)]);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/authoring/topics");
+  const trigger = page.getByRole("button", { name: "Ещё", exact: true });
+  const sheet = page.getByRole("dialog", { name: "Ещё", exact: true });
+  await trigger.click();
+  await expect(sheet).toBeVisible();
+  const desktopResize = await page.evaluateHandle(() => ({
+    invisible: new Promise<boolean>((resolve) => {
+      window.addEventListener(
+        "resize",
+        () => {
+          const modal = document.querySelector(
+            "dialog.authoring-more-sheet:modal",
+          );
+          resolve(modal !== null && getComputedStyle(modal).display === "none");
+        },
+        { once: true },
+      );
+    }),
+  }));
+  await page.setViewportSize({ width: 1440, height: 1024 });
+  expect(await desktopResize.evaluate((sample) => sample.invisible)).toBe(
+    false,
+  );
+  await expect(page.locator(".authoring-more-sheet")).not.toHaveAttribute(
+    "open",
+    "",
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
+});
