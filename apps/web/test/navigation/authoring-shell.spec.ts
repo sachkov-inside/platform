@@ -290,3 +290,25 @@ test("the mobile more sheet stays closed after a desktop round trip (#2424)", as
   await expect(sheet).toBeHidden();
   await expect(more).toBeFocused();
 });
+
+test("a backdrop click dismisses the mobile More sheet and restores its trigger", async ({
+  context,
+  page,
+  baseURL,
+}) => {
+  if (baseURL === undefined) throw new Error("baseURL required");
+  await context.addCookies([await authorCookie(baseURL)]);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/authoring/topics");
+  const trigger = page.getByRole("button", { name: "Ещё", exact: true });
+  const sheet = page.getByRole("dialog", { name: "Ещё", exact: true });
+  await trigger.click();
+  await expect(sheet).toBeVisible();
+  const bounds = await sheet.boundingBox();
+  if (!bounds || bounds.y < 2)
+    throw new Error("No visible backdrop above the More sheet");
+  await page.mouse.click(bounds.x + bounds.width / 2, bounds.y / 2);
+  await expect(sheet).toBeHidden();
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
+  await expect(trigger).toBeFocused();
+});
