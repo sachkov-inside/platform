@@ -6,7 +6,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReadonlyURLSearchParams, useSearchParams } from "next/navigation";
 import { Suspense, use, useState, type ReactNode } from "react";
-import { expect, mocked, userEvent, within } from "storybook/test";
+import { expect, mocked, userEvent, waitFor, within } from "storybook/test";
 import {
   boxOf,
   desktop,
@@ -18,7 +18,10 @@ import {
   type StagedLoading,
   type StoryViewport,
 } from "@/storybook/loads-in-place";
-import { withMutationFetch } from "@/storybook/mutation-mock";
+import {
+  fetchBeforeRender,
+  withMutationFetch,
+} from "@/storybook/mutation-mock";
 import { storyPriceSnapshot } from "@/storybook/sales-catalog.fixtures";
 import { ProductPageLoading } from "./content-collections-loading.client";
 import { ProductEditorPageClient } from "./product-editor-page.client";
@@ -739,6 +742,7 @@ export const FailedAfterActivity: Story = {
     await expect(
       canvas.queryByText("Настройки сохранены"),
     ).not.toBeInTheDocument();
+    await expect(unloadPrevented()).toBe(true);
   },
 };
 
@@ -778,3 +782,108 @@ function loadsInPlace({ globals, width }: StoryViewport): Story {
 }
 export const LoadsInPlace: Story = loadsInPlace(desktop);
 export const LoadsInPlaceMobile: Story = loadsInPlace(mobile);
+
+/** Observe the page's native guards without navigating away from the story. */
+function unloadPrevented() {
+  const event = new Event("beforeunload", { cancelable: true });
+  window.dispatchEvent(event);
+  return event.defaultPrevented;
+}
+
+function beforeUnloadAfterSave(withCoverUpload: boolean): Story {
+  return {
+    ...SavedAfterActivity,
+    play: async ({ canvasElement }) => {
+      const canvas = within(canvasElement);
+      await userEvent.click(
+        canvas.getByRole("tab", { name: "Описание и витрина" }),
+      );
+      const title = canvas.getByRole("textbox", { name: "Название продукта" });
+      const activity = canvas.getByTestId("autosave-activity");
+      const editedName = collection.name + " правка";
+      const save = Promise.withResolvers<undefined>();
+      const upload = Promise.withResolvers<undefined>();
+      const requests: string[] = [];
+      const restoreFetch = fetchBeforeRender(async (input, init) => {
+        const request =
+          input instanceof Request
+            ? input
+            : new Request(new URL(String(input), location.origin), init);
+        const path = new URL(request.url).pathname;
+        requests.push(request.method + " " + path);
+        if (path === "/api/authoring/collections/metadata") {
+          const body: unknown = await request.json();
+          await expect(body).toMatchObject({
+            name: editedName,
+            collectionId: collection.id,
+            expectedVersion: 1,
+          });
+          await save.promise;
+          return Response.json({
+            kind: "saved",
+            collection: { ...collection, name: editedName, version: 2 },
+          });
+        }
+        if (
+          withCoverUpload &&
+          path === "/api/authoring/content-covers/product/" + collection.id
+        ) {
+          await upload.promise;
+          return Response.json({ cover: null });
+        }
+        throw new Error("Unexpected request: " + path);
+      })();
+      try {
+        await userEvent.type(title, " правка");
+        await waitFor(() =>
+          expect(requests).toEqual(["PUT /api/authoring/collections/metadata"]),
+        );
+        await expect(canvas.getByText("Сохраняем настройки…")).toBeVisible();
+        await expect(unloadPrevented()).toBe(true);
+        await userEvent.click(
+          canvas.getByRole("button", { name: "Скрыть Activity" }),
+        );
+        await expect(activity).not.toBeVisible();
+        await expect(unloadPrevented()).toBe(false);
+        await userEvent.click(
+          canvas.getByRole("button", { name: "Вернуть Activity" }),
+        );
+        await expect(activity).toBeVisible();
+        await expect(
+          canvas.getByRole("textbox", { name: "Название продукта" }),
+        ).toBe(title);
+        await expect(title).toHaveValue(editedName);
+        await expect(unloadPrevented()).toBe(true);
+        if (withCoverUpload) {
+          await userEvent.upload(
+            canvas.getByLabelText("Загрузить"),
+            new File(["cover"], "cover.png", { type: "image/png" }),
+          );
+          await waitFor(() =>
+            expect(requests).toContain(
+              "PUT /api/authoring/content-covers/product/" + collection.id,
+            ),
+          );
+        }
+
+        save.resolve(undefined);
+        await canvas.findByText("Настройки сохранены");
+        // Sample once at the visible status; polling the event would hide a late release.
+        await expect(unloadPrevented()).toBe(withCoverUpload);
+        if (withCoverUpload) {
+          upload.resolve(undefined);
+          await canvas.findByText("Загрузить");
+          await expect(unloadPrevented()).toBe(false);
+        }
+        await expect(requests).toHaveLength(withCoverUpload ? 2 : 1);
+      } finally {
+        save.resolve(undefined);
+        upload.resolve(undefined);
+        restoreFetch();
+      }
+    },
+  };
+}
+
+export const BeforeUnloadFollowsActivity: Story = beforeUnloadAfterSave(false);
+export const BeforeUnloadWhileCoverUploads: Story = beforeUnloadAfterSave(true);

@@ -130,7 +130,8 @@ function useNavigationSave(
   flush: () => Promise<boolean>,
   active: boolean,
 ): void {
-  useEffect(() => {
+  // The visible save status and unload protection must change in the same commit.
+  useLayoutEffect(() => {
     if (!active) return;
     const guard = (event: BeforeUnloadEvent) => {
       event.preventDefault();
