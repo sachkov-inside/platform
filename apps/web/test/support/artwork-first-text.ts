@@ -54,6 +54,15 @@ export function createFirstTextTrace() {
   let lastFrame: number | null = null;
   let largestGap = 0;
   let delivered = 0;
+  interface FrameRequest {
+    ordinal: number;
+    attemptedAt: number;
+    fromFirstTick: boolean;
+    handle: number | null;
+    callbackEnteredAt: number | null;
+    cancelledAt: number | null;
+  }
+  const firstTwoRequests: FrameRequest[] = [];
   const trace = {
     observe(host: Element) {
       stage = host.querySelector(".stage");
@@ -75,8 +84,29 @@ export function createFirstTextTrace() {
     intersection(intersecting: boolean) {
       record(intersecting ? "enter" : "exit");
     },
-    request() {
-      firstRequest ??= performance.now();
+    request(fromFirstTick: boolean) {
+      if (firstTwoRequests.length === 2) return;
+      const attemptedAt = performance.now();
+      firstRequest ??= attemptedAt;
+      const slot: FrameRequest = {
+        ordinal: firstTwoRequests.length + 1,
+        attemptedAt,
+        fromFirstTick,
+        handle: null,
+        callbackEnteredAt: null,
+        cancelledAt: null,
+      };
+      firstTwoRequests.push(slot);
+      return slot;
+    },
+    cancel(handle: number) {
+      const pending = firstTwoRequests.find(
+        (slot) =>
+          slot.handle === handle &&
+          slot.callbackEnteredAt === null &&
+          slot.cancelledAt === null,
+      );
+      if (pending) pending.cancelledAt = performance.now();
     },
     frame(time: number) {
       delivered++;
@@ -93,6 +123,11 @@ export function createFirstTextTrace() {
       lastFrame,
       largestGap,
       delivered,
+      frameRequests: {
+        firstTwo: firstTwoRequests,
+        observedThrough: "failure-snapshot",
+        afterSnapshot: "unknown",
+      },
       last: snapshot(),
     }),
     stop() {
