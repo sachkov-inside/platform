@@ -4,7 +4,10 @@ import {
   announceEnrollmentChange,
   subscribeEnrollmentChange,
 } from "@/entities/subscription";
-import { currentBillingChanged } from "@/features/billing-subscription/model/current-billing";
+import {
+  announceCurrentBillingChange,
+  subscribeToCurrentBillingChanges,
+} from "@/features/billing-subscription";
 import { type FactAnnouncement } from "@/shared/api/fact-announcement";
 import { deliverAnnouncement } from "@/storybook/deliver-announcement";
 import { useState } from "react";
@@ -184,6 +187,10 @@ export const RouteLifetime: Story = {
     }
     const accountA = readingProgressChanges("account-a");
     const accountB = readingProgressChanges("account-b");
+    const billing = {
+      announce: announceCurrentBillingChange,
+      subscribe: subscribeToCurrentBillingChanges,
+    };
     const enrollment = {
       announce: announceEnrollmentChange,
       subscribe: subscribeEnrollmentChange,
@@ -196,7 +203,7 @@ export const RouteLifetime: Story = {
     try {
       mount(null, false);
       await check(accountA, 0);
-      await check(currentBillingChanged, 1);
+      await check(billing, 1);
       await check(enrollment, 1);
       mount(null, true);
       await check(accountA, 0);
@@ -211,15 +218,10 @@ export const RouteLifetime: Story = {
       flushSync(() => {
         root.render(null);
       });
-      for (const source of [
-        currentBillingChanged,
-        enrollment,
-        accountA,
-        accountB,
-      ])
+      for (const source of [billing, enrollment, accountA, accountB])
         await check(source, 0);
       mount("account-b", true);
-      for (const source of [currentBillingChanged, enrollment, accountB])
+      for (const source of [billing, enrollment, accountB])
         await check(source, 1);
       flushSync(() => {
         root.render(null);

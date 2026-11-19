@@ -3168,80 +3168,137 @@ const neverCommits = Promise.withResolvers<null>().promise;
 function StoppedTree() {
   return use(neverCommits);
 }
-function D16Probe() {
-  const [step, setStep] = useState(0);
-  const account = step === 1 || step === 6 ? probeB : probeA;
-  const slug = step === 2 || step === 7 ? "probe-y" : "probe-x";
+const purchaseRowStages = [
+  {
+    action: "publish visible",
+    account: probeA,
+    slug: "probe-x",
+    label: "Publish visible row",
+  },
+  {
+    action: "publish hidden",
+    account: probeB,
+    slug: "probe-x",
+    label: "Publish for another account",
+  },
+  {
+    action: "publish hidden",
+    account: probeA,
+    slug: "probe-y",
+    label: "Publish for another product",
+  },
+  {
+    action: "read",
+    account: probeA,
+    slug: "probe-x",
+    label: "Read original row",
+  },
+  {
+    action: "suspend",
+    account: probeA,
+    slug: "probe-x",
+    label: "Suspend hidden row",
+  },
+  {
+    action: "read",
+    account: probeA,
+    slug: "probe-x",
+    label: "Read after suspension",
+  },
+  {
+    action: "read",
+    account: probeB,
+    slug: "probe-x",
+    label: "Read another account",
+  },
+  {
+    action: "read",
+    account: probeA,
+    slug: "probe-y",
+    label: "Read another product",
+  },
+  {
+    action: "publish hidden",
+    account: probeA,
+    slug: "probe-x",
+    label: "Commit hidden row",
+  },
+  {
+    action: "read",
+    account: probeA,
+    slug: "probe-x",
+    label: "Read after commit",
+  },
+] as const;
+
+function PurchaseRowSequence() {
+  const [index, setIndex] = useState(0);
+  const stage = purchaseRowStages[index];
+  if (!stage) throw new Error("Unknown purchase row stage");
+  const { action, account, slug, label } = stage;
   return (
     <>
       <button
         type="button"
-        onClick={() => {
-          setStep((s) => s + 1);
-        }}
+        disabled={index === purchaseRowStages.length - 1}
+        onClick={() => setIndex(index + 1)}
       >
-        Next proof
+        Next stage
       </button>
-      <MaterialReadingScope key={step} value={probeReading(account, false)}>
-        {step < 3 || step === 8 ? (
-          <ProductLearningSource
-            initialAccountId={null}
-            slug={slug}
-            purchaseRowShown={step === 0}
-          >
-            <span>Writer {step}</span>
-          </ProductLearningSource>
-        ) : step === 4 ? (
+      <MaterialReadingScope key={label} value={probeReading(account, false)}>
+        {action === "read" ? (
+          <section aria-label={label}>
+            <PendingPurchaseRow slug={slug} lockedForGuest={true} />
+          </section>
+        ) : (
           <Suspense fallback={<span>Uncommitted</span>}>
             <ProductLearningSource
               initialAccountId={null}
               slug={slug}
-              purchaseRowShown={false}
+              purchaseRowShown={action === "publish visible"}
             >
-              <StoppedTree />
+              {action === "suspend" ? <StoppedTree /> : <span>{label}</span>}
             </ProductLearningSource>
           </Suspense>
-        ) : (
-          <div data-proof-reader={step}>
-            <PendingPurchaseRow slug={slug} lockedForGuest={true} />
-          </div>
         )}
       </MaterialReadingScope>
     </>
   );
 }
 export const D16CommitProof: Story = {
-  render: () => <D16Probe />,
+  name: "Purchase row follows the committed account and product",
+  render: () => <PurchaseRowSequence />,
   play: async ({ canvasElement }) => {
-    const c = within(canvasElement);
+    const canvas = within(canvasElement);
     const next = () =>
-      userEvent.click(c.getByRole("button", { name: "Next proof" }));
-    for (const i of [0, 1, 2]) {
-      await expect(c.getByText("Writer " + String(i))).toBeVisible();
+      userEvent.click(canvas.getByRole("button", { name: "Next stage" }));
+    for (const label of [
+      "Publish visible row",
+      "Publish for another account",
+      "Publish for another product",
+    ]) {
+      await expect(canvas.getByText(label)).toBeVisible();
       await next();
     }
-    const read = async (step: number, present: boolean) => {
-      const root = canvasElement.querySelector(
-        '[data-proof-reader="' + String(step) + '"]',
-      );
-      await expect(root).not.toBeNull();
+    async function read(label: string, present: boolean) {
+      const region = canvas.getByRole("region", { name: label });
       await expect(
-        root?.querySelectorAll("[data-programme-purchase-row]").length,
-      ).toBe(present ? 1 : 0);
-    };
-    await read(3, true);
+        region.querySelectorAll("[data-programme-purchase-row]"),
+      ).toHaveLength(present ? 1 : 0);
+    }
+    await read("Read original row", true);
     await next();
-    await expect(c.getByText("Uncommitted")).toBeVisible();
+    await expect(canvas.getByText("Uncommitted")).toBeVisible();
     await next();
-    await read(5, true);
+    await read("Read after suspension", true);
     await next();
-    await read(6, false);
+    await read("Read another account", false);
     await next();
-    await read(7, false);
+    await read("Read another product", false);
     await next();
-    await expect(c.getByText("Writer 8")).toBeVisible();
+    await expect(canvas.getByText("Commit hidden row")).toBeVisible();
     await next();
-    await read(9, false);
+    await read("Read after commit", false);
   },
 };
 export const WaitlistPublishesCommittedProduct: Story = {
