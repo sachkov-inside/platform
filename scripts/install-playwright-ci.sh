@@ -9,8 +9,9 @@ Acquire::Retries "1";
 APT::Update::Error-Mode "any";
 APT
 
-apt_scope=$(mktemp -d /tmp/platform-playwright-apt.XXXXXX)
-trap 'rm -rf -- "$apt_scope"' EXIT
+apt_workspace=$(mktemp -d /tmp/platform-playwright-apt.XXXXXX)
+trap 'rm -rf -- "$apt_workspace"' EXIT
+apt_scope=$apt_workspace
 node scripts/prepare-playwright-apt-sources.mjs /etc/apt "$apt_scope"
 
 # Ask the pinned Playwright CLI for the direct packages for these engines. Its
@@ -46,6 +47,9 @@ if acquire_packages; then
 else
   status=$?
   echo "Playwright package acquisition failed (exit $status); retrying with the HTTPS Ubuntu archive mirror." >&2
+  # Some runner images configure noble-security as a separate direct HTTP source.
+  apt_scope=$(mktemp -d "$apt_workspace/fallback.XXXXXX")
+  node scripts/prepare-playwright-apt-sources.mjs "$apt_workspace" "$apt_scope" --security-fallback
   # GitHub images also route Ubuntu sources through apt-mirrors.txt.
   find "$apt_scope" -maxdepth 2 -type f \( -name '*.list' -o -name '*.sources' -o -name 'apt-mirrors.txt' \) \
     -exec sed -i -E \

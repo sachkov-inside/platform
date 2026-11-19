@@ -32,10 +32,64 @@ test("an active programme accepts semantic native query changes and History retu
     );
     const rows = surface.locator("[data-product-ordinal]");
     await expect(rows).toHaveCount(12);
-    await rows.nth(11).evaluate((node) => {
+    const firstReveal = await rows.nth(11).evaluate((node, productSlug) => {
+      const rect = (element: Element) => {
+        const { x, y, width, height, top, right, bottom, left } =
+          element.getBoundingClientRect();
+        return { x, y, width, height, top, right, bottom, left };
+      };
+      const observe = () => {
+        const currentProgramme = Array.from(
+          document.querySelectorAll("[data-product-programme]"),
+        ).find(
+          (programme) =>
+            programme.getAttribute("data-product-programme") === productSlug &&
+            programme.getClientRects().length > 0,
+        );
+        let elementRoot = node.parentElement;
+        while (
+          elementRoot !== null &&
+          !/^(auto|scroll)$/.test(getComputedStyle(elementRoot).overflowY)
+        )
+          elementRoot = elementRoot.parentElement;
+        const root =
+          elementRoot ?? (node.isConnected ? document.scrollingElement : null);
+        return {
+          time: performance.now(),
+          connected: node.isConnected,
+          belongsToCurrentProgramme: currentProgramme?.contains(node) ?? false,
+          isCurrentBoundary:
+            currentProgramme?.querySelectorAll("[data-product-ordinal]")[11] ===
+            node,
+          targetRect: rect(node),
+          root:
+            root === null
+              ? null
+              : {
+                  kind: elementRoot === null ? "document" : "element",
+                  tag: root.tagName,
+                  connected: root.isConnected,
+                  scrollTop: root.scrollTop,
+                  clientHeight: root.clientHeight,
+                  scrollHeight: root.scrollHeight,
+                  rect: rect(root),
+                },
+          temporaryBlockPresent:
+            document.querySelector('[hidden][id^="S:"]') !== null,
+        };
+      };
+      const before = observe();
       node.scrollIntoView({ block: "end", behavior: "instant" });
-    });
-    await expect(rows).toHaveCount(24);
+      return { before, after: observe() };
+    }, fixture.productSlug);
+    try {
+      await expect(rows).toHaveCount(24);
+    } finally {
+      await info.attach("programme-first-reveal.json", {
+        contentType: "application/json",
+        body: JSON.stringify(firstReveal),
+      });
+    }
     const deep = `${path}?page=3&at=${later}`;
     await page.evaluate((url) => {
       window.history.pushState(null, "", url);

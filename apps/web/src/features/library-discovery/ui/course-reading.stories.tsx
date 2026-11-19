@@ -23,7 +23,7 @@ import {
   CourseReadingHeader,
   CourseReadingFooter,
 } from "./course-reading.client";
-import { saveCourseMenuCollapsed } from "../model/course-menu";
+import { saveCourseMenuCollapsed } from "./course-menu.browser";
 const meta = {
   ...publicPageEnvironment("/materials/course-intro"),
   component: CourseReadingLayout,
