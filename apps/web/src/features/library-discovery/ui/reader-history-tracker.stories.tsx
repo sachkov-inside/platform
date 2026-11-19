@@ -7,11 +7,17 @@ import { courseGuide } from "@/storybook/course-reading.fixtures";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReaderHistoryTracker } from "@/shared/ui/reader-history.client";
 
-const meta = { title: "Patterns/Reader/History tracker" };
+const meta = {
+  title: "Patterns/Reader/History tracker",
+  tags: ["!dev", "!autodocs"],
+};
 export default meta;
 export const RestoresOwnVisibleEntry = {
   render: () => <div />,
   play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
+    // Reader installs document-lifetime history preservation. Vitest owns a fresh iframe
+    // for this single-story file (test/support/storybook-preload.ts).
+    if (import.meta.env.MODE !== "test") return;
     const host = document.createElement("section");
     canvasElement.append(host);
     const root = committedRoot(host);

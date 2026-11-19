@@ -32,6 +32,7 @@ export const ActiveHistoryOwner = {
   play: async () => {
     const host = document.createElement("div");
     const root = committedRoot(host);
+    const length = history.length;
     const href = location.href;
     const state: unknown = history.state;
     function paint(mode: "visible" | "hidden") {
@@ -54,6 +55,7 @@ export const ActiveHistoryOwner = {
       const button = host.querySelector("button");
       if (!output || !button) throw new Error("Missing tab controls");
       await expect(output).toHaveTextContent("overview");
+      history.replaceState(null, "", product + "?tab=program");
       flushSync(() => {
         button.click();
       });
@@ -66,6 +68,7 @@ export const ActiveHistoryOwner = {
       await expect(output).toHaveTextContent("program");
       pop(product);
       await expect(output).toHaveTextContent("overview");
+      await expect(history.length).toBe(length);
     } finally {
       root.unmount();
       history.replaceState(state, "", href);
