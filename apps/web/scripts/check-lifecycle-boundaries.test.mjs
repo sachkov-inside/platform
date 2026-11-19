@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import {
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  rmSync,
+  symlinkSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -351,6 +357,14 @@ test("CLI scans new production files in app and src, reports moves and preserves
       encoding: "utf8",
       timeout: 15_000,
     });
+    const linkedCli = join(root, "linked-cli.mts");
+    symlinkSync(cli, linkedCli);
+    const linked = spawnSync(process.execPath, [linkedCli, "audit", root], {
+      encoding: "utf8",
+      timeout: 15_000,
+    });
+    assert.equal(linked.status, result.status, linked.stderr);
+    assert.equal(linked.stdout, result.stdout);
     assert.equal(result.status, 1, result.stderr);
     const report = z
       .object({
