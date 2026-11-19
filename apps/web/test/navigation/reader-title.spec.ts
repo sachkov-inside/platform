@@ -527,3 +527,102 @@ test("late saved open survives Activity hide and return for the same Reader", as
     await page.unrouteAll({ behavior: "wait" });
   }
 });
+
+test("Back clears a pending course step before its material arrives", async ({
+  page,
+  request,
+  context,
+  baseURL,
+  readerTitleFixture,
+}, info) => {
+  await signInReader(context, baseURL);
+  const backend = fakeBackendUrl();
+  const {
+    materialSlugs: [first, second],
+    scope,
+    productSlug,
+  } = readerTitleFixture;
+  const path =
+    "/materials/" +
+    first +
+    "?from=" +
+    encodeURIComponent("/products/" + productSlug + "/programme");
+  const control =
+    backend + "/__reader-title-fixtures/" + scope + "/next-material-hold";
+  try {
+    expect((await request.post(control, { data: { held: true } })).ok()).toBe(
+      true,
+    );
+    await page.goto(path);
+    const host = page.locator("[data-course-reading-host]");
+    await expect(host).toBeVisible();
+    await expect(
+      page.getByRole("heading", {
+        name: "Первый заголовок читателя",
+        exact: true,
+      }),
+    ).toBeVisible();
+    // Keep a same-document entry for Back while the next lesson is held by the external backend.
+    await page.evaluate(() => {
+      history.pushState(null, "", location.href);
+    });
+    const actions = page.getByRole("navigation", {
+      name: "Действия материала",
+      exact: true,
+    });
+    await actions.getByRole("link", { name: "Дальше", exact: true }).click();
+    const mobile = info.project.name === "mobile-chromium";
+    const rail = host.getByRole("complementary", { name: "Текущая глава" });
+    const next = host
+      .getByRole("navigation", { name: "Навигация по урокам" })
+      .getByRole("link", { name: "Следующий шаг" });
+    if (mobile)
+      await expect(
+        host.getByRole("button", { name: "Следующий шаг", exact: true }),
+      ).toBeDisabled();
+    else
+      await expect(rail.locator('[aria-current="step"]')).toHaveText(
+        "Второй заголовок читателя",
+      );
+    await expect
+      .poll(async () => {
+        const response = await request.get(backend + "/__requests");
+        const { requests } = z
+          .object({
+            requests: z.array(
+              z.object({ method: z.string(), path: z.string() }),
+            ),
+          })
+          .parse(await response.json());
+        return requests.some(
+          ({ method, path }) =>
+            method === "GET" && path.split("?")[0] === "/materials/" + second,
+        );
+      })
+      .toBe(true);
+    await page.goBack();
+    await expect(page).toHaveURL(path);
+    await expect(
+      page.getByRole("heading", {
+        name: "Первый заголовок читателя",
+        exact: true,
+      }),
+    ).toBeVisible();
+    if (mobile)
+      await expect(next).toHaveAttribute(
+        "href",
+        "/materials/" +
+          second +
+          "?from=" +
+          encodeURIComponent("/products/" + productSlug + "/programme"),
+      );
+    else
+      await expect(rail.locator('[aria-current="step"]')).toHaveText(
+        "Первый заголовок читателя",
+      );
+  } finally {
+    expect((await request.post(control, { data: { held: false } })).ok()).toBe(
+      true,
+    );
+  }
+});

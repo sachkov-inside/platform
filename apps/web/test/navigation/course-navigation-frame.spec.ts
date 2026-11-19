@@ -525,3 +525,32 @@ test("phones keep the programme dock when the desktop lesson menu was collapsed"
     page.getByRole("button", { name: "Свернуть меню уроков" }),
   ).toHaveCount(0);
 });
+
+test("the course host follows the committed course on same-material history entries", async ({
+  page,
+}) => {
+  const path = "/materials/reference-lesson-5";
+  const current = path + "?from=" + encodeURIComponent(programme);
+  await page.goto(current);
+  const host = page.locator("[data-course-reading-host]");
+  const lesson = page.getByRole("heading", { name: "Урок 5", exact: true });
+  await expect(host).toBeVisible();
+  await expect(lesson).toBeVisible();
+  for (const origins of [
+    [programme, programme],
+    ["/products/performance-course/programme"],
+  ]) {
+    await page.evaluate((origins) => {
+      const url = new URL(location.href);
+      url.searchParams.delete("from");
+      for (const from of origins) url.searchParams.append("from", from);
+      history.pushState(null, "", url);
+    }, origins);
+    await expect(host).toHaveCount(0);
+    await expect(lesson).toBeVisible();
+    await page.goBack();
+    await expect(page).toHaveURL(current);
+    await expect(host).toBeVisible();
+    await expect(lesson).toBeVisible();
+  }
+});
