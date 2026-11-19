@@ -153,23 +153,33 @@ function observeArtworkResources() {
   };
   const request = window.requestAnimationFrame.bind(window);
   const cancel = window.cancelAnimationFrame.bind(window);
+  let insideFirstTick = false;
   window.requestAnimationFrame = (callback) => {
     if (insideClockTrigger) artworkCallbacks.add(callback);
     const clock = artworkCallbacks.has(callback)
       ? window.artworkFirstText
       : undefined;
-    clock?.request();
+    const slot = clock?.request(insideFirstTick);
     const frame = request(function (this: unknown, time) {
       frames.delete(frame);
       executedFrames += 1;
       clock?.frame(time);
-      Reflect.apply(callback, this, [time]);
+      if (slot) slot.callbackEnteredAt = performance.now();
+      const previous = insideFirstTick;
+      insideFirstTick = slot?.ordinal === 1;
+      try {
+        Reflect.apply(callback, this, [time]);
+      } finally {
+        insideFirstTick = previous;
+      }
     });
     frames.add(frame);
+    if (slot) slot.handle = frame;
     return frame;
   };
   window.cancelAnimationFrame = (frame) => {
     cancel(frame);
+    window.artworkFirstText?.cancel(frame);
     frames.delete(frame);
   };
   window.processArtworkResources = () => ({
