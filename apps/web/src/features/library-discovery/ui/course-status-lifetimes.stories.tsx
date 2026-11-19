@@ -46,7 +46,9 @@ function TaskLayouts() {
         Источник первого курса
         <select
           value={source}
-          onChange={(event) => setSource(event.target.value)}
+          onChange={(event) => {
+            setSource(event.target.value);
+          }}
         >
           <option value="absent">Нет данных</option>
           <option value="submitted">Сдано</option>
@@ -58,7 +60,9 @@ function TaskLayouts() {
         <input
           type="checkbox"
           checked={compare}
-          onChange={(e) => setCompare(e.target.checked)}
+          onChange={(e) => {
+            setCompare(e.target.checked);
+          }}
         />
         Сравнить со вторым курсом
       </label>
@@ -152,7 +156,7 @@ function materialsCourse(...groups: readonly string[][]) {
       id: group === 0 ? chapter.id : "another-chapter",
       steps: ids.map((materialId, index) => ({
         ...step,
-        id: `lesson-${group}-${index}`,
+        id: `lesson-${String(group)}-${String(index)}`,
         materialId,
       })),
     })),
@@ -171,23 +175,43 @@ function Demand() {
   const [snapshot, setSnapshot] = useState("");
   return (
     <>
-      <button type="button" onClick={() => setProvider(1)}>
+      <button
+        type="button"
+        onClick={() => {
+          setProvider(1);
+        }}
+      >
         Сменить поставщика
       </button>
-      <button type="button" onClick={() => setLeft(false)}>
+      <button
+        type="button"
+        onClick={() => {
+          setLeft(false);
+        }}
+      >
         Закрыть первый список
       </button>
-      <button type="button" onClick={() => setUpdated(true)}>
+      <button
+        type="button"
+        onClick={() => {
+          setUpdated(true);
+        }}
+      >
         Изменить материалы
       </button>
-      <button type="button" onClick={() => setRight(false)}>
+      <button
+        type="button"
+        onClick={() => {
+          setRight(false);
+        }}
+      >
         Закрыть второй список
       </button>
       <button
         type="button"
-        onClick={() =>
-          setSnapshot(JSON.stringify(owners.map((owner) => owner.materials())))
-        }
+        onClick={() => {
+          setSnapshot(JSON.stringify(owners.map((owner) => owner.materials())));
+        }}
       >
         Прочитать подписки
       </button>
