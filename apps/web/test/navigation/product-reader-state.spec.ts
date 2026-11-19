@@ -247,6 +247,92 @@ test("each product resumes its own ready waitlist intent across a client navigat
   ]);
 });
 
+for (const result of ["ready", "failed"] as const) {
+  test(`the restored ${result} purchase refreshes its individual payment link`, async ({
+    page,
+    context,
+    request,
+    baseURL,
+  }) => {
+    if (baseURL === undefined) throw new Error("Web origin required");
+    await signIn(context, baseURL, "reader-state-paid");
+    try {
+      const setup = await request.post(
+        backend + "/__purchase-settlement?result=" + result,
+      );
+      expect(setup.ok()).toBe(true);
+      const { linkId } = z
+        .object({ linkId: z.uuid() })
+        .parse(await setup.json());
+      // #2244 measures this page's refresh independently of the AppShell billing listener.
+      await page.addInitScript(() => {
+        Object.defineProperty(window, "BroadcastChannel", { value: undefined });
+        window.addEventListener(
+          "inside.account.billing.changed",
+          (event) => {
+            const root = document.documentElement;
+            root.dataset["billingEvents"] = String(
+              Number(root.dataset["billingEvents"] ?? 0) + 1,
+            );
+            if (
+              event instanceof CustomEvent &&
+              typeof event.detail === "string"
+            )
+              document.documentElement.setAttribute(
+                "data-billing-announcement",
+                event.detail,
+              );
+            event.stopImmediatePropagation();
+          },
+          { capture: true },
+        );
+      });
+      const restore = page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname ===
+          "/api/account/billing/product-purchase",
+      );
+      await page.goto("/payment/links/" + linkId);
+      expect(await (await restore).json()).toMatchObject({
+        ok: true,
+        value: result === "ready" ? { access: "ready" } : { state: "failed" },
+      });
+      await expect(
+        page.getByRole("heading", { name: "Обновлённое название курса" }),
+      ).toBeVisible();
+      expect(
+        await page
+          .locator("html")
+          .evaluate((root) =>
+            Number(root.getAttribute("data-billing-events") ?? 0),
+          ),
+      ).toBe(result === "ready" ? 1 : 0);
+      if (result === "ready") {
+        await expect(
+          page.getByRole("link", { name: "Открыть продукт" }),
+        ).toBeVisible();
+        expect(
+          z
+            .uuid()
+            .safeParse(
+              await page
+                .locator("html")
+                .getAttribute("data-billing-announcement"),
+            ).success,
+        ).toBe(true);
+      } else {
+        await expect(
+          page.getByRole("heading", { name: "Ссылка отозвана" }),
+        ).toBeVisible();
+      }
+    } finally {
+      expect(
+        (await request.post(backend + "/__purchase-settlement")).ok(),
+      ).toBe(true);
+    }
+  });
+}
+
 test("the same public Product shell isolates guest, holder and later guest across requests", async ({
   browser,
   request,
