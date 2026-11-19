@@ -260,9 +260,9 @@ test("chromium: an admitted lesson fragment survives an intermediate render befo
   });
   try {
     await page.goto(`${url}?lesson-admission#итог`);
-    await ui(page.getByRole("status")).toHaveText(
-      "Продолжение рендера ожидает готовности",
-    );
+    await ui(
+      page.getByText("Продолжение рендера ожидает готовности", { exact: true }),
+    ).toHaveText("Продолжение рендера ожидает готовности");
     const body = page.locator("[data-controlled-lesson]");
     const originalBody = await body.elementHandle();
     await page
