@@ -228,3 +228,126 @@ test("early native programme scroll survives initial hydration", async ({
     expect(await deleted.json()).toEqual({ deleted: true });
   }
 });
+
+test("a direct programme lesson address starts at its lesson from zero", async ({
+  page,
+  request,
+}) => {
+  const backend = `http://127.0.0.1:${process.env["FAKE_BACKEND_PORT"] ?? ""}`;
+  const allocated = await request.post(
+    `${backend}/__reader-title-fixtures?layout=programme-reveal`,
+  );
+  const fixture = fixtureSchema.parse(await allocated.json());
+  try {
+    expect(allocated.status()).toBe(201);
+    const later = fixture.materialSlugs[24];
+    if (later === undefined) throw new Error("Missing controlled lesson");
+    await page.goto(
+      `/products/${fixture.productSlug}/programme?page=3&at=${later}`,
+    );
+    const surface = page.locator(
+      `[data-product-programme="${fixture.productSlug}"]:visible`,
+    );
+    const rows = surface.locator("[data-product-ordinal]");
+    await expect(
+      page
+        .getByRole("navigation", { name: "Разделы продукта" })
+        .getByRole("button", { name: /^Материалы/u }),
+    ).toBeEnabled();
+    await expect(rows).toHaveCount(36);
+    await expect(rows.nth(24)).toBeInViewport();
+  } finally {
+    const deleted = await request.delete(
+      `${backend}/__reader-title-fixtures/${fixture.scope}`,
+    );
+    expect(deleted.status()).toBe(200);
+    expect(await deleted.json()).toEqual({ deleted: true });
+  }
+});
+
+test("a browser-restored programme position survives initial hydration", async ({
+  page,
+  request,
+}, info) => {
+  const backend = `http://127.0.0.1:${process.env["FAKE_BACKEND_PORT"] ?? ""}`;
+  const allocated = await request.post(
+    `${backend}/__reader-title-fixtures?layout=programme-reveal`,
+  );
+  const fixture = fixtureSchema.parse(await allocated.json());
+  let releaseScripts: (() => void) | undefined;
+  try {
+    expect(allocated.status()).toBe(201);
+    const later = fixture.materialSlugs[24];
+    if (later === undefined) throw new Error("Missing controlled lesson");
+    await page.goto(
+      `/products/${fixture.productSlug}/programme?page=3&at=${later}`,
+    );
+    const surface = page.locator(
+      `[data-product-programme="${fixture.productSlug}"]:visible`,
+    );
+    const rows = surface.locator("[data-product-ordinal]");
+    const materials = page
+      .getByRole("navigation", { name: "Разделы продукта" })
+      .getByRole("button", { name: /^Материалы/u });
+    await expect(materials).toBeEnabled();
+    await expect(rows).toHaveCount(36);
+    await expect(rows.nth(24)).toBeInViewport();
+    const position = () =>
+      surface.evaluate((node) => {
+        let root = node.parentElement;
+        while (
+          root !== null &&
+          !/^(auto|scroll)$/.test(getComputedStyle(root).overflowY)
+        )
+          root = root.parentElement;
+        return root?.scrollTop ?? window.scrollY;
+      });
+    await surface.evaluate((node) => {
+      let root = node.parentElement;
+      while (
+        root !== null &&
+        !/^(auto|scroll)$/.test(getComputedStyle(root).overflowY)
+      )
+        root = root.parentElement;
+      if (root === null) window.scrollTo({ top: 300, behavior: "instant" });
+      else root.scrollTo({ top: 300, behavior: "instant" });
+    });
+    await expect.poll(position).toBe(300);
+    const scriptsHeld = new Promise<void>((resolve) => {
+      releaseScripts = resolve;
+    });
+    let blockedScripts = 0;
+    await page.route("**/_next/static/chunks/*.js", async (route) => {
+      blockedScripts += 1;
+      await scriptsHeld;
+      await route.continue();
+    });
+    // A real reload restores this document's native scroll position. No test scroll follows it.
+    await page.reload({ waitUntil: "commit" });
+    await expect(rows).toHaveCount(36);
+    await expect.poll(() => blockedScripts).toBeGreaterThan(0);
+    await expect(materials).toBeDisabled();
+    await expect.poll(position).toBe(300);
+    releaseScripts?.();
+    await expect(materials).toBeEnabled();
+    await expect.poll(position).toBe(300);
+    await expect(rows.nth(24)).not.toBeInViewport();
+    await info.attach("restored-programme-scroll.json", {
+      contentType: "application/json",
+      body: JSON.stringify({
+        nativeReload: true,
+        expected: 300,
+        actual: await position(),
+        root: info.project.name === "desktop-chromium" ? "MAIN" : "document",
+      }),
+    });
+  } finally {
+    releaseScripts?.();
+    await page.unrouteAll({ behavior: "wait" });
+    const deleted = await request.delete(
+      `${backend}/__reader-title-fixtures/${fixture.scope}`,
+    );
+    expect(deleted.status()).toBe(200);
+    expect(await deleted.json()).toEqual({ deleted: true });
+  }
+});
