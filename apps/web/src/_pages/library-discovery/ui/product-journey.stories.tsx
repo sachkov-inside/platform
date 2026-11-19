@@ -8,10 +8,16 @@ import {
 } from "next/navigation";
 import {
   Activity,
+  Suspense,
+  lazy,
+  startTransition,
+  use,
   useLayoutEffect,
   useState,
   type ComponentProps,
 } from "react";
+import { createRoot } from "react-dom/client";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { z } from "zod";
 import {
   expect,
@@ -36,10 +42,16 @@ import { ProductProgrammeSelectionProvider } from "./product-programme-selection
 import {
   ProductLearningProvider,
   ProductLearningSource,
+  PendingPurchaseRow,
   type ProductLearningView,
 } from "./product-learning.client";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 import { expectNoSidewaysScrollAtDoubleText } from "@/storybook/phone-layout";
+
+import {
+  WaitlistProvider,
+  ProductWaitlistSlot,
+} from "./waitlist-provider.client";
 
 const titles = [
   "От идеи к первой версии",
@@ -3137,5 +3149,186 @@ export const ProgrammeQueryFollowsProductScope: Story = {
     await expect(
       canvasElement.querySelectorAll("[data-product-ordinal]"),
     ).toHaveLength(48);
+  },
+};
+
+const probeA = "00000000-0000-4000-8000-000000000016";
+const probeB = "00000000-0000-4000-8000-000000000019";
+function probeReading(accountId: string | null, resolved: boolean) {
+  return {
+    accountId,
+    resolved,
+    states: new Map(),
+    register,
+    refresh,
+    failed: false,
+  };
+}
+const neverCommits = Promise.withResolvers<null>().promise;
+function StoppedTree() {
+  return use(neverCommits);
+}
+function D16Probe() {
+  const [step, setStep] = useState(0);
+  const account = step === 1 || step === 6 ? probeB : probeA;
+  const slug = step === 2 || step === 7 ? "probe-y" : "probe-x";
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          setStep((s) => s + 1);
+        }}
+      >
+        Next proof
+      </button>
+      <MaterialReadingScope key={step} value={probeReading(account, false)}>
+        {step < 3 || step === 8 ? (
+          <ProductLearningSource
+            initialAccountId={null}
+            slug={slug}
+            purchaseRowShown={step === 0}
+          >
+            <span>Writer {step}</span>
+          </ProductLearningSource>
+        ) : step === 4 ? (
+          <Suspense fallback={<span>Uncommitted</span>}>
+            <ProductLearningSource
+              initialAccountId={null}
+              slug={slug}
+              purchaseRowShown={false}
+            >
+              <StoppedTree />
+            </ProductLearningSource>
+          </Suspense>
+        ) : (
+          <div data-proof-reader={step}>
+            <PendingPurchaseRow slug={slug} lockedForGuest={true} />
+          </div>
+        )}
+      </MaterialReadingScope>
+    </>
+  );
+}
+export const D16CommitProof: Story = {
+  render: () => <D16Probe />,
+  play: async ({ canvasElement }) => {
+    const c = within(canvasElement);
+    const next = () =>
+      userEvent.click(c.getByRole("button", { name: "Next proof" }));
+    for (const i of [0, 1, 2]) {
+      await expect(c.getByText("Writer " + String(i))).toBeVisible();
+      await next();
+    }
+    const read = async (step: number, present: boolean) => {
+      const root = canvasElement.querySelector(
+        '[data-proof-reader="' + String(step) + '"]',
+      );
+      await expect(root).not.toBeNull();
+      await expect(
+        root?.querySelectorAll("[data-programme-purchase-row]").length,
+      ).toBe(present ? 1 : 0);
+    };
+    await read(3, true);
+    await next();
+    await expect(c.getByText("Uncommitted")).toBeVisible();
+    await next();
+    await read(5, true);
+    await next();
+    await read(6, false);
+    await next();
+    await read(7, false);
+    await next();
+    await expect(c.getByText("Writer 8")).toBeVisible();
+    await next();
+    await read(9, false);
+  },
+};
+export const WaitlistPublishesCommittedProduct: Story = {
+  render: () => <div />,
+  play: async ({ canvasElement }) => {
+    const attempted = Promise.withResolvers<null>();
+    const barrier = Promise.withResolvers<null>();
+    const publishedLink = Promise.withResolvers<string | null>();
+    const host = document.createElement("div");
+    canvasElement.append(host);
+    const root = createRoot(host);
+    const client = new QueryClient();
+    const canvas = within(host);
+    const PendingProduct = lazy(async () => {
+      attempted.resolve(null);
+      await barrier.promise;
+      return { default: () => null };
+    });
+    function Product({ product }: { product: string }) {
+      useLayoutEffect(() => {
+        if (product === probeB) {
+          queueMicrotask(() => {
+            publishedLink.resolve(
+              canvas
+                .getByRole("link", { name: "Открыть программу" })
+                .getAttribute("href"),
+            );
+          });
+        }
+      }, [product]);
+      return (
+        <WaitlistProvider
+          productId={product}
+          productSlug={product === probeA ? "probe-a" : "probe-b"}
+        >
+          <ProductWaitlistSlot />
+          <ProductWaitlistSlot lower />
+          {product === probeB ? <PendingProduct /> : null}
+        </WaitlistProvider>
+      );
+    }
+    function SwitchProduct() {
+      const [product, setProduct] = useState(probeA);
+      return (
+        <MaterialReadingScope value={probeReading(null, true)}>
+          <button
+            type="button"
+            onClick={() => {
+              startTransition(() => {
+                setProduct(probeB);
+              });
+            }}
+          >
+            Сменить продукт
+          </button>
+          <Suspense fallback="Ожидаем продукт">
+            <Product product={product} />
+          </Suspense>
+        </MaterialReadingScope>
+      );
+    }
+    try {
+      root.render(
+        <QueryClientProvider client={client}>
+          <SwitchProduct />
+        </QueryClientProvider>,
+      );
+      const button = await canvas.findByRole("button", {
+        name: "Сменить продукт",
+      });
+      button.click();
+      await attempted.promise;
+      await expect(
+        canvas.getAllByRole("button", { name: "Вступить в список ожидания" }),
+      ).toHaveLength(2);
+      await expect(
+        canvas.getByRole("link", { name: "Открыть программу" }),
+      ).toHaveAttribute("href", "/products/probe-a/programme");
+      barrier.resolve(null);
+      await expect(await publishedLink.promise).toBe(
+        "/products/probe-b/programme",
+      );
+    } finally {
+      barrier.resolve(null);
+      root.unmount();
+      host.remove();
+      client.clear();
+    }
   },
 };
