@@ -688,6 +688,7 @@ export function inspectTree(root: string, pins: Pin[] = []): Inventory {
 
 if (
   process.argv[1] !== undefined &&
+  statSync(process.argv[1], { throwIfNoEntry: false })?.isFile() === true &&
   pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url
 ) {
   const mode = process.argv[2];
