@@ -10,13 +10,15 @@ function Navigation({ pathname, tall }: { pathname: string; tall: boolean }) {
   const { homeHref } = useMobileNavigation(pathname, null, false);
   return (
     <>
-      <a href={homeHref} onClick={(event) => event.preventDefault()}>
+      <a
+        href={homeHref}
+        onClick={(event) => {
+          event.preventDefault();
+        }}
+      >
         Home
       </a>
-      <div
-        data-application-content
-        style={{ overflow: "auto", maxHeight: "40vh" }}
-      >
+      <div data-application-content className="lg:max-h-36 lg:overflow-y-auto">
         <div style={{ height: tall ? "250vh" : "1px" }} />
       </div>
     </>
@@ -26,9 +28,9 @@ function Navigation({ pathname, tall }: { pathname: string; tall: boolean }) {
 export const OrdinaryLinkRestoresOnlyItsDestination = {
   render: () => <div />,
   play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {
-    const root = committedRoot(
-      canvasElement.appendChild(document.createElement("div")),
-    );
+    const host = canvasElement.appendChild(document.createElement("div"));
+    const root = committedRoot(host);
+    const previousTop = window.scrollY;
     const cache = new QueryClient();
     const original = location.href;
     const historyState = history.state;
@@ -45,9 +47,14 @@ export const OrdinaryLinkRestoresOnlyItsDestination = {
       new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
     try {
       show(home, true);
-      const scroller = canvasElement.querySelector<HTMLElement>(
+      const content = canvasElement.querySelector<HTMLElement>(
         "[data-application-content]",
       );
+      if (!content) throw new Error("Missing shell content");
+      const scroller =
+        getComputedStyle(content).overflowY === "auto"
+          ? content
+          : document.scrollingElement;
       if (!scroller) throw new Error("Missing scroll container");
       scroller.scrollTop = 500;
       scroller.dispatchEvent(new Event("scroll"));
@@ -70,7 +77,9 @@ export const OrdinaryLinkRestoresOnlyItsDestination = {
       await expect(scroller.scrollTop).toBe(0);
     } finally {
       root.unmount();
+      host.remove();
       cache.clear();
+      window.scrollTo(0, previousTop);
       history.replaceState(historyState, "", original);
     }
   },
