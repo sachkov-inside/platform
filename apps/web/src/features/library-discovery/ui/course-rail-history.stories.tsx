@@ -106,6 +106,20 @@ export const ReplacedRailOwnsAvailableChapters = {
       );
       reader.scrollTop = 110;
       saveReaderHistoryView(reader);
+      restore(courseGuide.currentChapterId);
+      await expect(rail).toHaveAttribute(
+        "data-course-chapter",
+        courseGuide.currentChapterId,
+      );
+      reader.scrollTop = 0;
+      resetReaderHistoryActivation();
+      enterReaderHistory(undefined, reader);
+      await waitFor(() =>
+        expect(
+          within(rail).getByRole("button", { name: new RegExp(chapter.name) }),
+        ).toBeVisible(),
+      );
+      await waitFor(() => expect(reader.scrollTop).toBe(110));
       await userEvent.click(
         canvas.getByRole("button", { name: "Сменить панель" }),
       );

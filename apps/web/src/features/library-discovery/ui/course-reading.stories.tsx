@@ -204,6 +204,16 @@ export const RevealsOnlyOffscreenSteps: Story = {
     }
     await expect(rail.scrollTop).toBeGreaterThan(0);
     await expect(Math.abs(currentCenterOffset(rail))).toBeLessThan(2);
+    const neighbor = within(rail).getByRole("link", {
+      name: /Практический шаг 14:/,
+    });
+    async function expectInside(row: HTMLElement, container: HTMLElement) {
+      const bounds = container.getBoundingClientRect();
+      const rect = row.getBoundingClientRect();
+      await expect(rect.top).toBeGreaterThanOrEqual(bounds.top);
+      await expect(rect.bottom).toBeLessThanOrEqual(bounds.bottom);
+    }
+    await expectInside(neighbor, rail);
     const initialScroll = rail.scrollTop;
     await userEvent.click(
       canvas.getByRole("button", { name: "Предыдущий шаг" }),
@@ -212,6 +222,7 @@ export const RevealsOnlyOffscreenSteps: Story = {
       "data-course-step",
       "long-chapter-13",
     );
+    await expectInside(neighbor, rail);
     await expect(rail.scrollTop).toBe(initialScroll);
     await userEvent.click(canvas.getByRole("button", { name: "Ранний шаг" }));
     await expect(rail.querySelector('[aria-current="step"]')).toHaveAttribute(
