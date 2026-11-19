@@ -322,17 +322,23 @@ export const UpdatedPastAnswer: Story = {
 
 const answerReported = fn<(listener: string, exercise: string) => void>();
 const pendingListenerRendered = fn();
-const pendingListener = new Promise<void>(() => {});
 
-function SuspendListener({ listener }: { readonly listener: string }) {
+function SuspendListener({
+  listener,
+  pending,
+}: {
+  readonly listener: string;
+  readonly pending: Promise<void>;
+}) {
   if (listener === "B") {
     pendingListenerRendered();
-    throw pendingListener;
+    throw pending;
   }
   return null;
 }
 
 function QuizWithChangingListener(props: MaterialQuizPresentation) {
+  const [pending] = useState(() => new Promise<void>(() => {}));
   const [listener, setListener] = useState("A");
   return (
     <>
@@ -348,7 +354,7 @@ function QuizWithChangingListener(props: MaterialQuizPresentation) {
         >
           <MaterialQuiz {...props} />
           <span>Обработчик {listener}</span>
-          <SuspendListener listener={listener} />
+          <SuspendListener listener={listener} pending={pending} />
         </ExerciseAnswersObserver>
       </Suspense>
     </>
@@ -361,7 +367,7 @@ export const AnswersReachCommittedListener: Story = {
     pendingListenerRendered.mockClear();
   },
   render: (args) => <QuizWithChangingListener {...args} />,
-  play: async ({ canvasElement, args }) => {
+  play: async ({ canvasElement }) => {
     const quiz = within(canvasElement);
     const press = (name: string) =>
       userEvent.click(quiz.getByRole("button", { name }));
@@ -369,16 +375,16 @@ export const AnswersReachCommittedListener: Story = {
     await waitFor(() => expect(pendingListenerRendered).toHaveBeenCalled());
     await expect(quiz.getByText("Обработчик A")).toBeVisible();
     await press("Не знаю");
-    await expect(answerReported.mock.calls).toEqual([["A", args.id]]);
+    await expect(answerReported.mock.calls).toEqual([["A", "mvp-features"]]);
     await press("Принять другой обработчик");
     await expect(quiz.getByText("Обработчик C")).toBeVisible();
     await expect(quiz.getByText("Не знаю · без оценки")).toBeVisible();
-    await expect(answerReported.mock.calls).toEqual([["A", args.id]]);
+    await expect(answerReported.mock.calls).toEqual([["A", "mvp-features"]]);
     await press("Ответить ещё раз");
     await press("Не знаю");
     await expect(answerReported.mock.calls).toEqual([
-      ["A", args.id],
-      ["C", args.id],
+      ["A", "mvp-features"],
+      ["C", "mvp-features"],
     ]);
   },
 };
