@@ -30,12 +30,11 @@ const mirror = "apt-mirrors.txt";
 const hasMirror = existsSync(join(source, mirror));
 const originalMirrorUri = `mirror+file:${join(source, mirror)}`;
 const scopedMirrorUri = `mirror+file:${join(destination, mirror)}`;
+const httpSecuritySource = /^http:\/\/security\.ubuntu\.com\/ubuntu\/?$/u;
+
 /** @param {string} uri @param {boolean} securityPocket @param {"deb822" | "one-line"} format */
 function scopedUri(uri, securityPocket, format) {
-  if (
-    securityPocket &&
-    /^http:\/\/security\.ubuntu\.com\/ubuntu\/?$/u.test(uri)
-  ) {
+  if (securityPocket && httpSecuritySource.test(uri)) {
     const selected =
       mode === "--security-fallback"
         ? uri.replace(
@@ -82,7 +81,8 @@ function filterDeb822(text) {
       if (fields.length !== 1) return paragraph;
       const field = fields[0];
       if (field === undefined) return paragraph;
-      const uris = field[0]
+      const uriField = field[0];
+      const uris = uriField
         .replace(/^URIs:\s*/iu, "")
         .trim()
         .split(/\s+/u);
@@ -91,18 +91,46 @@ function filterDeb822(text) {
       const suites = /^Suites:([^\r\n]*(?:\r?\n[ \t][^\r\n]*)*)/imu.exec(
         paragraph,
       );
-      const securityPocket =
-        suites?.[1]?.split(/\s+/u).includes("noble-security") ?? false;
-      const kept = uris
-        .filter((uri) => !microsoftFeed.has(uri))
-        .map((uri) => scopedUri(uri, securityPocket, "deb822"));
+      const names = suites?.[1]?.trim().split(/\s+/u) ?? [];
+      const securityPocket = names.includes("noble-security");
+      const retained = uris.filter((uri) => !microsoftFeed.has(uri));
+      if (retained.length === 0) return "";
+
+      /** @param {string} stanza @param {boolean} forSecurity */
+      function withUris(stanza, forSecurity) {
+        const selected = retained.map((uri) =>
+          scopedUri(uri, forSecurity, "deb822"),
+        );
+        if (
+          selected.length === uris.length &&
+          selected.every((uri, index) => uri === uris[index])
+        )
+          return stanza;
+        return stanza.replace(uriField, `URIs: ${selected.join(" ")}`);
+      }
+
+      const otherSuites = names.filter((name) => name !== "noble-security");
       if (
-        kept.length === uris.length &&
-        kept.every((uri, index) => uri === uris[index])
-      )
-        return paragraph;
-      if (kept.length === 0) return "";
-      return paragraph.replace(field[0], `URIs: ${kept.join(" ")}`);
+        mode === "--security-fallback" &&
+        suites !== null &&
+        securityPocket &&
+        otherSuites.length > 0 &&
+        retained.some((uri) => httpSecuritySource.test(uri))
+      ) {
+        const other = paragraph.replace(
+          suites[0],
+          `Suites: ${otherSuites.join(" ")}`,
+        );
+        const security = paragraph.replace(suites[0], "Suites: noble-security");
+        const newline = paragraph.includes("\r\n") ? "\r\n" : "\n";
+        return (
+          withUris(other, false).replace(/\r?\n$/u, "") +
+          newline +
+          newline +
+          withUris(security, true)
+        );
+      }
+      return withUris(paragraph, securityPocket);
     })
     .join("");
 }

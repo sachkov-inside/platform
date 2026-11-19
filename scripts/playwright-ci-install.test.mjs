@@ -207,27 +207,24 @@ exec /usr/bin/sed "$@"
         preserveLists: row.preserveLists,
       };
     });
+  /** @param {string} directory */
+  function readSources(directory) {
+    return Object.fromEntries(
+      Object.keys(sourceFiles).map((name) => [
+        name,
+        readFileSync(join(directory, name), "utf8"),
+      ]),
+    );
+  }
   return {
     ...result,
     log: logged,
     aptCalls,
     scopesRemoved: aptCalls.every((call) => !existsSync(dirname(call.config))),
     otherFeedIndexRetained: existsSync(join(lists, "microsoft-prod_InRelease")),
-    originalSources: Object.fromEntries(
-      Object.keys(sourceFiles).map((name) => [
-        name,
-        readFileSync(join(sources, name), "utf8"),
-      ]),
-    ),
-    sources: Object.fromEntries(
-      Object.keys(sourceFiles).map((name) => [
-        name,
-        readFileSync(
-          join(`${sources}.attempt${String(attempts)}`, name),
-          "utf8",
-        ),
-      ]),
-    ),
+    originalSources: readSources(sources),
+    firstSources: readSources(`${sources}.attempt1`),
+    sources: readSources(`${sources}.attempt${String(attempts)}`),
   };
 }
 
@@ -324,7 +321,10 @@ test("fallback uses HTTPS before the second attempt in every Ubuntu source forma
 });
 
 test("retry moves only the direct HTTP noble-security pocket to the official HTTPS archive", (t) => {
+  const mixed =
+    "Types: deb\nURIs: http://security.ubuntu.com/ubuntu\nSuites: noble noble-updates\n noble-security\nComponents: main\nSigned-By: /keys/ubuntu.gpg\n";
   const sources = {
+    "sources.list.d/mixed.sources": mixed,
     "sources.list":
       "deb [arch=amd64 signed-by=/keys/ubuntu.gpg] http://security.ubuntu.com/ubuntu/ noble-security main\n",
     "sources.list.d/ubuntu.sources":
@@ -336,6 +336,14 @@ test("retry moves only the direct HTTP noble-security pocket to the official HTT
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.aptCalls.length, 2);
   assert.deepEqual(result.originalSources, sources);
+  assert.deepEqual(result.firstSources, sources);
+  assert.equal(
+    result.sources["sources.list.d/mixed.sources"],
+    [
+      "Types: deb\nURIs: http://security.ubuntu.com/ubuntu\nSuites: noble noble-updates\nComponents: main\nSigned-By: /keys/ubuntu.gpg",
+      "Types: deb\nURIs: https://archive.ubuntu.com/ubuntu\nSuites: noble-security\nComponents: main\nSigned-By: /keys/ubuntu.gpg\n",
+    ].join("\n\n"),
+  );
   assert.equal(
     result.sources["sources.list"],
     "deb [arch=amd64 signed-by=/keys/ubuntu.gpg] https://archive.ubuntu.com/ubuntu/ noble-security main\n",
