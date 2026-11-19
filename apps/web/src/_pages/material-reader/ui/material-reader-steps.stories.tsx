@@ -689,3 +689,45 @@ export const VideoContinuationPreview: Story = {
     ],
   },
 };
+
+/** A guest reopens a long lesson at the restored gate and can continue past it. */
+export const RestoredGateScrollsOnce: Story = {
+  parameters: { guestParts: 3 },
+  args: {
+    body: body.flatMap((block) =>
+      block.kind === "paragraph"
+        ? [
+            block,
+            ...Array.from({ length: 12 }, () =>
+              paragraph(text("Подробности задачи.")),
+            ),
+          ]
+        : [block],
+    ),
+  },
+  decorators: [
+    (Story) => (
+      <section
+        aria-label="Страница урока"
+        style={{ height: 400, overflowY: "auto" }}
+      >
+        <Story />
+      </section>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const panel = canvas.getByRole("region", { name: "Страница урока" });
+    const restored = panel.querySelector("#lesson-step-2");
+    if (restored === null) throw new Error("Missing restored gate");
+    const inView = () => {
+      const y = restored.getBoundingClientRect().top;
+      const frame = panel.getBoundingClientRect();
+      return panel.scrollTop > 0 && y >= frame.top && y < frame.bottom;
+    };
+    await waitFor(() => expect(inView()).toBe(true));
+    await userEvent.click(canvas.getByRole("button", { name: "Готово!" }));
+    await expect(canvas.getByRole("heading", { name: "Итог" })).toBeVisible();
+    await waitFor(() => expect(inView()).toBe(false));
+  },
+};
