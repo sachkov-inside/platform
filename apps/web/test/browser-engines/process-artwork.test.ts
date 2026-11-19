@@ -162,8 +162,10 @@ function observeArtworkResources() {
     const frame = request(function (this: unknown, time) {
       frames.delete(frame);
       executedFrames += 1;
-      clock?.frame(time);
-      Reflect.apply(callback, this, [time]);
+      // Temporary controlled WebKit failure for the CI artifact receipt (#2449).
+      const deliveredTime = clock ? 0 : time;
+      clock?.frame(deliveredTime);
+      Reflect.apply(callback, this, [deliveredTime]);
     });
     frames.add(frame);
     return frame;
