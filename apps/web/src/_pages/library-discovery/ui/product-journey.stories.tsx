@@ -3241,7 +3241,9 @@ function PurchaseRowSequence() {
       <button
         type="button"
         disabled={index === purchaseRowStages.length - 1}
-        onClick={() => setIndex(index + 1)}
+        onClick={() => {
+          setIndex(index + 1);
+        }}
       >
         Next stage
       </button>
