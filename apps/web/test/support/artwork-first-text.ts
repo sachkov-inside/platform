@@ -1,6 +1,8 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import type { Page } from "@playwright/test";
 
+export type FirstTextAssertion = "scene" | "resources" | "first-text";
+
 type Trace = ReturnType<typeof createFirstTextTrace>;
 
 declare global {
@@ -38,7 +40,6 @@ export function createFirstTextTrace() {
   let dropped = 0;
   const record = (event: string) => {
     if (events.length === 32) {
-      // Keep the initial observations and a rolling tail.
       events.splice(16, 1);
       dropped++;
     }
@@ -106,7 +107,7 @@ export function createFirstTextTrace() {
 
 export async function saveFirstTextFailure(
   page: Page,
-  assertion: "scene" | "resources" | "first-text",
+  assertion: FirstTextAssertion,
 ) {
   const trace = await page
     .evaluate(() => ({

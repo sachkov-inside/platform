@@ -5,6 +5,7 @@ import { expect as browserExpect, type Video } from "@playwright/test";
 import { afterAll, beforeAll, test } from "vitest";
 
 import {
+  type FirstTextAssertion,
   createFirstTextTrace,
   saveFirstTextFailure,
 } from "../support/artwork-first-text";
@@ -32,6 +33,11 @@ function observeArtworkResources() {
   const visibility = new Set<EventListenerOrEventListenerObject>();
   const media = new Map<EventTarget, Set<EventListenerOrEventListenerObject>>();
   let executedFrames = 0;
+  let insideClockTrigger = false;
+  const visibilityHandlers = new WeakMap<
+    EventListenerOrEventListenerObject,
+    EventListener
+  >();
   const add: unknown = Object.getOwnPropertyDescriptor(
     EventTarget.prototype,
     "addEventListener",
@@ -43,7 +49,30 @@ function observeArtworkResources() {
   if (typeof add !== "function" || typeof remove !== "function")
     throw new Error("Native EventTarget unavailable");
   EventTarget.prototype.addEventListener = function (type, listener, options) {
-    Reflect.apply(add, this, [type, listener, options]);
+    let registered = listener;
+    if (
+      listener &&
+      this === document &&
+      type === "visibilitychange" &&
+      window.artworkFirstText
+    ) {
+      let handler = visibilityHandlers.get(listener);
+      if (!handler) {
+        handler = function (this: EventTarget, event) {
+          const previous = insideClockTrigger;
+          insideClockTrigger = true;
+          try {
+            if (typeof listener === "function") listener.call(this, event);
+            else listener.handleEvent(event);
+          } finally {
+            insideClockTrigger = previous;
+          }
+        };
+        visibilityHandlers.set(listener, handler);
+      }
+      registered = handler;
+    }
+    Reflect.apply(add, this, [type, registered, options]);
     if (listener === null) return;
     if (this === document && type === "visibilitychange")
       visibility.add(listener);
@@ -63,7 +92,11 @@ function observeArtworkResources() {
     listener,
     options,
   ) {
-    Reflect.apply(remove, this, [type, listener, options]);
+    const registered =
+      this === document && type === "visibilitychange" && listener
+        ? (visibilityHandlers.get(listener) ?? listener)
+        : listener;
+    Reflect.apply(remove, this, [type, registered, options]);
     if (listener === null) return;
     if (this === document && type === "visibilitychange")
       visibility.delete(listener);
@@ -78,7 +111,6 @@ function observeArtworkResources() {
     }
   };
   const NativeIntersection = window.IntersectionObserver;
-  let inArtworkIntersection = false;
   const artworkCallbacks = new WeakSet<FrameRequestCallback>();
   window.IntersectionObserver = class extends NativeIntersection {
     constructor(
@@ -91,11 +123,12 @@ function observeArtworkResources() {
           trace &&
           entries.find(({ target }) => target.matches(".ai-process-artwork"));
         if (entry) trace.intersection(entry.isIntersecting);
-        inArtworkIntersection = Boolean(entry);
+        const previous = insideClockTrigger;
+        insideClockTrigger ||= Boolean(entry);
         try {
           callback.call(observer, entries, observer);
         } finally {
-          inArtworkIntersection = false;
+          insideClockTrigger = previous;
         }
       }, options);
     }
@@ -121,8 +154,7 @@ function observeArtworkResources() {
   const request = window.requestAnimationFrame.bind(window);
   const cancel = window.cancelAnimationFrame.bind(window);
   window.requestAnimationFrame = (callback) => {
-    if (inArtworkIntersection) artworkCallbacks.add(callback);
-    // Only count deliveries to the callback originally scheduled by artwork IO.
+    if (insideClockTrigger) artworkCallbacks.add(callback);
     const clock = artworkCallbacks.has(callback)
       ? window.artworkFirstText
       : undefined;
@@ -175,7 +207,7 @@ for (const engine of ["chromium", "webkit"] as const) {
       const stage = host.locator(".stage");
       const resources = () =>
         page.evaluate(() => window.processArtworkResources?.());
-      let assertion: "scene" | "resources" | "first-text" = "scene";
+      let assertion: FirstTextAssertion = "scene";
       try {
         await browserExpect(stage).toHaveAttribute("data-scene", "1");
         assertion = "resources";
