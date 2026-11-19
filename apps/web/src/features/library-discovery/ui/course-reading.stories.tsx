@@ -95,28 +95,31 @@ export const StableSelection: Story = {
     ).toHaveAttribute("aria-current", "step");
   },
 };
+function longChapterContext(index: number) {
+  const steps = Array.from({ length: 20 }, (_, stepIndex) => ({
+    ...courseGuide.current,
+    id: `long-chapter-${String(stepIndex)}`,
+    title: `Практический шаг ${String(stepIndex + 1)}: проверь работу приложения с агентом`,
+  }));
+  const current = steps.at(index) ?? courseGuide.current;
+  return {
+    ...courseGuide,
+    current,
+    chapters: courseGuide.chapters.map((chapter) =>
+      chapter.id === courseGuide.currentChapterId
+        ? { ...chapter, steps }
+        : chapter,
+    ),
+  };
+}
 export const LongChapter: Story = {
   render: () => {
-    const steps = Array.from({ length: 20 }, (_, index) => ({
-      ...courseGuide.current,
-      id: `long-chapter-${String(index)}`,
-      title: `Практический шаг ${String(index + 1)}: проверь работу приложения с агентом`,
-    }));
-    const current = steps.at(-1) ?? courseGuide.current;
-    const context = {
-      ...courseGuide,
-      current,
-      chapters: courseGuide.chapters.map((chapter) =>
-        chapter.id === courseGuide.currentChapterId
-          ? { ...chapter, steps }
-          : chapter,
-      ),
-    };
+    const context = longChapterContext(-1);
     return (
       <CourseReadingLayout context={context}>
         <CourseReadingHeader
           context={context}
-          title={current.title}
+          title={context.current.title}
           metadata={null}
         />
       </CourseReadingLayout>
@@ -140,6 +143,93 @@ export const LongChapter: Story = {
         rail.getBoundingClientRect().top,
       );
     });
+  },
+};
+export const RevealsOnlyOffscreenSteps: Story = {
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+  render: function ChangingStep() {
+    const [position, setPosition] = useState({ index: 14, reference: false });
+    const context = {
+      ...longChapterContext(position.index),
+      ...(position.reference
+        ? { activeReferenceId: "reference:aie-product-brief" }
+        : {}),
+    };
+    return (
+      <CourseReadingLayout context={context}>
+        <button
+          onClick={() => {
+            setPosition({ index: 13, reference: false });
+          }}
+        >
+          Предыдущий шаг
+        </button>
+        <button
+          onClick={() => {
+            setPosition({ index: 4, reference: false });
+          }}
+        >
+          Ранний шаг
+        </button>
+        <button
+          onClick={() => {
+            setPosition({ index: 15, reference: true });
+          }}
+        >
+          Открыть дополнительный материал
+        </button>
+        <CourseReadingHeader
+          context={context}
+          title={context.current.title}
+          metadata={null}
+        />
+      </CourseReadingLayout>
+    );
+  },
+  play: async ({ canvasElement }) => {
+    const rail = within(canvasElement).queryByRole("navigation", {
+      name: "Шаги текущей главы",
+    });
+    if (!rail) throw new Error("Visible chapter rail missing");
+    const canvas = within(canvasElement);
+    function currentCenterOffset(
+      container: HTMLElement,
+      selector = '[aria-current="step"]',
+    ) {
+      const current = container.querySelector(selector);
+      if (!current) throw new Error("Current step missing");
+      const row = current.getBoundingClientRect();
+      const box = container.getBoundingClientRect();
+      return (row.top + row.bottom - box.top - box.bottom) / 2;
+    }
+    await expect(rail.scrollTop).toBeGreaterThan(0);
+    await expect(Math.abs(currentCenterOffset(rail))).toBeLessThan(2);
+    const initialScroll = rail.scrollTop;
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Предыдущий шаг" }),
+    );
+    await expect(rail.querySelector('[aria-current="step"]')).toHaveAttribute(
+      "data-course-step",
+      "long-chapter-13",
+    );
+    await expect(rail.scrollTop).toBe(initialScroll);
+    await userEvent.click(canvas.getByRole("button", { name: "Ранний шаг" }));
+    await expect(rail.querySelector('[aria-current="step"]')).toHaveAttribute(
+      "data-course-step",
+      "long-chapter-4",
+    );
+    await expect(rail.scrollTop).toBeLessThan(initialScroll);
+    await expect(Math.abs(currentCenterOffset(rail))).toBeLessThan(2);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Открыть дополнительный материал" }),
+    );
+    await expect(rail.querySelector("[data-course-origin]")).toHaveAttribute(
+      "data-course-step",
+      "long-chapter-15",
+    );
+    await expect(
+      Math.abs(currentCenterOffset(rail, "[data-course-origin]")),
+    ).toBeLessThan(2);
   },
 };
 /** The reader collapsed the desktop lesson menu; the lesson stays 43rem wide and centred (#2158). */
