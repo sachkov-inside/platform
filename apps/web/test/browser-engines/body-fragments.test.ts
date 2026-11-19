@@ -252,6 +252,12 @@ test("chromium: an initial lesson heading survives the late hydrated saved count
   if (browser === undefined) throw new Error("Missing body fragment browser");
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   try {
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        "inside.lesson-parts.v1:02000000-0000-4000-8000-000000002479",
+        "3",
+      );
+    });
     await page.goto(`${url}?hydrate-lesson#итог`);
     const heading = page.getByRole("heading", {
       name: "Итог",

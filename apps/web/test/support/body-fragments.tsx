@@ -1,6 +1,11 @@
 import { Activity, useState, useSyncExternalStore } from "react";
 import { createRoot, hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  ReadingProgressProvider,
+  useLessonOpenedParts,
+} from "@/features/reading-progress";
 import {
   LessonSteps,
   MaterialBodyView,
@@ -100,22 +105,34 @@ const lessonBlocks: readonly RenderedBlock[] = Array.from(
         ]),
   ],
 ).flat();
-const subscribeProgress = () => () => undefined;
-const readProgress = () => 3;
-const serverProgress = () => undefined;
-const saveProgress = () => undefined;
+const subscribeAccount = () => () => undefined;
+const resolvedAccount = () => true;
+const serverAccount = () => false;
+const queryClient = new QueryClient();
+const materialId = "02000000-0000-4000-8000-000000002479";
+
+function HydratingReader() {
+  const resolved = useSyncExternalStore(
+    subscribeAccount,
+    resolvedAccount,
+    serverAccount,
+  );
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ReadingProgressProvider accountId={null} resolved={resolved}>
+        <HydratingLesson />
+      </ReadingProgressProvider>
+    </QueryClientProvider>
+  );
+}
 
 /** Real hydration admits the initial hash before the external progress snapshot is published. */
 function HydratingLesson() {
-  const saved = useSyncExternalStore<number | undefined>(
-    subscribeProgress,
-    readProgress,
-    serverProgress,
-  );
+  const progress = useLessonOpenedParts(materialId);
   return (
     <LessonSteps
       blocks={lessonBlocks}
-      progress={{ saved, save: saveProgress }}
+      progress={progress}
       reader={{ name: "Вы", avatar: null }}
     >
       <article className="mx-auto max-w-2xl" data-reader-body>
@@ -135,7 +152,7 @@ function HydratingLesson() {
 const root = document.getElementById("root");
 if (root !== null) {
   if (new URLSearchParams(location.search).has("hydrate-lesson")) {
-    root.innerHTML = renderToString(<HydratingLesson />);
-    hydrateRoot(root, <HydratingLesson />);
+    root.innerHTML = renderToString(<HydratingReader />);
+    hydrateRoot(root, <HydratingReader />);
   } else createRoot(root).render(<App />);
 }
