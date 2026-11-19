@@ -9,6 +9,14 @@ import uuid
 from queries import DOMAIN_CATALOG, WAITLIST_CONFIRMATIONS, logto_secret_inventory
 
 
+def report_setup_diagnostic(message):
+    try:
+        print(message, file=sys.stderr, flush=True)
+    except (OSError, ValueError):
+        # A closed CI log must not interrupt container removal or replace the setup failure.
+        pass
+
+
 @unittest.skipUnless(os.environ.get('PRODUCTION_VERIFY_SQL_TEST') == '1', 'isolated SQL test requires a Docker slot')
 class SqlContractTests(unittest.TestCase):
     @classmethod
@@ -34,15 +42,15 @@ class SqlContractTests(unittest.TestCase):
                 raise RuntimeError('test database start timeout')
             cls.execute(pathlib.Path(__file__).with_name('sql-fixture.sql').read_text(), readonly=False)
         except BaseException as error:
-            if isinstance(error, (subprocess.CalledProcessError, subprocess.TimeoutExpired)) and error.stderr:
-                stderr = error.stderr
-                if isinstance(stderr, bytes):
-                    stderr = stderr.decode('utf-8', errors='replace')
-                print('SQL setup Docker stderr: ' + stderr, file=sys.stderr)
+            if isinstance(error, subprocess.TimeoutExpired) and error.cmd[:2] == ['docker', 'run']:
+                partial = 'partial stderr captured' if error.stderr else 'no partial stderr'
+                report_setup_diagnostic('SQL setup docker run timed out; ' + partial)
+            elif isinstance(error, subprocess.CalledProcessError) and error.stderr:
+                report_setup_diagnostic('SQL setup Docker stderr: ' + error.stderr)
             try:
                 cls.tearDownClass()
             except Exception as cleanup_error:
-                print('SQL setup cleanup failed: ' + str(cleanup_error), file=sys.stderr)
+                report_setup_diagnostic('SQL setup cleanup failed: ' + str(cleanup_error))
             raise
 
     @classmethod

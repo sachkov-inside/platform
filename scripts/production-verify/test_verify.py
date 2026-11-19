@@ -111,22 +111,32 @@ class SqlSetupDiagnosticsTests(unittest.TestCase):
         self.assertIs(caught.exception, failure)
         self.assertIn('registry refused the requested manifest', diagnostic.getvalue())
 
-    def test_timeout_reports_partial_docker_stderr_and_preserves_the_failure(self):
-        import subprocess
+    def test_docker_timeout_reports_only_presence_and_preserves_cleanup_and_error(self):
         import contextlib
         import io
-        from unittest.mock import patch
+        import subprocess
+        from unittest.mock import Mock, patch
         from test_sql import SqlContractTests
 
-        # TimeoutExpired keeps captured bytes even when run() uses text=True.
-        failure = subprocess.TimeoutExpired(['docker', 'run'], 120, stderr=b'pulling layer')
-        removed = subprocess.CompletedProcess(['docker', 'rm'], 0)
-        diagnostic = io.StringIO()
-        with contextlib.redirect_stderr(diagnostic), patch('test_sql.subprocess.run', side_effect=[failure, removed]):
-            with self.assertRaises(subprocess.TimeoutExpired) as caught:
-                SqlContractTests.setUpClass()
-        self.assertIs(caught.exception, failure)
-        self.assertIn('SQL setup Docker stderr: pulling layer', diagnostic.getvalue())
+        for sink_fails in (False, True):
+            with self.subTest(sink_fails=sink_fails):
+                failure = subprocess.TimeoutExpired(['docker', 'run'], 120, stderr=b'https://example.invalid/?token=SENTINEL')
+                diagnostic = Mock() if sink_fails else io.StringIO()
+                if sink_fails:
+                    diagnostic.write.side_effect = BrokenPipeError()
+                with contextlib.redirect_stderr(diagnostic), patch('test_sql.subprocess.run', side_effect=[failure, None]) as run:
+                    with self.assertRaises(subprocess.TimeoutExpired) as caught:
+                        SqlContractTests.setUpClass()
+                self.assertIs(caught.exception, failure)
+                start, cleanup = run.call_args_list
+                command = start.args[0]
+                self.assertEqual(command[:2], ['docker', 'run'])
+                name = command[command.index('--name') + 1]
+                self.assertEqual(cleanup.args[0], ['docker', 'rm', '--force', '--volumes', name])
+                if sink_fails:
+                    diagnostic.write.assert_called()
+                else:
+                    self.assertEqual(diagnostic.getvalue(), 'SQL setup docker run timed out; partial stderr captured\n')
 
     def test_cleanup_failure_preserves_the_setup_failure(self):
         import subprocess
