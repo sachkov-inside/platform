@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { flushSync } from "react-dom";
 
 const pendingSaves = new Set<() => Promise<boolean>>();
 export async function flushPendingEdits(): Promise<boolean> {
@@ -118,7 +119,21 @@ export function useAutosave<T>({
   }, [key, enabled, delay, flush, revision]);
 
   const dirty = key !== savedKey;
-  useNavigationSave(flush, dirty || pending);
+  const flushForNavigation = useCallback(async () => {
+    if (!(await flush())) return false;
+    // The write can finish before React commits its outcome. A browser navigation reads the guard immediately.
+    // See [prompt-free product navigation](../../../../test/navigation/content-collections.spec.ts).
+    flushSync(() => {
+      setSavedKey(baseline.current);
+      setPending(running.current !== null);
+    });
+    return (
+      !running.current &&
+      !failed.current &&
+      latest.current.key === baseline.current
+    );
+  }, [flush]);
+  useNavigationSave(flushForNavigation, dirty || pending);
   return { dirty, pending, error, flush, retry: () => flush(true) };
 }
 
@@ -130,7 +145,9 @@ function useNavigationSave(
   flush: () => Promise<boolean>,
   active: boolean,
 ): void {
-  useEffect(() => {
+  // Release before the saved status becomes visible.
+  // See [BeforeUnloadFollowsActivity](../../../_pages/content-collections/ui/product-editor-page.stories.tsx).
+  useLayoutEffect(() => {
     if (!active) return;
     const guard = (event: BeforeUnloadEvent) => {
       event.preventDefault();
