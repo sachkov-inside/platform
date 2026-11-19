@@ -11,11 +11,17 @@ mkdir -p "$INSTALL_TEST_SOURCES/sources.list.d"
 printf 'deb http://azure.archive.ubuntu.com/ubuntu noble main\n' > "$INSTALL_TEST_SOURCES/sources.list"
 printf 'URIs: https://azure.archive.ubuntu.com/ubuntu\n' > "$INSTALL_TEST_SOURCES/sources.list.d/ubuntu.sources"
 printf 'http://azure.archive.ubuntu.com/ubuntu\tpriority:1\nhttp://security.ubuntu.com/ubuntu\tpriority:2\n' > "$INSTALL_TEST_SOURCES/apt-mirrors.txt"
+# Each child holds a shared lock until it exits. Release any survivor through
+# its own FIFO, then join all children before removing their directory.
+export INSTALL_TEST_LIFETIME="$fixture/lifetime"
 cleanup() {
-  if [[ -f "$INSTALL_TEST_PIDS" ]]; then
-    while read -r pid; do kill -KILL "$pid" 2>/dev/null || true; done < "$INSTALL_TEST_PIDS"
-  fi
-  rm -rf "$fixture"
+  local channel
+  for channel in "$fixture"/child-*.fifo; do
+    [[ -p $channel ]] || continue
+    (echo stop >&3) 3<>"$channel"
+  done
+  flock --exclusive "$INSTALL_TEST_LIFETIME" true
+  rm -rf -- "$fixture"
 }
 trap cleanup EXIT
 
@@ -49,9 +55,23 @@ cat > "$fixture/node" <<'SH'
 if [[ "$1" = */prepare-playwright-apt-sources.mjs ]]; then
   exec "$INSTALL_TEST_NODE" "$1" "$INSTALL_TEST_SOURCES" "$3"
 fi
-# Model a CLI parent that exits on SIGTERM, with a child that ignores SIGTERM.
+exec "$INSTALL_TEST_NODE" "$@"
+SH
+cat > "$fixture/apt-get" <<'SH'
+#!/usr/bin/env bash
+[[ $1 == update ]] || exit 98
+# Model an acquisition parent that exits on SIGTERM, with a child that ignores SIGTERM.
 trap 'exit 0' TERM
-bash -c 'trap "" TERM; echo "$$" >> "$INSTALL_TEST_PIDS"; exec sleep 600' &
+bash -c '
+  set -eu
+  trap "" TERM
+  flock --shared 8
+  channel="${INSTALL_TEST_PIDS%/*}/child-$$.fifo"
+  mkfifo "$channel"
+  exec 3<>"$channel"
+  echo "$$" >> "$INSTALL_TEST_PIDS"
+  read -r -t 10 <&3
+' 8>"$INSTALL_TEST_LIFETIME" &
 wait
 SH
 cat > "$fixture/pnpm" <<'SH'
@@ -59,7 +79,7 @@ cat > "$fixture/pnpm" <<'SH'
 echo 'Browser downloads must not start after two deadlines.' >&2
 exit 99
 SH
-chmod +x "$fixture/sudo" "$fixture/node" "$fixture/pnpm"
+chmod +x "$fixture/apt-get" "$fixture/sudo" "$fixture/node" "$fixture/pnpm"
 
 set +e
 PATH="$fixture:$PATH" bash "$installer" chromium > "$fixture/output" 2>&1

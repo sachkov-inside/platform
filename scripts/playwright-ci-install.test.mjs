@@ -29,6 +29,7 @@ const shellCommand = command;
  * @param {import('node:test').TestContext} t
  * @param {string} failures
  * @param {Readonly<Record<string, string>>} [sourceFiles]
+ * @param {{ transactionExit?: number }} [options]
  */
 function install(
   t,
@@ -42,6 +43,7 @@ function install(
     "sources.list.d/vendor.list":
       "deb http://vendor.example/ubuntu noble main\n",
   },
+  { transactionExit = 0 } = {},
 ) {
   const directory = mkdtempSync(join(tmpdir(), "platform-apt-test-"));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
@@ -88,7 +90,12 @@ echo "$(basename "$0") $*" >> "$INSTALL_TEST_LOG"
 if [[ "$(basename "$0")" = node && "$1" = */prepare-playwright-apt-sources.mjs ]]; then
   exec "$INSTALL_TEST_NODE" "$1" "$INSTALL_TEST_SOURCES" "$3"
 fi
+if [[ "$(basename "$0")" = node && "$2" = install-deps ]]; then
+  [[ "$*" = *"install-deps --dry-run chromium webkit" ]] || exit 98
+  exec apt-get install -s --no-install-recommends libtest-a libtest-b
+fi
 if [[ "$(basename "$0")" = sudo ]]; then
+  if [[ "$1" = env ]]; then exit "$INSTALL_TEST_TRANSACTION"; fi
   if [[ "$1" = tee ]]; then cat >> "$INSTALL_TEST_LOG"; fi
   if [[ "$1" = find ]]; then
     shift 2
@@ -158,6 +165,7 @@ exec /usr/bin/sed "$@"
         INSTALL_TEST_SOURCES: sources,
         INSTALL_TEST_FIRST: first,
         INSTALL_TEST_SECOND: second,
+        INSTALL_TEST_TRANSACTION: String(transactionExit),
         INSTALL_TEST_MODE: [
           "microsoft429",
           "microsoft429+azure100",
@@ -251,7 +259,7 @@ test("apt succeeds once under a root-owned deadline, then installs both engines"
   assert.equal((result.log.match(/sudo timeout/gmu) ?? []).length, 1);
   assert.match(
     result.log,
-    /sudo timeout --signal=KILL 180s .*install-deps chromium webkit/u,
+    /sudo timeout --signal=KILL 180s .*--download-only .*libtest-a libtest-b/u,
   );
   assert.match(
     result.log,
@@ -411,3 +419,19 @@ test(
     assert.equal(result.status, 0, result.stdout + result.stderr);
   },
 );
+
+test("the acquisition deadline cannot kill dpkg and a failed transaction is never retried", (t) => {
+  const result = install(t, "0", undefined, { transactionExit: 137 });
+  assert.equal(result.status, 137, result.stderr);
+  assert.equal(result.aptCalls.length, 1);
+  assert.match(result.log, /sudo timeout .*apt-get .*--download-only/u);
+  const transactions = result.log
+    .split("\n")
+    .filter((line) => line.startsWith("sudo env "));
+  assert.equal(transactions.length, 1);
+  assert.match(
+    transactions[0] ?? "",
+    / apt-get .*--no-download libtest-a libtest-b$/u,
+  );
+  assert.doesNotMatch(result.log, /pnpm --filter|autoclean/u);
+});
