@@ -30,10 +30,11 @@ function AccountTransition() {
   );
 }
 
-export default {
+const meta = {
   title: "Patterns/Navigation/Account transition refresh",
   component: AccountTransition,
 } satisfies Meta<typeof AccountTransition>;
+export default meta;
 
 export const KnownAccountChanges: StoryObj<typeof AccountTransition> = {
   beforeEach: () => {
