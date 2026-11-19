@@ -16,7 +16,12 @@ function AccountTransition() {
       <output>{session}</output>
       {(["account A", "unavailable", "account B", "guest"] as const).map(
         (next) => (
-          <button key={next} onClick={() => setSession(next)}>
+          <button
+            key={next}
+            onClick={() => {
+              setSession(next);
+            }}
+          >
             {next}
           </button>
         ),
@@ -33,7 +38,9 @@ export default {
 export const KnownAccountChanges: StoryObj<typeof AccountTransition> = {
   beforeEach: () => {
     const refresh = spyOn(getStoryRouter(), "refresh");
-    return () => refresh.mockRestore();
+    return () => {
+      refresh.mockRestore();
+    };
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
