@@ -1,0 +1,1095 @@
+{
+  "base": "9bb955b8d80272a754d987b50948de6ddab169db",
+  "tree": "10fe3c5261f954fd0ef1612e9ecb15ab47413c4a",
+  "pins": [
+    {
+      "id": "T01-delay",
+      "path": "apps/web/src/_app/ui/use-mobile-navigation.client.ts",
+      "owner": "",
+      "kind": "constant",
+      "name": "prefetchDelayMs"
+    },
+    {
+      "id": "T02-delay",
+      "path": "apps/web/src/entities/authoring-person/ui/people-search-combobox.client.tsx",
+      "owner": "",
+      "kind": "constant",
+      "name": "SEARCH_INPUT_PAUSE_MS"
+    },
+    {
+      "id": "T03-delay",
+      "path": "apps/web/src/entities/material/ui/glossary/glossary-mention.browser.ts",
+      "owner": "",
+      "kind": "constant",
+      "name": "HOVER_OPEN_DELAY_MS"
+    },
+    {
+      "id": "T04-delay",
+      "path": "apps/web/src/entities/material/ui/glossary/glossary-mention.browser.ts",
+      "owner": "",
+      "kind": "constant",
+      "name": "HOVER_CLOSE_DELAY_MS"
+    },
+    {
+      "id": "T07-delay",
+      "path": "apps/web/src/features/material-video/ui/video-authoring-session.browser.ts",
+      "owner": "",
+      "kind": "constant",
+      "name": "VIDEO_RECONCILIATION_POLL_INTERVAL_MILLISECONDS"
+    },
+    {
+      "id": "T09-delay",
+      "path": "apps/web/src/shared/auth/sign-in-callback-once.server.ts",
+      "owner": "",
+      "kind": "constant",
+      "name": "settledOutcomeLifetimeMilliseconds"
+    },
+    {
+      "id": "T11-delay",
+      "path": "apps/web/src/shared/lib/body-fragments.browser.ts",
+      "owner": "",
+      "kind": "constant",
+      "name": "smoothScrollSettleMs"
+    },
+    {
+      "id": "T13-delay",
+      "path": "apps/web/src/shared/lib/use-copy-text.client.ts",
+      "owner": "",
+      "kind": "constant",
+      "name": "copyFeedbackMs"
+    },
+    {
+      "id": "T14-delay",
+      "path": "apps/web/src/shared/lib/use-live-search-value.client.ts",
+      "owner": "",
+      "kind": "constant",
+      "name": "LIVE_SEARCH_DEBOUNCE_MS"
+    },
+    {
+      "id": "T05-T06-defaults",
+      "path": "apps/web/src/features/material-video/api/kinescope-iframe-api.browser.ts",
+      "owner": "",
+      "kind": "constant",
+      "name": "iframeApiTiming"
+    },
+    {
+      "id": "T05-T06-parameter",
+      "path": "apps/web/src/features/material-video/api/kinescope-iframe-api.browser.ts",
+      "owner": "loadHedgedIframeApi",
+      "kind": "default",
+      "name": "timing"
+    },
+    {
+      "id": "T10-delay",
+      "path": "apps/web/src/shared/lib/autosave/use-autosave.ts",
+      "owner": "useAutosave",
+      "kind": "default",
+      "name": "delay"
+    },
+    {
+      "id": "T12-deadline",
+      "path": "apps/web/src/_app/ui/use-mobile-navigation.client.ts",
+      "owner": "",
+      "kind": "constant",
+      "name": "restorationTimeoutMs"
+    },
+    {
+      "id": "T12-caller",
+      "path": "apps/web/src/_app/ui/use-mobile-navigation.client.ts",
+      "owner": "useMobileNavigation",
+      "kind": "caller",
+      "name": "restoreShellScroll"
+    }
+  ],
+  "rows": [
+    {
+      "id": "D01",
+      "status": "verified-adapter",
+      "path": "apps/web/src/_app/ui/mobile-navigation-location.client.tsx",
+      "owner": "MobileNavigationLocation",
+      "kind": "useLayoutEffect",
+      "fingerprint": "21c0379cca87c84ae3238a5a67b010f8d115952556774452153ed6f08b2311e9",
+      "test": "apps/web/test/navigation/mobile-navigation-location.spec.ts",
+      "reason": "Publish the committed pathname and query to the mobile navigation model. A rapid Back restores the Home link, and opening Bookmarks retains the Home filter while the original feed is hidden.",
+      "authority": "#2497 on 426ef55174150d41e429f798960928e4733c50e9. The delivered mobile Chromium test distinguishes a missing location publication, a skipped rapid Back update and a false pathname on Bookmarks. The exact React layout phase is outside its scope."
+    },
+    {
+      "id": "D02",
+      "status": "verified-adapter",
+      "path": "apps/web/src/_app/ui/navigation-timing.client.tsx",
+      "owner": "NavigationTiming",
+      "kind": "useEffect",
+      "fingerprint": "781ed83ce616066684e4d6ea8d2e03661119d72f173a415fcf411153006dd36e",
+      "reason": "Completes the latest router start mark after a committed pathname or query change, publishes that URL to User Timing and consumes the marks. Navigation start alone cannot identify the committed destination.",
+      "test": "apps/web/test/navigation/navigation-timing.spec.ts",
+      "authority": "#2244. measures the committed route and query and consumes its start mark delivered in #2486 at 7b9fef9de2327aad909625f62ff7b1f2a9f9a2c2. Independent targeted mutation verified."
+    },
+    {
+      "id": "D03",
+      "status": "verified-adapter",
+      "path": "apps/web/src/_app/ui/use-access-change-refresh.client.ts",
+      "owner": "useAccessChangeRefresh",
+      "kind": "useEffect",
+      "fingerprint": "7986e61f66f2b4cbf41acfb6ceb727a46a0a56762391018b2f25d9802ba9ebbe",
+      "reason": "Для привязки открытого маршрута к двум объявлениям биллинга оставить подписку у оболочки. Оба источника после снятия и возврата проверяет постоянная история.",
+      "test": "apps/web/src/_app/ui/use-access-change-refresh.stories.tsx",
+      "authority": "Local implementation of #2244 item 3, subject to final tree and independent review."
+    },
+    {
+      "id": "D04",
+      "status": "verified-adapter",
+      "path": "apps/web/src/_app/ui/use-access-change-refresh.client.ts",
+      "owner": "useAccessChangeRefresh",
+      "kind": "useEffect",
+      "fingerprint": "70acaae11d395ccbc0b3bbeebf06a2093f9eb48a816545b5d6fa135f4844ffe7",
+      "reason": "Штатный тест проверяет подписку открытого маршрута только для разрешённого Account, с заменой A на B и потерей known. Счётчик смены аккаунта D05 отделить.",
+      "test": "apps/web/src/_app/ui/use-access-change-refresh.stories.tsx",
+      "authority": "Local implementation of #2244 item 3, subject to final tree and independent review."
+    },
+    {
+      "id": "D05",
+      "status": "verified-adapter",
+      "path": "apps/web/src/_app/ui/use-access-change-refresh.client.ts",
+      "owner": "useAccessChangeRefresh",
+      "kind": "useEffect",
+      "fingerprint": "730b0265fb496817aef18666672674309af7ec55f40e9929692e4f5e332edee6",
+      "reason": "The first resolved identity establishes the baseline. An unavailable session preserves the last known identity. Each subsequent change between known accounts or guest requests one route refresh.",
+      "test": "apps/web/src/_app/ui/use-access-change-refresh.stories.tsx",
+      "authority": "#2244. KnownAccountChanges delivered in #2493 at 2bfd30f70dd36332e0f6819603416f6ea19f9f9f. Observes the router command, with five targeted mutation controls."
+    },
+    {
+      "id": "D06",
+      "status": "verified-adapter",
+      "path": "apps/web/src/_app/ui/use-mobile-navigation.client.ts",
+      "owner": "useMobileNavigation",
+      "kind": "useEffect",
+      "fingerprint": "dd1e6611cc45cabaa67967b15853629b67a86e0757bc83750ec6c777f949a675",
+      "test": "apps/web/src/_app/ui/mobile-navigation-restore.stories.tsx",
+      "reason": "Capture an ordinary link before bubbling and retain the scroll position for the matching destination.",
+      "authority": "Delivered in #2500 at 411b9211d82d2dd7e0d34aeceb30bd61817b3710. Removing click capture or moving it to bubble leaves the destination at 0 instead of 500. The mobile Back scenario also distinguishes missing scroll capture. Modifier and download combinations are outside this verification.",
+      "additionalTests": ["apps/web/test/e2e/mobile-navigation.spec.ts"]
+    },
+    {
+      "id": "D07",
+      "status": "retained-design",
+      "path": "apps/web/src/_app/ui/use-mobile-navigation.client.ts",
+      "owner": "useMobileNavigation",
+      "kind": "useLayoutEffect",
+      "fingerprint": "b0881ca1f70df2a25e973735274f87d5a4aefe9a433b5add016a40d8bed8f084",
+      "disposition": "model",
+      "next": "Смена известного аккаунта сбрасывает приватные позиции, ссылки, восстановление и семейства кеша. Переносить в модель идентичности, проверив A→B при скрытой оболочке и сохранность общих данных.",
+      "test": "apps/web/src/_app/ui/mobile-navigation-restore.stories.tsx",
+      "additionalTests": ["apps/web/test/e2e/mobile-navigation.spec.ts"],
+      "authority": "Delivered in #2502 at cf4392fb527679b740c1e33a6d01c3577d0c60da. Upon return with accepted account B, the shell clears account A navigation state and inactive private cache entries while preserving the adjacent public entry. Clearing during Activity disconnection for a concurrently visible consumer is outside this evidence."
+    },
+    {
+      "id": "D08",
+      "status": "verified-adapter",
+      "path": "apps/web/src/_app/ui/use-mobile-navigation.client.ts",
+      "owner": "useMobileNavigation",
+      "kind": "useEffect",
+      "fingerprint": "0a2407654d6228768fabf3aa4aa080914e5208dff90a1864f399c5a0cb191350",
+      "test": "apps/web/test/e2e/mobile-navigation.spec.ts",
+      "reason": "Start scheduled Home warmup only when the document is visible at the deadline for the resolved session.",
+      "authority": "Delivered in #2500 at 411b9211d82d2dd7e0d34aeceb30bd61817b3710. The mobile scenario distinguishes a hidden request from a later visible read using controlled Page Visibility and time. Physical tab throttling and cancellation of an in-flight request are outside this verification."
+    },
+    {
+      "id": "D09",
+      "status": "verified-adapter",
+      "path": "apps/web/src/_app/ui/use-mobile-navigation.client.ts",
+      "owner": "useMobileNavigation",
+      "kind": "useLayoutEffect",
+      "fingerprint": "ddf6d3e94cb514b0efcae0a65968a612ef559eadd99019d57c9e138d55da154a",
+      "test": "apps/web/src/_app/ui/mobile-navigation-restore.stories.tsx",
+      "reason": "Restore the saved position for the committed destination and stop that attempt when another route commits.",
+      "authority": "Delivered in #2500 at 411b9211d82d2dd7e0d34aeceb30bd61817b3710. The Story detects a missing release of the pending timer. The mobile navigation checks distinguish a zero destination from the saved scroll position. Activity hide is outside this verification.",
+      "additionalTests": ["apps/web/test/e2e/mobile-navigation.spec.ts"]
+    },
+    {
+      "id": "D10",
+      "status": "verified-adapter",
+      "path": "apps/web/src/_pages/account-access/model/use-account-disclosure.client.ts",
+      "owner": "useAccountDisclosure",
+      "kind": "useEffect",
+      "fingerprint": "f0a401d283ff923536f55fc9d7d7b10de4e4457cf12884ce40d4c0acf67b28fb",
+      "reason": "Open the current Account section on a matching initial fragment or hashchange. Manual closing survives unrelated fragment changes; hidden and previous section identities release the listener.",
+      "test": "apps/web/src/_pages/account-access/ui/account-disclosure.stories.tsx",
+      "authority": "Delivered in #2461 at 04c980b73f5158af981e85a777bd0c81098b1155. SectionFollowsItsCurrentFragment checks hide, return and replacement of the section ID. The Account route covers direct entry and manual closing."
+    },
+    {
+      "id": "D11",
+      "status": "verified-adapter",
+      "path": "apps/web/src/_pages/content-collections/model/use-product-page-tab.client.ts",
+      "owner": "useProductPageTab",
+      "kind": "useEffect",
+      "fingerprint": "8762fd31219945d727cfa6bc05092bb4df334522c4ec7e681f95e86f14c80ce5",
+      "reason": "The typed product tab adapter follows popstate only for its own pathname while active. It releases the listener when hidden and resumes for the same product on return.",
+      "test": "apps/web/src/_pages/content-collections/model/product-page-tab.stories.tsx",
+      "authority": "#2244. ActiveHistoryOwner delivered in #2486 at 7b9fef9de2327aad909625f62ff7b1f2a9f9a2c2. Independent targeted mutation verified."
+    },
+    {
+      "id": "D12",
+      "status": "verified-adapter",
+      "path": "apps/web/src/_pages/content-collections/model/use-topic-focus.client.ts",
+      "owner": "useTopicFocus",
+      "kind": "useEffect",
+      "fingerprint": "8e2c1d3bd6d19b38cb6ddeb0e3042ad2f979cca91b0ed8f120c7fceeb1c1c4ce",
+      "reason": "Focus the committed topic heading on entry and the visible link for the previous topic in this list on return.",
+      "test": "apps/web/test/navigation/content-collections.spec.ts",
+      "additionalTests": [
+        "apps/web/src/_pages/content-collections/ui/content-collections-page.stories.tsx"
+      ],
+      "authority": "Verified on 566b32bf9; fast Back on desktop and mobile, scoped focus stories, heading and link-identity negative controls. Rechecked with #2466 on c7735aaf1. Delivered in #2471 on 6e8bf19a8."
+    },
+    {
+      "id": "D13",
+      "status": "verified-adapter",
+      "path": "apps/web/src/_pages/home/model/use-home-feed-location.client.ts",
+      "owner": "useHomeFeedLocation",
+      "kind": "useEffect",
+      "fingerprint": "db9a5461c4485b7425d1e3ce709b18e21cac71cccb05ee4e3fbaff600f457b70",
+      "reason": "Canonicalize the committed Home search after initial entry and external history changes, keeping the selected topic and browser address in sync.",
+      "test": "apps/web/test/fullstack/material-reader.spec.ts",
+      "additionalTests": ["apps/web/test/e2e/mobile-navigation.spec.ts"],
+      "authority": "Verified through the real Home BFF on both profiles at 566b32bf9, with a click-only negative control. Integrated on c7735aaf1. Delivered in #2471 on 6e8bf19a8."
+    },
+    {
+      "id": "D15",
+      "status": "verified-adapter",
+      "path": "apps/web/src/_pages/library-discovery/ui/product-journey-controls.client.tsx",
+      "owner": "ProductJourneyControls",
+      "kind": "useEffect",
+      "fingerprint": "52e8bbeadf723cd2fc0025177aea843bf23d6a669a4904d936ec774625f329b4",
+      "reason": "Bring the addressed lesson into view on direct entry or a committed returnSlug change, preserving an established programme scroll position across initial hydration.",
+      "test": "apps/web/test/navigation/programme-query-owner.spec.ts",
+      "authority": "Delivered on 6efdd3fc2. Removing the scroll command or returnSlug dependency left lesson 25 outside the viewport. Bypassing position preservation displaced restored positions and prevented early wheel reveal on both Chromium profiles. Rechecked after #2499 on d2244b7e1: the native deep-address and History assertions, direct entry and restored-position cases are preserved in test blob 58d6c44b97730b791085252645499445352236db."
+    },
+    {
+      "id": "D16",
+      "status": "verified-adapter",
+      "path": "apps/web/src/_pages/library-discovery/ui/product-learning.client.tsx",
+      "owner": "ProductLearningSource",
+      "kind": "useEffect",
+      "fingerprint": "4298bfa17b58cb657f0240ee34a365f5403d21d5776fbe86ef3f2daa3d6ddcd4",
+      "reason": "Record the purchase row shown for the committed account and product pair, preserving it when another render suspends or a different account or product commits.",
+      "test": "apps/web/src/_pages/library-discovery/ui/product-journey.stories.tsx",
+      "authority": "Local #2244 candidate. Public contract evidence for the exact existing call on 1af998f4."
+    },
+    {
+      "id": "D17",
+      "status": "verified-adapter",
+      "path": "apps/web/src/_pages/library-discovery/ui/product-programme-onboarding.client.tsx",
+      "owner": "ArrivalSignal",
+      "kind": "useLayoutEffect",
+      "fingerprint": "c6092e2715e0136673447d90d57f6399ddfed0b70f42c49093abd57213afc305",
+      "reason": "Release personal onboarding reads after the optional stream commits. Preserve the selected catalogue across initial entry and Reader return.",
+      "test": "apps/web/test/navigation/programme-interaction.spec.ts",
+      "authority": "Delivered in #2475 on 59dbcff20, verified on 30da25d70: a missing signal keeps onboarding hidden; an early signal sends personal reads before release. These scenarios do not distinguish layout from passive delivery."
+    },
+    {
+      "id": "D18",
+      "status": "verified-adapter",
+      "path": "apps/web/src/_pages/library-discovery/ui/waitlist-provider.client.tsx",
+      "owner": "WaitlistProvider",
+      "kind": "useEffect",
+      "fingerprint": "f524932d5deb7668bc632fe9324c0614e729011211917fb65bb13403681379dc",
+      "reason": "Resume the ready intent once for the mounted product without another click. A new product route can resume its own subsequent intent in the same document.",
+      "test": "apps/web/test/navigation/product-reader-state.spec.ts",
+      "additionalTests": ["apps/web/test/module/product-waitlist-bff.test.ts"],
+      "authority": "Delivered in #2475 on 59dbcff20, verified on 30da25d70: real Next and BFF, two successive signed intents and expired joins on separate routes. A shared guard suppresses the second join; separate handler checks cover account isolation and success."
+    },
+    {
+      "id": "D19",
+      "status": "verified-adapter",
+      "path": "apps/web/src/_pages/library-discovery/ui/waitlist-provider.client.tsx",
+      "owner": "WaitlistProvider",
+      "kind": "useLayoutEffect",
+      "fingerprint": "18ea115fc86950c4f143bc13a46789542893ce7c0b4e7dd6414593abb2e67fde",
+      "reason": "Publish the matching waitlist view and commands to both slots during layout; suspended updates must leave the committed product and its actions available.",
+      "test": "apps/web/src/_pages/library-discovery/ui/product-journey.stories.tsx",
+      "authority": "Local #2244 candidate. Suspended and committed product views in Storybook; latest retry in both slots through the real BFF in apps/web/test/navigation/product-reader-state.spec.ts.",
+      "additionalTests": [
+        "apps/web/test/navigation/product-reader-state.spec.ts"
+      ]
+    },
+    {
+      "id": "D20",
+      "status": "verified-adapter",
+      "path": "apps/web/src/_pages/product-purchase/ui/product-purchase.client.tsx",
+      "owner": "ProductPurchase",
+      "kind": "useEffect",
+      "fingerprint": "b58318c666297c1ee2991be1604f8bdd08db72cd18e7f6c8379ead9e663e2970",
+      "reason": "Announce the active restored purchase becoming ready and refresh its individual payment link. The mounted owner remembers the last announced purchase reference.",
+      "test": "apps/web/test/navigation/product-reader-state.spec.ts",
+      "authority": "Delivered in #2477 at be228261d1869088809ac41f0fba9c0c23a42d10, verified on 062ab5c9a: the ready case independently observes one billing event with a UUID and a new server-rendered product title while AppShell delivery is withheld. Activity return and inactive cache settlement were characterized separately in 23b3dd613."
+    },
+    {
+      "id": "D21",
+      "status": "verified-adapter",
+      "path": "apps/web/src/_pages/product-purchase/ui/product-purchase.client.tsx",
+      "owner": "ProductPurchase",
+      "kind": "useEffect",
+      "fingerprint": "f4f42c3c951ef682c7b1136392ef9c3d583cc15162ecfced579512fe5b83e2d8",
+      "reason": "Refresh the individual payment link for a failed purchase when the link is pending or unknown. The mounted owner remembers the last refreshed failure reference.",
+      "test": "apps/web/test/navigation/product-reader-state.spec.ts",
+      "authority": "Delivered in #2477 at be228261d1869088809ac41f0fba9c0c23a42d10, verified on 062ab5c9a: the failed case observes the revoked link, new server-rendered title and zero billing events. Late pending eligibility and same-reference unknown deduplication were characterized separately in 23b3dd613."
+    },
+    {
+      "id": "D22",
+      "status": "verified-adapter",
+      "path": "apps/web/src/_pages/task-submissions/ui/task-submissions-runtime.client.tsx",
+      "owner": "useFeedbackDraft",
+      "kind": "useEffect",
+      "fingerprint": "ae4bf259a8dde27d7ef18050c86e8c42fd7db7643f8d40f847766431ca7331d7",
+      "reason": "Commit each accepted feedback baseline to the draft for that submission. A later stale read preserves the newer feedback and local edits.",
+      "test": "apps/web/src/_pages/task-submissions/ui/task-submissions-view.stories.tsx",
+      "authority": "Delivered source and FreshFeedbackSurvivesStaleRead on 1af998f4; deletion and stale-dependency controls recorded separately."
+    },
+    {
+      "id": "D23",
+      "status": "verified-adapter",
+      "path": "apps/web/src/_pages/telegram-continuation/ui/telegram-continuation-page.client.tsx",
+      "owner": "TelegramContinuationPage",
+      "kind": "useEffect",
+      "fingerprint": "8d79becc36fc6634f748be506310e7d7e48da062e34e9247376df0f262a51a1f",
+      "reason": "Replace the pending continuation URL with the active programme after polling confirms access, while leaving the current route alone if the reader has navigated away.",
+      "test": "apps/web/test/navigation/account-access-lifetimes.spec.ts",
+      "authority": "Delivered in #2478 on 90c5aa4df335bab227c5d6837631fe90f3f9389b. Browser Back distinguishes replace from push. A delayed active response after departure must leave Home open."
+    },
+    {
+      "id": "D24",
+      "status": "verified-adapter",
+      "path": "apps/web/src/entities/material/model/exercise-answers.client.tsx",
+      "owner": "ExerciseAnswersObserver",
+      "kind": "useEffect",
+      "fingerprint": "5896295a1d68f8415c44a73fca9280f2e9918d592a49e8873199c5002d4a7c0a",
+      "reason": "Deliver an exercise answer to the committed listener. A suspended replacement cannot receive it, and committing a new listener does not replay the preceding answer.",
+      "test": "apps/web/src/entities/material/ui/material-blocks/material-quiz.stories.tsx",
+      "authority": "Delivered in #2467 on d105f5052. AnswersReachCommittedListener separates the committed A and C listeners from suspended B; render-write and stale-listener controls failed."
+    },
+    {
+      "id": "D25",
+      "status": "verified-adapter",
+      "path": "apps/web/src/entities/material/model/exercise-answers.client.tsx",
+      "owner": "ExerciseAnswersObserver/useObservedExerciseAnswer",
+      "kind": "useEffect",
+      "fingerprint": "75c56791505c25e644f93b10b9fec2daa6f7949142f7598fa47f4f1c9ca7fd6d",
+      "reason": "Report the restored answer for the current exercise when its identity changes even if the answered state is unchanged.",
+      "test": "apps/web/src/entities/material/ui/material-blocks/material-quiz.stories.tsx",
+      "authority": "Delivered in #2478 on 90c5aa4df335bab227c5d6837631fe90f3f9389b. RestoredAnswerFollowsExercise lost the second notification when exerciseId was removed from the dependencies."
+    },
+    {
+      "id": "D26",
+      "status": "verified-adapter",
+      "path": "apps/web/src/entities/material/model/lesson-steps.client.tsx",
+      "owner": "LessonSteps",
+      "kind": "useEffect",
+      "fingerprint": "568085eace1893344098e978adcbdc6e3e4e1fd6366d60ee1dac6a8f8611a46b",
+      "reason": "A browser action uses the committed lesson parts and progress command. A suspended edition cannot receive a save, and committing its replacement exposes the new parts and command. An intermediate render preserves an admitted part count until the DOM catches up.",
+      "authority": "Delivered in #2472 on df6399a71b2fb08fb1b7bdb41a884edeac0cffd0. OpenWhileEditionChanges distinguishes a render write, stale parts and a stale progress command. #2495 on c702e8d1d00be5af0a1c0d181f6f2a985d05a635 preserves the admitted fourth part across an intermediate render and a later saved count of three.",
+      "test": "apps/web/src/entities/material/ui/lesson-steps-progress.stories.tsx",
+      "additionalTests": [
+        "apps/web/test/browser-engines/body-fragments.test.ts",
+        "apps/web/test/navigation/reader-initial-fragment.spec.ts"
+      ]
+    },
+    {
+      "id": "D27",
+      "status": "verified-adapter",
+      "path": "apps/web/src/entities/material/model/lesson-steps.client.tsx",
+      "owner": "LessonSteps",
+      "kind": "useEffect",
+      "fingerprint": "8e2700298d49358bddfbc8176f14be0960c5dc77c75d51403ba7b10c8940ee88",
+      "reason": "Apply the first available saved count within the current edition once, retaining parts already opened when a later progress value arrives.",
+      "authority": "Delivered in #2472 on df6399a71b2fb08fb1b7bdb41a884edeac0cffd0. RestoreWithinCurrentEdition and OpenWhileEditionChanges distinguish replay, an unclamped saved count and a decrease.",
+      "test": "apps/web/src/entities/material/ui/lesson-steps-progress.stories.tsx"
+    },
+    {
+      "id": "D28",
+      "status": "verified-adapter",
+      "path": "apps/web/src/entities/material/model/lesson-steps.client.tsx",
+      "owner": "LessonSteps",
+      "kind": "useEffect",
+      "fingerprint": "0c70049734c368e68996f1056514d00254152248a65129a2eb3dd1fa4129b454",
+      "reason": "After the saved opened count commits, scroll once to its mounted lesson boundary. First visits stay at the top and subsequent progress delivery preserves manual scroll.",
+      "test": "apps/web/src/_pages/material-reader/ui/material-reader-steps.stories.tsx",
+      "authority": "Delivered in #2481 at cbc5d52861064874f026b014eede1f8b61575963. RestoredGateScrollsOnce and its mobile variant cover one-shot restoration. Independent Reader verification at 1440x900 and 390x844 covers feed entry and manual scroll after progress delivery. Direct fragment entry and desktop Back are tracked in #2479 and #2480."
+    },
+    {
+      "id": "D29",
+      "status": "retained-design",
+      "path": "apps/web/src/entities/material/model/lesson-steps.client.tsx",
+      "owner": "LessonSteps",
+      "kind": "useEffect",
+      "fingerprint": "e7c40c25b24c2625c16973f1c0dd1499323647640dcc1c2c686d73b79e537c15",
+      "disposition": "extract",
+      "next": "Отделить слушателей capture click/hashchange и начальное чтение hash от модели открытых частей. Сохранить расчёт части по порядку DOM и глубокую ссылку при первом показе.",
+      "test": "apps/web/test/browser-engines/body-fragments.test.ts",
+      "additionalTests": [
+        "apps/web/test/navigation/reader-initial-fragment.spec.ts",
+        "apps/web/src/entities/material/ui/lesson-steps-progress.stories.tsx"
+      ],
+      "authority": "Both lesson fragment link and subscription lifetime checks delivered in #2501 on c9c28a095cfe5b2d610760e67e62b8edb21c1145. Removing each cleanup leaves an active subscription. The ordinary click reveals earlier with capture but ends with the same heading in view, one progress save and the same next Tab stop without capture. Direct entry and initial scroll target are independently covered by #2495."
+    },
+    {
+      "id": "D30",
+      "status": "verified-adapter",
+      "path": "apps/web/src/entities/material/model/reading-context.client.tsx",
+      "owner": "MaterialReadingScope",
+      "kind": "useLayoutEffect",
+      "fingerprint": "b4e42ef36633902d24e594dd1ff9f1176212cd2d7e0274b820f6468d7aaaddef",
+      "reason": "The React external-store adapter publishes committed values to hydrated readers in layout while delayed hydration reuses the initial snapshot and its server DOM.",
+      "test": "apps/web/src/entities/material/model/reading-context.stories.tsx",
+      "authority": "Delivered in #2463 at 923741c168a3c2a277e6f1b0eaacb03df20b449e. Public scenarios and independent verification documented in the PR."
+    },
+    {
+      "id": "D31",
+      "status": "verified-adapter",
+      "path": "apps/web/src/entities/material/model/reading-context.client.tsx",
+      "owner": "useMaterialReading",
+      "kind": "useEffect",
+      "fingerprint": "31c49ca8583f8866856cee780e946e29e2cdc3821ddee7fdbee48a21b6283e0e",
+      "reason": "An active consumer of a material acquires demand from the current register function even before any visible marker exists; release follows consumer, material and registration owner.",
+      "test": "apps/web/src/entities/material/model/reading-context.stories.tsx",
+      "authority": "Delivered in #2463 at 923741c168a3c2a277e6f1b0eaacb03df20b449e. Public scenarios and independent verification documented in the PR."
+    },
+    {
+      "id": "D33",
+      "status": "verified-adapter",
+      "path": "apps/web/src/features/account-access/model/use-telegram-link-flow.client.ts",
+      "owner": "useTelegramLinkFlow",
+      "kind": "useEffect",
+      "fingerprint": "4f67af018692ce92bdbf5d047e60ce8fe07ce2ca9ef604606e9fb59fedbdbf04",
+      "reason": "The active Telegram link browser receives focus and visibilitychange for the pending link, releases those listeners and closes a still-opening popup on departure. The server owns confirmation.",
+      "test": "apps/web/test/navigation/account-access-lifetimes.spec.ts",
+      "authority": "Local implementation of #2244 item 3; exact public boundary with independent mutation check."
+    },
+    {
+      "id": "D34",
+      "status": "verified-adapter",
+      "path": "apps/web/src/features/account-email/model/use-account-email-query.client.ts",
+      "owner": "useAccountEmailQuery",
+      "kind": "useEffect",
+      "fingerprint": "b62b2574838bace0fb04379f9d3f6be3c8de937ac2aba1af5e1b4c4217d2bce5",
+      "reason": "An email-attached announcement invalidates the current query client without cancelling a pending read. Replacing the client or unmounting releases the subscription.",
+      "test": "apps/web/src/features/account-email/ui/account-email-panel.stories.tsx",
+      "authority": "Delivered in #2461 at 04c980b73f5158af981e85a777bd0c81098b1155. AnAnnouncementJoinsThePendingRead checks pending reads, client replacement and unmount. The panel is exercised in isolation."
+    },
+    {
+      "id": "D35",
+      "status": "verified-adapter",
+      "path": "apps/web/src/features/billing-checkout/ui/checkout-flow.client.tsx",
+      "owner": "CheckoutFlow",
+      "kind": "useEffect",
+      "fingerprint": "a48f64ae629f2d58cc456527386b86bcb02a8828da6cfcd44f7a73108c09ba66",
+      "reason": "Start the quote for the committed selection and prevent a late quote for the previous selection from enabling payment.",
+      "test": "apps/web/src/features/billing-checkout/ui/checkout-recovery.stories.tsx",
+      "additionalTests": ["apps/web/test/module/billing-checkout-bff.test.ts"],
+      "authority": "6d313b55: LateQuoteCannotRestorePreviousSelection observes the initial quote, product change and stale response with controlled HTTP. The real quote handler separately forwards operationId, productId and priceRevision. No bank payment is exercised."
+    },
+    {
+      "id": "D36",
+      "status": "verified-adapter",
+      "path": "apps/web/src/features/billing-checkout/ui/purchase-return.client.tsx",
+      "owner": "PurchaseReturnPanel",
+      "kind": "useEffect",
+      "fingerprint": "c489709879e42ba76d159dea58cb47923956b8be49ae1d0eac90f61744835489",
+      "reason": "Refresh the current document after confirmed access and announce the purchase once per purchaseRef.",
+      "test": "apps/web/test/navigation/instant-navigation.spec.ts",
+      "authority": "01629337de: the protected lesson becomes visible after a History return while billing event delivery is held. Removing only router.refresh leaves access required on both Chromium profiles. A separate two-tab scenario covers delivery and duplicate announcements. External billing HTTP is synthetic."
+    },
+    {
+      "id": "D37",
+      "status": "verified-adapter",
+      "path": "apps/web/src/features/client-telemetry/api/use-render-error-report.client.ts",
+      "owner": "useRenderErrorReport",
+      "kind": "useEffect",
+      "fingerprint": "f8d7aa289a00e059643a63e49ec4289580087f48e6764e37a5e7e1ceabce4b92",
+      "reason": "The named render-error adapter reports an error to the telemetry transport when the Next fallback commits. The same error in the same mounted boundary does not resend on ordinary rerender.",
+      "test": "apps/web/src/_app/ui/render-error-report.stories.tsx",
+      "authority": "#2244. CommittedFallback delivered in #2486 at 7b9fef9de2327aad909625f62ff7b1f2a9f9a2c2. Independent targeted mutation verified."
+    },
+    {
+      "id": "D38",
+      "status": "verified-adapter",
+      "path": "apps/web/src/features/exercise-attempts/ui/lesson-exercise-attempts.client.tsx",
+      "owner": "LessonExerciseAttempts",
+      "kind": "useEffect",
+      "fingerprint": "31bb98375aea5238d6441ef3e4f7376d6c123be0a99293054e69d28d66b02204",
+      "reason": "Drain answers entered before the reader is known once to the resolved guest store or account mutation. Returning to the retained exercise must not overwrite another guest tab or submit twice.",
+      "test": "apps/web/test/navigation/exercise-owner.spec.ts",
+      "additionalTests": ["apps/web/test/module/exercise-attempts-bff.test.ts"],
+      "authority": "#2244. Guest and account pending-answer scenarios delivered in #2482 at 6efdd3fc22f9b960894352f8d7960f435acba729. A later account in the same document reads its own attempts. Real Next and signed sessions, synthetic external HTTP; no database persistence claim."
+    },
+    {
+      "id": "D41",
+      "status": "verified-adapter",
+      "path": "apps/web/src/features/library-discovery/ui/course-reading-host.client.tsx",
+      "owner": "CourseLocationObserver",
+      "kind": "useLayoutEffect",
+      "fingerprint": "04024eeec202982c0d040e14a3d0e36376f37cd0de614e27cf627cf3d3a20574",
+      "test": "apps/web/test/navigation/course-navigation-frame.spec.ts",
+      "reason": "Publishes the course for the committed location. A duplicate or foreign course parameter removes the host on the same material; Back to the matching single parameter restores it.",
+      "authority": "#2244. the course host follows the committed course on same-material history entries delivered in #2490 at caee03d1aea568d09df08f7ff4b6efba99e7b881."
+    },
+    {
+      "id": "D42",
+      "status": "verified-adapter",
+      "path": "apps/web/src/features/library-discovery/ui/course-reading-host.client.tsx",
+      "owner": "CourseReadingHost",
+      "kind": "useEffect",
+      "fingerprint": "1764d78ba0d88502a545e91bdcd6cddfd5659fbd906c3204562564ab8b69f529",
+      "test": "apps/web/test/navigation/reader-title.spec.ts",
+      "reason": "Clears the pending step selection on popstate. Before the pending material response returns, Back restores the current step in the desktop rail and the next-step link on mobile.",
+      "authority": "#2244. Back clears a pending course step before its material arrives delivered in #2490 at caee03d1aea568d09df08f7ff4b6efba99e7b881."
+    },
+    {
+      "id": "D43",
+      "status": "verified-adapter",
+      "path": "apps/web/src/features/library-discovery/ui/course-reading-host.client.tsx",
+      "owner": "CourseReadingHost",
+      "kind": "useLayoutEffect",
+      "fingerprint": "e7ea43bad499e43dd6649dc2c25d2cb18c7c477499be4bff18298f204e338721",
+      "test": "apps/web/test/browser-engines/course-reading-handoff.test.ts",
+      "reason": "Transfers the local rail selection and focus to the persistent host, and clears the consumed local chapter and expanded-link state before the same keys appear again.",
+      "authority": "#2244. a new local rail starts fresh after the host consumes the first handoff delivered in #2492 at 1208a5818f250782533393a4180ea57cc2a067b9."
+    },
+    {
+      "id": "D44",
+      "status": "verified-adapter",
+      "path": "apps/web/src/features/library-discovery/ui/course-reading.client.tsx",
+      "owner": "CourseTaskSubmissionStatuses",
+      "kind": "useEffect",
+      "fingerprint": "c3dcccbe32014dc51844218f9f8360a64d3b5a74bef0b2c9d90f91c277baa7f7",
+      "test": "apps/web/src/features/library-discovery/ui/course-status-lifetimes.stories.tsx",
+      "reason": "One CourseTaskSubmissionStatuses publishes current submitted tasks to its own Layout, checks course identity and releases the overlay when removed. Concurrent Layouts keep independent status.",
+      "authority": "#2244. PrivateTaskStatusBelongsToItsLayout delivered in #2487 at e07bb54403c12240ced6ba27af1e1e3fca9b6bf2."
+    },
+    {
+      "id": "D45",
+      "status": "verified-adapter",
+      "path": "apps/web/src/features/library-discovery/ui/course-reading.client.tsx",
+      "owner": "CourseReadingLayout",
+      "kind": "useLayoutEffect",
+      "fingerprint": "28979953d72768449473291a9d7307cd862e18bab081dd8ae57bad36e661ea60",
+      "test": "apps/web/test/browser-engines/course-reading-handoff.test.ts",
+      "reason": "Publishes the active layout to the course host. Updating a hidden retained layout on its own preserves the visible course in the host.",
+      "authority": "#2244. the host follows the visible retained layout when both contexts change delivered in #2492 at 1208a5818f250782533393a4180ea57cc2a067b9."
+    },
+    {
+      "id": "D46",
+      "status": "verified-adapter",
+      "path": "apps/web/src/features/library-discovery/ui/course-reading.client.tsx",
+      "owner": "CourseRail",
+      "kind": "useEffect",
+      "fingerprint": "9c9751f6494af1130835f25f81600f08164daf63c6e9154658f182efdb11a420",
+      "test": "apps/web/src/features/library-discovery/ui/course-rail-history.stories.tsx",
+      "reason": "The active rail registers available chapters for Reader history and restores valid chapter selection. Releasing an older rail preserves the replacement registration. The dialog sheet listens for selection while the rail owns availability.",
+      "authority": "#2244. ReplacedRailOwnsAvailableChapters delivered in #2488 at 59df5ddc466a461f4b3134c17b9cdfd2cab96d21."
+    },
+    {
+      "id": "D47",
+      "status": "verified-adapter",
+      "path": "apps/web/src/features/library-discovery/ui/course-reading.client.tsx",
+      "owner": "CourseRail",
+      "kind": "useLayoutEffect",
+      "fingerprint": "2cc83a0b6c8a18e3ddf4ec9826fb70658f30435a5a3a885fbb9bb1f0bbc5c8e6",
+      "test": "apps/web/src/features/library-discovery/ui/course-reading.stories.tsx",
+      "reason": "CourseRail centers an offscreen selected step or the origin of an extra material in its own list. Selecting a fully visible neighbor preserves the current scroll position.",
+      "authority": "#2244. RevealsOnlyOffscreenSteps delivered in #2488 at 59df5ddc466a461f4b3134c17b9cdfd2cab96d21."
+    },
+    {
+      "id": "D48",
+      "status": "verified-adapter",
+      "path": "apps/web/src/features/library-discovery/ui/course-reading.client.tsx",
+      "owner": "useCourseReadMarks",
+      "kind": "useEffect",
+      "fingerprint": "cb0c383fb6cfacadc85a2cf3eff142fcdb4b08b42e98ae02bd34addcbac0f033",
+      "test": "apps/web/src/features/library-discovery/ui/course-status-lifetimes.stories.tsx",
+      "reason": "Each CourseRail registers unique materials from all chapters with the current provider. Changing the provider or material set releases the previous demand, while an overlapping rail retains its own registration.",
+      "authority": "#2244. ReadingDemandFollowsTheCurrentProvider delivered in #2487 at e07bb54403c12240ced6ba27af1e1e3fca9b6bf2."
+    },
+    {
+      "id": "D49",
+      "status": "verified-adapter",
+      "path": "apps/web/src/features/library-discovery/ui/course-reading.client.tsx",
+      "owner": "ProgrammeDialog",
+      "kind": "useEffect",
+      "fingerprint": "66b4d1dd3e6189c202bcc6e9c53c0ded6f0170480fd3dc01010cd33062c5d306",
+      "test": "apps/web/test/browser-engines/course-reading-handoff.test.ts",
+      "reason": "Close the programme dialog on a committed step or pathname change, hiding its Activity, or entering the desktop breakpoint. Keep the same dialog open through the narrower viewport and restore one effective close on the desktop transition.",
+      "authority": "#2244. the open programme follows its step, path, visibility and desktop breakpoint delivered in #2498 at e84242e72ff6f5639ae1eb62aed439b048cfefd3."
+    },
+    {
+      "id": "D50",
+      "status": "approved-boundary",
+      "reason": "Dialog showModal, initial close-button focus and non-passive wheel listener; cleanup removes it and closes the dialog.",
+      "path": "apps/web/src/features/material-assets/ui/material-image-viewer.client.tsx",
+      "owner": "MaterialImageViewer",
+      "kind": "useEffect",
+      "fingerprint": "fd5b80500482e22351d9bb090c8e59da0208d5585c729ae0607184c6fb3e31ab",
+      "test": "apps/web/src/_pages/material-reader/ui/material-reader.stories.tsx",
+      "authority": "approved-A-native-modal-boundary: Home msg_32c76dbb8c84, msg_50d046a200d7; actual merge msg_26583899107e"
+    },
+    {
+      "id": "D51",
+      "status": "approved-boundary",
+      "reason": "The native SDK instance belongs to the mounted iframe; late SDK delivery must release the detached player.",
+      "path": "apps/web/src/features/material-video/ui/material-primary-video.client.tsx",
+      "owner": "MaterialPrimaryVideo",
+      "kind": "useEffect",
+      "fingerprint": "ea604923e3c000733960db4ad68ca497a84687eb23aa03da76a400613b9d0377",
+      "test": "apps/web/test/navigation/video-fragment.spec.ts",
+      "authority": "#2391"
+    },
+    {
+      "id": "D52",
+      "status": "approved-boundary",
+      "reason": "The mounted authoring surface owns the TUS transfer and releases late transfer attempts on detach.",
+      "path": "apps/web/src/features/material-video/ui/material-video-authoring.client.tsx",
+      "owner": "MaterialVideoAuthoring",
+      "kind": "useEffect",
+      "fingerprint": "cac8aa71324e6429aa271c73ae3cd85bded513dbd5593b368a3c9c80ceb6cbc4",
+      "test": "apps/web/test/browser-engines/material-video.test.ts",
+      "authority": "#2391"
+    },
+    {
+      "id": "D53",
+      "status": "verified-adapter",
+      "path": "apps/web/src/features/product-order/ui/product-order-panel.client.tsx",
+      "owner": "ProductOrderPanel",
+      "kind": "useEffect",
+      "fingerprint": "9145ccc27505c0531fbee2e936eabfe8ba55e6bbc43b60b956808d5d349da697",
+      "test": "apps/web/test/navigation/content-collections.spec.ts",
+      "reason": "Publishes each accepted product order version for the next chapter save. The separate chapter editor uses the first receipt while the refetch is pending, then retries its own draft with the version from the subsequent read after a conflict.",
+      "authority": "#2244. a later product order read supplies the version for the next chapter save delivered in #2494 at 802200a9252c93bee679096816e4d987b52ccb1b."
+    },
+    {
+      "id": "D54",
+      "status": "verified-adapter",
+      "path": "apps/web/src/features/reading-progress/model/use-reading-account-cache.client.ts",
+      "owner": "useReadingAccountCache",
+      "kind": "useEffect",
+      "fingerprint": "97c0c396330f656cfda7c870f916693c140060f52357c26ef903fbcd1caa187d",
+      "reason": "Only a resolved account admits cache cleanup. An obsolete reading batch may settle after cancellation but cannot refill its former cache entry.",
+      "test": "apps/web/src/features/reading-progress/ui/reading-cache-lifetimes.stories.tsx",
+      "authority": "Delivered in #2463 at 923741c168a3c2a277e6f1b0eaacb03df20b449e. Public scenarios and independent verification documented in the PR."
+    },
+    {
+      "id": "D55",
+      "status": "verified-adapter",
+      "path": "apps/web/src/features/reading-progress/model/use-reading-account-cache.client.ts",
+      "owner": "useReadingAccountCache",
+      "kind": "useEffect",
+      "fingerprint": "19462c59fa1629d05c4dd90cfd919b9f0ffbf1552035541928911497ec049a3a",
+      "reason": "The active account cache intercepts sign-out form submission in document capture, disables private reads and clears the matching QueryClient. Replacement and unmount release that listener.",
+      "test": "apps/web/src/features/reading-progress/ui/reading-cache-lifetimes.stories.tsx",
+      "authority": "Delivered in #2463 at 923741c168a3c2a277e6f1b0eaacb03df20b449e. Public scenarios and independent verification documented in the PR."
+    },
+    {
+      "id": "D56",
+      "status": "verified-adapter",
+      "path": "apps/web/src/features/reading-progress/model/use-reading-command-history.client.ts",
+      "owner": "useReadingCommandHistory",
+      "kind": "useEffect",
+      "fingerprint": "588dedc0802605c36b4d94993d3faacc02702b815f18100bedecbbbcee21cb46",
+      "reason": "When a resolved action regains marking rights, remove only completed denied mutations for the exact command key. Keep pending and failed commands, other results and accounts, and subsequent denials.",
+      "test": "apps/web/src/features/reading-progress/ui/reading-cache-lifetimes.stories.tsx",
+      "authority": "Delivered in #2463 at 923741c168a3c2a277e6f1b0eaacb03df20b449e. Public scenarios and independent verification documented in the PR."
+    },
+    {
+      "id": "D57",
+      "status": "verified-adapter",
+      "path": "apps/web/src/shared/api/use-announced-refresh.client.ts",
+      "owner": "useAnnouncedRefresh",
+      "kind": "useEffect",
+      "fingerprint": "b3ba63e446d209aaf2965cd625185553f12ee340a12a255444c5deb066b6d294",
+      "reason": "Именованный адаптер связывает источник факта с конкретным QueryClient и ключом, принимает null и отдаёт release подписчика. Публичный тест меняет все три входа независимо и снимает активного потребителя.",
+      "test": "apps/web/src/shared/api/use-announced-refresh.stories.tsx",
+      "authority": "#2244. QueryLifetime delivered in #2486 at 7b9fef9de2327aad909625f62ff7b1f2a9f9a2c2. Independent targeted mutation verified."
+    },
+    {
+      "id": "D58",
+      "status": "verified-adapter",
+      "path": "apps/web/src/shared/lib/autosave/use-autosave.ts",
+      "owner": "useAutosave",
+      "kind": "useLayoutEffect",
+      "fingerprint": "1f92bf8ca507ab29e6bc39fd5ab19b70b63fed7867c72f9e186ce87ff27519c8",
+      "reason": "Publish the value, key, writer and permission from a committed render to the save model. Navigation during suspension uses the previous committed writer and input.",
+      "test": "apps/web/test/browser-engines/autosave.test.ts",
+      "authority": "Merged #2470 at 53b1610c34c30bfc34e7e995c3ed4b42b8a598ff, identical owner and browser cases to reviewed 94686f1b5."
+    },
+    {
+      "id": "D59",
+      "status": "verified-adapter",
+      "path": "apps/web/src/shared/lib/autosave/use-autosave.ts",
+      "owner": "useAutosave",
+      "kind": "useEffect",
+      "fingerprint": "2961d1cb01b8465703a74d93d17ee00879cb6060579e14277bd01f970f6c7cf2",
+      "reason": "Own the debounce timer only when the save model requests scheduling. Cancel on hide or replacement. Queue, validation and retries belong to the model.",
+      "test": "apps/web/test/browser-engines/autosave.test.ts",
+      "authority": "Merged #2470 at 53b1610c34c30bfc34e7e995c3ed4b42b8a598ff, identical owner and browser cases to reviewed 94686f1b5."
+    },
+    {
+      "id": "D60",
+      "status": "verified-adapter",
+      "path": "apps/web/src/shared/lib/autosave/use-autosave.ts",
+      "owner": "useNavigationSave",
+      "kind": "useLayoutEffect",
+      "fingerprint": "58a76a137e49832b89c0d4368c44bb2605b9bc9df8e3446a61ca34df62ed21d5",
+      "reason": "Protect beforeunload during active autosave work, including a pending upload or failed save. Remove the listener in the layout phase of the commit that shows the saved state.",
+      "test": "apps/web/src/_pages/content-collections/ui/product-editor-page.stories.tsx",
+      "authority": "Merged #2458 at 4863d547d13af12563984c1dfc3a47384f884b0f. BeforeUnloadFollowsActivity covers the visible transition; Chromium navigation verified in the PR."
+    },
+    {
+      "id": "D61",
+      "status": "verified-adapter",
+      "path": "apps/web/src/shared/lib/autosave/use-autosave.ts",
+      "owner": "useNavigationSave",
+      "kind": "useEffect",
+      "fingerprint": "7b7145db277ea9e8cf9b15a83bf1cad3c13c74b9354892afdf2bd62f1ac6ee08",
+      "reason": "Register the active flush with navigation and release that registration on cleanup. Recheck pending uploads before continuing a link after a save.",
+      "test": "apps/web/test/browser-engines/autosave.test.ts",
+      "authority": "Merged #2470 at 53b1610c34c30bfc34e7e995c3ed4b42b8a598ff, identical owner and browser cases to reviewed 94686f1b5.",
+      "additionalTests": [
+        "apps/web/test/navigation/content-collections.spec.ts"
+      ]
+    },
+    {
+      "id": "D62",
+      "status": "approved-boundary",
+      "reason": "The shared modal adapter owns native dialog state and releases its concrete dialog.",
+      "path": "apps/web/src/shared/lib/native-dialog.client.ts",
+      "owner": "useNativeDialog",
+      "kind": "useLayoutEffect",
+      "fingerprint": "75c87efb6107809651497203ab744977f5905c6784e217df08d9d2d085ee9781",
+      "test": "apps/web/test/browser-engines/native-dialog.test.ts",
+      "authority": "#2394"
+    },
+    {
+      "id": "D63",
+      "status": "verified-adapter",
+      "path": "apps/web/src/shared/lib/use-live-search-value.client.ts",
+      "owner": "useLiveSearchValue",
+      "kind": "useEffect",
+      "fingerprint": "6965ff401219f70dcabf0b336659dcd9ff213cff4b174d425212b1d784408391",
+      "reason": "Именованный shared hook владеет задержкой поиска 250 мс. Начальное значение доступно сразу; изменение заменяет срок, hide/unmount снимают его. HTTP, нормализацию и разрешения определяют потребители.",
+      "test": "apps/web/src/shared/lib/use-live-search-value.stories.tsx",
+      "authority": "#2244. ReplacementAndRelease delivered in #2486 at 7b9fef9de2327aad909625f62ff7b1f2a9f9a2c2. Independent targeted mutation verified."
+    },
+    {
+      "id": "D64",
+      "status": "frozen-blocked",
+      "path": "apps/web/src/shared/ui/hide-mobile-navigation.client.tsx",
+      "owner": "HideMobileNavigation",
+      "kind": "useEffect",
+      "fingerprint": "0e58ec47850f66f08da1d5b79cbcf64ec580c5ba749e88c3465bdda568cb9791"
+    },
+    {
+      "id": "D65",
+      "status": "frozen-blocked",
+      "path": "apps/web/src/shared/ui/hide-public-footer.client.tsx",
+      "owner": "HidePublicFooter",
+      "kind": "useEffect",
+      "fingerprint": "e4e1e007037b51e71619f98c75cec07c86262560d38b714ac70183de553a9f22"
+    },
+    {
+      "id": "D66",
+      "status": "verified-adapter",
+      "path": "apps/web/src/shared/ui/reader-history.client.tsx",
+      "owner": "Tracker",
+      "kind": "useEffect",
+      "fingerprint": "6069835bd7ac13ca2e2590cecad4e9c52398efd7461718f4e2fcdf5da1309078",
+      "reason": "The matching active Reader entry owns capture listeners, its reader root, a coalesced scroll frame and pending restoration. Cleanup cancels the frame so the previous visible chapter and position survive return.",
+      "test": "apps/web/src/features/library-discovery/ui/reader-history-tracker.stories.tsx",
+      "authority": "#2244. RestoresOwnVisibleEntry delivered in #2486 at 7b9fef9de2327aad909625f62ff7b1f2a9f9a2c2. Tracker cleanup updated in #2489 at d789fd2a072b908c885372a40f04d03629a9074e with the Reader-to-Home Back scenario in reader-history-position.spec.ts."
+    },
+    {
+      "id": "D68",
+      "status": "frozen-blocked",
+      "path": "apps/web/src/widgets/authoring-shell/ui/authoring-shell.client.tsx",
+      "owner": "AuthoringShell",
+      "kind": "useEffect",
+      "fingerprint": "d5cd38a0e16180be9e2d384835a631c64397de60d557a927ba077135aecd89d7"
+    },
+    {
+      "id": "D69",
+      "status": "frozen-blocked",
+      "path": "apps/web/src/widgets/authoring-shell/ui/authoring-shell.client.tsx",
+      "owner": "MoreSheet",
+      "kind": "useEffect",
+      "fingerprint": "8f85ed57ed7c160eaaef091eed5b83fe7a3d038cb64cdef243f7f920c80a3fcd"
+    },
+    {
+      "id": "D70",
+      "status": "approved-boundary",
+      "reason": "The upload owner releases transaction and XHR resources for its editor session.",
+      "path": "apps/web/src/widgets/material-authoring/ui/material-asset-upload-controls.client.tsx",
+      "owner": "useMaterialAssetUploads",
+      "kind": "useEffect",
+      "fingerprint": "578788101be7125947be309200685e64c8cbf5076f9b465862f644d4bfccccb2",
+      "test": "apps/web/test/browser-engines/material-authoring-lifetimes.test.ts",
+      "authority": "#2398"
+    },
+    {
+      "id": "D71",
+      "status": "approved-boundary",
+      "reason": "The editor view synchronizes the editable option of its current Tiptap instance.",
+      "path": "apps/web/src/widgets/material-authoring/ui/material-document-editor.client.tsx",
+      "owner": "MaterialDocumentEditorView",
+      "kind": "useEffect",
+      "fingerprint": "720e365a638f1772f8c689f9a971bec265a425a7590803267a09eba21ec73169",
+      "test": "apps/web/test/browser-engines/material-authoring-lifetimes.test.ts",
+      "authority": "#2398"
+    },
+    {
+      "id": "D72",
+      "status": "approved-boundary",
+      "reason": "Block controls release their editor listener, observers and pending frame.",
+      "path": "apps/web/src/widgets/material-authoring/ui/use-material-block-controls.ts",
+      "owner": "useMaterialBlockControls",
+      "kind": "useEffect",
+      "fingerprint": "1494d2236c82dcd5ccedc24fd185b4dd00b75205a388a192521d98e992ac89f6",
+      "test": "apps/web/src/_pages/material-authoring/ui/material-authoring-page.stories.tsx",
+      "authority": "#2398"
+    },
+    {
+      "id": "T01",
+      "status": "reviewed-timer",
+      "reason": "Idle Home prefetch warmup; original record explicitly says inspect full reason before change.",
+      "path": "apps/web/src/_app/ui/use-mobile-navigation.client.ts",
+      "owner": "useMobileNavigation",
+      "kind": "setTimeout",
+      "fingerprint": "85caa58338a209b636da75fdbedfe57e3088ad0b472dc812cdd7fd543481ccd3"
+    },
+    {
+      "id": "T01-delay",
+      "status": "reviewed-timer",
+      "path": "apps/web/src/_app/ui/use-mobile-navigation.client.ts",
+      "owner": "",
+      "kind": "constant:prefetchDelayMs",
+      "fingerprint": "5da0d97926ec76a1afc8b4f50ab2ba14de6974cd58682c3611ae86f3356cc04e"
+    },
+    {
+      "id": "T02",
+      "status": "reviewed-timer",
+      "reason": "Search input debounce, public retained component, not real-route activation.",
+      "path": "apps/web/src/entities/authoring-person/ui/people-search-combobox.client.tsx",
+      "owner": "PeopleSearchCombobox",
+      "kind": "setTimeout",
+      "fingerprint": "49362270dcd0ba553d6b9d6f97b739d19e44fe8eea338dac05fa7417609d3397"
+    },
+    {
+      "id": "T02-delay",
+      "status": "reviewed-timer",
+      "path": "apps/web/src/entities/authoring-person/ui/people-search-combobox.client.tsx",
+      "owner": "",
+      "kind": "constant:SEARCH_INPUT_PAUSE_MS",
+      "fingerprint": "c358ecb677cf28fcde1ff66317b5c36283ae2eb68804186c17e69469a6fdcc17"
+    },
+    {
+      "id": "T03",
+      "status": "reviewed-timer",
+      "reason": "Mouse hover open delay; separate from click/touch behavior.",
+      "path": "apps/web/src/entities/material/ui/glossary/glossary-mention.browser.ts",
+      "owner": "createGlossaryMention/hoverOpen",
+      "kind": "setTimeout",
+      "fingerprint": "68bdad7a75c1aabb93da14b2bb8d670b33f21428e04da26558e88a9cce23fb59"
+    },
+    {
+      "id": "T03-delay",
+      "status": "reviewed-timer",
+      "path": "apps/web/src/entities/material/ui/glossary/glossary-mention.browser.ts",
+      "owner": "",
+      "kind": "constant:HOVER_OPEN_DELAY_MS",
+      "fingerprint": "e4403b52cc40b0486d8b0632717e2504e409673815d14c484e0bbdc97be0ec71"
+    },
+    {
+      "id": "T04",
+      "status": "reviewed-timer",
+      "reason": "Mouse hover close delay; same anchor/generation guard.",
+      "path": "apps/web/src/entities/material/ui/glossary/glossary-mention.browser.ts",
+      "owner": "createGlossaryMention/hoverClose",
+      "kind": "setTimeout",
+      "fingerprint": "118668973e7754cf7840a2d6dc7b47acbd04579b14c53f9484be56aee9607e41"
+    },
+    {
+      "id": "T04-delay",
+      "status": "reviewed-timer",
+      "path": "apps/web/src/entities/material/ui/glossary/glossary-mention.browser.ts",
+      "owner": "",
+      "kind": "constant:HOVER_CLOSE_DELAY_MS",
+      "fingerprint": "0cb746d42b87aa61bdc080d1f8e3780f04daa412c23b530409fd74917c8bfaa5"
+    },
+    {
+      "id": "T05",
+      "status": "reviewed-timer",
+      "reason": "Provider load hedge starts another bounded attempt.",
+      "path": "apps/web/src/features/material-video/api/kinescope-iframe-api.browser.ts",
+      "owner": "loadHedgedIframeApi/start",
+      "kind": "setTimeout",
+      "fingerprint": "6e6101e6c8e0eaa4de29d975092685461a2d295dc6fb5c21d64946b788593249"
+    },
+    {
+      "id": "T05-T06-defaults",
+      "status": "reviewed-timer",
+      "path": "apps/web/src/features/material-video/api/kinescope-iframe-api.browser.ts",
+      "owner": "",
+      "kind": "constant:iframeApiTiming",
+      "fingerprint": "09e4b3c9385bbcc5acf06350c753ee7f6e8be485b0591f1ccce47d5b9cd0c508"
+    },
+    {
+      "id": "T05-T06-parameter",
+      "status": "reviewed-timer",
+      "path": "apps/web/src/features/material-video/api/kinescope-iframe-api.browser.ts",
+      "owner": "loadHedgedIframeApi",
+      "kind": "default:timing",
+      "fingerprint": "4f2747cca1e873ba6dcea12b4748799b22625d72d0a5a91979d73cb837cdf618"
+    },
+    {
+      "id": "T06",
+      "status": "reviewed-timer",
+      "reason": "Absolute provider loader deadline bounds failure.",
+      "path": "apps/web/src/features/material-video/api/kinescope-iframe-api.browser.ts",
+      "owner": "loadHedgedIframeApi",
+      "kind": "setTimeout",
+      "fingerprint": "fa3acedf28e59a7feb18dd9ba691ddb4aa8a78e63620e0639f28354a5657e6a4"
+    },
+    {
+      "id": "T07",
+      "status": "reviewed-timer",
+      "reason": "Sequential video reconciliation poll after settled owner inputs.",
+      "path": "apps/web/src/features/material-video/ui/video-authoring-session.browser.ts",
+      "owner": "createVideoAuthoringSession/refreshPolling/ensure",
+      "kind": "setTimeout",
+      "fingerprint": "01ec2af5bcb4f0e93cc542ab331c66ff2e4e7eeda773cd7620b212a13c840c0b"
+    },
+    {
+      "id": "T07-delay",
+      "status": "reviewed-timer",
+      "path": "apps/web/src/features/material-video/ui/video-authoring-session.browser.ts",
+      "owner": "",
+      "kind": "constant:VIDEO_RECONCILIATION_POLL_INTERVAL_MILLISECONDS",
+      "fingerprint": "532683cb11c8012de3013c3873477a34908fa435eecd4085ff46419f354d79a0"
+    },
+    {
+      "id": "T08",
+      "status": "reviewed-batch",
+      "reason": "Deliberate batch window for independent reading-state registrations.",
+      "path": "apps/web/src/features/reading-progress/model/reading-state-batcher.ts",
+      "owner": "createReadingStateBatcher",
+      "kind": "setTimeout",
+      "fingerprint": "cda9f2e784e179f98d9abb78787193443add1f178bb3700f56b34c68d79997c6"
+    },
+    {
+      "id": "T09",
+      "status": "reviewed-timer",
+      "reason": "Settled sign-in callback dedup retention expiry on server; unref.",
+      "path": "apps/web/src/shared/auth/sign-in-callback-once.server.ts",
+      "owner": "runSignInCallbackOnce",
+      "kind": "setTimeout",
+      "fingerprint": "e6de21b6457043165108acb83d13d0f365a81701a2878f16f28dceff1d1d8b94"
+    },
+    {
+      "id": "T09-delay",
+      "status": "reviewed-timer",
+      "path": "apps/web/src/shared/auth/sign-in-callback-once.server.ts",
+      "owner": "",
+      "kind": "constant:settledOutcomeLifetimeMilliseconds",
+      "fingerprint": "becbff9ea7f46f77e08dfef00fb85d7a1d124a8275877d36d75e0a0bd10b4127"
+    },
+    {
+      "id": "T10",
+      "status": "reviewed-timer",
+      "reason": "Autosave debounce owned by the active effect; configurable delay, default 700 ms. Hide cancels the scheduled flush.",
+      "path": "apps/web/src/shared/lib/autosave/use-autosave.ts",
+      "owner": "useAutosave",
+      "kind": "setTimeout",
+      "fingerprint": "64413818b43eff775e1aa2e06679ec55a97651fba0b7aeb2d5fec83128358e0d"
+    },
+    {
+      "id": "T10-delay",
+      "status": "reviewed-timer",
+      "path": "apps/web/src/shared/lib/autosave/use-autosave.ts",
+      "owner": "useAutosave",
+      "kind": "default:delay",
+      "fingerprint": "a8c8c89752d872671c514ac60bda1dc9df863a118c07e6dcea98727a1ea01bfb"
+    },
+    {
+      "id": "T11",
+      "status": "reviewed-timer",
+      "reason": "Bounded CSS smooth-scroll style lease expiry.",
+      "path": "apps/web/src/shared/lib/body-fragments.browser.ts",
+      "owner": "connectBodyFragments/followFragment",
+      "kind": "setTimeout",
+      "fingerprint": "14cce338dd160c3ecd812f91852000ad5368b6878cb35cd9dbc0b13acd94ae2a"
+    },
+    {
+      "id": "T11-delay",
+      "status": "reviewed-timer",
+      "path": "apps/web/src/shared/lib/body-fragments.browser.ts",
+      "owner": "",
+      "kind": "constant:smoothScrollSettleMs",
+      "fingerprint": "ed651d3f26b81756c8c9c37285989d25fa5c96989b84415d0f8757a567b1caaf"
+    },
+    {
+      "id": "T12",
+      "status": "reviewed-timer",
+      "reason": "Deadline bounds scroll-root restoration observer and input-listener lease.",
+      "path": "apps/web/src/shared/lib/shell-scroll.ts",
+      "owner": "restoreShellScroll",
+      "kind": "setTimeout",
+      "fingerprint": "2fb954636d1fd98d8d61a56c212621ae0e36a97f2414ff9f547d4513de07c149"
+    },
+    {
+      "id": "T12-caller",
+      "status": "reviewed-timer",
+      "path": "apps/web/src/_app/ui/use-mobile-navigation.client.ts",
+      "owner": "useMobileNavigation",
+      "kind": "caller:restoreShellScroll",
+      "fingerprint": "e3a4aff9107ab978ab917241342b3b5bae8b9149cdd54f677d042ba69bbb3e98"
+    },
+    {
+      "id": "T12-deadline",
+      "status": "reviewed-timer",
+      "path": "apps/web/src/_app/ui/use-mobile-navigation.client.ts",
+      "owner": "",
+      "kind": "constant:restorationTimeoutMs",
+      "fingerprint": "25ce213053223942d8c0363717f22a91f46454016fcbb65365483be23ac81c82"
+    },
+    {
+      "id": "T13",
+      "status": "reviewed-timer",
+      "reason": "Intentional copied/failed status feedback lifetime.",
+      "path": "apps/web/src/shared/lib/use-copy-text.client.ts",
+      "owner": "useCopyText/finish",
+      "kind": "setTimeout",
+      "fingerprint": "7b840e3ee5b54ebc3635dd0f31afc792c193ccee4b20e274f1156f7f832e0dc0"
+    },
+    {
+      "id": "T13-delay",
+      "status": "reviewed-timer",
+      "path": "apps/web/src/shared/lib/use-copy-text.client.ts",
+      "owner": "",
+      "kind": "constant:copyFeedbackMs",
+      "fingerprint": "23bd607952816b8ebdc8c8a12f6a88dae246689372de0b04be6a07cacec4c56e"
+    },
+    {
+      "id": "T14",
+      "status": "reviewed-timer",
+      "reason": "Live search state debounce.",
+      "path": "apps/web/src/shared/lib/use-live-search-value.client.ts",
+      "owner": "useLiveSearchValue",
+      "kind": "setTimeout",
+      "fingerprint": "0618f062fcadaae982eb665ecd0f10475eb8585cce7f07c14dc8289b96b86836"
+    },
+    {
+      "id": "T14-delay",
+      "status": "reviewed-timer",
+      "path": "apps/web/src/shared/lib/use-live-search-value.client.ts",
+      "owner": "",
+      "kind": "constant:LIVE_SEARCH_DEBOUNCE_MS",
+      "fingerprint": "fd9c89ed49cbf2b5f4301f66dba97bbe079611bfd7bf408b3cf202e3f7c78843"
+    }
+  ]
+}
