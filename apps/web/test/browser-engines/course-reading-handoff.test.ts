@@ -60,6 +60,86 @@ afterAll(async () => {
   }
 });
 
+test("the open programme follows its step, path, visibility and desktop breakpoint", async () => {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({
+      viewport: { width: 390, height: 844 },
+    });
+    await page.goto(`${origin}/materials/step-0?dialog-lifetime=1`);
+    const trigger = page.getByRole("button", { name: /^Вся программа:/ });
+    const dialog = page.locator("dialog");
+    await trigger.click();
+    await expect(dialog).toHaveJSProperty("open", true);
+    const original = await dialog.evaluateHandle((node) => node);
+
+    await page
+      .getByRole("button", { name: "Change step", includeHidden: true })
+      .dispatchEvent("click");
+    await expect(dialog).toHaveJSProperty("open", false);
+    await trigger.click();
+    await page.evaluate(() => {
+      history.pushState(
+        history.state,
+        "",
+        "/materials/other?dialog-lifetime=1",
+      );
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    await expect(dialog).toHaveJSProperty("open", false);
+    await trigger.click();
+    await page
+      .getByRole("button", { name: "Toggle lesson", includeHidden: true })
+      .dispatchEvent("click");
+    await expect(dialog).toHaveJSProperty("open", false);
+    await page.getByRole("button", { name: "Toggle lesson" }).click();
+    await expect(dialog).toHaveJSProperty("open", false);
+    await trigger.click();
+    await expect(dialog).toHaveJSProperty("open", true);
+    expect(
+      await dialog.evaluate((node, previous) => node === previous, original),
+    ).toBe(true);
+
+    await dialog.evaluate((node) => {
+      if (!(node instanceof HTMLDialogElement))
+        throw new Error("Missing programme dialog");
+      const close = node.close.bind(node);
+      let calls = 0;
+      node.close = (...args) => {
+        calls += 1;
+        node.dataset["closeCalls"] = String(calls);
+        close(...args);
+      };
+    });
+    const tablet = await page.evaluateHandle(() => ({
+      settled: new Promise<void>((resolve) => {
+        window.matchMedia("(min-width: 820px)").addEventListener(
+          "change",
+          () => {
+            requestAnimationFrame(() => {
+              resolve();
+            });
+          },
+          { once: true },
+        );
+      }),
+    }));
+    await page.setViewportSize({ width: 820, height: 844 });
+    await tablet.evaluate(({ settled }) => settled);
+    await expect(dialog).toHaveJSProperty("open", true);
+    await page.setViewportSize({ width: 1440, height: 1024 });
+    await expect(dialog).toHaveJSProperty("open", false);
+    await expect(dialog).toHaveAttribute("data-close-calls", "1");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(trigger).toBeVisible();
+    await expect(dialog).toHaveJSProperty("open", false);
+    await trigger.click();
+    await expect(dialog).toHaveJSProperty("open", true);
+  } finally {
+    await browser.close();
+  }
+}, 30_000);
+
 test("desktop retains an early chapter choice and focus through host activation", async () => {
   const browser = await chromium.launch();
   try {
