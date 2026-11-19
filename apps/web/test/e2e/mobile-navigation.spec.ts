@@ -449,3 +449,75 @@ test("external Home query changes update the selected topic and remove retired f
     .poll(() => new URL(page.url()).searchParams.get("topic"))
     .toBeNull();
 });
+
+test("Home warmup observes tab visibility when its timer fires", async ({
+  page,
+}) => {
+  await page.clock.install({ time: new Date("2026-11-19T10:00:00Z") });
+  await page.clock.pauseAt(new Date("2026-11-19T10:00:01Z"));
+  await page.route("**/auth/status", (route) =>
+    route.fulfill({
+      json: {
+        state: "authenticated",
+        accountId: "11111111-1111-4111-8111-111111111111",
+        canManageMaterials: false,
+      },
+    }),
+  );
+  await page.route("**/api/account", (route) =>
+    route.fulfill({
+      json: {
+        profile: { kind: "missing" },
+        telegramMembership: {
+          link: { kind: "linked" },
+          membership: { kind: "active" },
+          contact: {
+            state: "available",
+            displayName: "Участник",
+            username: null,
+          },
+        },
+      },
+    }),
+  );
+  await page.route(materialCatalogRequests, (route) =>
+    route.fulfill({ json: catalog }),
+  );
+  await page.goto("/account");
+  await expect(
+    page.getByRole("region", { name: "Telegram", exact: true }),
+  ).toContainText("Участник");
+  // The clock is paused and the authenticated account has committed. Record the
+  // visibility at request initiation, before browser transport can defer delivery.
+  const feedReads = await page.evaluateHandle(() => {
+    const observed: DocumentVisibilityState[] = [];
+    const fetch = window.fetch.bind(window);
+    window.fetch = (input, init) => {
+      const url = new URL(
+        input instanceof Request ? input.url : String(input),
+        location.href,
+      );
+      if (url.pathname === "/api/home/materials")
+        observed.push(document.visibilityState);
+      return fetch(input, init);
+    };
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "hidden",
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+    return observed;
+  });
+  await page.clock.runFor(1000);
+  await page.evaluate(() => {
+    Reflect.deleteProperty(document, "visibilityState");
+    document.dispatchEvent(new Event("visibilitychange"));
+    window.dispatchEvent(new Event("focus"));
+  });
+  await page.clock.resume();
+  await homeLink(page).click();
+  await expect(
+    page.getByRole("heading", { name: "Материал 1", exact: true }),
+  ).toBeVisible();
+  expect(await feedReads.jsonValue()).toEqual(["visible"]);
+});
