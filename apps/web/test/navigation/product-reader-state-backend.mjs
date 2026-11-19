@@ -419,6 +419,12 @@ export function productReaderStateRoute(request, url, owner) {
     return selected.scenario === "unknown"
       ? reply({ code: "dependency_unavailable" }, 503)
       : reply({ access: holder ? "open" : "closed" });
+  if (
+    selected.scenario === "waitlist" &&
+    url.pathname === "/product-waitlists/join" &&
+    request.method === "POST"
+  )
+    return reply({ code: "dependency_unavailable" }, 503);
   if (url.pathname.startsWith(`/product-waitlists/${selected.id}/`))
     return selected.scenario === "waitlist"
       ? reply({

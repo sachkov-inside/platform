@@ -1,9 +1,22 @@
+import { createRoot } from "react-dom/client";
+import { flushSync } from "react-dom";
+import {
+  announceEnrollmentChange,
+  subscribeEnrollmentChange,
+} from "@/entities/subscription";
+import {
+  announceCurrentBillingChange,
+  subscribeToCurrentBillingChanges,
+} from "@/features/billing-subscription";
+import { type FactAnnouncement } from "@/shared/api/fact-announcement";
+import { deliverAnnouncement } from "@/storybook/deliver-announcement";
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { z } from "zod";
 import {
   ReadingProgressProvider,
+  readingProgressChanges,
   SavedReadingAction,
   VisibleMaterialOpen,
 } from "@/features/reading-progress";
@@ -155,5 +168,67 @@ export const KnownAccountChanges: Story = {
     await expect(refreshed).toHaveBeenCalledTimes(2);
     await select("account A");
     await expect(refreshed).toHaveBeenCalledTimes(3);
+  },
+};
+
+function Shell({ account, known }: { account: string | null; known: boolean }) {
+  useAccessChangeRefresh(account, known);
+  return null;
+}
+export const RouteLifetime: Story = {
+  render: () => <div />,
+  play: async () => {
+    const root = createRoot(document.createElement("div"));
+
+    function mount(account: string | null, known: boolean) {
+      flushSync(() => {
+        root.render(<Shell account={account} known={known} />);
+      });
+    }
+    const accountA = readingProgressChanges("account-a");
+    const accountB = readingProgressChanges("account-b");
+    const billing = {
+      announce: announceCurrentBillingChange,
+      subscribe: subscribeToCurrentBillingChanges,
+    };
+    const enrollment = {
+      announce: announceEnrollmentChange,
+      subscribe: subscribeEnrollmentChange,
+    };
+    async function check(source: FactAnnouncement, count: number) {
+      refreshed.mockClear();
+      await deliverAnnouncement(source);
+      await expect(refreshed).toHaveBeenCalledTimes(count);
+    }
+    try {
+      mount(null, false);
+      await check(accountA, 0);
+      await check(billing, 1);
+      await check(enrollment, 1);
+      mount(null, true);
+      await check(accountA, 0);
+      mount("account-a", true);
+      await check(accountA, 1);
+      await check(accountB, 0);
+      mount("account-b", true);
+      await check(accountA, 0);
+      await check(accountB, 1);
+      mount("account-b", false);
+      await check(accountB, 0);
+      flushSync(() => {
+        root.render(null);
+      });
+      for (const source of [billing, enrollment, accountA, accountB])
+        await check(source, 0);
+      mount("account-b", true);
+      for (const source of [billing, enrollment, accountB])
+        await check(source, 1);
+      flushSync(() => {
+        root.render(null);
+      });
+      await check(accountB, 0);
+    } finally {
+      root.unmount();
+    }
   },
 };

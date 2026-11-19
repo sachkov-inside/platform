@@ -253,6 +253,46 @@ test("returning from the Telegram window confirms one current Account payload an
   ]);
 });
 
+test("a retained Account confirms its link only after returning to the page", async ({
+  baseURL,
+  context,
+  page,
+  request,
+}) => {
+  await signIn(context, baseURL);
+  await page.clock.setFixedTime(new Date("2030-01-01T00:00:00Z"));
+  const confirmations: string[] = [];
+  page.on("request", (entry) => {
+    if (entry.url().endsWith("/api/account/telegram-link/confirm"))
+      confirmations.push(entry.url());
+  });
+  await page.goto("/account");
+  await beginTelegram(page, context);
+  await showHome(page);
+  await returnEvents(page, "visible", ["focus", "visibilitychange"]);
+  expect(confirmations).toHaveLength(0);
+  await page.goBack();
+  await expect(telegram(page).getByText("Подключаем Telegram")).toBeVisible();
+  const confirmedResponse = page.waitForResponse((entry) =>
+    entry.url().endsWith("/api/account/telegram-link/confirm"),
+  );
+  await returnEvents(page, "visible", ["focus"]);
+  const result = await confirmedResponse;
+  expect(result.ok()).toBe(true);
+  expect(await result.json()).toMatchObject({
+    kind: "received",
+    state: { linkRef, status: "pending" },
+  });
+  expect(confirmations).toHaveLength(1);
+  const journal = await request.get(fixture);
+  expect(journal.ok()).toBe(true);
+  expect(await journal.json()).toEqual([confirmed]);
+  await showHome(page);
+  await page.reload();
+  await returnEvents(page, "visible", ["focus", "visibilitychange"]);
+  expect(confirmations).toHaveLength(1);
+});
+
 test("leaving the Account before Telegram begin settles closes its blank popup", async ({
   baseURL,
   context,

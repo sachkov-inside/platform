@@ -8,10 +8,16 @@ import {
 } from "next/navigation";
 import {
   Activity,
+  Suspense,
+  lazy,
+  startTransition,
+  use,
   useLayoutEffect,
   useState,
   type ComponentProps,
 } from "react";
+import { createRoot } from "react-dom/client";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { z } from "zod";
 import {
   expect,
@@ -36,10 +42,16 @@ import { ProductProgrammeSelectionProvider } from "./product-programme-selection
 import {
   ProductLearningProvider,
   ProductLearningSource,
+  PendingPurchaseRow,
   type ProductLearningView,
 } from "./product-learning.client";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 import { expectNoSidewaysScrollAtDoubleText } from "@/storybook/phone-layout";
+
+import {
+  WaitlistProvider,
+  ProductWaitlistSlot,
+} from "./waitlist-provider.client";
 
 const titles = [
   "От идеи к первой версии",
@@ -3137,5 +3149,245 @@ export const ProgrammeQueryFollowsProductScope: Story = {
     await expect(
       canvasElement.querySelectorAll("[data-product-ordinal]"),
     ).toHaveLength(48);
+  },
+};
+
+const probeA = "00000000-0000-4000-8000-000000000016";
+const probeB = "00000000-0000-4000-8000-000000000019";
+function probeReading(accountId: string | null, resolved: boolean) {
+  return {
+    accountId,
+    resolved,
+    states: new Map(),
+    register,
+    refresh,
+    failed: false,
+  };
+}
+const neverCommits = Promise.withResolvers<null>().promise;
+function StoppedTree() {
+  return use(neverCommits);
+}
+const purchaseRowStages = [
+  {
+    action: "publish visible",
+    account: probeA,
+    slug: "probe-x",
+    label: "Publish visible row",
+  },
+  {
+    action: "publish hidden",
+    account: probeB,
+    slug: "probe-x",
+    label: "Publish for another account",
+  },
+  {
+    action: "publish hidden",
+    account: probeA,
+    slug: "probe-y",
+    label: "Publish for another product",
+  },
+  {
+    action: "read",
+    account: probeA,
+    slug: "probe-x",
+    label: "Read original row",
+  },
+  {
+    action: "suspend",
+    account: probeA,
+    slug: "probe-x",
+    label: "Suspend hidden row",
+  },
+  {
+    action: "read",
+    account: probeA,
+    slug: "probe-x",
+    label: "Read after suspension",
+  },
+  {
+    action: "read",
+    account: probeB,
+    slug: "probe-x",
+    label: "Read another account",
+  },
+  {
+    action: "read",
+    account: probeA,
+    slug: "probe-y",
+    label: "Read another product",
+  },
+  {
+    action: "publish hidden",
+    account: probeA,
+    slug: "probe-x",
+    label: "Commit hidden row",
+  },
+  {
+    action: "read",
+    account: probeA,
+    slug: "probe-x",
+    label: "Read after commit",
+  },
+] as const;
+
+function PurchaseRowSequence() {
+  const [index, setIndex] = useState(0);
+  const stage = purchaseRowStages[index];
+  if (!stage) throw new Error("Unknown purchase row stage");
+  const { action, account, slug, label } = stage;
+  return (
+    <>
+      <button
+        type="button"
+        disabled={index === purchaseRowStages.length - 1}
+        onClick={() => {
+          setIndex(index + 1);
+        }}
+      >
+        Next stage
+      </button>
+      <MaterialReadingScope key={label} value={probeReading(account, false)}>
+        {action === "read" ? (
+          <section aria-label={label}>
+            <PendingPurchaseRow slug={slug} lockedForGuest={true} />
+          </section>
+        ) : (
+          <Suspense fallback={<span>Uncommitted</span>}>
+            <ProductLearningSource
+              initialAccountId={null}
+              slug={slug}
+              purchaseRowShown={action === "publish visible"}
+            >
+              {action === "suspend" ? <StoppedTree /> : <span>{label}</span>}
+            </ProductLearningSource>
+          </Suspense>
+        )}
+      </MaterialReadingScope>
+    </>
+  );
+}
+export const D16CommitProof: Story = {
+  name: "Purchase row follows the committed account and product",
+  render: () => <PurchaseRowSequence />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const next = () =>
+      userEvent.click(canvas.getByRole("button", { name: "Next stage" }));
+    for (const label of [
+      "Publish visible row",
+      "Publish for another account",
+      "Publish for another product",
+    ]) {
+      await expect(canvas.getByText(label)).toBeVisible();
+      await next();
+    }
+    async function read(label: string, present: boolean) {
+      const region = canvas.getByRole("region", { name: label });
+      await expect(
+        region.querySelectorAll("[data-programme-purchase-row]"),
+      ).toHaveLength(present ? 1 : 0);
+    }
+    await read("Read original row", true);
+    await next();
+    await expect(canvas.getByText("Uncommitted")).toBeVisible();
+    await next();
+    await read("Read after suspension", true);
+    await next();
+    await read("Read another account", false);
+    await next();
+    await read("Read another product", false);
+    await next();
+    await expect(canvas.getByText("Commit hidden row")).toBeVisible();
+    await next();
+    await read("Read after commit", false);
+  },
+};
+export const WaitlistPublishesCommittedProduct: Story = {
+  render: () => <div />,
+  play: async ({ canvasElement }) => {
+    const attempted = Promise.withResolvers<null>();
+    const barrier = Promise.withResolvers<null>();
+    const publishedLink = Promise.withResolvers<string | null>();
+    const host = document.createElement("div");
+    canvasElement.append(host);
+    const root = createRoot(host);
+    const client = new QueryClient();
+    const canvas = within(host);
+    const PendingProduct = lazy(async () => {
+      attempted.resolve(null);
+      await barrier.promise;
+      return { default: () => null };
+    });
+    function Product({ product }: { product: string }) {
+      useLayoutEffect(() => {
+        if (product === probeB) {
+          queueMicrotask(() => {
+            publishedLink.resolve(
+              canvas
+                .getByRole("link", { name: "Открыть программу" })
+                .getAttribute("href"),
+            );
+          });
+        }
+      }, [product]);
+      return (
+        <WaitlistProvider
+          productId={product}
+          productSlug={product === probeA ? "probe-a" : "probe-b"}
+        >
+          <ProductWaitlistSlot />
+          <ProductWaitlistSlot lower />
+          {product === probeB ? <PendingProduct /> : null}
+        </WaitlistProvider>
+      );
+    }
+    function SwitchProduct() {
+      const [product, setProduct] = useState(probeA);
+      return (
+        <MaterialReadingScope value={probeReading(null, true)}>
+          <button
+            type="button"
+            onClick={() => {
+              startTransition(() => {
+                setProduct(probeB);
+              });
+            }}
+          >
+            Сменить продукт
+          </button>
+          <Suspense fallback="Ожидаем продукт">
+            <Product product={product} />
+          </Suspense>
+        </MaterialReadingScope>
+      );
+    }
+    try {
+      root.render(
+        <QueryClientProvider client={client}>
+          <SwitchProduct />
+        </QueryClientProvider>,
+      );
+      const button = await canvas.findByRole("button", {
+        name: "Сменить продукт",
+      });
+      button.click();
+      await attempted.promise;
+      await expect(
+        canvas.getAllByRole("button", { name: "Вступить в список ожидания" }),
+      ).toHaveLength(2);
+      await expect(
+        canvas.getByRole("link", { name: "Открыть программу" }),
+      ).toHaveAttribute("href", "/products/probe-a/programme");
+      barrier.resolve(null);
+      await expect(await publishedLink.promise).toBe(
+        "/products/probe-b/programme",
+      );
+    } finally {
+      barrier.resolve(null);
+      root.unmount();
+      host.remove();
+      client.clear();
+    }
   },
 };

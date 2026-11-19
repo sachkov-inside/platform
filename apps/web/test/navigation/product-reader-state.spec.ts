@@ -550,3 +550,43 @@ for (const optional of ["all", "community"] as const) {
     });
   }
 }
+
+test("both waitlist slots retry the committed join without starting a second intent", async ({
+  page,
+  context,
+  baseURL,
+}, info) => {
+  if (baseURL === undefined) throw new Error("Web origin required");
+  const slug = `reader-state-waitlist${info.project.name === "mobile-chromium" ? "-mobile" : ""}`;
+  await signIn(context, baseURL, slug);
+  await page.goto(`/products/${slug}`);
+  const actions = page.getByRole("button", {
+    name: "Вступить в список ожидания",
+  });
+  const alerts = page.getByText(
+    "Не удалось проверить или сохранить запись. Попробуйте снова.",
+    { exact: true },
+  );
+  const writes: string[] = [];
+  page.on("request", (request) => {
+    const path = new URL(request.url()).pathname;
+    if (
+      request.method() === "POST" &&
+      path.startsWith("/api/product-waitlist/")
+    )
+      writes.push(path);
+  });
+  await expect(actions).toHaveCount(2);
+  await actions.first().click();
+  await expect(alerts).toHaveCount(2);
+  const intent = "/api/product-waitlist/intent";
+  const join = "/api/product-waitlist/join";
+  expect(writes).toEqual([intent, join]);
+  const response = page.waitForResponse(
+    (response) => new URL(response.url()).pathname === join,
+  );
+  await actions.last().click();
+  expect(await (await response).json()).toMatchObject({ kind: "unavailable" });
+  await expect(alerts).toHaveCount(2);
+  expect(writes).toEqual([intent, join, join]);
+});
