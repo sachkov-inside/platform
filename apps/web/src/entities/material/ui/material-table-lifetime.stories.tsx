@@ -1,0 +1,384 @@
+import type { Meta, StoryObj } from "@storybook/react-vite";
+import { Activity, useState } from "react";
+import { expect, spyOn, userEvent, waitFor, within } from "storybook/test";
+
+import type { RenderedBlock } from "../../material.model";
+import { MaterialBodyView } from "./material-body-view";
+
+function tableBlock(
+  columns: number,
+): Extract<RenderedBlock, { kind: "table" }> {
+  return {
+    kind: "table",
+    rows: [
+      {
+        cells: Array.from({ length: columns }, (_, index) => ({
+          header: true,
+          content: [
+            {
+              kind: "paragraph",
+              content: [
+                { kind: "text", text: `Поле${String(index + 1)}`, marks: [] },
+              ],
+            },
+          ],
+        })),
+      },
+    ],
+  };
+}
+
+const rendering = {
+  headingId: (path: readonly number[]) => `table-section-${path.join("-")}`,
+  image: () => null,
+  file: () => null,
+};
+
+function TableLifetime({
+  initialColumns = 8,
+  initiallyMounted = true,
+}: {
+  readonly initialColumns?: number;
+  readonly initiallyMounted?: boolean;
+}) {
+  const [columns, setColumns] = useState(initialColumns);
+  const [visible, setVisible] = useState(true);
+  const [mounted, setMounted] = useState(initiallyMounted);
+  return (
+    <>
+      {!mounted ? (
+        <button
+          type="button"
+          onClick={() => {
+            setMounted(true);
+          }}
+        >
+          Показать таблицу
+        </button>
+      ) : null}
+      <button
+        type="button"
+        onClick={() => {
+          setColumns((count) => (count === 2 ? 8 : 2));
+        }}
+      >
+        Изменить столбцы
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setVisible((value) => !value);
+        }}
+      >
+        Скрыть или вернуть таблицу
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setMounted(false);
+        }}
+      >
+        Удалить таблицу
+      </button>
+      <Activity mode={visible ? "visible" : "hidden"}>
+        {mounted ? (
+          <MaterialBodyView
+            blocks={[tableBlock(columns)]}
+            path={[]}
+            rendering={rendering}
+          />
+        ) : null}
+      </Activity>
+    </>
+  );
+}
+
+const meta = {
+  title: "Components/Material/Table lifetime",
+  component: TableLifetime,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+} satisfies Meta<typeof TableLifetime>;
+export default meta;
+type Story = StoryObj<typeof meta>;
+
+export const RetainsTableViewport: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const scroller = canvas.getByRole("region", {
+      name: "Таблица в материале",
+    });
+    const frame = scroller.parentElement;
+    if (frame === null) throw new Error("Missing table frame");
+    await expect(scroller).toBeVisible();
+    await expect(scroller.scrollWidth).toBeGreaterThan(scroller.clientWidth);
+    await waitFor(() => expect(frame).toHaveAttribute("data-overflow", "end"));
+    scroller.focus();
+    await expect(scroller).toHaveFocus();
+    scroller.scrollLeft = scroller.scrollWidth;
+    await waitFor(() =>
+      expect(frame).toHaveAttribute("data-overflow", "start"),
+    );
+    const savedLeft = scroller.scrollLeft;
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Скрыть или вернуть таблицу" }),
+    );
+    await waitFor(() => expect(scroller).not.toBeVisible());
+    await expect(scroller.isConnected).toBe(true);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Скрыть или вернуть таблицу" }),
+    );
+    await waitFor(() => expect(scroller).toBeVisible());
+    await expect(
+      canvas.getByRole("region", { name: "Таблица в материале" }),
+    ).toBe(scroller);
+    await expect(scroller.scrollLeft).toBe(savedLeft);
+    await waitFor(() =>
+      expect(frame).toHaveAttribute("data-overflow", "start"),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Удалить таблицу" }),
+    );
+    await waitFor(() => expect(scroller.isConnected).toBe(false));
+  },
+};
+
+export const ReleasesNativeTableResources: Story = {
+  args: { initiallyMounted: false },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const added = spyOn(EventTarget.prototype, "addEventListener");
+    const removed = spyOn(EventTarget.prototype, "removeEventListener");
+    const observed = spyOn(ResizeObserver.prototype, "observe");
+    const disconnected = spyOn(ResizeObserver.prototype, "disconnect");
+    const capture = (options: boolean | EventListenerOptions | undefined) =>
+      typeof options === "boolean" ? options : (options?.capture ?? false);
+    try {
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Показать таблицу" }),
+      );
+      const scroller = await canvas.findByRole("region", {
+        name: "Таблица в материале",
+      });
+      const table = within(scroller).getByRole("table");
+      const lease = async (afterScroll: number, afterObserve: number) => {
+        const index = added.mock.calls.findLastIndex(
+          ([kind], at) =>
+            at >= afterScroll &&
+            kind === "scroll" &&
+            added.mock.contexts[at] === scroller,
+        );
+        const listener = added.mock.calls[index];
+        const viewportIndex = observed.mock.calls.findLastIndex(
+          ([element], at) => at >= afterObserve && element === scroller,
+        );
+        const contentIndex = observed.mock.calls.findLastIndex(
+          ([element], at) => at >= afterObserve && element === table,
+        );
+        const observer = observed.mock.contexts[viewportIndex];
+        if (
+          listener === undefined ||
+          observer === undefined ||
+          contentIndex < 0
+        )
+          throw new Error("Missing actual table viewport/content lease");
+        await expect(observed.mock.contexts[contentIndex] === observer).toBe(
+          true,
+        );
+        return { listener, observer };
+      };
+      const first = await lease(0, 0);
+      const released = async (
+        resource: Awaited<ReturnType<typeof lease>>,
+        afterRemove: number,
+        afterDisconnect: number,
+      ) => {
+        await expect(
+          removed.mock.calls.some(
+            ([kind, listener, options], at) =>
+              at >= afterRemove &&
+              removed.mock.contexts[at] === scroller &&
+              kind === "scroll" &&
+              listener === resource.listener[1] &&
+              capture(options) === capture(resource.listener[2]),
+          ),
+        ).toBe(true);
+        await expect(
+          disconnected.mock.contexts
+            .slice(afterDisconnect)
+            .includes(resource.observer),
+        ).toBe(true);
+      };
+      const beforeHide = {
+        removes: removed.mock.calls.length,
+        disconnects: disconnected.mock.calls.length,
+      };
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Скрыть или вернуть таблицу" }),
+      );
+      await waitFor(() => expect(scroller).not.toBeVisible());
+      await released(first, beforeHide.removes, beforeHide.disconnects);
+      const beforeReturn = {
+        scrolls: added.mock.calls.length,
+        observations: observed.mock.calls.length,
+      };
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Скрыть или вернуть таблицу" }),
+      );
+      await waitFor(() => expect(scroller).toBeVisible());
+      await expect(
+        canvas.getByRole("region", { name: "Таблица в материале" }) ===
+          scroller,
+      ).toBe(true);
+      const second = await lease(
+        beforeReturn.scrolls,
+        beforeReturn.observations,
+      );
+      const beforeUnmount = {
+        removes: removed.mock.calls.length,
+        disconnects: disconnected.mock.calls.length,
+      };
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Удалить таблицу" }),
+      );
+      await waitFor(() => expect(scroller.isConnected).toBe(false));
+      await released(second, beforeUnmount.removes, beforeUnmount.disconnects);
+    } finally {
+      added.mockRestore();
+      removed.mockRestore();
+      observed.mockRestore();
+      disconnected.mockRestore();
+    }
+  },
+};
+
+export const TracksContentWidthWithoutViewportResize: Story = {
+  args: { initialColumns: 2 },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const scroller = canvas.getByRole("region", {
+      name: "Таблица в материале",
+    });
+    const frame = scroller.parentElement;
+    const table = scroller.querySelector("table");
+    if (frame === null || table === null)
+      throw new Error("Missing rendered table");
+    await document.fonts.ready;
+    const geometry = () => ({
+      clientWidth: scroller.clientWidth,
+      clientHeight: scroller.clientHeight,
+      scrollWidth: scroller.scrollWidth,
+      contentWidth: table.getBoundingClientRect().width,
+      contentHeight: table.getBoundingClientRect().height,
+      fonts: document.fonts.status,
+      connected: scroller.isConnected,
+    });
+    await expect(scroller.scrollWidth).toBeLessThanOrEqual(
+      scroller.clientWidth,
+    );
+    await waitFor(() => expect(frame).toHaveAttribute("data-overflow", "none"));
+    const initial = geometry();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Изменить столбцы" }),
+    );
+    await waitFor(() =>
+      expect(scroller.scrollWidth).toBeGreaterThan(scroller.clientWidth),
+    );
+    await expect(scroller.querySelector("table")).toBe(table);
+    await expect(scroller.clientWidth).toBe(initial.clientWidth);
+    await expect(scroller.clientHeight).toBe(initial.clientHeight);
+    await waitFor(() =>
+      expect(
+        frame,
+        JSON.stringify({ initial, now: geometry() }),
+      ).toHaveAttribute("data-overflow", "end"),
+    );
+    const fade = frame.querySelector("[data-table-fade='end']");
+    if (fade === null) throw new Error("Missing table end fade");
+    await waitFor(() => expect(getComputedStyle(fade).opacity).toBe("1"));
+    const grown = geometry();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Изменить столбцы" }),
+    );
+    await waitFor(() =>
+      expect(scroller.scrollWidth).toBeLessThanOrEqual(scroller.clientWidth),
+    );
+    await expect(scroller.clientWidth).toBe(initial.clientWidth);
+    await expect(scroller.clientHeight).toBe(initial.clientHeight);
+    await waitFor(() =>
+      expect(
+        frame,
+        JSON.stringify({ initial, grown, now: geometry() }),
+      ).toHaveAttribute("data-overflow", "none"),
+    );
+    await waitFor(() => expect(getComputedStyle(fade).opacity).toBe("0"));
+  },
+};
+
+export const NestedTablesOwnTheirEdgeHints: Story = {
+  render: () => {
+    const outer = tableBlock(3);
+    const row = outer.rows[0];
+    if (row === undefined) throw new Error("Missing outer table row");
+    const nested = {
+      ...outer,
+      rows: [
+        {
+          cells: row.cells.map((cell, index) =>
+            index === 0 ? { ...cell, content: [tableBlock(8)] } : cell,
+          ),
+        },
+      ],
+    };
+    return (
+      <MaterialBodyView blocks={[nested]} path={[]} rendering={rendering} />
+    );
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const viewports = canvas.getAllByRole("region");
+    await expect(viewports).toHaveLength(2);
+    const outer = canvas.getByRole("region", { name: "Таблица 1 в материале" });
+    const inner = canvas.getByRole("region", { name: "Таблица 2 в материале" });
+    const hints = (viewport: HTMLElement) => {
+      const frame = viewport.parentElement;
+      if (frame === null) throw new Error("Missing table frame");
+      const own = Array.from(frame.children);
+      const start = own.find(
+        (child) => child.getAttribute("data-table-fade") === "start",
+      );
+      const end = own.find(
+        (child) => child.getAttribute("data-table-fade") === "end",
+      );
+      if (start === undefined || end === undefined)
+        throw new Error("Missing own edge hints");
+      return { frame, start, end };
+    };
+    const outerHints = hints(outer);
+    const innerHints = hints(inner);
+    for (const viewport of viewports) {
+      const { frame, end } = hints(viewport);
+      await expect(viewport.scrollWidth).toBeGreaterThan(viewport.clientWidth);
+      await waitFor(() =>
+        expect(frame).toHaveAttribute("data-overflow", "end"),
+      );
+      await waitFor(() => expect(getComputedStyle(end).opacity).toBe("1"));
+    }
+    outer.scrollLeft = outer.scrollWidth;
+    await waitFor(() =>
+      expect(outerHints.frame).toHaveAttribute("data-overflow", "start"),
+    );
+    await waitFor(() =>
+      expect(getComputedStyle(outerHints.start).opacity).toBe("1"),
+    );
+    await expect(innerHints.frame).toHaveAttribute("data-overflow", "end");
+    await expect(getComputedStyle(innerHints.end).opacity).toBe("1");
+    inner.scrollLeft = inner.scrollWidth;
+    await waitFor(() =>
+      expect(innerHints.frame).toHaveAttribute("data-overflow", "start"),
+    );
+    await waitFor(() =>
+      expect(getComputedStyle(innerHints.start).opacity).toBe("1"),
+    );
+    await expect(getComputedStyle(outerHints.start).opacity).toBe("1");
+  },
+};
