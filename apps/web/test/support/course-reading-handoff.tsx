@@ -51,7 +51,11 @@ function HandoffReturn() {
   const [pathname, setPathname] = useState(window.location.pathname);
   return (
     <>
-      <button onClick={() => setPathname("/materials/another-lesson")}>
+      <button
+        onClick={() => {
+          setPathname("/materials/another-lesson");
+        }}
+      >
         Leave course frame
       </button>
       <CourseReadingHost pathname={pathname}>
