@@ -354,3 +354,123 @@ test("chromium: an admitted lesson fragment survives an intermediate render befo
     }
   }
 }, 30_000);
+
+test("chromium: following a link to a closed lesson section continues keyboard navigation there", async () => {
+  const browser = browsers.get("chromium");
+  if (browser === undefined) throw new Error("Missing body fragment browser");
+  const page = await browser.newPage({ reducedMotion: "reduce" });
+  try {
+    await page.goto(`${url}?lesson-fragment`);
+    const heading = page.getByRole("heading", {
+      name: "Итог",
+      includeHidden: true,
+    });
+    await ui(heading).toBeHidden();
+    const link = page.getByRole("link", { name: "Read final section" });
+    await link.click();
+    await ui(page).toHaveURL(/#(?:итог|%D0%B8%D1%82%D0%BE%D0%B3)$/u);
+    await ui(heading).toBeInViewport({ ratio: 1 });
+    await ui(page.getByLabel("Saved parts")).toHaveText("4");
+    await page.keyboard.press("Tab");
+    await ui(
+      page.getByRole("link", { name: "After final section" }),
+    ).toBeFocused();
+  } finally {
+    await page.close();
+  }
+}, 30_000);
+
+test("chromium: the lesson releases its fragment subscriptions while hidden and on removal", async () => {
+  const browser = browsers.get("chromium");
+  if (browser === undefined) throw new Error("Missing body fragment browser");
+  const page = await browser.newPage();
+  try {
+    await page.goto(`${url}?lesson-fragment&isolated`);
+    await ui(page.getByRole("button", { name: "Mount lesson" })).toBeVisible();
+    const inspector = await page.context().newCDPSession(page);
+    const listenerCount = async (
+      owner: "window" | "document",
+      event: string,
+      capture: boolean,
+    ) => {
+      const { result } = await inspector.send("Runtime.evaluate", {
+        expression: owner,
+      });
+      if (result.objectId === undefined) throw new Error(`Missing ${owner}`);
+      try {
+        const { listeners } = await inspector.send(
+          "DOMDebugger.getEventListeners",
+          { objectId: result.objectId, depth: 0 },
+        );
+        return listeners.filter(
+          (listener) =>
+            listener.type === event && listener.useCapture === capture,
+        ).length;
+      } finally {
+        await inspector.send("Runtime.releaseObject", {
+          objectId: result.objectId,
+        });
+      }
+    };
+    const counts = () =>
+      Promise.all([
+        listenerCount("document", "click", true),
+        listenerCount("window", "hashchange", false),
+      ] as const);
+    const baseline = await counts();
+
+    const press = (name: string) =>
+      page.getByRole("button", { name, exact: true }).click();
+    const follow = async () => {
+      const receipt = await page.evaluateHandle(() => ({
+        changed: new Promise<void>((resolve) => {
+          window.addEventListener(
+            "hashchange",
+            () => {
+              resolve();
+            },
+            {
+              once: true,
+            },
+          );
+        }),
+      }));
+      await page.getByRole("link", { name: "Read lesson target" }).click();
+      await receipt.evaluate(({ changed }) => changed);
+      await receipt.dispose();
+    };
+    const resetAddress = () =>
+      page.evaluate(() => {
+        const address = new URL(location.href);
+        address.hash = "";
+        history.replaceState(history.state, "", address);
+      });
+    const saves = page.getByLabel("Saved parts");
+    await press("Mount lesson");
+    await ui
+      .poll(() => listenerCount("window", "hashchange", false))
+      .toBe(baseline[1] + 1);
+    const active = await counts();
+    await press("Hide lesson");
+    await ui.poll(counts).toEqual(baseline);
+    await follow();
+    await ui(saves).toBeEmpty();
+    await resetAddress();
+    await press("Show lesson");
+    await ui.poll(counts).toEqual(active);
+    await follow();
+    await ui(saves).toHaveText("3");
+    await resetAddress();
+    await press("Remove lesson");
+    await ui.poll(counts).toEqual(baseline);
+    await follow();
+    await ui(saves).toHaveText("3");
+    await resetAddress();
+    await press("Mount lesson");
+    await ui.poll(counts).toEqual(active);
+    await follow();
+    await ui(saves).toHaveText("3,3");
+  } finally {
+    await page.close();
+  }
+}, 30_000);
