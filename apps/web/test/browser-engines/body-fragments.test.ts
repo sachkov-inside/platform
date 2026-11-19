@@ -253,11 +253,6 @@ test("chromium: an admitted lesson fragment survives an intermediate render befo
   const browser = browsers.get("chromium");
   if (browser === undefined) throw new Error("Missing body fragment browser");
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
-  const diagnostics: string[] = [];
-  page.on("console", (message) => {
-    if (message.text().startsWith("[CONTROL-2479]"))
-      diagnostics.push(message.text());
-  });
   try {
     await page.goto(`${url}?lesson-admission#итог`);
     await ui(
@@ -352,7 +347,7 @@ test("chromium: an admitted lesson fragment survives an intermediate render befo
       });
       await writeFile(
         "test-results/lesson-fragment-admission/chromium.json",
-        JSON.stringify({ observation, diagnostics }, null, 2),
+        JSON.stringify(observation, null, 2),
       );
     } finally {
       await page.close();
