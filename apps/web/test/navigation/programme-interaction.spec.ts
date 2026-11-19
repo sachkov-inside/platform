@@ -1,4 +1,4 @@
-import { expect, test, type BrowserContext } from "@playwright/test";
+import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { z } from "zod";
 import { scrollProgrammeBoundaryIntoView } from "../support/programme-scroll";
 
@@ -36,6 +36,167 @@ async function signInAsReader(
 }
 
 const optionalHoldSchema = z.object({ blocked: z.array(z.string()) });
+
+async function checkSameSourceProgrammeReturn(
+  page: Page,
+  productSlug: string,
+  firstSlug: string,
+) {
+  const route = `/products/${productSlug}/programme?page=1&at=${firstSlug}`;
+  const response = await page.goto(route);
+  await response?.finished();
+  const initialUrl = page.url();
+  const surface = page.locator(
+    `[data-product-programme="${productSlug}"]:visible`,
+  );
+  await expect(surface).toBeVisible();
+  const rows = surface.locator("[data-product-ordinal]");
+  await expect(rows).toHaveCount(12);
+  const geometry = await rows.nth(11).evaluate((node) => {
+    let root = node.parentElement;
+    while (
+      root !== null &&
+      !/^(auto|scroll)$/.test(getComputedStyle(root).overflowY)
+    )
+      root = root.parentElement;
+    return {
+      boundaryTop: node.getBoundingClientRect().top,
+      rootBottom: root?.getBoundingClientRect().bottom ?? innerHeight,
+      root: root === null ? "document" : "element",
+    };
+  });
+  expect(geometry.root).toBe("document");
+  expect(geometry.boundaryTop).toBeGreaterThan(geometry.rootBottom + 600);
+  await rows.nth(11).evaluate((node) => {
+    node.scrollIntoView({ block: "end", behavior: "instant" });
+  });
+  await expect(rows).toHaveCount(24);
+  const first = await rows.first().elementHandle();
+  const boundary = await rows.nth(23).elementHandle();
+  try {
+    await rows.first().getByRole("heading").getByRole("link").click();
+    await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
+    expect(await first.evaluate((node) => node.isConnected)).toBe(true);
+    expect(await boundary.evaluate((node) => node.isConnected)).toBe(true);
+    await page.goBack();
+    await expect(page).toHaveURL(initialUrl);
+    await expect(surface).toBeVisible();
+    await expect(rows).toHaveCount(24);
+    expect(
+      await rows.first().evaluate((node, original) => node === original, first),
+    ).toBe(true);
+    expect(
+      await rows
+        .nth(23)
+        .evaluate((node, original) => node === original, boundary),
+    ).toBe(true);
+    await rows.nth(23).evaluate((node) => {
+      node.scrollIntoView({ block: "end", behavior: "instant" });
+    });
+    await expect(rows).toHaveCount(36);
+  } finally {
+    await first.dispose();
+    await boundary.dispose();
+  }
+}
+
+const revealFixtureSchema = z.object({
+  scope: z.uuid(),
+  productSlug: z.string().regex(/^reader-title-[0-9a-f-]+$/u),
+  materialSlugs: z.array(z.string()).length(120),
+});
+const revealItemSchema = z.object({
+  materialId: z.uuid(),
+  slug: z.string(),
+  title: z.string(),
+  access: z.literal("free"),
+  availability: z.literal("available"),
+  productMemberships: z.tuple([
+    z.object({
+      ordinal: z.number().int(),
+      stepGroup: z.null(),
+      product: z.object({ id: z.uuid(), name: z.string(), slug: z.string() }),
+    }),
+  ]),
+});
+
+test("allocated same-source programme retains both lesson nodes through Reader return", async ({
+  page,
+  request,
+}) => {
+  const backend = `http://127.0.0.1:${process.env["FAKE_BACKEND_PORT"] ?? ""}`;
+  const allocated = await request.post(
+    `${backend}/__reader-title-fixtures?layout=programme-reveal`,
+  );
+  const raw: unknown = await allocated.json();
+  const { scope } = z.object({ scope: z.uuid() }).parse(raw);
+  try {
+    expect(allocated.status()).toBe(201);
+    const fixture = revealFixtureSchema.parse(raw);
+    const projection = await request.get(
+      `${backend}/library/products/${fixture.productSlug}`,
+    );
+    expect(projection.status()).toBe(200);
+    const payload: unknown = await projection.json();
+    const programme = z
+      .object({
+        items: z.array(revealItemSchema).length(120),
+        chapters: z.array(z.object({ materialIds: z.array(z.uuid()) })),
+      })
+      .parse(payload);
+    expect(programme.items.map(({ slug }) => slug)).toEqual(
+      fixture.materialSlugs,
+    );
+    programme.items.forEach((item, index) => {
+      const membership = item.productMemberships[0];
+      expect(membership.ordinal).toBe(index + 1);
+      expect(membership.product.id).toBe(scope);
+      expect(membership.product.slug).toBe(fixture.productSlug);
+    });
+    const placement = programme.chapters.map(({ materialIds }) =>
+      materialIds.map((id) => {
+        const index = programme.items.findIndex(
+          (item) => item.materialId === id,
+        );
+        expect(index).toBeGreaterThanOrEqual(0);
+        return index + 1;
+      }),
+    );
+    expect(placement.flat()).toEqual(
+      Array.from({ length: 120 }, (_, index) => index + 1),
+    );
+    const firstSlug = fixture.materialSlugs[0];
+    const firstItem = programme.items[0];
+    if (firstSlug === undefined || firstItem === undefined)
+      throw new Error("Missing allocated first lesson");
+    const reader = await request.get(`${backend}/materials/${firstSlug}`);
+    expect(reader.status()).toBe(200);
+    const readerRaw: unknown = await reader.json();
+    const readerItem = z
+      .object({
+        kind: z.literal("available"),
+        projection: z.object({
+          materialId: z.uuid(),
+          title: z.string(),
+          slug: z.string(),
+        }),
+      })
+      .parse(readerRaw);
+    expect(readerItem.projection).toEqual({
+      materialId: firstItem.materialId,
+      title: firstItem.title,
+      slug: firstSlug,
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await checkSameSourceProgrammeReturn(page, fixture.productSlug, firstSlug);
+  } finally {
+    const deleted = await request.delete(
+      `${backend}/__reader-title-fixtures/${scope}`,
+    );
+    expect(deleted.status()).toBe(200);
+    expect(await deleted.json()).toEqual({ deleted: true });
+  }
+});
 
 test("the first available programme switch opens the catalogue across delayed hydration", async ({
   page,
@@ -197,6 +358,15 @@ test("a selected catalogue survives delivery of optional onboarding without repl
   await request.post(
     `${backend}/__reader-optional-hold?held=true&target=community-link`,
   );
+  const personalBrowserReads: string[] = [];
+  page.on("request", (request) => {
+    const path = new URL(request.url()).pathname;
+    if (
+      path === "/api/account/billing" ||
+      path === "/api/account/community-entry"
+    )
+      personalBrowserReads.push(path);
+  });
   let documentResponse;
   try {
     documentResponse = await page.goto(`/products/${slug}/programme`, {
@@ -219,6 +389,7 @@ test("a selected catalogue survives delivery of optional onboarding without repl
     expect(gate.blocked.some((path) => path.includes("community-entry"))).toBe(
       true,
     );
+    expect(personalBrowserReads).toEqual([]);
     await request.post(
       `${backend}/__reader-optional-hold?held=false&target=community-link`,
     );

@@ -5,15 +5,23 @@ installer=$1
 fixture=$(mktemp -d)
 export INSTALL_TEST_PIDS="$fixture/pids"
 export INSTALL_TEST_SOURCES="$fixture/apt"
+export INSTALL_TEST_EFFECTIVE="$fixture/effective"
+export INSTALL_TEST_NODE="$(command -v node)"
 mkdir -p "$INSTALL_TEST_SOURCES/sources.list.d"
 printf 'deb http://azure.archive.ubuntu.com/ubuntu noble main\n' > "$INSTALL_TEST_SOURCES/sources.list"
 printf 'URIs: https://azure.archive.ubuntu.com/ubuntu\n' > "$INSTALL_TEST_SOURCES/sources.list.d/ubuntu.sources"
 printf 'http://azure.archive.ubuntu.com/ubuntu\tpriority:1\nhttp://security.ubuntu.com/ubuntu\tpriority:2\n' > "$INSTALL_TEST_SOURCES/apt-mirrors.txt"
+# Each child holds a shared lock until it exits. Release any survivor through
+# its own FIFO, then join all children before removing their directory.
+export INSTALL_TEST_LIFETIME="$fixture/lifetime"
 cleanup() {
-  if [[ -f "$INSTALL_TEST_PIDS" ]]; then
-    while read -r pid; do kill -KILL "$pid" 2>/dev/null || true; done < "$INSTALL_TEST_PIDS"
-  fi
-  rm -rf "$fixture"
+  local channel
+  for channel in "$fixture"/child-*.fifo; do
+    [[ -p $channel ]] || continue
+    (echo stop >&3) 3<>"$channel"
+  done
+  flock --exclusive "$INSTALL_TEST_LIFETIME" true
+  rm -rf -- "$fixture"
 }
 trap cleanup EXIT
 
@@ -27,6 +35,13 @@ case "$1" in
     exec /usr/bin/find "$INSTALL_TEST_SOURCES" "$@"
     ;;
   timeout)
+    for argument in "$@"; do
+      if [[ "$argument" = APT_CONFIG=* ]]; then
+        configuration=${argument#APT_CONFIG=}
+        mkdir -p "$INSTALL_TEST_EFFECTIVE"
+        cp -R "$(dirname "$configuration")/." "$INSTALL_TEST_EFFECTIVE/"
+      fi
+    done
     shift
     signal_option=$1
     shift 2
@@ -37,9 +52,28 @@ esac
 SH
 cat > "$fixture/node" <<'SH'
 #!/usr/bin/env bash
-# Model a CLI parent that exits on SIGTERM, with a child that ignores SIGTERM.
+if [[ "$1" = */prepare-playwright-apt-sources.mjs ]]; then
+  source_dir=$2
+  [[ "$source_dir" != /etc/apt ]] || source_dir=$INSTALL_TEST_SOURCES
+  exec "$INSTALL_TEST_NODE" "$1" "$source_dir" "${@:3}"
+fi
+exec "$INSTALL_TEST_NODE" "$@"
+SH
+cat > "$fixture/apt-get" <<'SH'
+#!/usr/bin/env bash
+[[ $1 == update ]] || exit 98
+# Model an acquisition parent that exits on SIGTERM, with a child that ignores SIGTERM.
 trap 'exit 0' TERM
-bash -c 'trap "" TERM; echo "$$" >> "$INSTALL_TEST_PIDS"; exec sleep 600' &
+bash -c '
+  set -eu
+  trap "" TERM
+  flock --shared 8
+  channel="${INSTALL_TEST_PIDS%/*}/child-$$.fifo"
+  mkfifo "$channel"
+  exec 3<>"$channel"
+  echo "$$" >> "$INSTALL_TEST_PIDS"
+  read -r -t 10 <&3
+' 8>"$INSTALL_TEST_LIFETIME" &
 wait
 SH
 cat > "$fixture/pnpm" <<'SH'
@@ -47,7 +81,7 @@ cat > "$fixture/pnpm" <<'SH'
 echo 'Browser downloads must not start after two deadlines.' >&2
 exit 99
 SH
-chmod +x "$fixture/sudo" "$fixture/node" "$fixture/pnpm"
+chmod +x "$fixture/apt-get" "$fixture/sudo" "$fixture/node" "$fixture/pnpm"
 
 set +e
 PATH="$fixture:$PATH" bash "$installer" chromium > "$fixture/output" 2>&1
@@ -63,8 +97,9 @@ while read -r pid; do
 done < "$INSTALL_TEST_PIDS"
 test "$status" -eq 137
 echo 'Both deadline attempts terminated their SIGTERM-resistant children.'
-grep -q 'https://archive.ubuntu.com/ubuntu' "$INSTALL_TEST_SOURCES/sources.list"
-grep -q 'https://archive.ubuntu.com/ubuntu' "$INSTALL_TEST_SOURCES/sources.list.d/ubuntu.sources"
-grep -q 'https://archive.ubuntu.com/ubuntu.*priority:1' "$INSTALL_TEST_SOURCES/apt-mirrors.txt"
-grep -q 'http://security.ubuntu.com/ubuntu.*priority:2' "$INSTALL_TEST_SOURCES/apt-mirrors.txt"
-echo 'HTTPS fallback replaced Azure in .list, .sources and apt-mirrors.txt; priorities preserved.'
+grep -q 'https://archive.ubuntu.com/ubuntu' "$INSTALL_TEST_EFFECTIVE/sources.list"
+grep -q 'https://archive.ubuntu.com/ubuntu' "$INSTALL_TEST_EFFECTIVE/sources.list.d/ubuntu.sources"
+grep -q 'https://archive.ubuntu.com/ubuntu.*priority:1' "$INSTALL_TEST_EFFECTIVE/apt-mirrors.txt"
+grep -q 'http://security.ubuntu.com/ubuntu.*priority:2' "$INSTALL_TEST_EFFECTIVE/apt-mirrors.txt"
+grep -q 'http://azure.archive.ubuntu.com/ubuntu' "$INSTALL_TEST_SOURCES/sources.list"
+echo 'Scoped HTTPS fallback replaced Azure in every format; original global sources remained unchanged.'

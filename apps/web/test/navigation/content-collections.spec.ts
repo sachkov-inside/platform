@@ -489,6 +489,10 @@ test("topics filter and search live in the address and a topic opens as its own 
   ).toHaveValue("Инфра");
   await expect(topics).toHaveCount(1);
 
+  await expect(
+    topics.getByRole("link", { name: "Инфраструктура" }),
+  ).toBeFocused();
+
   // Адрес темы открывается и сам по себе.
   await page.goto(`/authoring/topics?topic=${infrastructureId}`);
   await expect(
@@ -497,6 +501,19 @@ test("topics filter and search live in the address and a topic opens as its own 
   await page.getByRole("button", { name: "Все темы" }).click();
   await expect(page).toHaveURL(/\/authoring\/topics$/u);
   await expect(topics).toHaveCount(3);
+  await expect(
+    topics.getByRole("link", { name: "Инфраструктура" }),
+  ).toBeFocused();
+  const otherTopic = topics.getByRole("link", {
+    name: "Продуктовая разработка",
+  });
+  await otherTopic.click();
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Продуктовая разработка" }),
+  ).toBeFocused();
+  await page.goBack();
+  await expect(page).toHaveURL("/authoring/topics");
+  await expect(otherTopic).toBeFocused();
 });
 
 test("topic row archive waits for the pending draft and uses its accepted version (#2382)", async ({
@@ -656,4 +673,35 @@ test("a retained Product ignores another route tab and returns to the same descr
       (node) => node.isConnected && node.getClientRects().length > 0,
     ),
   ).resolves.toBe(true);
+});
+
+test("leaving a changed product saves its title and opens the list without a beforeunload prompt", async ({
+  page,
+}, info) => {
+  await page.goto(`/authoring/products/${architectureId}?tab=description`);
+  const title = page.getByRole("textbox", { name: "Название продукта" });
+  const savedTitle = "Сохранено перед переходом";
+  const prompts: string[] = [];
+  page.on("dialog", async (dialog) => {
+    prompts.push(dialog.type());
+    await dialog.accept();
+  });
+  const release = Promise.withResolvers<undefined>();
+  await page.route("**/api/authoring/collections/metadata", async (route) => {
+    await release.promise;
+    await route.continue();
+  });
+  try {
+    await title.click();
+    await title.fill(savedTitle);
+    await page.getByRole("link", { name: "Все продукты", exact: true }).click();
+    release.resolve(undefined);
+    await expect(page).toHaveURL("/authoring/products");
+    await expect(
+      rows(page, info, "Все продукты").getByRole("link", { name: savedTitle }),
+    ).toBeVisible();
+    expect(prompts).toEqual([]);
+  } finally {
+    release.resolve(undefined);
+  }
 });

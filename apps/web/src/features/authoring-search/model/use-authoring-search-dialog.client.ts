@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 import { useNativeDialog } from "@/shared/lib/native-dialog.client";
 
@@ -18,25 +18,41 @@ export function useAuthoringSearchDialog() {
   const closeSearch = useCallback(() => {
     onOpenChange(false);
   }, [onOpenChange]);
-  const dialog = useNativeDialog({ open, onOpenChange });
+  const { ref: nativeDialogRef, ...dialogEvents } = useNativeDialog({
+    open,
+    onOpenChange,
+  });
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (
-        (event.metaKey || event.ctrlKey) &&
-        !event.altKey &&
-        !event.shiftKey &&
-        event.key.toLowerCase() === "k"
-      ) {
-        event.preventDefault();
-        openSearch();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [openSearch]);
+  const shortcutRef = useCallback(
+    (element: HTMLDialogElement | null) => {
+      nativeDialogRef.current = element;
+      if (element === null) return;
+      const onKeyDown = (event: KeyboardEvent) => {
+        if (
+          (event.metaKey || event.ctrlKey) &&
+          !event.altKey &&
+          !event.shiftKey &&
+          event.key.toLowerCase() === "k"
+        ) {
+          event.preventDefault();
+          openSearch();
+        }
+      };
+      window.addEventListener("keydown", onKeyDown);
+      return () => {
+        window.removeEventListener("keydown", onKeyDown);
+        if (nativeDialogRef.current === element) nativeDialogRef.current = null;
+      };
+    },
+    [nativeDialogRef, openSearch],
+  );
 
-  return { open, openSearch, closeSearch, text, setText, dialog };
+  return {
+    open,
+    openSearch,
+    closeSearch,
+    text,
+    setText,
+    dialog: { ...dialogEvents, ref: shortcutRef },
+  };
 }

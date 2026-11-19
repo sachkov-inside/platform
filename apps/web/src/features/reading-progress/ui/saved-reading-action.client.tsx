@@ -1,17 +1,8 @@
 "use client";
-import { useEffect, useMemo } from "react";
-import {
-  useIsMutating,
-  useMutation,
-  useMutationState,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMaterialReading } from "@/entities/material";
 import { setReadingState } from "../api/reading.browser";
-import {
-  readingCommandSchema,
-  readingResultSchema,
-} from "../model/reading-contract";
+import { useReadingCommandHistory } from "../model/use-reading-command-history.client";
 import {
   readingProgressChanges,
   refreshReadingProgress,
@@ -32,33 +23,13 @@ export function SavedReadingAction({
 }) {
   const reading = useMaterialReading(materialId);
   const queryClient = useQueryClient();
-  const mutationKey = useMemo(
-    () =>
-      ["reading-progress", reading.accountId, "set-state", materialId] as const,
-    [materialId, reading.accountId],
-  );
-  // Новый доступный Reader снимает прежний отказ, сохраняя ошибки и ключи повторных команд.
-  useEffect(() => {
-    if (!canMark || !reading.resolved) return;
-    const cache = queryClient.getMutationCache();
-    for (const previous of cache.findAll({ mutationKey, exact: true }))
-      if (
-        previous.state.status === "success" &&
-        readingResultSchema.safeParse(previous.state.data).data?.kind ===
-          "denied"
-      )
-        cache.remove(previous);
-  }, [canMark, mutationKey, queryClient, reading.resolved]);
-  const saving = useIsMutating({ mutationKey }) > 0;
-  // Все представления материала наблюдают последнюю команду одного владельца кеша.
-  const latest = useMutationState({
-    filters: { mutationKey, exact: true },
-    select: ({ state }) => ({
-      status: state.status,
-      result: readingResultSchema.safeParse(state.data).data,
-      command: readingCommandSchema.safeParse(state.variables).data,
-    }),
-  }).at(-1);
+  const { mutationKey, saving, latest, clearFinished } =
+    useReadingCommandHistory(
+      queryClient,
+      reading.accountId,
+      materialId,
+      canMark && reading.resolved,
+    );
   const denied = latest?.result?.kind === "denied";
   const notice =
     latest?.status === "error" ||
@@ -115,11 +86,7 @@ export function SavedReadingAction({
       format={format}
       view={view}
       onRefresh={() => {
-        void reading.refresh().then(() => {
-          const cache = queryClient.getMutationCache();
-          for (const previous of cache.findAll({ mutationKey, exact: true }))
-            if (previous.state.status !== "pending") cache.remove(previous);
-        });
+        void reading.refresh().then(clearFinished);
       }}
       onSetReadingState={(desired) => {
         if (state === undefined || saving) return;

@@ -152,7 +152,9 @@ export function LessonSteps({
 
   useEffect(() => {
     const id = pendingScroll.current;
-    if (id === null) return;
+    // The saved gate can already exist inside a hidden part. See RestoredGateScrollsOnce in
+    // ../../../_pages/material-reader/ui/material-reader-steps.stories.tsx.
+    if (id === null || opened !== latest.current.opened) return;
     pendingScroll.current = null;
     document
       .getElementById(id)

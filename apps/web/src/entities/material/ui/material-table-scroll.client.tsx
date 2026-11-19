@@ -1,20 +1,10 @@
 "use client";
 
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import type { MaterialTableName } from "../model/material-table-names";
 import { useMaterialTableName } from "./material-table-names.client";
 
-type Overflow = "none" | "start" | "end" | "both";
-
-function overflowOf(element: HTMLElement): Overflow {
-  const hidden = element.scrollWidth - element.clientWidth;
-  if (hidden <= 1) return "none";
-  const atStart = element.scrollLeft <= 1;
-  const atEnd = element.scrollLeft >= hidden - 1;
-  if (atStart) return "end";
-  if (atEnd) return "start";
-  return "both";
-}
+import { mountMaterialTableScroll } from "./material-table-scroll.browser";
 
 const fade =
   "pointer-events-none absolute inset-y-0 z-10 w-8 opacity-0 transition-opacity duration-(--motion-duration-fast)";
@@ -30,40 +20,18 @@ export function MaterialTableScroll({
   readonly children: ReactNode;
   readonly name?: MaterialTableName | undefined;
 }) {
-  const scroller = useRef<HTMLDivElement>(null);
-  const [overflow, setOverflow] = useState<Overflow>("none");
   const label = useMaterialTableName(name);
-
-  useEffect(() => {
-    const element = scroller.current;
-    if (element === null) return;
-    const update = () => {
-      setOverflow(overflowOf(element));
-    };
-    update();
-    element.addEventListener("scroll", update, { passive: true });
-    const resize = new ResizeObserver(update);
-    resize.observe(element);
-    return () => {
-      element.removeEventListener("scroll", update);
-      resize.disconnect();
-    };
-  }, []);
-
-  const showStart = overflow === "start" || overflow === "both";
-  const showEnd = overflow === "end" || overflow === "both";
-
   return (
     <div
       className="relative mt-8 max-w-full overflow-hidden rounded-xl border border-border"
-      data-overflow={overflow}
+      data-overflow="none"
       data-reader-block="table"
     >
       <div
         aria-label={label}
         className="max-w-full overflow-x-auto overscroll-x-contain [scrollbar-color:var(--muted-foreground)_var(--muted)]"
         data-table-scroll=""
-        ref={scroller}
+        ref={mountMaterialTableScroll}
         role="region"
         tabIndex={0}
       >
@@ -73,13 +41,11 @@ export function MaterialTableScroll({
         aria-hidden="true"
         className={`${fade} left-0 bg-linear-to-r from-foreground/15 to-transparent`}
         data-table-fade="start"
-        style={showStart ? { opacity: 1 } : undefined}
       />
       <div
         aria-hidden="true"
         className={`${fade} right-0 bg-linear-to-l from-foreground/15 to-transparent`}
         data-table-fade="end"
-        style={showEnd ? { opacity: 1 } : undefined}
       />
     </div>
   );

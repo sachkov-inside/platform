@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -9,7 +10,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { test } from "node:test";
 
 const action = readFileSync(
@@ -28,6 +29,7 @@ const shellCommand = command;
  * @param {import('node:test').TestContext} t
  * @param {string} failures
  * @param {Readonly<Record<string, string>>} [sourceFiles]
+ * @param {{ transactionExit?: number }} [options]
  */
 function install(
   t,
@@ -41,19 +43,61 @@ function install(
     "sources.list.d/vendor.list":
       "deb http://vendor.example/ubuntu noble main\n",
   },
+  { transactionExit = 0 } = {},
 ) {
   const directory = mkdtempSync(join(tmpdir(), "platform-apt-test-"));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const log = join(directory, "commands");
   const sources = join(directory, "apt");
+  const lists = join(directory, "lists");
+  mkdirSync(lists);
+  writeFileSync(
+    join(lists, "microsoft-prod_InRelease"),
+    "retained other-consumer index",
+  );
   mkdirSync(join(sources, "sources.list.d"), { recursive: true });
   for (const [name, content] of Object.entries(sourceFiles)) {
     writeFileSync(join(sources, name), content);
   }
+  const aptModel = join(directory, "apt-model.mjs");
+  writeFileSync(
+    aptModel,
+    `
+import { appendFileSync, existsSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+const [config, source, mode, lists, log] = process.argv.slice(2);
+const text = config ? readFileSync(config, 'utf8') : '';
+const main = text.match(/^Dir::Etc::sourcelist "(.*)";$/mi)?.[1] ?? join(source, 'sources.list');
+const parts = text.match(/^Dir::Etc::sourceparts "(.*)";$/mi)?.[1] ?? join(source, 'sources.list.d');
+const preserveLists = /^APT::Get::List-Cleanup "false";$/mi.test(text);
+const files = [main, ...readdirSync(parts).filter(n => n.endsWith('.list') || n.endsWith('.sources')).map(n => join(parts, n))];
+const feeds = files.filter(existsSync).map(f => readFileSync(f, 'utf8')).join(String.fromCharCode(10));
+appendFileSync(log, 'apt-model ' + JSON.stringify({ main, parts, preserveLists, config }) + String.fromCharCode(10));
+if (mode.startsWith('microsoft429') && feeds.includes('https://packages.microsoft.com/ubuntu/24.04/prod')) {
+  console.error('E: Failed to fetch https://packages.microsoft.com/ubuntu/24.04/prod/dists/noble/InRelease 429 Too Many Requests');
+  process.exit(100);
+}
+if (mode === 'ubuntu100' || (mode === 'microsoft429+azure100' && feeds.includes('http://azure.archive.ubuntu.com/ubuntu'))) {
+  console.error('E: Required Ubuntu source failed');
+  process.exit(100);
+}
+if (!preserveLists) rmSync(join(lists, 'microsoft-prod_InRelease'));
+`,
+  );
   const stub = `#!/bin/bash
 set -eu
 echo "$(basename "$0") $*" >> "$INSTALL_TEST_LOG"
+if [[ "$(basename "$0")" = node && "$1" = */prepare-playwright-apt-sources.mjs ]]; then
+  source_dir=$2
+  [[ "$source_dir" != /etc/apt ]] || source_dir=$INSTALL_TEST_SOURCES
+  exec "$INSTALL_TEST_NODE" "$1" "$source_dir" "\${@:3}"
+fi
+if [[ "$(basename "$0")" = node && "$2" = install-deps ]]; then
+  [[ "$*" = *"install-deps --dry-run chromium webkit" ]] || exit 98
+  exec apt-get install -s --no-install-recommends libtest-a libtest-b
+fi
 if [[ "$(basename "$0")" = sudo ]]; then
+  if [[ "$1" = env ]]; then exit "$INSTALL_TEST_TRANSACTION"; fi
   if [[ "$1" = tee ]]; then cat >> "$INSTALL_TEST_LOG"; fi
   if [[ "$1" = find ]]; then
     shift 2
@@ -64,8 +108,18 @@ if [[ "$(basename "$0")" = sudo ]]; then
     [[ ! -f "$INSTALL_TEST_LOG.count" ]] || count=$(cat "$INSTALL_TEST_LOG.count")
     count=$((count + 1))
     echo "$count" > "$INSTALL_TEST_LOG.count"
-    if [[ "$count" = 2 ]]; then
-      cp -R "$INSTALL_TEST_SOURCES" "$INSTALL_TEST_SOURCES.second"
+    active_sources="$INSTALL_TEST_SOURCES"
+    configuration=""
+    for argument in "$@"; do
+      if [[ "$argument" = APT_CONFIG=* ]]; then
+        configuration=$(echo "$argument" | cut -d= -f2-)
+        active_sources=$(dirname "$configuration")
+      fi
+    done
+    cp -R "$active_sources" "$INSTALL_TEST_SOURCES.attempt$count"
+    "$INSTALL_TEST_NODE" "$INSTALL_TEST_APT_MODEL" "$configuration" "$INSTALL_TEST_SOURCES" "$INSTALL_TEST_MODE" "$INSTALL_TEST_LISTS" "$INSTALL_TEST_LOG" || exit "$?"
+    if [[ "$INSTALL_TEST_MODE" != exit-codes ]]; then
+      exit 0
     fi
     case "$count" in
       1) exit "$INSTALL_TEST_FIRST" ;;
@@ -78,6 +132,14 @@ fi
   for (const name of ["sudo", "pnpm", "node"]) {
     writeFileSync(join(directory, name), stub, { mode: 0o755 });
   }
+  writeFileSync(
+    join(directory, "find"),
+    `#!/bin/bash
+echo "find $*" >> "$INSTALL_TEST_LOG"
+exec /usr/bin/find "$@"
+`,
+    { mode: 0o755 },
+  );
   // Translate GNU sed's in-place flag for the host's BSD sed, without changing its expression.
   writeFileSync(
     join(directory, "sed"),
@@ -105,26 +167,86 @@ exec /usr/bin/sed "$@"
         INSTALL_TEST_SOURCES: sources,
         INSTALL_TEST_FIRST: first,
         INSTALL_TEST_SECOND: second,
+        INSTALL_TEST_TRANSACTION: String(transactionExit),
+        INSTALL_TEST_MODE: [
+          "microsoft429",
+          "microsoft429+azure100",
+          "ubuntu100",
+        ].includes(failures)
+          ? failures
+          : "exit-codes",
+        INSTALL_TEST_NODE: process.execPath,
+        INSTALL_TEST_APT_MODEL: aptModel,
+        INSTALL_TEST_LISTS: lists,
       },
       encoding: "utf8",
       timeout: 5_000,
     },
   );
   assert.ifError(result.error);
-  return {
-    ...result,
-    log: readFileSync(log, "utf8"),
-    sources: Object.fromEntries(
+  const attempts = Number(readFileSync(`${log}.count`, "utf8"));
+  const logged = readFileSync(log, "utf8");
+  const aptCalls = logged
+    .split("\n")
+    .filter((line) => line.startsWith("apt-model "))
+    .map((line) => {
+      const row = /** @type {unknown} */ (
+        JSON.parse(line.slice("apt-model ".length))
+      );
+      assert.ok(row !== null && typeof row === "object");
+      assert.ok("main" in row && typeof row.main === "string");
+      assert.ok("parts" in row && typeof row.parts === "string");
+      assert.ok("config" in row && typeof row.config === "string");
+      assert.ok(
+        "preserveLists" in row && typeof row.preserveLists === "boolean",
+      );
+      return {
+        main: row.main,
+        parts: row.parts,
+        config: row.config,
+        preserveLists: row.preserveLists,
+      };
+    });
+  /** @param {string} directory */
+  function readSources(directory) {
+    return Object.fromEntries(
       Object.keys(sourceFiles).map((name) => [
         name,
-        readFileSync(
-          join(first === "0" ? sources : `${sources}.second`, name),
-          "utf8",
-        ),
+        readFileSync(join(directory, name), "utf8"),
       ]),
-    ),
+    );
+  }
+  return {
+    ...result,
+    log: logged,
+    aptCalls,
+    scopesRemoved: aptCalls.every((call) => !existsSync(dirname(call.config))),
+    otherFeedIndexRetained: existsSync(join(lists, "microsoft-prod_InRelease")),
+    originalSources: readSources(sources),
+    firstSources: readSources(`${sources}.attempt1`),
+    sources: readSources(`${sources}.attempt${String(attempts)}`),
   };
 }
+
+test("observed Microsoft 429 does not block browser dependencies or change the original feed", (t) => {
+  const result = install(t, "microsoft429", {
+    "sources.list": "deb http://azure.archive.ubuntu.com/ubuntu noble main\n",
+    "sources.list.d/microsoft-prod.list":
+      "deb [arch=amd64,arm64,armhf signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/ubuntu/24.04/prod noble main\n",
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal((result.log.match(/sudo timeout/gmu) ?? []).length, 1);
+  assert.match(result.log, /playwright install chromium webkit/u);
+  assert.equal(result.otherFeedIndexRetained, true);
+  assert.equal(result.scopesRemoved, true);
+  const firstAptCall = result.aptCalls[0];
+  assert.ok(firstAptCall);
+  assert.equal(firstAptCall.preserveLists, true);
+  assert.equal(
+    result.originalSources["sources.list.d/microsoft-prod.list"],
+    "deb [arch=amd64,arm64,armhf signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/ubuntu/24.04/prod noble main\n",
+  );
+});
 
 test("apt succeeds once under a root-owned deadline, then installs both engines", (t) => {
   const result = install(t, "0");
@@ -136,7 +258,7 @@ test("apt succeeds once under a root-owned deadline, then installs both engines"
   assert.equal((result.log.match(/sudo timeout/gmu) ?? []).length, 1);
   assert.match(
     result.log,
-    /sudo timeout --signal=KILL 180s .*install-deps chromium webkit/u,
+    /sudo timeout --signal=KILL 180s .*--download-only .*libtest-a libtest-b/u,
   );
   assert.match(
     result.log,
@@ -163,10 +285,16 @@ for (const failure of ["100", "124", "137"]) {
     assert.equal((result.log.match(/sudo timeout/gmu) ?? []).length, 2);
     assert.match(
       result.log,
-      /sudo find \/etc\/apt .*\.list.*\.sources.*archive\.ubuntu\.com/u,
+      /find \/tmp\/platform-playwright-apt\.[^ ]+ .*\.list.*\.sources.*archive\.ubuntu\.com/u,
     );
     assert.ok(result.log.includes("azure[.]archive[.]ubuntu[.]com/ubuntu"));
     assert.ok(result.log.includes("-name apt-mirrors.txt"));
+    assert.equal(
+      result.originalSources["sources.list"],
+      "deb http://azure.archive.ubuntu.com/ubuntu noble main\n",
+    );
+    assert.equal(result.otherFeedIndexRetained, true);
+    assert.equal(result.scopesRemoved, true);
     assert.match(result.log, /playwright install chromium webkit/u);
   });
 }
@@ -192,11 +320,90 @@ test("fallback uses HTTPS before the second attempt in every Ubuntu source forma
   );
 });
 
+test("retry moves only the direct HTTP noble-security pocket to the official HTTPS archive", (t) => {
+  const mixed =
+    "Types: deb\nURIs: http://security.ubuntu.com/ubuntu\nSuites: noble noble-updates\n noble-security\nComponents: main\nSigned-By: /keys/ubuntu.gpg\n";
+  const sources = {
+    "sources.list.d/mixed.sources": mixed,
+    "sources.list":
+      "deb [arch=amd64 signed-by=/keys/ubuntu.gpg] http://security.ubuntu.com/ubuntu/ noble-security main\n",
+    "sources.list.d/ubuntu.sources":
+      "Types: deb\nURIs: http://security.ubuntu.com/ubuntu\nSuites:\n noble-security\nComponents: main restricted\nSigned-By: /keys/ubuntu.gpg\n",
+    "sources.list.d/vendor.list":
+      "deb http://security.ubuntu.com/ubuntu-extra noble-security main\ndeb http://vendor.example/ubuntu noble-security main\n",
+  };
+  const result = install(t, "100,0", sources);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.aptCalls.length, 2);
+  assert.deepEqual(result.originalSources, sources);
+  assert.deepEqual(result.firstSources, sources);
+  assert.equal(
+    result.sources["sources.list.d/mixed.sources"],
+    [
+      "Types: deb\nURIs: http://security.ubuntu.com/ubuntu\nSuites: noble noble-updates\nComponents: main\nSigned-By: /keys/ubuntu.gpg",
+      "Types: deb\nURIs: https://archive.ubuntu.com/ubuntu\nSuites: noble-security\nComponents: main\nSigned-By: /keys/ubuntu.gpg\n",
+    ].join("\n\n"),
+  );
+  assert.equal(
+    result.sources["sources.list"],
+    "deb [arch=amd64 signed-by=/keys/ubuntu.gpg] https://archive.ubuntu.com/ubuntu/ noble-security main\n",
+  );
+  assert.equal(
+    result.sources["sources.list.d/ubuntu.sources"],
+    "Types: deb\nURIs: https://archive.ubuntu.com/ubuntu\nSuites:\n noble-security\nComponents: main restricted\nSigned-By: /keys/ubuntu.gpg\n",
+  );
+  assert.equal(
+    result.sources["sources.list.d/vendor.list"],
+    sources["sources.list.d/vendor.list"],
+  );
+  assert.equal(
+    (result.log.match(/^sudo env .* apt-get install .*--no-download/gmu) ?? [])
+      .length,
+    1,
+  );
+  assert.match(result.log, /playwright install chromium webkit/u);
+});
+
 test("a failed fallback preserves the exit code and never starts browser downloads", (t) => {
   const result = install(t, "124,100");
   assert.equal(result.status, 100, result.stderr);
   assert.equal((result.log.match(/sudo timeout/gmu) ?? []).length, 2);
   assert.doesNotMatch(result.log, /playwright install chromium/u);
+  assert.equal(result.scopesRemoved, true);
+});
+
+test("Microsoft isolation keeps Ubuntu HTTPS fallback inside the two existing root deadlines", (t) => {
+  const sources = {
+    "sources.list": "deb http://azure.archive.ubuntu.com/ubuntu noble main\n",
+    "sources.list.d/microsoft-prod.list":
+      "deb [signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/ubuntu/24.04/prod noble main\n",
+  };
+  const result = install(t, "microsoft429+azure100", sources);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(
+    (result.log.match(/sudo timeout --signal=KILL 180s/gmu) ?? []).length,
+    2,
+  );
+  assert.equal(
+    result.sources["sources.list"],
+    "deb https://archive.ubuntu.com/ubuntu noble main\n",
+  );
+  assert.deepEqual(result.originalSources, sources);
+  assert.equal(result.otherFeedIndexRetained, true);
+  assert.equal(result.scopesRemoved, true);
+});
+
+test("a required Ubuntu source still fails after isolation and never downloads browsers", (t) => {
+  const result = install(t, "ubuntu100");
+  assert.equal(result.status, 100, result.stderr);
+  assert.equal(
+    (result.log.match(/sudo timeout --signal=KILL 180s/gmu) ?? []).length,
+    2,
+  );
+  assert.match(result.stderr, /Required Ubuntu source failed/u);
+  assert.doesNotMatch(result.log, /playwright install chromium/u);
+  assert.equal(result.scopesRemoved, true);
+  assert.equal(result.otherFeedIndexRetained, true);
 });
 
 test("observed EC2 mirror switches to HTTPS before attempt two without changing source options or other hosts", (t) => {
@@ -255,3 +462,19 @@ test(
     assert.equal(result.status, 0, result.stdout + result.stderr);
   },
 );
+
+test("the acquisition deadline cannot kill dpkg and a failed transaction is never retried", (t) => {
+  const result = install(t, "0", undefined, { transactionExit: 137 });
+  assert.equal(result.status, 137, result.stderr);
+  assert.equal(result.aptCalls.length, 1);
+  assert.match(result.log, /sudo timeout .*apt-get .*--download-only/u);
+  const transactions = result.log
+    .split("\n")
+    .filter((line) => line.startsWith("sudo env "));
+  assert.equal(transactions.length, 1);
+  assert.match(
+    transactions[0] ?? "",
+    / apt-get .*--no-download libtest-a libtest-b$/u,
+  );
+  assert.doesNotMatch(result.log, /pnpm --filter|autoclean/u);
+});

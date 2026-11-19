@@ -50,11 +50,16 @@ import { salesCatalogRoute } from "./sales-catalog-backend.mjs";
 import { authoringOverviewRoute } from "./authoring-overview-backend.mjs";
 import { learningScenarioRoute } from "./learning-scenario-backend.mjs";
 import { commerceScenarioRoute } from "./commerce-scenario-backend.mjs";
+import { exerciseOwnerRoute } from "./exercise-owner-backend.mjs";
 import { accountAccessRoute } from "./account-access-backend.mjs";
 
 // Request bodies the checks send to the double; a malformed body fails the request.
 const controlSchema = z
-  .object({ delayMs: z.unknown(), unavailable: z.unknown() })
+  .object({
+    delayMs: z.unknown(),
+    unavailable: z.unknown(),
+    returnPurchaseReady: z.boolean(),
+  })
   .partial()
   .passthrough();
 const homePinSchema = z
@@ -65,6 +70,34 @@ const homePinSchema = z
 const [port] = browserTestPorts(["FAKE_BACKEND_PORT"]).map(Number);
 const productId = "11111111-1111-4111-8111-111111111111";
 const productSlug = "navigation-proof";
+const offerId = "66666666-6666-4666-8666-666666666601";
+const publicPrice = {
+  product: { id: productId, name: "Проверочный продукт", priceRevision: 1 },
+  supportMonths: 3,
+  currency: "RUB",
+  firstPriceKopecks: 990_000,
+  offer: {
+    archived: false,
+    benefitPeriods: [{ capability: `product:${productId}`, months: null }],
+    benefits: [`product:${productId}`],
+    id: offerId,
+    name: "Проверочный продукт",
+    published: true,
+    revision: 1,
+  },
+  paymentOption: {
+    archived: false,
+    id: "66666666-6666-4666-8666-666666666602",
+    mode: "one_time",
+    months: 1,
+    offerId,
+    priceKopecks: 990_000,
+    revision: 1,
+  },
+  promotion: null,
+  renewalPriceKopecks: 990_000,
+  timezone: "Europe/Moscow",
+};
 const topic = navigationReadingTopic;
 const format = { id: "guide", name: "Гайд", slug: "guide" };
 export const protectedBodyMarker = "ЗАКРЫТОЕ-ТЕЛО-УРОКА";
@@ -201,7 +234,7 @@ const performanceTemplate = (() => {
   if (template === undefined) throw new Error("Missing lesson template");
   return template;
 })();
-/** @typedef {{ scope: string; product: Product; lessons: Lesson[]; opens: Map<string, number>; commands: Set<string>; personalRead: PromiseWithResolvers<void> | null; linear: boolean }} ReaderTitleFixture */
+/** @typedef {{ scope: string; product: Product; lessons: Lesson[]; opens: Map<string, number>; commands: Set<string>; personalRead: PromiseWithResolvers<void> | null; nextMaterialRead: PromiseWithResolvers<void> | null; linear: boolean; programmeReveal: boolean }} ReaderTitleFixture */
 /** @type {Map<string, ReaderTitleFixture>} */
 const readerTitleFixtures = new Map();
 
@@ -209,18 +242,24 @@ const readerTitleFixtures = new Map();
  * Every allocation owns its data and a fresh shared-cache namespace. A linear Product has no
  * chapters, so its Reader keeps the return actions without the course frame.
  * @param {boolean} linear
+ * @param {boolean} programmeReveal
  */
-function createReaderTitleFixture(linear) {
+function createReaderTitleFixture(linear, programmeReveal) {
   const scope = randomUUID();
   const product = {
     cover: null,
     id: scope,
-    name: "Курс заголовков",
+    name: programmeReveal
+      ? "Синтетическая программа наблюдения"
+      : "Курс заголовков",
     slug: `reader-title-${scope}`,
   };
-  const lessons = [1, 2].map((ordinal) => ({
+  const lessons = Array.from(
+    { length: programmeReveal ? 120 : 2 },
+    (_, index) => index + 1,
+  ).map((ordinal) => ({
     ...performanceTemplate,
-    access: "closed",
+    access: programmeReveal ? "free" : "closed",
     productMemberships: [
       {
         ordinal,
@@ -230,8 +269,11 @@ function createReaderTitleFixture(linear) {
     ],
     materialId: randomUUID(),
     slug: `${product.slug}-${String(ordinal)}`,
-    title:
-      ordinal === 1 ? "Первый заголовок читателя" : "Второй заголовок читателя",
+    title: programmeReveal
+      ? `Синтетический урок ${String(ordinal)}: как проверить владение наблюдением и возврат к программе, сохранив порядок материалов, положение читателя и границы каждой следующей порции`
+      : ordinal === 1
+        ? "Первый заголовок читателя"
+        : "Второй заголовок читателя",
   }));
   /** @type {ReaderTitleFixture} */
   const fixture = {
@@ -241,7 +283,9 @@ function createReaderTitleFixture(linear) {
     opens: new Map(),
     commands: new Set(),
     personalRead: null,
+    nextMaterialRead: null,
     linear,
+    programmeReveal,
   };
   readerTitleFixtures.set(scope, fixture);
   return fixture;
@@ -311,9 +355,15 @@ const lessonsOf = (product) =>
  *   delayMs: number;
  *   requests: { authorized: boolean; method: string | undefined; path: string }[];
  *   unavailable: boolean;
+ *   returnPurchaseReady: boolean;
  * }}
  */
-const state = { delayMs: 0, requests: [], unavailable: false };
+const state = {
+  delayMs: 0,
+  requests: [],
+  unavailable: false,
+  returnPurchaseReady: false,
+};
 /** @type {Promise<void> | undefined} */
 let practiceGate;
 /** @type {(() => void) | undefined} */
@@ -812,14 +862,14 @@ function route(method, url, entitled) {
   );
   if (titleRead !== undefined) {
     const { lesson: titleLesson, fixture } = titleRead;
-    if (!entitled)
+    if (!entitled && !fixture.programmeReveal)
       return json({
         kind: "teaser",
         cacheScope: "private-no-store",
         projection: readerProjection(titleLesson),
         access: { availability: "locked", subscriptionOffered: false },
       });
-    const document = body(titleLesson, true);
+    const document = body(titleLesson, entitled);
     return json({
       kind: "available",
       cacheScope: "private-no-store",
@@ -1005,34 +1055,6 @@ function route(method, url, entitled) {
   if (path === "/accounts/current/billing/contact")
     return json({ ok: true, contact: null, documents: [] });
   if (path === "/billing/product-prices") {
-    const offerId = "66666666-6666-4666-8666-666666666601";
-    const publicPrice = {
-      product: { id: productId, name: "Проверочный продукт", priceRevision: 1 },
-      supportMonths: 3,
-      currency: "RUB",
-      firstPriceKopecks: 990_000,
-      offer: {
-        archived: false,
-        benefitPeriods: [{ capability: `product:${productId}`, months: null }],
-        benefits: [`product:${productId}`],
-        id: offerId,
-        name: "Проверочный продукт",
-        published: true,
-        revision: 1,
-      },
-      paymentOption: {
-        archived: false,
-        id: "66666666-6666-4666-8666-666666666602",
-        mode: "one_time",
-        months: 1,
-        offerId,
-        priceKopecks: 990_000,
-        revision: 1,
-      },
-      promotion: null,
-      renewalPriceKopecks: 990_000,
-      timezone: "Europe/Moscow",
-    };
     const secondPrice = {
       ...publicPrice,
       product: {
@@ -1192,6 +1214,9 @@ const server = createServer(async (request, response) => {
     });
     response.end(JSON.stringify(value));
   };
+  const exerciseOwner = await exerciseOwnerRoute(request, url, readBody);
+  if (exerciseOwner !== null)
+    return send(exerciseOwner.status, exerciseOwner.value);
   const accountAccess = await accountAccessRoute(request, url);
   if (accountAccess !== null)
     return send(accountAccess.status, accountAccess.value);
@@ -1346,6 +1371,8 @@ const server = createServer(async (request, response) => {
   if (url.pathname === "/__control" && request.method === "POST") {
     const control = controlSchema.parse(JSON.parse(await readBody(request)));
     if (typeof control.delayMs === "number") state.delayMs = control.delayMs;
+    if (control.returnPurchaseReady !== undefined)
+      state.returnPurchaseReady = control.returnPurchaseReady;
     if (typeof control.unavailable === "boolean")
       state.unavailable = control.unavailable;
     send(200, { delayMs: state.delayMs, unavailable: state.unavailable });
@@ -1357,6 +1384,7 @@ const server = createServer(async (request, response) => {
   ) {
     const fixture = createReaderTitleFixture(
       url.searchParams.get("layout") === "linear",
+      url.searchParams.get("layout") === "programme-reveal",
     );
     send(201, {
       scope: fixture.scope,
@@ -1370,19 +1398,19 @@ const server = createServer(async (request, response) => {
   );
   if (titleFixtureControl !== null && request.method === "DELETE") {
     const scope = z.uuid().parse(titleFixtureControl[1]);
-    readerTitleFixtures.get(scope)?.personalRead?.resolve();
+    const fixture = readerTitleFixtures.get(scope);
+    fixture?.personalRead?.resolve();
+    fixture?.nextMaterialRead?.resolve();
     send(200, { deleted: readerTitleFixtures.delete(scope) });
     return;
   }
   // Удержание личного чтения Reader или программы: общая часть приходит до личной (#1908, #1913).
-  const personalReadControl =
-    /^\/__reader-title-fixtures\/([^/]+)\/personal-read-hold$/u.exec(
+  const readControl =
+    /^\/__reader-title-fixtures\/([^/]+)\/(personal-read-hold|next-material-hold)$/u.exec(
       url.pathname,
     );
-  if (personalReadControl !== null && request.method === "POST") {
-    const fixture = readerTitleFixtures.get(
-      z.uuid().parse(personalReadControl[1]),
-    );
+  if (readControl !== null && request.method === "POST") {
+    const fixture = readerTitleFixtures.get(z.uuid().parse(readControl[1]));
     const { held } = z
       .strictObject({ held: z.boolean() })
       .parse(JSON.parse(await readBody(request)));
@@ -1390,8 +1418,12 @@ const server = createServer(async (request, response) => {
       send(404, { code: "fixture_not_found" });
       return;
     }
-    fixture.personalRead?.resolve();
-    fixture.personalRead = held ? Promise.withResolvers() : null;
+    const key =
+      readControl[2] === "next-material-hold"
+        ? "nextMaterialRead"
+        : "personalRead";
+    fixture[key]?.resolve();
+    fixture[key] = held ? Promise.withResolvers() : null;
     send(200, { held });
     return;
   }
@@ -1414,7 +1446,35 @@ const server = createServer(async (request, response) => {
     method: request.method,
     path: `${url.pathname}${url.search}`,
   });
+  if (request.method === "GET" && url.pathname.startsWith("/materials/")) {
+    const target = findReaderTitleLesson(
+      url.pathname.slice("/materials/".length),
+    );
+    if (target && target.fixture.lessons[1] === target.lesson)
+      await target.fixture.nextMaterialRead?.promise;
+  }
   await waitNavigationTask(url.pathname);
+  const returnBuyer =
+    request.headers.authorization === "Bearer navigation-return-buyer";
+  const returnRef = "00000000-0000-4000-8000-000000000b03";
+  if (
+    returnBuyer &&
+    url.pathname === `/accounts/current/billing/purchases/${returnRef}`
+  ) {
+    const ready = state.returnPurchaseReady;
+    send(200, {
+      purchaseRef: returnRef,
+      state: ready ? "confirmed" : "pending",
+      paymentUrl: null,
+      snapshot: publicPrice,
+      access: ready ? "ready" : "awaiting_payment",
+      fiscalization: ready ? "confirmed" : "pending",
+      confirmedAt: ready ? "2026-08-20T12:00:00.000Z" : null,
+      periodEndsAt: null,
+      retirementReason: null,
+    });
+    return;
+  }
   const commerce = await commerceScenarioRoute(request, url, readBody);
   if (commerce !== null) return send(commerce.status, commerce.value);
   const search = authoringSearchRoute(request, url);
@@ -1566,6 +1626,10 @@ const server = createServer(async (request, response) => {
       return;
     }
   }
+  const awaitingLessonPayment =
+    returnBuyer &&
+    !state.returnPurchaseReady &&
+    url.pathname === "/materials/navigation-lesson-3";
   const result = state.unavailable
     ? json(
         {
@@ -1577,7 +1641,7 @@ const server = createServer(async (request, response) => {
         },
         503,
       )
-    : route(request.method, url, authorized);
+    : route(request.method, url, authorized && !awaitingLessonPayment);
   if (state.delayMs > 0)
     // deterministic-test-allow duration-wait: Synthetic backend latency exercises navigation; the browser assertions observe rendered state.
     await new Promise((resolve) => setTimeout(resolve, state.delayMs));

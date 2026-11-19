@@ -1,24 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { factAnnouncement } from "@/shared/api/fact-announcement";
-import {
-  selfRefreshingRead,
-  unavailableRetryIntervalMs,
-} from "@/shared/api/self-refreshing-query";
-import type {
-  EmailAttachmentFailure,
-  IdentityEmail,
-} from "@/shared/auth/identity-account-contract";
+import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import type { EmailAttachmentFailure } from "@/shared/auth/identity-account-contract";
+import { useAccountEmailQuery } from "../model/use-account-email-query.client";
 import {
   confirmAccountEmail,
-  readAccountEmail,
   startAccountEmail,
 } from "../api/account-email.browser";
 import { AccountEmailForm } from "./account-email-form.client";
 
-const queryKey = ["account", "sign-in-email"] as const;
 const errorMessage: Record<EmailAttachmentFailure["code"], string> = {
   unauthorized: "Войдите снова, чтобы продолжить.",
   invalid_input: "Проверьте адрес почты и код из шести цифр.",
@@ -29,25 +20,8 @@ const errorMessage: Record<EmailAttachmentFailure["code"], string> = {
   rate_limited: "Слишком много попыток. Попробуйте позже.",
   unavailable: "Не удалось подтвердить почту. Попробуйте позже.",
 };
-const emailAttached = factAnnouncement("inside.account-email.attached");
 export function AccountEmailPanel() {
-  const client = useQueryClient();
-  const query = useQuery({
-    ...selfRefreshingRead,
-    queryKey,
-    queryFn: readAccountEmail,
-    refetchInterval: ({ state }) =>
-      state.data?.ok === false && state.data.code !== "unauthorized"
-        ? unavailableRetryIntervalMs
-        : false,
-  });
-  useEffect(
-    () =>
-      emailAttached.subscribe(() => {
-        void client.invalidateQueries({ queryKey }, { cancelRefetch: false });
-      }),
-    [client],
-  );
+  const { query, publishAttachedEmail } = useAccountEmailQuery();
   const [challenge, setChallenge] = useState<{
     email: string;
     challengeRef: string;
@@ -74,14 +48,9 @@ export function AccountEmailPanel() {
         return;
       }
       if (challenge === null) return;
-      client.setQueryData<IdentityEmail>(queryKey, () => ({
-        ok: true,
-        email: challenge.email,
-      }));
       setChallenge(null);
       setError(undefined);
-      emailAttached.announce();
-      await client.invalidateQueries({ queryKey }, { cancelRefetch: false });
+      await publishAttachedEmail(challenge.email);
     },
   });
   return (

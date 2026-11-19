@@ -299,8 +299,10 @@ test("Home ignores old search links and keeps its topic filter across reload, hi
   await page.goto("/");
   await expect(notesFilter).toHaveAttribute("aria-pressed", "true");
   await page.goBack();
+  await expect(page).toHaveURL(sharedUrl);
   await expect(formatFilter).toHaveAttribute("aria-pressed", "true");
   await page.goForward();
+  await expect(page).toHaveURL("/");
   await expect(notesFilter).toHaveAttribute("aria-pressed", "true");
 
   await page.goto("/?topic=INVALID&sort=broken&ignored=value");

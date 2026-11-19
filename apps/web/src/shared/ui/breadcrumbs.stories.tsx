@@ -4,9 +4,19 @@ import {
   productTaskHref,
 } from "@/shared/routing/subscription-route";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, within } from "storybook/test";
+import { Activity, useState } from "react";
+import { z } from "zod";
+import { expect, userEvent, waitFor, within } from "storybook/test";
 import { publicPageEnvironment } from "@/storybook/story-environment";
+import { internalRoute } from "@/shared/routing/internal-route";
+import {
+  enterReaderHistory,
+  prepareReaderHistory,
+  readerHistoryEntryEvent,
+  resetReaderHistoryActivation,
+} from "@/shared/lib/reader-history";
 import { Breadcrumbs } from "./breadcrumbs";
+import { IntentPrefetchLink } from "./intent-prefetch-link.client";
 
 const meta = {
   ...publicPageEnvironment("/materials/brief"),
@@ -139,5 +149,164 @@ export const CompactLessonDesktop: Story = {
     for (const link of within(nav).getAllByRole("link"))
       await expect(link).toBeVisible();
     await expect(within(nav).queryByText("…")).not.toBeVisible();
+  },
+};
+
+const originTask = productTaskHref("origin-story", "practice");
+const originReference = internalRoute("/materials/origin-story?anchor=proof");
+
+function OriginHistory() {
+  const [visible, setVisible] = useState(true);
+  return (
+    <>
+      <button
+        onClick={() => {
+          setVisible((current) => !current);
+        }}
+      >
+        {visible ? "Скрыть крошки" : "Вернуть крошки"}
+      </button>
+      <IntentPrefetchLink href={originReference} data-origin-fixture="first">
+        Открыть памятку из первого ответа
+      </IntentPrefetchLink>
+      <IntentPrefetchLink href={originReference} data-origin-fixture="second">
+        Открыть памятку из второго ответа
+      </IntentPrefetchLink>
+      <Activity mode={visible ? "visible" : "hidden"}>
+        <Breadcrumbs
+          items={[
+            { label: "Задание", href: originTask, restoreOrigin: true },
+            { label: "Памятка" },
+          ]}
+        />
+      </Activity>
+    </>
+  );
+}
+
+/** One focused case owns this file's isolated Vitest iframe, never the owner's History. */
+export const OriginHistoryRetained: Story = {
+  render: () => <OriginHistory />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const history = window.history;
+    const originalHref = window.location.href;
+    const originalState: unknown = history.state;
+    const originalReplace = history.replaceState.bind(history);
+    const originalDescriptor = Object.getOwnPropertyDescriptor(
+      history,
+      "replaceState",
+    );
+    const first = canvasElement.querySelector<HTMLAnchorElement>(
+      '[data-origin-fixture="first"]',
+    );
+    const second = canvasElement.querySelector<HTMLAnchorElement>(
+      '[data-origin-fixture="second"]',
+    );
+    if (first === null || second === null)
+      throw new Error("Missing origin links");
+    const link = canvas.getByRole("link", { name: "Задание" });
+    const events: string[] = [];
+    const createdStorage = new Set<string>();
+    let phase = "initial";
+    const observe = () => {
+      events.push(phase);
+    };
+    const navigate = (source: string) => (event: MouseEvent) => {
+      history.replaceState({}, "", source);
+      enterReaderHistory(undefined, canvasElement);
+      const current = z
+        .object({ insideReader: z.object({ id: z.uuid() }) })
+        .parse(history.state);
+      const storageKey = `inside-reader-entry:${current.insideReader.id}`;
+      if (sessionStorage.getItem(storageKey) === null)
+        createdStorage.add(storageKey);
+      prepareReaderHistory(event, undefined, canvasElement);
+      event.preventDefault();
+      history.replaceState({}, "", first.href);
+      enterReaderHistory(originTask, canvasElement);
+    };
+    const openFirst = navigate(
+      "/products/origin-story/tasks/practice?attemptsAfter=first#submission",
+    );
+    const openSecond = navigate(
+      "/products/origin-story/tasks/practice?attemptsAfter=second#answer",
+    );
+    window.addEventListener(readerHistoryEntryEvent, observe);
+    first.addEventListener("click", openFirst);
+    second.addEventListener("click", openSecond);
+    try {
+      await userEvent.click(first);
+      await waitFor(() =>
+        expect(link).toHaveAttribute(
+          "href",
+          "/products/origin-story/tasks/practice?attemptsAfter=first#submission",
+        ),
+      );
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Скрыть крошки" }),
+      );
+      await expect(link).not.toBeVisible();
+      await expect(link.isConnected).toBe(true);
+      phase = "hidden";
+      await userEvent.click(second);
+      await expect(events).toContain("hidden");
+      await expect(link).toHaveAttribute(
+        "href",
+        "/products/origin-story/tasks/practice?attemptsAfter=first#submission",
+      );
+      phase = "returned";
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Вернуть крошки" }),
+      );
+      await waitFor(() =>
+        expect(link).toHaveAttribute(
+          "href",
+          "/products/origin-story/tasks/practice?attemptsAfter=second#answer",
+        ),
+      );
+      await expect(canvas.getByRole("link", { name: "Задание" })).toBe(link);
+      await expect(link).toBeVisible();
+      phase = "foreign";
+      // Synthetic browser-state input, never navigated to or executed as application code.
+      history.replaceState(
+        {
+          insideReader: {
+            id: crypto.randomUUID(),
+            href: window.location.href,
+            origin: {
+              id: crypto.randomUUID(),
+              href: "https://outside.invalid/products/origin-story/tasks/practice?attemptsAfter=foreign#answer",
+            },
+          },
+        },
+        "",
+      );
+      enterReaderHistory(originTask, canvasElement);
+      await expect(events).toContain("foreign");
+      await waitFor(() => expect(link).toHaveAttribute("href", originTask));
+      console.info(
+        "READER_ORIGIN_BASELINE",
+        JSON.stringify({
+          sameLink: true,
+          hiddenEntryObserved: events.includes("hidden"),
+          hiddenHref: "first#submission",
+          returnedHref: "second#answer",
+          foreignFallback: true,
+        }),
+      );
+    } finally {
+      first.removeEventListener("click", openFirst);
+      second.removeEventListener("click", openSecond);
+      window.removeEventListener(readerHistoryEntryEvent, observe);
+      resetReaderHistoryActivation();
+      for (const key of createdStorage) sessionStorage.removeItem(key);
+      // enterReaderHistory installs its real preservation hook. Restore the method and URL;
+      // its permanent document listener dies with this focused file's normal iframe teardown.
+      if (originalDescriptor === undefined)
+        Reflect.deleteProperty(history, "replaceState");
+      else Object.defineProperty(history, "replaceState", originalDescriptor);
+      originalReplace(originalState, "", originalHref);
+    }
   },
 };

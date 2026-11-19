@@ -1,4 +1,4 @@
-import { queryOptions, type QueryClient } from "@tanstack/react-query";
+import { queryOptions } from "@tanstack/react-query";
 
 import { requestProductHolders } from "../api/product-holders.browser";
 import {
@@ -20,15 +20,4 @@ export function productHoldersQueryOptions(query: ProductHoldersQuery) {
     ] as const,
     queryFn: ({ signal }) => requestProductHolders(query, signal),
   });
-}
-
-/** Re-reads every holders read of the Product; a second call joins the read already started. */
-export function invalidateProductHolders(
-  client: QueryClient,
-  productId: string,
-): Promise<void> {
-  return client.invalidateQueries(
-    { queryKey: productHoldersQueryKey(productId) },
-    { cancelRefetch: false },
-  );
 }

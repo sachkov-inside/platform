@@ -1,7 +1,17 @@
 import { legacyCatalogueScenario } from "../../../../../../scenarios/legacy-catalog.mjs";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { ReadonlyURLSearchParams, useSearchParams } from "next/navigation";
-import { useState, type ComponentProps } from "react";
+import { page } from "vitest/browser";
+import {
+  ReadonlyURLSearchParams,
+  usePathname,
+  useSearchParams,
+} from "next/navigation";
+import {
+  Activity,
+  useLayoutEffect,
+  useState,
+  type ComponentProps,
+} from "react";
 import { z } from "zod";
 import {
   expect,
@@ -1083,10 +1093,16 @@ export const CatalogueRefreshRestoresMaterial: Story = {
   args: { learning: { kind: "guest" } },
   beforeEach: () => {
     const cleanup = environment.beforeEach();
+    mocked(usePathname).mockReturnValue(
+      `/products/${productJourneyCorpus().reference.slug}/programme`,
+    );
     mocked(useSearchParams).mockReturnValue(
       new ReadonlyURLSearchParams("part=materials&at=performance-lesson-12"),
     );
     return () => {
+      mocked(usePathname).mockReturnValue(
+        `/products/${legacyCatalogueScenario.product.slug}/programme`,
+      );
       mocked(useSearchParams).mockReturnValue(new ReadonlyURLSearchParams());
       cleanup?.();
     };
@@ -1113,6 +1129,11 @@ export const PartSwitchStartsAtBeginning: Story = {
     learning: { kind: "guest" },
     result: {
       ...result,
+      // Keep the manual reveal outside the existing 600px automatic reveal margin.
+      items: materials.map((material) => ({
+        ...material,
+        title: `${material.title}. Практический разбор: подготовь проект к разработке, проверь требования и настрой рабочий процесс команды.`,
+      })),
       chapters: chapters.map((chapter, index) =>
         index === 0
           ? { ...chapter, materialIds: chapter.materialIds.slice(0, 5) }
@@ -1122,6 +1143,19 @@ export const PartSwitchStartsAtBeginning: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await expect(
+      canvasElement.querySelectorAll("[data-product-ordinal]"),
+    ).toHaveLength(12);
+    const last = canvasElement.querySelector<HTMLElement>(
+      '[data-product-ordinal="12"]',
+    );
+    if (last === null) throw new Error("Missing manual reveal boundary");
+    const main = last.closest("main");
+    const edge =
+      main !== null && getComputedStyle(main).overflowY === "auto"
+        ? main.getBoundingClientRect().bottom
+        : window.innerHeight;
+    await expect(last.getBoundingClientRect().top).toBeGreaterThan(edge + 600);
     await userEvent.click(
       canvas.getByRole("button", { name: "Показать ещё уроки" }),
     );
@@ -1961,6 +1995,360 @@ export const EarlyLessonRevealMobile: Story = {
   globals: { viewport: { value: "mobile320", isRotated: false } },
 };
 
+let lateProgrammeDeliveryActive = false;
+
+function observeProgrammeResources() {
+  if (lateProgrammeDeliveryActive)
+    throw new Error("The named late programme delivery test is exclusive");
+  // These spies call the original native methods and only retain their receipts.
+  const observed = spyOn(IntersectionObserver.prototype, "observe");
+  const disconnected = spyOn(IntersectionObserver.prototype, "disconnect");
+  return {
+    activeOwnersFor: (node: Element) => {
+      const owners = new Set(
+        observed.mock.contexts.filter(
+          (_owner, index) => observed.mock.calls[index]?.[0] === node,
+        ),
+      );
+      return [...owners].filter((owner) => {
+        const latestObserve = Math.max(
+          0,
+          ...observed.mock.invocationCallOrder.filter(
+            (_order, index) =>
+              observed.mock.contexts[index] === owner &&
+              observed.mock.calls[index]?.[0] === node,
+          ),
+        );
+        const latestDisconnect = Math.max(
+          0,
+          ...disconnected.mock.invocationCallOrder.filter(
+            (_order, index) => disconnected.mock.contexts[index] === owner,
+          ),
+        );
+        return latestObserve > latestDisconnect;
+      });
+    },
+    disconnectedOwners: () => disconnected.mock.contexts,
+    restore: () => {
+      observed.mockRestore();
+      disconnected.mockRestore();
+    },
+  };
+}
+
+let programmeResources: ReturnType<typeof observeProgrammeResources> | null =
+  null;
+
+function RetainedProgrammeReveal({
+  learning,
+  initiallyVisible = true,
+  ...args
+}: ProgrammeStoryArgs & { initiallyVisible?: boolean }) {
+  const [mode, setMode] = useState<"visible" | "hidden" | null>(
+    initiallyVisible ? "visible" : "hidden",
+  );
+  return (
+    <>
+      <div className="sticky top-0 z-50 flex gap-2 bg-background p-2">
+        <Button
+          onClick={() => {
+            setMode("hidden");
+          }}
+        >
+          Скрыть программу
+        </Button>
+        <Button
+          onClick={() => {
+            setMode("visible");
+          }}
+        >
+          Вернуть программу
+        </Button>
+        <Button
+          onClick={() => {
+            setMode(null);
+          }}
+        >
+          Убрать программу
+        </Button>
+      </div>
+      {mode === null ? null : (
+        <Activity mode={mode}>
+          <ProductLearningProvider learning={learning ?? { kind: "guest" }}>
+            <ProductProgrammeView {...args} />
+          </ProductLearningProvider>
+        </Activity>
+      )}
+    </>
+  );
+}
+
+export const RetainedProgrammeRevealLifetime: Story = {
+  ...EarlyLessonReveal,
+  beforeEach: () => {
+    const cleanup = environment.beforeEach();
+    programmeResources = observeProgrammeResources();
+    return () => {
+      programmeResources?.restore();
+      programmeResources = null;
+      cleanup?.();
+    };
+  },
+  render: (args) => <RetainedProgrammeReveal {...args} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const resources = programmeResources;
+    if (resources === null) throw new Error("Missing native observation");
+    const first = canvasElement.querySelector('[data-product-ordinal="1"]');
+    const last = canvasElement.querySelector<HTMLElement>(
+      '[data-product-ordinal="12"]',
+    );
+    if (first === null || last === null)
+      throw new Error("Missing initial programme rows");
+    await expect(
+      canvasElement.querySelectorAll("[data-product-ordinal]"),
+    ).toHaveLength(12);
+    await waitFor(async () => {
+      await expect(resources.activeOwnersFor(last)).toHaveLength(1);
+    });
+    const originalOwner = resources.activeOwnersFor(last)[0];
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Скрыть программу" }),
+    );
+    await waitFor(async () => {
+      await expect(resources.disconnectedOwners()).toContain(originalOwner);
+      await expect(resources.activeOwnersFor(last)).toHaveLength(0);
+    });
+    await expect(last.getClientRects()).toHaveLength(0);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Вернуть программу" }),
+    );
+    await waitFor(async () => {
+      await expect(resources.activeOwnersFor(last)).toHaveLength(1);
+    });
+    const returnedOwner = resources.activeOwnersFor(last)[0];
+    await expect(
+      canvasElement.querySelector('[data-product-ordinal="1"]'),
+    ).toBe(first);
+    await expect(
+      canvasElement.querySelector('[data-product-ordinal="12"]'),
+    ).toBe(last);
+    last.scrollIntoView({ block: "end" });
+    await waitFor(async () => {
+      await expect(
+        canvasElement.querySelectorAll("[data-product-ordinal]"),
+      ).toHaveLength(24);
+    });
+    await expect(
+      canvasElement.querySelector('[data-product-ordinal="1"]'),
+    ).toBe(first);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Убрать программу" }),
+    );
+    await waitFor(async () => {
+      await expect(
+        canvasElement.querySelector('[data-product-ordinal="1"]'),
+      ).toBeNull();
+      await expect(resources.disconnectedOwners()).toContain(returnedOwner);
+      await expect(resources.activeOwnersFor(last)).toHaveLength(0);
+    });
+    // A complete batch has no observer. Mount a fresh partial programme so removal
+    // must release a still-active DOM owner, independently of the reveal cleanup.
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Вернуть программу" }),
+    );
+    const mountedLast = canvasElement.querySelector<HTMLElement>(
+      '[data-product-ordinal="12"]',
+    );
+    if (mountedLast === null) throw new Error("Missing remounted boundary");
+    await expect(mountedLast).not.toBe(last);
+    await expect(
+      canvasElement.querySelectorAll("[data-product-ordinal]"),
+    ).toHaveLength(12);
+    await waitFor(async () => {
+      await expect(resources.activeOwnersFor(mountedLast)).toHaveLength(1);
+    });
+    const mountedOwner = resources.activeOwnersFor(mountedLast)[0];
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Убрать программу" }),
+    );
+    await waitFor(async () => {
+      await expect(mountedLast.isConnected).toBe(false);
+      await expect(resources.disconnectedOwners()).toContain(mountedOwner);
+      await expect(resources.activeOwnersFor(mountedLast)).toHaveLength(0);
+    });
+  },
+};
+
+export const ProgrammeRevealFollowsScrollRoot: Story = {
+  ...RetainedProgrammeRevealLifetime,
+  play: async ({ canvasElement }) => {
+    const resources = programmeResources;
+    if (resources === null) throw new Error("Missing native observation");
+    const last = canvasElement.querySelector<HTMLElement>(
+      '[data-product-ordinal="12"]',
+    );
+    if (last === null) throw new Error("Missing programme boundary");
+    const main = last.closest("main");
+    if (main === null) throw new Error("Missing application scroll root");
+    const originalWidth = window.innerWidth;
+    const originalHeight = window.innerHeight;
+    const expectRoot = async (root: Element | Document) => {
+      await waitFor(async () => {
+        const owners = resources.activeOwnersFor(last);
+        await expect(owners).toHaveLength(1);
+        const owner = owners[0];
+        if (!(owner instanceof IntersectionObserver))
+          throw new Error("Missing actual native observer");
+        await expect(owner.root).toBe(root);
+      });
+    };
+    try {
+      await page.viewport(1440, 900);
+      await expectRoot(main);
+      await page.viewport(390, 844);
+      await expectRoot(document);
+      await page.viewport(1440, 900);
+      await expectRoot(main);
+      await expect(
+        canvasElement.querySelector('[data-product-ordinal="12"]'),
+      ).toBe(last);
+      last.scrollIntoView({ block: "end" });
+      await waitFor(async () => {
+        await expect(
+          canvasElement.querySelectorAll("[data-product-ordinal]"),
+        ).toHaveLength(24);
+      });
+    } finally {
+      await page.viewport(originalWidth, originalHeight);
+    }
+  },
+};
+
+export const ArtificialLateProgrammeDeliveryAfterDisconnect: Story = {
+  ...EarlyLessonReveal,
+  beforeEach: () => environment.beforeEach(),
+  render: (args) => (
+    <RetainedProgrammeReveal {...args} initiallyVisible={false} />
+  ),
+  play: async ({ canvasElement }) => {
+    if (lateProgrammeDeliveryActive || programmeResources !== null)
+      throw new Error("The named late programme delivery test is exclusive");
+    const descriptor = Object.getOwnPropertyDescriptor(
+      window,
+      "IntersectionObserver",
+    );
+    if (descriptor === undefined)
+      throw new Error("Missing native IntersectionObserver descriptor");
+    const NativeObserver = window.IntersectionObserver;
+    const callbacks = new Map<
+      IntersectionObserver,
+      IntersectionObserverCallback
+    >();
+    const resources = observeProgrammeResources();
+    lateProgrammeDeliveryActive = true;
+    try {
+      // Keep the actual constructor arguments, native handle and ordinary delivery.
+      const observedConstructor = new Proxy(NativeObserver, {
+        construct(
+          target,
+          args: ConstructorParameters<typeof IntersectionObserver>,
+        ) {
+          const instance: unknown = Reflect.construct(target, args);
+          if (!(instance instanceof NativeObserver))
+            throw new Error("Expected the actual native observer handle");
+          callbacks.set(instance, args[0]);
+          return instance;
+        },
+      });
+      Object.defineProperty(window, "IntersectionObserver", {
+        ...descriptor,
+        value: observedConstructor,
+      });
+      const canvas = within(canvasElement);
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Вернуть программу" }),
+      );
+      const rows = () =>
+        canvasElement.querySelectorAll("[data-product-ordinal]");
+      const first = canvasElement.querySelector('[data-product-ordinal="1"]');
+      const last = canvasElement.querySelector<HTMLElement>(
+        '[data-product-ordinal="12"]',
+      );
+      if (first === null || last === null)
+        throw new Error("Missing initial programme rows");
+      await expect(rows()).toHaveLength(12);
+      await waitFor(async () => {
+        await expect(resources.activeOwnersFor(last)).toHaveLength(1);
+      });
+      const owner = resources.activeOwnersFor(last)[0];
+      if (!(owner instanceof NativeObserver))
+        throw new Error("Missing original native observer");
+      const callback = callbacks.get(owner);
+      if (callback === undefined)
+        throw new Error("Missing original native observer callback");
+      const beforeHide = last.getBoundingClientRect();
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Скрыть программу" }),
+      );
+      await waitFor(async () => {
+        await expect(resources.disconnectedOwners()).toContain(owner);
+        await expect(resources.activeOwnersFor(last)).toHaveLength(0);
+      });
+      // One explicitly artificial late entry, not a browser scheduling claim.
+      callback(
+        [
+          {
+            target: last,
+            time: performance.now(),
+            isIntersecting: true,
+            intersectionRatio: 1,
+            boundingClientRect: beforeHide,
+            intersectionRect: beforeHide,
+            rootBounds: null,
+          },
+        ],
+        owner,
+      );
+      await expect(rows()).toHaveLength(12);
+      await expect(resources.activeOwnersFor(last)).toHaveLength(0);
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Вернуть программу" }),
+      );
+      await waitFor(async () => {
+        await expect(last).toBeVisible();
+      });
+      await expect(rows()).toHaveLength(12);
+      await expect(
+        canvasElement.querySelector('[data-product-ordinal="1"]'),
+      ).toBe(first);
+      await expect(
+        canvasElement.querySelector('[data-product-ordinal="12"]'),
+      ).toBe(last);
+      await waitFor(async () => {
+        const active = resources.activeOwnersFor(last);
+        await expect(active).toHaveLength(1);
+        await expect(active).not.toContain(owner);
+      });
+      last.scrollIntoView({ block: "end" });
+      await waitFor(async () => {
+        await expect(rows()).toHaveLength(24);
+      });
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Убрать программу" }),
+      );
+      await waitFor(async () => {
+        await expect(rows()).toHaveLength(0);
+        await expect(resources.activeOwnersFor(last)).toHaveLength(0);
+      });
+    } finally {
+      Object.defineProperty(window, "IntersectionObserver", descriptor);
+      resources.restore();
+      lateProgrammeDeliveryActive = false;
+    }
+  },
+};
+
 export const FastLessonReveal: Story = {
   ...EarlyLessonReveal,
   play: async ({ canvasElement }) => {
@@ -2536,4 +2924,218 @@ export const AnnouncedPartCounts: Story = {
 export const AnnouncedPartCountsMobile: Story = {
   ...AnnouncedPartCounts,
   globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+
+const ownedQueryScopeA = {
+  ...productJourneyCorpus(),
+  reference: {
+    ...productJourneyCorpus().reference,
+    slug: "owned-programme-a",
+    name: "Первая программа",
+  },
+  items: productJourneyCorpus().items.map((item) => ({
+    ...item,
+    title:
+      `${item.title}. Проверяем независимый адрес программы, сохранение её полей и порядок показа материалов. `.repeat(
+        4,
+      ),
+  })),
+};
+const ownedQueryScopeB = {
+  ...ownedQueryScopeA,
+  reference: {
+    ...ownedQueryScopeA.reference,
+    slug: "owned-programme-b",
+    name: "Вторая программа",
+  },
+};
+
+type ProgrammeScopeStage =
+  "first product" | "off route" | "accepted" | "equivalent query";
+
+/** Observe the committed Programme DOM when its public inputs change. */
+function ProgrammeQueryScopeSwitch({
+  onCommit,
+}: {
+  readonly onCommit?: (
+    stage: ProgrammeScopeStage,
+    pathname: string,
+    query: string,
+  ) => void;
+}) {
+  const [stage, setStage] = useState<ProgrammeScopeStage>("first product");
+  const pathname = usePathname();
+  const query = useSearchParams().toString();
+  useLayoutEffect(() => {
+    onCommit?.(stage, pathname, query);
+  });
+  return (
+    <ProductLearningProvider learning={{ kind: "guest" }}>
+      <ProductProgrammeView
+        result={stage === "first product" ? ownedQueryScopeA : ownedQueryScopeB}
+      />
+      {stage === "first product" ? (
+        <Button
+          onClick={() => {
+            mocked(usePathname).mockReturnValue("/materials/synthetic-reader");
+            mocked(useSearchParams).mockReturnValue(
+              new ReadonlyURLSearchParams("from=synthetic-reader"),
+            );
+            setStage("off route");
+          }}
+        >
+          Показать другой Product вне его маршрута
+        </Button>
+      ) : stage === "off route" ? (
+        <Button
+          onClick={() => {
+            mocked(usePathname).mockReturnValue(
+              "/products/owned-programme-b/programme",
+            );
+            mocked(useSearchParams).mockReturnValue(
+              new ReadonlyURLSearchParams("page=3"),
+            );
+            setStage("accepted");
+          }}
+        >
+          Принять адрес второй программы
+        </Button>
+      ) : stage === "accepted" ? (
+        <Button
+          onClick={() => {
+            mocked(useSearchParams).mockReturnValue(
+              new ReadonlyURLSearchParams("part=artifacts&page=3"),
+            );
+            setStage("equivalent query");
+          }}
+        >
+          Доставить новый объект тех же параметров
+        </Button>
+      ) : (
+        <output>Новый объект параметров обработан</output>
+      )}
+    </ProductLearningProvider>
+  );
+}
+
+export const ProgrammeQueryFollowsProductScope: Story = {
+  beforeEach: () => {
+    const cleanup = environment.beforeEach();
+    mocked(usePathname).mockReturnValue(
+      "/products/owned-programme-a/programme",
+    );
+    mocked(useSearchParams).mockReturnValue(
+      new ReadonlyURLSearchParams("page=2"),
+    );
+    return () => {
+      mocked(usePathname).mockReturnValue(
+        `/products/${legacyCatalogueScenario.product.slug}/programme`,
+      );
+      mocked(useSearchParams).mockReturnValue(new ReadonlyURLSearchParams());
+      cleanup?.();
+    };
+  },
+  render: () => <ProgrammeQueryScopeSwitch />,
+  play: async ({ canvasElement, mount }) => {
+    const canvas = within(canvasElement);
+    const observations: {
+      event: "input commit" | "native reveal";
+      stage: ProgrammeScopeStage;
+      slug: string | null;
+      pathname: string;
+      query: string;
+      rows: number;
+    }[] = [];
+    async function scrollToRowAndWaitForCount(ordinal: number, count: number) {
+      const boundary = canvasElement.querySelector<HTMLElement>(
+        `[data-product-ordinal="${String(ordinal)}"]`,
+      );
+      if (!boundary)
+        throw new Error(`Missing Programme row ${String(ordinal)}`);
+      boundary.scrollIntoView({ block: "end", behavior: "instant" });
+      await waitFor(async () => {
+        await expect(
+          canvasElement.querySelectorAll("[data-product-ordinal]"),
+        ).toHaveLength(count);
+      });
+      const inputs = observations.at(-1);
+      if (!inputs) throw new Error("Missing Programme input commit");
+      const programme = canvasElement.querySelector("[data-product-programme]");
+      observations.push({
+        ...inputs,
+        event: "native reveal",
+        slug: programme?.getAttribute("data-product-programme") ?? null,
+        rows: programme?.querySelectorAll("[data-product-ordinal]").length ?? 0,
+      });
+    }
+    await mount(
+      <ProgrammeQueryScopeSwitch
+        onCommit={(stage, pathname, query) => {
+          const programme = canvasElement.querySelector(
+            "[data-product-programme]",
+          );
+          observations.push({
+            event: "input commit",
+            stage,
+            slug: programme?.getAttribute("data-product-programme") ?? null,
+            pathname,
+            query,
+            rows:
+              programme?.querySelectorAll("[data-product-ordinal]").length ?? 0,
+          });
+        }}
+      />,
+    );
+    await expect(
+      canvasElement.querySelectorAll("[data-product-ordinal]"),
+    ).toHaveLength(24);
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Показать другой Product вне его маршрута",
+      }),
+    );
+    await expect(
+      canvas.getByRole("heading", { name: "Вторая программа", level: 1 }),
+    ).toBeVisible();
+    await expect(
+      observations.find(
+        (entry) =>
+          entry.event === "input commit" && entry.stage === "off route",
+      ),
+      JSON.stringify(observations),
+    ).toMatchObject({
+      slug: "owned-programme-b",
+      pathname: "/materials/synthetic-reader",
+      query: "from=synthetic-reader",
+      rows: 12,
+    });
+    // A native reveal can commit before the second product accepts its address.
+    await scrollToRowAndWaitForCount(12, 24);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Принять адрес второй программы" }),
+    );
+    await expect(
+      observations.find(
+        (entry) => entry.event === "input commit" && entry.stage === "accepted",
+      ),
+      JSON.stringify(observations),
+    ).toMatchObject({
+      slug: "owned-programme-b",
+      pathname: "/products/owned-programme-b/programme",
+      query: "page=3",
+      rows: 36,
+    });
+    await scrollToRowAndWaitForCount(36, 48);
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Доставить новый объект тех же параметров",
+      }),
+    );
+    await expect(
+      canvas.getByText("Новый объект параметров обработан"),
+    ).toBeVisible();
+    await expect(
+      canvasElement.querySelectorAll("[data-product-ordinal]"),
+    ).toHaveLength(48);
+  },
 };

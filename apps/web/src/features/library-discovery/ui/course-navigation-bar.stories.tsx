@@ -1,5 +1,7 @@
 import { LayoutGrid, List } from "lucide-react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { Activity, useState } from "react";
+import { expect, userEvent, waitFor, within } from "storybook/test";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
 import {
@@ -35,3 +37,130 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 export const Programme: Story = {};
+
+function NavigationLifetime() {
+  const [visible, setVisible] = useState(true);
+  const [mounted, setMounted] = useState(true);
+  const [reserve, setReserve] = useState(true);
+  const [long, setLong] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          setLong((value) => !value);
+        }}
+      >
+        Изменить подпись
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setReserve((value) => !value);
+        }}
+      >
+        Переключить отступ
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setVisible((value) => !value);
+        }}
+      >
+        Скрыть или вернуть панель
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setMounted(false);
+        }}
+      >
+        Удалить панель
+      </button>
+      <Activity mode={visible ? "visible" : "hidden"}>
+        <section aria-label="Место под нижнюю навигацию">
+          {mounted ? (
+            <CourseNavigationBar
+              label="Проверяемая навигация"
+              reserveSpace={reserve}
+            >
+              <CourseNavigationItem
+                label={
+                  long
+                    ? "Текущая глава и материалы для самостоятельной работы"
+                    : "Программа"
+                }
+                href={productProgrammeHref("ai-engineering")}
+                current
+              />
+              <CourseNavigationItem
+                label="Материалы"
+                href={productProgrammeHref("ai-engineering")}
+              />
+            </CourseNavigationBar>
+          ) : null}
+        </section>
+      </Activity>
+    </>
+  );
+}
+
+export const MeasuredSpaceLifetime: Story = {
+  render: () => <NavigationLifetime />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(window.innerWidth).toBe(390);
+    const region = canvas.getByRole("region", {
+      name: "Место под нижнюю навигацию",
+    });
+    const nav = canvas.getByRole("navigation", {
+      name: "Проверяемая навигация",
+    });
+    const clearance = () =>
+      Math.round(
+        region.getBoundingClientRect().height -
+          nav.getBoundingClientRect().height -
+          Number.parseFloat(getComputedStyle(nav).bottom),
+      );
+    await expect(nav).toBeVisible();
+    await waitFor(() => expect(clearance()).toBe(12));
+    const firstHeight = nav.getBoundingClientRect().height;
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Изменить подпись" }),
+    );
+    await waitFor(() =>
+      expect(nav.getBoundingClientRect().height).toBeGreaterThan(firstHeight),
+    );
+    await waitFor(() => expect(clearance()).toBe(12));
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Переключить отступ" }),
+    );
+    await waitFor(() => expect(region.getBoundingClientRect().height).toBe(0));
+    await expect(nav).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Изменить подпись" }),
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Переключить отступ" }),
+    );
+    await waitFor(() => expect(clearance()).toBe(12));
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Скрыть или вернуть панель" }),
+    );
+    await waitFor(() => expect(nav).not.toBeVisible());
+    await expect(nav.isConnected).toBe(true);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Скрыть или вернуть панель" }),
+    );
+    await waitFor(() => expect(nav).toBeVisible());
+    await expect(
+      canvas.getByRole("navigation", { name: "Проверяемая навигация" }),
+    ).toBe(nav);
+    await waitFor(() => expect(clearance()).toBe(12));
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Удалить панель" }),
+    );
+    await waitFor(() => expect(nav.isConnected).toBe(false));
+    await expect(region.getBoundingClientRect().height).toBe(0);
+  },
+};
