@@ -198,16 +198,17 @@ for (const result of ["ready", "failed"] as const) {
     );
     expect(setup.ok()).toBe(true);
     const { linkId } = z.object({ linkId: z.uuid() }).parse(await setup.json());
-    // Isolate the purchase page refresh from AppShell's independent subscription.
+    // #2244 measures this page's refresh independently of the AppShell billing listener.
     await page.addInitScript(() => {
       Object.defineProperty(window, "BroadcastChannel", { value: undefined });
       window.addEventListener(
         "inside.account.billing.changed",
         (event) => {
-          document.documentElement.setAttribute(
-            "data-billing-announcement",
-            (event as CustomEvent<string>).detail,
-          );
+          if (event instanceof CustomEvent && typeof event.detail === "string")
+            document.documentElement.setAttribute(
+              "data-billing-announcement",
+              event.detail,
+            );
           event.stopImmediatePropagation();
         },
         { capture: true },

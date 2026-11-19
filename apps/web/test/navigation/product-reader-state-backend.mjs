@@ -6,15 +6,19 @@ import {
   productOnlyOffer,
 } from "../../src/storybook/billing.fixtures.ts";
 
-const settlementProductId = z
-  .object({ id: z.uuid() })
-  .parse(productOnlyOffer.product).id;
+const offer = z
+  .looseObject({
+    product: z.looseObject({ id: z.uuid() }),
+    paymentOption: z.looseObject({ priceKopecks: z.number() }),
+  })
+  .parse(productOnlyOffer);
+const settlementProductId = offer.product.id;
 const settlementLinkId = "0ce1d000-0000-4000-8000-000000000002";
 const settlementSnapshot = {
-  ...productOnlyOffer,
+  ...offer,
   individualPayment: {
     linkId: settlementLinkId,
-    basePriceKopecks: productOnlyOffer.paymentOption.priceKopecks,
+    basePriceKopecks: offer.paymentOption.priceKopecks,
   },
 };
 /** @type {"ready" | "failed" | null} */
