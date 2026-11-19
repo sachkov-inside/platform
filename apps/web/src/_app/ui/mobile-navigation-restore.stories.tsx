@@ -52,7 +52,7 @@ function Navigation({
       >
         Return to Home
       </a>
-      <div style={{ height: tall ? "250vh" : "1px" }} />
+      <div data-route-content="" style={{ height: tall ? "250vh" : "1px" }} />
     </ApplicationShell>
   );
 }
@@ -297,7 +297,22 @@ async function identityScenario(
   }
 }
 
-async function afterRestorationFrame() {
+async function afterContentGrowth(host: HTMLElement) {
+  const content = host.querySelector("[data-route-content]");
+  if (!content) throw new Error("Missing route content");
+  let grown = false;
+  const observer = new ResizeObserver(([size]) => {
+    grown = size !== undefined && size.contentRect.height > window.innerHeight;
+  });
+  observer.observe(content);
+  try {
+    await waitFor(() => expect(grown).toBe(true));
+  } finally {
+    observer.disconnect();
+  }
+  // A restoration scheduled by this resize can run later in the next frame.
+  // Read after that entire frame has completed.
+
   await new Promise<void>((resolve) =>
     requestAnimationFrame(() =>
       requestAnimationFrame(() => {
@@ -331,7 +346,7 @@ export const PreviousPositionAfterIdentityReturn: StoryObj<typeof meta> = {
         await expect(cache.getQueryData(unrelated)).toBe("public");
         await clickHome();
         show("/", true);
-        await afterRestorationFrame();
+        await afterContentGrowth(canvasElement);
         await expect(top()).toBe(0);
       },
     ),
@@ -347,7 +362,7 @@ export const PendingDestinationBeforeIdentityChange: StoryObj<typeof meta> = {
         await clickHome();
         await changeAccount();
         show("/", true);
-        await afterRestorationFrame();
+        await afterContentGrowth(canvasElement);
         await expect(top()).toBe(0);
       },
     ),
@@ -391,7 +406,7 @@ export const ReturningContentAfterIdentityChange: StoryObj<typeof meta> = {
           }
           await changeAccount();
           show("/", true);
-          await afterRestorationFrame();
+          await afterContentGrowth(canvasElement);
           await expect(top()).toBe(0);
         } finally {
           resume.resolve(undefined);
