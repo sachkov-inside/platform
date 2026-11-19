@@ -18,8 +18,10 @@ export function useAuthoringSearchDialog() {
   const closeSearch = useCallback(() => {
     onOpenChange(false);
   }, [onOpenChange]);
-  const dialog = useNativeDialog({ open, onOpenChange });
-  const nativeDialogRef = dialog.ref;
+  const { ref: nativeDialogRef, ...dialogEvents } = useNativeDialog({
+    open,
+    onOpenChange,
+  });
 
   const shortcutRef = useCallback(
     (element: HTMLDialogElement | null) => {
@@ -51,6 +53,6 @@ export function useAuthoringSearchDialog() {
     closeSearch,
     text,
     setText,
-    dialog: { ...dialog, ref: shortcutRef },
+    dialog: { ...dialogEvents, ref: shortcutRef },
   };
 }

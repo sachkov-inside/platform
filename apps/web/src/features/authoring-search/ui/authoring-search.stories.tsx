@@ -132,10 +132,20 @@ function ClosedRetainedSearch() {
   const [visible, setVisible] = useState(true);
   return (
     <section>
-      <button onClick={() => setVisible(false)} type="button">
+      <button
+        onClick={() => {
+          setVisible(false);
+        }}
+        type="button"
+      >
         Скрыть поиск
       </button>
-      <button onClick={() => setVisible(true)} type="button">
+      <button
+        onClick={() => {
+          setVisible(true);
+        }}
+        type="button"
+      >
         Вернуться к поиску
       </button>
       <Activity mode={visible ? "visible" : "hidden"}>
