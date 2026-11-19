@@ -783,7 +783,6 @@ function loadsInPlace({ globals, width }: StoryViewport): Story {
 export const LoadsInPlace: Story = loadsInPlace(desktop);
 export const LoadsInPlaceMobile: Story = loadsInPlace(mobile);
 
-/** Observe the page's native guards without navigating away from the story. */
 function unloadPrevented() {
   const event = new Event("beforeunload", { cancelable: true });
   window.dispatchEvent(event);
@@ -834,7 +833,9 @@ function beforeUnloadAfterSave(withCoverUpload: boolean): Story {
         throw new Error("Unexpected request: " + path);
       })();
       try {
-        await userEvent.type(title, " правка");
+        await userEvent.click(title);
+        await userEvent.keyboard("{End}");
+        await userEvent.paste(" правка");
         await waitFor(() =>
           expect(requests).toEqual(["PUT /api/authoring/collections/metadata"]),
         );
@@ -868,7 +869,6 @@ function beforeUnloadAfterSave(withCoverUpload: boolean): Story {
 
         save.resolve(undefined);
         await canvas.findByText("Настройки сохранены");
-        // Sample once at the visible status; polling the event would hide a late release.
         await expect(unloadPrevented()).toBe(withCoverUpload);
         if (withCoverUpload) {
           upload.resolve(undefined);
