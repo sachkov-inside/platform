@@ -88,7 +88,9 @@ if (!preserveLists) rmSync(join(lists, 'microsoft-prod_InRelease'));
 set -eu
 echo "$(basename "$0") $*" >> "$INSTALL_TEST_LOG"
 if [[ "$(basename "$0")" = node && "$1" = */prepare-playwright-apt-sources.mjs ]]; then
-  exec "$INSTALL_TEST_NODE" "$1" "$INSTALL_TEST_SOURCES" "$3"
+  source_dir=$2
+  [[ "$source_dir" != /etc/apt ]] || source_dir=$INSTALL_TEST_SOURCES
+  exec "$INSTALL_TEST_NODE" "$1" "$source_dir" "\${@:3}"
 fi
 if [[ "$(basename "$0")" = node && "$2" = install-deps ]]; then
   [[ "$*" = *"install-deps --dry-run chromium webkit" ]] || exit 98
@@ -205,27 +207,24 @@ exec /usr/bin/sed "$@"
         preserveLists: row.preserveLists,
       };
     });
+  /** @param {string} directory */
+  function readSources(directory) {
+    return Object.fromEntries(
+      Object.keys(sourceFiles).map((name) => [
+        name,
+        readFileSync(join(directory, name), "utf8"),
+      ]),
+    );
+  }
   return {
     ...result,
     log: logged,
     aptCalls,
     scopesRemoved: aptCalls.every((call) => !existsSync(dirname(call.config))),
     otherFeedIndexRetained: existsSync(join(lists, "microsoft-prod_InRelease")),
-    originalSources: Object.fromEntries(
-      Object.keys(sourceFiles).map((name) => [
-        name,
-        readFileSync(join(sources, name), "utf8"),
-      ]),
-    ),
-    sources: Object.fromEntries(
-      Object.keys(sourceFiles).map((name) => [
-        name,
-        readFileSync(
-          join(`${sources}.attempt${String(attempts)}`, name),
-          "utf8",
-        ),
-      ]),
-    ),
+    originalSources: readSources(sources),
+    firstSources: readSources(`${sources}.attempt1`),
+    sources: readSources(`${sources}.attempt${String(attempts)}`),
   };
 }
 
@@ -319,6 +318,50 @@ test("fallback uses HTTPS before the second attempt in every Ubuntu source forma
     result.sources["sources.list.d/vendor.list"],
     "deb http://vendor.example/ubuntu noble main\n",
   );
+});
+
+test("retry moves only the direct HTTP noble-security pocket to the official HTTPS archive", (t) => {
+  const mixed =
+    "Types: deb\nURIs: http://security.ubuntu.com/ubuntu\nSuites: noble noble-updates\n noble-security\nComponents: main\nSigned-By: /keys/ubuntu.gpg\n";
+  const sources = {
+    "sources.list.d/mixed.sources": mixed,
+    "sources.list":
+      "deb [arch=amd64 signed-by=/keys/ubuntu.gpg] http://security.ubuntu.com/ubuntu/ noble-security main\n",
+    "sources.list.d/ubuntu.sources":
+      "Types: deb\nURIs: http://security.ubuntu.com/ubuntu\nSuites:\n noble-security\nComponents: main restricted\nSigned-By: /keys/ubuntu.gpg\n",
+    "sources.list.d/vendor.list":
+      "deb http://security.ubuntu.com/ubuntu-extra noble-security main\ndeb http://vendor.example/ubuntu noble-security main\n",
+  };
+  const result = install(t, "100,0", sources);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.aptCalls.length, 2);
+  assert.deepEqual(result.originalSources, sources);
+  assert.deepEqual(result.firstSources, sources);
+  assert.equal(
+    result.sources["sources.list.d/mixed.sources"],
+    [
+      "Types: deb\nURIs: http://security.ubuntu.com/ubuntu\nSuites: noble noble-updates\nComponents: main\nSigned-By: /keys/ubuntu.gpg",
+      "Types: deb\nURIs: https://archive.ubuntu.com/ubuntu\nSuites: noble-security\nComponents: main\nSigned-By: /keys/ubuntu.gpg\n",
+    ].join("\n\n"),
+  );
+  assert.equal(
+    result.sources["sources.list"],
+    "deb [arch=amd64 signed-by=/keys/ubuntu.gpg] https://archive.ubuntu.com/ubuntu/ noble-security main\n",
+  );
+  assert.equal(
+    result.sources["sources.list.d/ubuntu.sources"],
+    "Types: deb\nURIs: https://archive.ubuntu.com/ubuntu\nSuites:\n noble-security\nComponents: main restricted\nSigned-By: /keys/ubuntu.gpg\n",
+  );
+  assert.equal(
+    result.sources["sources.list.d/vendor.list"],
+    sources["sources.list.d/vendor.list"],
+  );
+  assert.equal(
+    (result.log.match(/^sudo env .* apt-get install .*--no-download/gmu) ?? [])
+      .length,
+    1,
+  );
+  assert.match(result.log, /playwright install chromium webkit/u);
 });
 
 test("a failed fallback preserves the exit code and never starts browser downloads", (t) => {
