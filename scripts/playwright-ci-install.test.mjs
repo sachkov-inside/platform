@@ -29,6 +29,7 @@ const shellCommand = command;
  * @param {import('node:test').TestContext} t
  * @param {string} failures
  * @param {Readonly<Record<string, string>>} [sourceFiles]
+ * @param {{ transactionExit?: number }} [options]
  */
 function install(
   t,
@@ -42,6 +43,7 @@ function install(
     "sources.list.d/vendor.list":
       "deb http://vendor.example/ubuntu noble main\n",
   },
+  { transactionExit = 0 } = {},
 ) {
   const directory = mkdtempSync(join(tmpdir(), "platform-apt-test-"));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
@@ -163,7 +165,7 @@ exec /usr/bin/sed "$@"
         INSTALL_TEST_SOURCES: sources,
         INSTALL_TEST_FIRST: first,
         INSTALL_TEST_SECOND: second,
-        INSTALL_TEST_TRANSACTION: failures.split(",")[2] ?? "0",
+        INSTALL_TEST_TRANSACTION: String(transactionExit),
         INSTALL_TEST_MODE: [
           "microsoft429",
           "microsoft429+azure100",
@@ -419,13 +421,17 @@ test(
 );
 
 test("the acquisition deadline cannot kill dpkg and a failed transaction is never retried", (t) => {
-  const result = install(t, "0,0,137");
+  const result = install(t, "0", undefined, { transactionExit: 137 });
   assert.equal(result.status, 137, result.stderr);
   assert.equal(result.aptCalls.length, 1);
   assert.match(result.log, /sudo timeout .*apt-get .*--download-only/u);
+  const transactions = result.log
+    .split("\n")
+    .filter((line) => line.startsWith("sudo env "));
+  assert.equal(transactions.length, 1);
   assert.match(
-    result.log,
-    /sudo env .* apt-get .*--no-download libtest-a libtest-b/u,
+    transactions[0] ?? "",
+    / apt-get .*--no-download libtest-a libtest-b$/u,
   );
   assert.doesNotMatch(result.log, /pnpm --filter|autoclean/u);
 });
