@@ -489,6 +489,10 @@ test("topics filter and search live in the address and a topic opens as its own 
   ).toHaveValue("Инфра");
   await expect(topics).toHaveCount(1);
 
+  await expect(
+    topics.getByRole("link", { name: "Инфраструктура" }),
+  ).toBeFocused();
+
   // Адрес темы открывается и сам по себе.
   await page.goto(`/authoring/topics?topic=${infrastructureId}`);
   await expect(
@@ -497,6 +501,19 @@ test("topics filter and search live in the address and a topic opens as its own 
   await page.getByRole("button", { name: "Все темы" }).click();
   await expect(page).toHaveURL(/\/authoring\/topics$/u);
   await expect(topics).toHaveCount(3);
+  await expect(
+    topics.getByRole("link", { name: "Инфраструктура" }),
+  ).toBeFocused();
+  const otherTopic = topics.getByRole("link", {
+    name: "Продуктовая разработка",
+  });
+  await otherTopic.click();
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Продуктовая разработка" }),
+  ).toBeFocused();
+  await page.goBack();
+  await expect(page).toHaveURL("/authoring/topics");
+  await expect(otherTopic).toBeFocused();
 });
 
 test("topic row archive waits for the pending draft and uses its accepted version (#2382)", async ({

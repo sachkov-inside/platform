@@ -55,7 +55,10 @@ export function useCollectionListQuery(
   }
 
   const write = (mode: "push" | "replace", next: CollectionListQuery) => {
-    setState((previous) => ({ urlSearch: previous.urlSearch, query: next }));
+    // Keep the controlled filter responsive. Open and close follow the committed URL,
+    // so a quick Back cannot leave an optimistic editor visible on the list address.
+    if (mode === "replace")
+      setState((previous) => ({ urlSearch: previous.urlSearch, query: next }));
     const path = window.location.pathname;
     if (!listPaths[kind].includes(path)) return;
     const search = serializeCollectionListQuery(next);
