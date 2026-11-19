@@ -400,3 +400,37 @@ export const AnswersReachCommittedListener: Story = {
     ]);
   },
 };
+
+function RestoredExercises(props: MaterialQuizPresentation) {
+  const [exercise, setExercise] = useState(props.id);
+  const [reported, setReported] = useState("");
+  return (
+    <ExerciseAnswersProvider source={useRestoredAnswer}>
+      <ExerciseAnswersObserver onAnswered={setReported}>
+        <MaterialQuiz {...props} id={exercise} />
+      </ExerciseAnswersObserver>
+      <output>{reported}</output>
+      <button
+        onClick={() => {
+          setExercise("next-exercise");
+        }}
+      >
+        Следующее упражнение
+      </button>
+    </ExerciseAnswersProvider>
+  );
+}
+
+export const RestoredAnswerFollowsExercise: Story = {
+  render: (args) => <RestoredExercises {...args} />,
+  play: async ({ canvasElement }) => {
+    const quiz = within(canvasElement);
+    await expect(quiz.getByText("Пока неверно", { exact: true })).toBeVisible();
+    await waitFor(() => expect(quiz.getByText("mvp-features")).toBeVisible());
+    await userEvent.click(
+      quiz.getByRole("button", { name: "Следующее упражнение" }),
+    );
+    await waitFor(() => expect(quiz.getByText("next-exercise")).toBeVisible());
+    await expect(quiz.getByText("Пока неверно", { exact: true })).toBeVisible();
+  },
+};
