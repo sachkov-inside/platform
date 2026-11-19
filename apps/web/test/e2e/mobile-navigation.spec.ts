@@ -484,9 +484,14 @@ test("Home warmup observes tab visibility when its timer fires", async ({
     route.fulfill({ json: catalog }),
   );
   await page.goto("/account");
-  await expect(
-    page.getByRole("region", { name: "Telegram", exact: true }),
-  ).toContainText("Участник");
+  const account = page.getByRole("region", { name: "Telegram", exact: true });
+  await expect
+    .poll(async () => {
+      await page.clock.runFor(1);
+      return account.isVisible();
+    })
+    .toBe(true);
+  await expect(account).toContainText("Участник");
   // The clock is paused and the authenticated account has committed. Record the
   // visibility at request initiation, before browser transport can defer delivery.
   const feedReads = await page.evaluateHandle(() => {
