@@ -1,7 +1,11 @@
 import { legacyCatalogueScenario } from "../../../../../../scenarios/legacy-catalog.mjs";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { page } from "vitest/browser";
-import { ReadonlyURLSearchParams, useSearchParams } from "next/navigation";
+import {
+  ReadonlyURLSearchParams,
+  usePathname,
+  useSearchParams,
+} from "next/navigation";
 import { Activity, useState, type ComponentProps } from "react";
 import { z } from "zod";
 import {
@@ -1084,10 +1088,16 @@ export const CatalogueRefreshRestoresMaterial: Story = {
   args: { learning: { kind: "guest" } },
   beforeEach: () => {
     const cleanup = environment.beforeEach();
+    mocked(usePathname).mockReturnValue(
+      `/products/${productJourneyCorpus().reference.slug}/programme`,
+    );
     mocked(useSearchParams).mockReturnValue(
       new ReadonlyURLSearchParams("part=materials&at=performance-lesson-12"),
     );
     return () => {
+      mocked(usePathname).mockReturnValue(
+        `/products/${legacyCatalogueScenario.product.slug}/programme`,
+      );
       mocked(useSearchParams).mockReturnValue(new ReadonlyURLSearchParams());
       cleanup?.();
     };
@@ -2884,4 +2894,163 @@ export const AnnouncedPartCounts: Story = {
 export const AnnouncedPartCountsMobile: Story = {
   ...AnnouncedPartCounts,
   globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+
+const ownedQueryScopeA = {
+  ...productJourneyCorpus(),
+  reference: {
+    ...productJourneyCorpus().reference,
+    slug: "owned-programme-a",
+    name: "Первая программа",
+  },
+  items: productJourneyCorpus().items.map((item) => ({
+    ...item,
+    title:
+      `${item.title}. Проверяем независимый адрес программы, сохранение её полей и порядок показа материалов. `.repeat(
+        4,
+      ),
+  })),
+};
+const ownedQueryScopeB = {
+  ...ownedQueryScopeA,
+  reference: {
+    ...ownedQueryScopeA.reference,
+    slug: "owned-programme-b",
+    name: "Вторая программа",
+  },
+};
+
+/** Public component input changes, not a claim about navigation between actual Next routes. */
+function ProgrammeQueryScopeSwitch() {
+  const [stage, setStage] = useState(0);
+  return (
+    <ProductLearningProvider learning={{ kind: "guest" }}>
+      <ProductProgrammeView
+        result={stage === 0 ? ownedQueryScopeA : ownedQueryScopeB}
+      />
+      {stage === 0 ? (
+        <Button
+          onClick={() => {
+            mocked(usePathname).mockReturnValue("/materials/synthetic-reader");
+            mocked(useSearchParams).mockReturnValue(
+              new ReadonlyURLSearchParams("from=synthetic-reader"),
+            );
+            setStage(1);
+          }}
+        >
+          Показать другой Product вне его маршрута
+        </Button>
+      ) : stage === 1 ? (
+        <Button
+          onClick={() => {
+            mocked(usePathname).mockReturnValue(
+              "/products/owned-programme-b/programme",
+            );
+            mocked(useSearchParams).mockReturnValue(
+              new ReadonlyURLSearchParams("page=3"),
+            );
+            setStage(2);
+          }}
+        >
+          Принять адрес второй программы
+        </Button>
+      ) : stage === 2 ? (
+        <Button
+          onClick={() => {
+            mocked(useSearchParams).mockReturnValue(
+              new ReadonlyURLSearchParams("part=artifacts&page=3"),
+            );
+            setStage(3);
+          }}
+        >
+          Доставить новый объект тех же параметров
+        </Button>
+      ) : (
+        <output>Новый объект параметров обработан</output>
+      )}
+    </ProductLearningProvider>
+  );
+}
+
+export const ProgrammeQueryFollowsProductScope: Story = {
+  beforeEach: () => {
+    const cleanup = environment.beforeEach();
+    mocked(usePathname).mockReturnValue(
+      "/products/owned-programme-a/programme",
+    );
+    mocked(useSearchParams).mockReturnValue(
+      new ReadonlyURLSearchParams("page=2"),
+    );
+    return () => {
+      mocked(usePathname).mockReturnValue(
+        `/products/${legacyCatalogueScenario.product.slug}/programme`,
+      );
+      mocked(useSearchParams).mockReturnValue(new ReadonlyURLSearchParams());
+      cleanup?.();
+    };
+  },
+  render: () => <ProgrammeQueryScopeSwitch />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const committedCounts: number[] = [];
+    const observeB = () => {
+      const surface = canvasElement.querySelector(
+        '[data-product-programme="owned-programme-b"]',
+      );
+      if (surface !== null)
+        committedCounts.push(
+          surface.querySelectorAll("[data-product-ordinal]").length,
+        );
+    };
+    const observer = new MutationObserver(observeB);
+    observer.observe(canvasElement, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-product-programme"],
+    });
+    try {
+      await expect(
+        canvasElement.querySelectorAll("[data-product-ordinal]"),
+      ).toHaveLength(24);
+      await userEvent.click(
+        canvas.getByRole("button", {
+          name: "Показать другой Product вне его маршрута",
+        }),
+      );
+      await expect(
+        canvas.getByRole("heading", { name: "Вторая программа", level: 1 }),
+      ).toBeVisible();
+      await expect(committedCounts[0]).toBe(12);
+      // A later native reveal is valid with this retained scroll geometry.
+      committedCounts.length = 0;
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Принять адрес второй программы" }),
+      );
+      await expect(committedCounts[0]).toBe(36);
+      const last = canvasElement.querySelector<HTMLElement>(
+        '[data-product-ordinal="36"]',
+      );
+      if (last === null) throw new Error("Missing current Programme boundary");
+      last.scrollIntoView({ block: "end", behavior: "instant" });
+      await waitFor(async () => {
+        await expect(
+          canvasElement.querySelectorAll("[data-product-ordinal]"),
+        ).toHaveLength(48);
+      });
+      await userEvent.click(
+        canvas.getByRole("button", {
+          name: "Доставить новый объект тех же параметров",
+        }),
+      );
+      await expect(
+        canvas.getByText("Новый объект параметров обработан"),
+      ).toBeVisible();
+      await expect(
+        canvasElement.querySelectorAll("[data-product-ordinal]"),
+      ).toHaveLength(48);
+    } finally {
+      observer.disconnect();
+    }
+  },
 };

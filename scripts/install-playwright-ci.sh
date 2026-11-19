@@ -9,9 +9,13 @@ Acquire::Retries "1";
 APT::Update::Error-Mode "any";
 APT
 
+apt_scope=$(mktemp -d /tmp/platform-playwright-apt.XXXXXX)
+trap 'rm -rf -- "$apt_scope"' EXIT
+node scripts/prepare-playwright-apt-sources.mjs /etc/apt "$apt_scope"
+
 install_system_packages() {
   # Run the deadline as root so it can terminate apt and its root-owned children.
-  sudo timeout --signal=KILL 180s "$(command -v node)" \
+  sudo timeout --signal=KILL 180s env "APT_CONFIG=$apt_scope/apt.conf" "$(command -v node)" \
     apps/web/node_modules/@playwright/test/cli.js install-deps "$@"
 }
 
@@ -21,7 +25,7 @@ else
   status=$?
   echo "Playwright system packages failed (exit $status); retrying with the HTTPS Ubuntu archive mirror." >&2
   # GitHub images also route Ubuntu sources through apt-mirrors.txt.
-  sudo find /etc/apt -maxdepth 2 -type f \( -name '*.list' -o -name '*.sources' -o -name 'apt-mirrors.txt' \) \
+  find "$apt_scope" -maxdepth 2 -type f \( -name '*.list' -o -name '*.sources' -o -name 'apt-mirrors.txt' \) \
     -exec sed -i -E \
       -e 's|https?://azure[.]archive[.]ubuntu[.]com/ubuntu|https://archive.ubuntu.com/ubuntu|g' \
       -e 's~https?://us-east-2[.]ec2[.]archive[.]ubuntu[.]com/ubuntu([/?#[:space:]]|$)~https://archive.ubuntu.com/ubuntu\1~g' {} +

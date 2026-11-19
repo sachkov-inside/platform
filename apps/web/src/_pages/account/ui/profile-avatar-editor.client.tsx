@@ -16,7 +16,7 @@ import {
   type DragEvent,
   type PointerEvent,
   type ReactNode,
-  useEffect,
+  useCallback,
   useId,
   useRef,
   useState,
@@ -37,6 +37,12 @@ import {
   type ProfileAvatarMutationInput,
 } from "../api/profile-avatar-mutation.browser";
 import { dragLeftElement } from "@/shared/lib/drag-left-element";
+import { useNativeDialog } from "@/shared/lib/native-dialog.client";
+import {
+  createAvatarImageReader,
+  mountAvatarPreview,
+  type DecodedAvatarImage,
+} from "./profile-avatar-image.browser";
 
 export type { ProfileAvatarMutation } from "../api/profile-avatar-mutation.browser";
 
@@ -44,12 +50,7 @@ const ACCEPTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 type Crop = ProfileAvatarCrop;
 
-interface SelectedImage {
-  readonly file: File;
-  readonly height: number;
-  readonly url: string;
-  readonly width: number;
-}
+type SelectedImage = DecodedAvatarImage;
 
 type AvatarStatus =
   | { readonly kind: "idle" }
@@ -79,9 +80,15 @@ export function ProfileAvatarEditor({
   readonly onProfileChange: (profile: PrivateAccountProfile) => void;
   readonly profile: PrivateAccountProfile;
 }) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const pointerRef = useRef<{ x: number; y: number } | null>(null);
+  const pointerRef = useRef<{
+    pointerId: number;
+    x: number;
+    y: number;
+  } | null>(null);
+  const imageReader = useRef<ReturnType<typeof createAvatarImageReader> | null>(
+    null,
+  );
   const [image, setImage] = useState<SelectedImage | null>(null);
   const [crop, setCrop] = useState<Crop>({
     centerX: 0.5,
@@ -95,6 +102,10 @@ export function ProfileAvatarEditor({
   const [dragging, setDragging] = useState(false);
   const titleId = useId();
   const descriptionId = useId();
+  const dismissImage = () => {
+    imageReader.current?.cancel();
+    setImage(null);
+  };
   const avatarMutation = useMutation<
     PrivateAccountProfile,
     unknown,
@@ -103,16 +114,53 @@ export function ProfileAvatarEditor({
     mutationFn: ({ input, onProgress }) => mutation(input, onProgress),
     onSuccess: (updated, variables) => {
       if (variables.input.kind === "upload") {
-        setImage(null);
-        dialogRef.current?.close();
+        dismissImage();
       }
       onProfileChange(updated);
     },
   });
+  const resetMutation = avatarMutation.reset;
+  const attachImageReader = useCallback(
+    (element: HTMLElement | null) => {
+      if (element === null) return;
+      const reader = createAvatarImageReader({
+        onDecoded: (selected) => {
+          setImage(selected);
+          setCrop({ centerX: 0.5, centerY: 0.5, zoom: 1 });
+          resetMutation();
+          setClientError(null);
+        },
+        onUnreadable: () => {
+          resetMutation();
+          setClientError("Изображение не удалось прочитать.");
+        },
+      });
+      imageReader.current = reader;
+      return () => {
+        reader.dispose();
+        if (imageReader.current === reader) imageReader.current = null;
+      };
+    },
+    [resetMutation],
+  );
 
-  useEffect(
-    () => () => {
-      if (image !== null) URL.revokeObjectURL(image.url);
+  const attachPreview = useCallback(
+    (element: HTMLImageElement | null) => {
+      if (element === null || image === null) return;
+      return mountAvatarPreview(element, image.file);
+    },
+    [image],
+  );
+  const attachCrop = useCallback(
+    (element: HTMLDivElement | null) => {
+      if (element === null || image === null) return;
+      return () => {
+        const pointer = pointerRef.current;
+        pointerRef.current = null;
+        if (pointer !== null && element.hasPointerCapture(pointer.pointerId)) {
+          element.releasePointerCapture(pointer.pointerId);
+        }
+      };
     },
     [image],
   );
@@ -124,37 +172,17 @@ export function ProfileAvatarEditor({
       file.size === 0 ||
       file.size > MAX_PROFILE_AVATAR_FILE_BYTES
     ) {
+      imageReader.current?.cancel();
       avatarMutation.reset();
       setClientError("Выберите JPEG, PNG или WebP размером до 10 МБ.");
       return;
     }
-    const url = URL.createObjectURL(file);
-    const probe = new Image();
-    probe.onload = () => {
-      setImage((previous) => {
-        if (previous !== null) URL.revokeObjectURL(previous.url);
-        return {
-          file,
-          height: probe.naturalHeight,
-          url,
-          width: probe.naturalWidth,
-        };
-      });
-      setCrop({ centerX: 0.5, centerY: 0.5, zoom: 1 });
-      avatarMutation.reset();
-      setClientError(null);
-      dialogRef.current?.showModal();
-    };
-    probe.onerror = () => {
-      URL.revokeObjectURL(url);
-      avatarMutation.reset();
-      setClientError("Изображение не удалось прочитать.");
-    };
-    probe.src = url;
+    imageReader.current?.read(file);
   };
 
   const upload = () => {
     if (image === null) return;
+    imageReader.current?.cancel();
     setClientError(null);
     setUploadStatus({ kind: "hashing" });
     avatarMutation.mutate({
@@ -170,6 +198,7 @@ export function ProfileAvatarEditor({
   };
 
   const remove = () => {
+    imageReader.current?.cancel();
     setClientError(null);
     avatarMutation.mutate({
       input: { kind: "remove", profile },
@@ -179,6 +208,13 @@ export function ProfileAvatarEditor({
 
   const bounds = image === null ? null : cropCenterBounds(image, crop.zoom);
   const busy = avatarMutation.isPending;
+  const dialog = useNativeDialog({
+    open: image !== null,
+    pending: busy,
+    onOpenChange: (open) => {
+      if (!open) dismissImage();
+    },
+  });
   let status: AvatarStatus = { kind: "idle" };
   if (clientError !== null) {
     status = { kind: "error", message: clientError };
@@ -204,6 +240,7 @@ export function ProfileAvatarEditor({
 
   return (
     <section
+      ref={attachImageReader}
       aria-labelledby="profile-avatar-heading"
       className="border-b border-border pb-7"
       onDragEnter={(event) => {
@@ -295,13 +332,10 @@ export function ProfileAvatarEditor({
       <AvatarStatusNotice status={status} />
 
       <dialog
+        {...dialog}
         aria-describedby={descriptionId}
         aria-labelledby={titleId}
         className="m-auto w-[min(42rem,calc(100%-2rem))] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-background p-0 text-foreground shadow-2xl backdrop:bg-foreground/35"
-        onCancel={(event) => {
-          if (busy) event.preventDefault();
-        }}
-        ref={dialogRef}
       >
         <div className="p-5 sm:p-7">
           <div className="flex items-start justify-between gap-4">
@@ -324,7 +358,7 @@ export function ProfileAvatarEditor({
               aria-label="Закрыть кадрирование"
               className="size-11 shrink-0"
               disabled={busy}
-              onClick={() => dialogRef.current?.close()}
+              onClick={dismissImage}
               size="icon"
               type="button"
               variant="ghost"
@@ -341,15 +375,26 @@ export function ProfileAvatarEditor({
             <>
               <div className="mt-6 grid place-items-center rounded-2xl bg-muted p-4 sm:p-8">
                 <div
+                  ref={attachCrop}
                   aria-label="Область кадрирования. Перетаскивайте изображение указателем."
                   className="relative aspect-square w-full max-w-72 touch-none overflow-hidden rounded-full bg-background shadow-lg outline outline-1 outline-foreground/15"
                   onPointerDown={(event: PointerEvent<HTMLDivElement>) => {
-                    pointerRef.current = { x: event.clientX, y: event.clientY };
+                    if (pointerRef.current !== null) return;
+                    pointerRef.current = {
+                      pointerId: event.pointerId,
+                      x: event.clientX,
+                      y: event.clientY,
+                    };
                     event.currentTarget.setPointerCapture(event.pointerId);
                   }}
                   onPointerMove={(event: PointerEvent<HTMLDivElement>) => {
                     const previous = pointerRef.current;
-                    if (previous === null || bounds === null) return;
+                    if (
+                      previous === null ||
+                      previous.pointerId !== event.pointerId ||
+                      bounds === null
+                    )
+                      return;
                     const rect = event.currentTarget.getBoundingClientRect();
                     const minSide = Math.min(image.width, image.height);
                     const renderedWidth =
@@ -371,10 +416,28 @@ export function ProfileAvatarEditor({
                         bounds.maxY,
                       ),
                     }));
-                    pointerRef.current = { x: event.clientX, y: event.clientY };
+                    pointerRef.current = {
+                      pointerId: event.pointerId,
+                      x: event.clientX,
+                      y: event.clientY,
+                    };
                   }}
-                  onPointerUp={() => {
+                  onPointerUp={(event) => {
+                    if (pointerRef.current?.pointerId !== event.pointerId)
+                      return;
                     pointerRef.current = null;
+                    if (event.currentTarget.hasPointerCapture(event.pointerId))
+                      event.currentTarget.releasePointerCapture(
+                        event.pointerId,
+                      );
+                  }}
+                  onPointerCancel={(event) => {
+                    if (pointerRef.current?.pointerId === event.pointerId)
+                      pointerRef.current = null;
+                  }}
+                  onLostPointerCapture={(event) => {
+                    if (pointerRef.current?.pointerId === event.pointerId)
+                      pointerRef.current = null;
                   }}
                   role="group"
                 >
@@ -384,7 +447,7 @@ export function ProfileAvatarEditor({
                     aria-hidden="true"
                     className="pointer-events-none absolute max-w-none select-none"
                     draggable={false}
-                    src={image.url}
+                    ref={attachPreview}
                     style={cropImageStyle(image, crop)}
                   />
                 </div>
@@ -442,7 +505,7 @@ export function ProfileAvatarEditor({
             <Button
               className="min-h-12 px-5"
               disabled={busy}
-              onClick={() => dialogRef.current?.close()}
+              onClick={dismissImage}
               type="button"
               variant="ghost"
             >
