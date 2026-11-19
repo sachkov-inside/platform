@@ -9,7 +9,7 @@
  * Every function takes an optional `scope`: a node inside or around one shell picks that shell,
  * so a page that renders several shells (a Storybook docs page) reaches the right one.
  *
- * Browser-only. React may read the breakpoint during render through useSyncExternalStore.
+ * Browser-only. Read the breakpoint in the browser when attaching a shell control.
  */
 
 const desktopQuery = "(width >= 64rem)";

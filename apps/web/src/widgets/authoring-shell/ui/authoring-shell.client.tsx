@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useSyncExternalStore, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 
 import {
   AuthoringSearchRoot,
@@ -75,18 +75,26 @@ export function AuthoringShell({
   const location = authoringLocation(pathname);
   const [moreOpen, setMoreOpen] = useState(false);
   const [openedAt, setOpenedAt] = useState(pathname);
-  const desktop = useSyncExternalStore(
-    subscribeShellBreakpoint,
-    readShellDesktop,
-    () => false,
+  const watchOpenMenu = useCallback(
+    (trigger: HTMLButtonElement | null) => {
+      if (trigger === null) return;
+      const dismiss = () => {
+        setMoreOpen(false);
+      };
+      if (readShellDesktop()) {
+        dismiss();
+        return;
+      }
+      // This menu opened on mobile. A change can arrive after the browser has already returned to mobile (#2424).
+      return subscribeShellBreakpoint(dismiss);
+    },
+    [setMoreOpen],
   );
   // A retained shell closes the «Ещё» sheet when the destination changes.
   if (openedAt !== pathname) {
     setOpenedAt(pathname);
     setMoreOpen(false);
   }
-  // The sidebar replaces this sheet: https://github.com/sachkov-inside/platform/issues/2424.
-  if (desktop && moreOpen) setMoreOpen(false);
   // The sidebar names the preview in full; the narrow top row keeps one short word.
   const title = location.preview
     ? "Предпросмотр"
@@ -184,6 +192,7 @@ export function AuthoringShell({
             />
           ))}
           <button
+            ref={moreOpen ? watchOpenMenu : undefined}
             aria-expanded={moreOpen}
             aria-haspopup="dialog"
             className="authoring-tab"

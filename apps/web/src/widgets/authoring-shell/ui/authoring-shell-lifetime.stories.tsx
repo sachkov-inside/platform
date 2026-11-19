@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Activity, useState } from "react";
 import { flushSync } from "react-dom";
-import { expect, userEvent, waitFor, within } from "storybook/test";
+import { expect, spyOn, userEvent, waitFor, within } from "storybook/test";
 
 import { AuthoringShell } from "./authoring-shell.client";
 
@@ -142,10 +142,11 @@ export const NativeCloseAfterReopen: Story = {
 
 export const FastBreakpointReturn: Story = {
   play: async ({ canvasElement }) => {
-    const frame = window.frameElement;
-    if (!(frame && frame.tagName === "IFRAME"))
+    const viewport = Array.from(
+      window.parent.document.querySelectorAll("iframe"),
+    ).find((frame) => frame === window.frameElement);
+    if (viewport === undefined)
       throw new Error("A resizable story viewport is required");
-    const viewport = frame as HTMLIFrameElement;
     const previousStyle = viewport.style.cssText;
     const canvas = within(canvasElement);
     const trigger = canvas.getByRole("button", { name: "Ещё" });
@@ -154,30 +155,107 @@ export const FastBreakpointReturn: Story = {
       name: "Ещё",
     });
     const media = matchMedia("(width >= 64rem)");
-    const deliveries: boolean[] = [];
-    const record = (event: MediaQueryListEvent) => {
-      deliveries.push(event.matches);
-    };
-    media.addEventListener("change", record);
-    let wide = false;
-    const returnToMobile = () => {
-      wide = media.matches;
-      if (wide) {
-        viewport.style.setProperty("width", "390px", "important");
-        void document.documentElement.clientWidth;
+    async function crossAndReturn(beforeDelivery?: () => void) {
+      const deliveries: boolean[] = [];
+      const record = (event: MediaQueryListEvent) => {
+        deliveries.push(event.matches);
+      };
+      let wide = false;
+      const returnToMobile = () => {
+        wide = media.matches;
+        if (wide) {
+          viewport.style.setProperty("width", "390px", "important");
+          // Flush the new layout before native media-query notifications are delivered.
+          void document.documentElement.clientWidth;
+          beforeDelivery?.();
+        }
+      };
+      media.addEventListener("change", record);
+      window.addEventListener("resize", returnToMobile, { once: true });
+      try {
+        viewport.style.setProperty("width", "1440px", "important");
+        await waitFor(() => expect(deliveries).toContain(false));
+        await expect(wide).toBe(true);
+      } finally {
+        window.removeEventListener("resize", returnToMobile);
+        media.removeEventListener("change", record);
       }
-    };
-    window.addEventListener("resize", returnToMobile, { once: true });
+    }
     try {
-      viewport.style.setProperty("width", "1440px", "important");
-      await waitFor(() => expect(deliveries).toContain(false));
-      await expect(wide).toBe(true);
+      const resized = new Promise<void>((resolve) => {
+        window.addEventListener(
+          "resize",
+          () => {
+            resolve();
+          },
+          { once: true },
+        );
+      });
+      viewport.style.setProperty("width", "400px", "important");
+      await resized;
+      await expect(dialog.matches(":modal")).toBe(true);
+      await crossAndReturn();
       await expect(dialog.open).toBe(false);
       await expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+      await crossAndReturn();
+      await expect(dialog.open).toBe(false);
+      await userEvent.click(trigger);
+      const close = within(dialog).getByRole("button", { name: "Закрыть" });
+      let closedBeforeReopen = false;
+      await crossAndReturn(() => {
+        flushSync(() => {
+          close.click();
+        });
+        closedBeforeReopen = !dialog.open;
+        flushSync(() => {
+          trigger.click();
+        });
+      });
+      await expect(closedBeforeReopen).toBe(true);
+      await expect(dialog.matches(":modal")).toBe(true);
+      await expect(trigger).toHaveAttribute("aria-expanded", "true");
+      await userEvent.keyboard("{Escape}");
+      await expect(trigger).toHaveFocus();
     } finally {
-      window.removeEventListener("resize", returnToMobile);
-      media.removeEventListener("change", record);
       viewport.style.cssText = previousStyle;
+    }
+  },
+};
+
+export const OpenMenuBreakpointLifetime: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const added = spyOn(MediaQueryList.prototype, "addEventListener");
+    const removed = spyOn(MediaQueryList.prototype, "removeEventListener");
+    const checkRelease = async (index: number) => {
+      await expect(added.mock.calls[index]?.[0]).toBe("change");
+      await expect(removed.mock.calls[index]).toEqual(added.mock.calls[index]);
+      await expect(removed.mock.contexts[index]).toBe(
+        added.mock.contexts[index],
+      );
+    };
+    try {
+      await userEvent.click(canvas.getByRole("button", { name: "Ещё" }));
+      const dialog = canvas.getByRole<HTMLDialogElement>("dialog", {
+        name: "Ещё",
+      });
+      await expect(added.mock.calls).toHaveLength(1);
+      await userEvent.keyboard("{Alt>}{ArrowRight}{/Alt}");
+      await waitFor(() => expect(dialog.matches(":modal")).toBe(false));
+      await checkRelease(0);
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Вернуться в админку" }),
+      );
+      await waitFor(() => expect(dialog.matches(":modal")).toBe(true));
+      await expect(added.mock.calls).toHaveLength(2);
+      await expect(added.mock.contexts[1]).not.toBe(added.mock.contexts[0]);
+      await userEvent.keyboard("{Alt>}{Delete}{/Alt}");
+      await waitFor(() => expect(dialog.isConnected).toBe(false));
+      await checkRelease(1);
+    } finally {
+      removed.mockRestore();
+      added.mockRestore();
     }
   },
 };
