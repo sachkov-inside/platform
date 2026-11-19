@@ -1,4 +1,5 @@
 import { internalRoute } from "../../src/shared/routing/internal-route";
+import { useState } from "react";
 import { hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import { CourseReadingHost } from "../../src/features/library-discovery/ui/course-reading-host.client";
@@ -46,10 +47,68 @@ function Fixture() {
     </CourseReadingHost>
   );
 }
+function HandoffReturn() {
+  const [pathname, setPathname] = useState(window.location.pathname);
+  return (
+    <>
+      <button onClick={() => setPathname("/materials/another-lesson")}>
+        Leave course frame
+      </button>
+      <CourseReadingHost pathname={pathname}>
+        <CourseReadingLayout context={context}>
+          <h1>Reader body</h1>
+        </CourseReadingLayout>
+      </CourseReadingHost>
+    </>
+  );
+}
+
+function RetainedLayouts() {
+  const [second, setSecond] = useState(false);
+  const [revision, setRevision] = useState(0);
+  // Only the visible layout may publish when both retained contexts change together.
+  const layouts = ["First", "Second"].map((name) => ({
+    ...context,
+    chapters: context.chapters.map((chapter, index) =>
+      index === 0
+        ? { ...chapter, name: name + " revision " + String(revision) }
+        : chapter,
+    ),
+  }));
+  return (
+    <>
+      <button
+        onClick={() => {
+          setSecond(!second);
+          setRevision(revision + 1);
+        }}
+      >
+        Switch lesson
+      </button>
+      <CourseReadingHost pathname={window.location.pathname}>
+        {layouts.map((item, index) => (
+          <div key={index} hidden={second !== (index === 1)}>
+            <CourseReadingLayout context={item}>
+              <h1>{index === 0 ? "First lesson" : "Second lesson"}</h1>
+            </CourseReadingLayout>
+          </div>
+        ))}
+      </CourseReadingHost>
+    </>
+  );
+}
+
+const scenario = new URLSearchParams(window.location.search).get("scenario");
+const OwnerFixture =
+  scenario === "layouts"
+    ? RetainedLayouts
+    : scenario === "return"
+      ? HandoffReturn
+      : Fixture;
 const root = document.getElementById("root");
 if (root === null) throw new Error("Missing fixture root");
-root.innerHTML = renderToString(<Fixture />);
-hydrateRoot(root, <Fixture />, {
+root.innerHTML = renderToString(<OwnerFixture />);
+hydrateRoot(root, <OwnerFixture />, {
   onRecoverableError(error) {
     // renderToString emits the suspended observer fallback. Only this boundary switches to CSR.
     if (
