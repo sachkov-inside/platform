@@ -1,4 +1,4 @@
-import { act } from "react";
+import { Activity, act, useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, spyOn, userEvent, waitFor, within } from "storybook/test";
 
@@ -13,6 +13,30 @@ const meta = {
 } satisfies Meta<typeof AgentPhrase>;
 export default meta;
 type Story = StoryObj<typeof meta>;
+
+/** Native Clipboard and real feedback time, exercised manually in an isolated browser. */
+export const NativeClipboardRetention: Story = {
+  render: () => <NativeClipboardRetentionCase />,
+};
+
+function NativeClipboardRetentionCase() {
+  const [visible, setVisible] = useState(true);
+  return (
+    <>
+      <button
+        onClick={() => {
+          setVisible((current) => !current);
+        }}
+        type="button"
+      >
+        {visible ? "Скрыть запрос" : "Вернуть запрос"}
+      </button>
+      <Activity mode={visible ? "visible" : "hidden"}>
+        <AgentPhrase text="Synthetic clipboard lifetime task_494bc3867e53 20261118 80f86c51-5764-42d0-89bb-6d5043888872" />
+      </Activity>
+    </>
+  );
+}
 
 export const ClipboardUnavailable: Story = {
   beforeEach: () => {

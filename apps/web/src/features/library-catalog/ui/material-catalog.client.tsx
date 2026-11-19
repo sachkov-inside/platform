@@ -2,7 +2,7 @@
 
 import { RefreshCw } from "lucide-react";
 import type { Route } from "next";
-import { useEffect, useRef } from "react";
+import { useCallback } from "react";
 
 import { MaterialCard } from "@/entities/material";
 import { Button } from "@/shared/ui/button";
@@ -12,6 +12,7 @@ import {
   formatLoadedMaterialCount,
 } from "../model/format-material-count";
 import type { LibraryCatalogPage } from "../model/library-view";
+import { observeCatalogContinuation } from "./catalog-continuation.browser";
 
 type ReadyLibraryCatalogPage = Extract<
   LibraryCatalogPage,
@@ -39,33 +40,24 @@ export function InfiniteMaterialCatalog({
   readonly withoutHeading?: boolean;
   readonly presentation?: "catalog" | "feed";
 }) {
-  const loadSentinelRef = useRef<HTMLDivElement>(null);
+  const attachContinuation = useCallback(
+    (sentinel: HTMLDivElement | null) => {
+      if (
+        sentinel === null ||
+        !hasNextPage ||
+        isFetchingNextPage ||
+        isFetchNextPageError
+      ) {
+        return;
+      }
+      return observeCatalogContinuation(sentinel, onLoadNextPage);
+    },
+    [hasNextPage, isFetchNextPageError, isFetchingNextPage, onLoadNextPage],
+  );
   const materialCount = pages.reduce(
     (count, page) => count + page.items.length,
     0,
   );
-
-  useEffect(() => {
-    const sentinel = loadSentinelRef.current;
-    if (
-      sentinel === null ||
-      !hasNextPage ||
-      isFetchingNextPage ||
-      isFetchNextPageError
-    ) {
-      return;
-    }
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) onLoadNextPage();
-      },
-      { rootMargin: "800px 0px" },
-    );
-    observer.observe(sentinel);
-    return () => {
-      observer.disconnect();
-    };
-  }, [hasNextPage, isFetchNextPageError, isFetchingNextPage, onLoadNextPage]);
 
   const catalog = (
     <>
@@ -79,7 +71,7 @@ export function InfiniteMaterialCatalog({
           {...(returnHref === undefined ? {} : { returnHref })}
         />
       ))}
-      <div aria-hidden="true" className="h-px" ref={loadSentinelRef} />
+      <div aria-hidden="true" className="h-px" ref={attachContinuation} />
       <div aria-live="polite" className="mt-6 flex min-h-11 justify-center">
         {isFetchingNextPage ? (
           <p className="text-sm text-muted-foreground">

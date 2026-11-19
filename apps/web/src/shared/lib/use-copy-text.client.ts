@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 export type CopyTextState = "copied" | "failed" | "idle";
 
@@ -15,10 +15,11 @@ export function useCopyText(text: string, onFailure?: () => void) {
   const [state, setState] = useState<CopyTextState>("idle");
   const reset = useRef<ReturnType<typeof setTimeout>>(undefined);
   const sequence = useRef(0);
-  // Stops the failure callback and the reset timer once the control has unmounted.
+  // Stops the failure callback and reset timer when the copy button disconnects.
   const mounted = useRef(true);
 
-  useEffect(() => {
+  const copyButtonRef = useCallback((button: HTMLButtonElement | null) => {
+    if (button === null) return;
     mounted.current = true;
     return () => {
       mounted.current = false;
@@ -55,5 +56,5 @@ export function useCopyText(text: string, onFailure?: () => void) {
     );
   };
 
-  return { copy, state };
+  return { copy, copyButtonRef, state };
 }

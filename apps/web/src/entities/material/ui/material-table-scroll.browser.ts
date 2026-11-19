@@ -1,5 +1,7 @@
 type Overflow = "none" | "start" | "end" | "both";
 
+const retainedPositions = new WeakMap<HTMLDivElement, number>();
+
 function overflowOf(element: HTMLElement): Overflow {
   const hidden = element.scrollWidth - element.clientWidth;
   if (hidden <= 1) return "none";
@@ -25,6 +27,11 @@ export function mountMaterialTableScroll(element: HTMLDivElement | null) {
   )
     return;
 
+  // Next can move the hidden reader subtree between two history returns (#2421).
+  const retained = retainedPositions.get(element);
+  if (retained !== undefined && retained !== 0 && element.scrollLeft === 0)
+    element.scrollLeft = retained;
+  retainedPositions.delete(element);
   let active = true;
   const update = () => {
     if (!active) return;
@@ -42,6 +49,7 @@ export function mountMaterialTableScroll(element: HTMLDivElement | null) {
   element.addEventListener("scroll", update, { passive: true });
   update();
   return () => {
+    retainedPositions.set(element, element.scrollLeft);
     active = false;
     element.removeEventListener("scroll", update);
     resize.disconnect();

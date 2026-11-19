@@ -39,6 +39,7 @@ import {
 import { productTaskHistoryRoute } from "./product-task-history-backend.mjs";
 import { readerSaleAvailabilityRoute } from "./reader-sale-availability-backend.mjs";
 import { tableNamesRoute } from "./table-names-backend.mjs";
+import { glossaryLifetimeRoute } from "./glossary-lifetime-backend.mjs";
 import { dataLoadingMetricsRoute } from "./data-loading-metrics-backend.mjs";
 import { authoringMaterialsRoute } from "./authoring-materials-backend.mjs";
 import { authoringSearchRoute } from "./authoring-search-backend.mjs";
@@ -49,6 +50,7 @@ import { salesCatalogRoute } from "./sales-catalog-backend.mjs";
 import { authoringOverviewRoute } from "./authoring-overview-backend.mjs";
 import { learningScenarioRoute } from "./learning-scenario-backend.mjs";
 import { commerceScenarioRoute } from "./commerce-scenario-backend.mjs";
+import { accountAccessRoute } from "./account-access-backend.mjs";
 
 // Request bodies the checks send to the double; a malformed body fails the request.
 const controlSchema = z
@@ -1190,6 +1192,9 @@ const server = createServer(async (request, response) => {
     });
     response.end(JSON.stringify(value));
   };
+  const accountAccess = await accountAccessRoute(request, url);
+  if (accountAccess !== null)
+    return send(accountAccess.status, accountAccess.value);
   // Вход в админку (#1879): у вошедшего автора двойника есть все права, отказы разделов
   // отвечают двойники самих разделов. Проверка входа не попадает в журнал запросов.
   if (url.pathname === "/accounts/current/permissions") {
@@ -1269,6 +1274,15 @@ const server = createServer(async (request, response) => {
   }
   const readerFixture = lessons[0];
   if (readerFixture === undefined) throw new Error("Missing reader fixture");
+  const glossaryLifetime = glossaryLifetimeRoute(
+    request.method,
+    url,
+    readerProjection(readerFixture),
+  );
+  if (glossaryLifetime !== null) {
+    send(glossaryLifetime.status, glossaryLifetime.value);
+    return;
+  }
   const tableNames = tableNamesRoute(
     request.method,
     url,

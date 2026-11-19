@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useMaterialReading } from "@/entities/material";
 
 /**
@@ -19,12 +19,16 @@ export function ChapterReadingProgress({
   const { accountId, states, register, resolved, failed } =
     useMaterialReading();
   const ids = useMemo(() => [...new Set(materialIds)], [materialIds]);
-  useEffect(() => {
-    const unregister = ids.map(register);
-    return () => {
-      for (const release of unregister) release();
-    };
-  }, [ids, register]);
+  const connect = useCallback(
+    (node: HTMLSpanElement | null) => {
+      if (node === null) return;
+      const unregister = ids.map(register);
+      return () => {
+        for (const release of unregister) release();
+      };
+    },
+    [ids, register],
+  );
   if (ids.length === 0)
     return sentence ? null : (
       <span className="programme-chapter-progress" aria-hidden="true" />
@@ -38,6 +42,7 @@ export function ChapterReadingProgress({
   const label = failed && missing ? "—" : missing ? "…" : String(read);
   return (
     <span
+      ref={connect}
       className={sentence ? undefined : "programme-chapter-progress"}
       data-chapter-progress
       aria-label={

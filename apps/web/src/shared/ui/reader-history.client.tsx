@@ -1,5 +1,12 @@
 "use client";
-import { Suspense, useEffect, useState, useRef, type ReactNode } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useState,
+  useRef,
+  type ReactNode,
+} from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import type { Route } from "next";
 import {
@@ -93,25 +100,30 @@ export function ReaderOriginLink({
   readonly title?: string | undefined;
 }) {
   const [target, setTarget] = useState(href);
-  useEffect(() => {
-    const update = () => {
-      const origin = readerOriginHref(href);
-      const url = origin === undefined ? undefined : new URL(origin);
-      setTarget(
-        url === undefined
-          ? href
-          : internalRoute(`${url.pathname}${url.search}${url.hash}`),
-      );
-    };
-    update();
-    window.addEventListener(readerHistoryEntryEvent, update);
-    return () => {
-      window.removeEventListener(readerHistoryEntryEvent, update);
-    };
-  }, [href]);
+  const connect = useCallback(
+    (node: HTMLAnchorElement | null) => {
+      if (node === null) return;
+      const update = () => {
+        const origin = readerOriginHref(href);
+        const url = origin === undefined ? undefined : new URL(origin);
+        setTarget(
+          url === undefined
+            ? href
+            : internalRoute(`${url.pathname}${url.search}${url.hash}`),
+        );
+      };
+      update();
+      window.addEventListener(readerHistoryEntryEvent, update);
+      return () => {
+        window.removeEventListener(readerHistoryEntryEvent, update);
+      };
+    },
+    [href],
+  );
   return (
     <IntentPrefetchLink
       {...linkProps}
+      ref={connect}
       href={target}
       className={className}
       onClick={(event) => {
