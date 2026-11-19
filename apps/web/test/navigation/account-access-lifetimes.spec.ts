@@ -376,6 +376,7 @@ test("leaving a pending Telegram continuation keeps the home page after a late a
   request,
 }) => {
   await signIn(context, baseURL);
+  await page.clock.install();
   await page.goto(`/telegram/continue?attempt=${attemptId}`);
   await expect(
     page.getByText("Проверяем доступ к выбранному курсу…"),
@@ -403,15 +404,7 @@ test("leaving a pending Telegram continuation keeps the home page after a late a
   // Leaving can abort the poll or allow its response to finish on the hidden page.
   await (await poll.request().response())?.finished();
   await browserTurn(page);
-  await page.evaluate(
-    () =>
-      new Promise<void>((resolve) => {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            resolve();
-          });
-        });
-      }),
-  );
+  // The next polling interval passes while the reader stays on the home page.
+  await page.clock.runFor(1_000);
   await expect(page).toHaveURL(/\/$/u);
 });
