@@ -657,3 +657,34 @@ test("a retained Product ignores another route tab and returns to the same descr
     ),
   ).resolves.toBe(true);
 });
+
+test("leaving a changed product saves its title and opens the list without a beforeunload prompt", async ({
+  page,
+}, info) => {
+  await page.goto(`/authoring/products/${architectureId}?tab=description`);
+  const title = page.getByRole("textbox", { name: "Название продукта" });
+  const savedTitle = "Сохранено перед переходом";
+  const prompts: string[] = [];
+  page.on("dialog", async (dialog) => {
+    prompts.push(dialog.type());
+    await dialog.accept();
+  });
+  const release = Promise.withResolvers<undefined>();
+  await page.route("**/api/authoring/collections/metadata", async (route) => {
+    await release.promise;
+    await route.continue();
+  });
+  try {
+    await title.click();
+    await title.fill(savedTitle);
+    await page.getByRole("link", { name: "Все продукты", exact: true }).click();
+    release.resolve(undefined);
+    await expect(page).toHaveURL("/authoring/products");
+    await expect(
+      rows(page, info, "Все продукты").getByRole("link", { name: savedTitle }),
+    ).toBeVisible();
+    expect(prompts).toEqual([]);
+  } finally {
+    release.resolve(undefined);
+  }
+});
