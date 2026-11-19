@@ -734,9 +734,9 @@ test("a later product order read supplies the version for the next chapter save"
     await expect
       .poll(async () => {
         const result = await request.get(control);
-        return result.ok() && (await result.json()).pending === true;
+        return result.ok() ? ((await result.json()) as unknown) : null;
       })
-      .toBe(true);
+      .toMatchObject({ pending: true });
     await second.getByRole("button", { name: save }).click();
     await expect(second.getByRole("alert")).toContainText("Состав изменился");
     expect((await request.post(control + "/release")).ok()).toBe(true);
@@ -747,11 +747,28 @@ test("a later product order read supplies the version for the next chapter save"
     await expect(second.getByRole("status")).toHaveText("Сохранено");
     const result = await request.get(control);
     expect(result.ok()).toBe(true);
-    expect((await result.json()).writes).toEqual([
-      "a".repeat(64),
-      "b".repeat(64),
-      "c".repeat(64),
-    ]);
+    const materialIds = ["c0110000-0000-4000-8000-000000000101"];
+    const firstChapterId = "c0110000-0000-4000-8000-000000000051";
+    const secondChapterId = "c0110000-0000-4000-8000-000000000052";
+    expect(await result.json()).toMatchObject({
+      writes: [
+        {
+          chapterId: firstChapterId,
+          expectedOrderVersion: "a".repeat(64),
+          materialIds,
+        },
+        {
+          chapterId: secondChapterId,
+          expectedOrderVersion: "b".repeat(64),
+          materialIds,
+        },
+        {
+          chapterId: secondChapterId,
+          expectedOrderVersion: "c".repeat(64),
+          materialIds,
+        },
+      ],
+    });
   } finally {
     expect((await request.delete(control)).ok()).toBe(true);
   }

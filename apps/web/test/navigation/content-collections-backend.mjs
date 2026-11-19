@@ -121,7 +121,8 @@ const chapterIds = [
 function createOrderScenario() {
   return {
     version: "a".repeat(64),
-    writes: /** @type {string[]} */ ([]),
+    writes:
+      /** @type {{chapterId:string, expectedOrderVersion:string, materialIds:string[]}[]} */ ([]),
     selections: new Map(
       chapterIds.map((id) => [id, /** @type {string[]} */ ([])]),
     ),
@@ -195,7 +196,23 @@ export async function contentCollectionsRoute(request, url, readBody) {
     if (!parsed.success)
       return { status: 400, value: { code: "invalid_request", status: 400 } };
     const { expectedOrderVersion, materialIds } = parsed.data;
-    orderScenario.writes.push(expectedOrderVersion);
+    orderScenario.writes.push({
+      chapterId: chapter,
+      expectedOrderVersion,
+      materialIds,
+    });
+    if (
+      JSON.stringify(materialIds) ===
+      JSON.stringify(orderScenario.selections.get(chapter))
+    ) {
+      return {
+        status: 200,
+        value: {
+          productId: orderProductId,
+          orderVersion: orderScenario.version,
+        },
+      };
+    }
     if (expectedOrderVersion !== orderScenario.version)
       return {
         status: 409,
@@ -255,7 +272,7 @@ export async function contentCollectionsRoute(request, url, readBody) {
               id,
               name:
                 (index === 0 ? "Первая глава" : "Вторая глава") +
-                (orderScenario.version === "c".repeat(64) ? " обновлена" : ""),
+                (orderScenario.version !== "a".repeat(64) ? " обновлена" : ""),
               ordinal: index + 1,
               summary: "",
               supplementaryMaterialIds: orderScenario.selections.get(id),
