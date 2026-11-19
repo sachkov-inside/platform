@@ -100,7 +100,6 @@ const subscribeAdmission = (listener: () => void) => {
 const readAdmission = () => admitted;
 const serverAdmission = () => false;
 
-/** A required public command port records the actual accepted value; it never sets lesson state. */
 function recordAcceptedParts(openedParts: number) {
   admissionObservations.push({
     phase: "accepted",
@@ -111,7 +110,6 @@ function recordAcceptedParts(openedParts: number) {
   for (const listener of admissionListeners) listener();
 }
 
-/** This test-only resource keeps the admitted render pending until its genuine readiness changes. */
 function AwaitLessonRender({
   ready,
   children,
@@ -162,7 +160,6 @@ function ControlledLessonAdmission() {
   const [saved, setSaved] = useState<number | undefined>(undefined);
   const deliverProgress = () => {
     continuation.resolve(undefined);
-    // Flush only the fixture's readiness input, leaving LessonSteps' queued reveal untouched.
     flushSync(() => {
       setReady(true);
     });
