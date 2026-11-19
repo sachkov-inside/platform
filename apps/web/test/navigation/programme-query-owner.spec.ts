@@ -134,3 +134,97 @@ test("an active programme accepts semantic native query changes and History retu
     expect(await deleted.json()).toEqual({ deleted: true });
   }
 });
+
+test("early native programme scroll survives initial hydration", async ({
+  page,
+  request,
+}, info) => {
+  const backend = `http://127.0.0.1:${process.env["FAKE_BACKEND_PORT"] ?? ""}`;
+  const allocated = await request.post(
+    `${backend}/__reader-title-fixtures?layout=programme-reveal`,
+  );
+  const fixture = fixtureSchema.parse(await allocated.json());
+  let releaseScripts: (() => void) | undefined;
+  const scriptsHeld = new Promise<void>((resolve) => {
+    releaseScripts = resolve;
+  });
+  let blockedScripts = 0;
+  await page.route("**/_next/static/chunks/*.js", async (route) => {
+    blockedScripts += 1;
+    await scriptsHeld;
+    await route.continue();
+  });
+  try {
+    expect(allocated.status()).toBe(201);
+    const first = fixture.materialSlugs[0];
+    if (first === undefined) throw new Error("Missing controlled first lesson");
+    await page.goto(
+      `/products/${fixture.productSlug}/programme?page=1&at=${first}`,
+      { waitUntil: "commit" },
+    );
+    const surface = page.locator(
+      `[data-product-programme="${fixture.productSlug}"]:visible`,
+    );
+    const rows = surface.locator("[data-product-ordinal]");
+    const materials = page
+      .getByRole("navigation", { name: "Разделы продукта" })
+      .getByRole("button", { name: /^Материалы/u });
+    await expect(rows).toHaveCount(12);
+    await expect.poll(() => blockedScripts).toBeGreaterThan(0);
+    await expect(materials).toBeDisabled();
+    // The SSR list already accepts native wheel input while application scripts are held.
+    const point = await rows.nth(3).boundingBox();
+    if (point === null) throw new Error("Missing visible programme geometry");
+    await page.mouse.move(
+      point.x + point.width / 2,
+      Math.min(point.y + point.height / 2, 400),
+    );
+    await page.mouse.wheel(
+      0,
+      await rows
+        .nth(11)
+        .evaluate((node) =>
+          Math.max(1, node.getBoundingClientRect().bottom - innerHeight + 1),
+        ),
+    );
+    const position = () =>
+      surface.evaluate((node) => {
+        let root = node.parentElement;
+        while (
+          root !== null &&
+          !/^(auto|scroll)$/.test(getComputedStyle(root).overflowY)
+        )
+          root = root.parentElement;
+        return {
+          kind: root === null ? "document" : root.tagName,
+          top: root?.scrollTop ?? window.scrollY,
+        };
+      });
+    await expect.poll(async () => (await position()).top).toBeGreaterThan(0);
+    const before = await position();
+    expect(before.kind).toBe(
+      info.project.name === "desktop-chromium" ? "MAIN" : "document",
+    );
+    releaseScripts?.();
+    await expect(materials).toBeEnabled();
+    await expect(rows).toHaveCount(24);
+    await expect.poll(async () => (await position()).top).toBeGreaterThan(0);
+    await info.attach("early-programme-scroll.json", {
+      contentType: "application/json",
+      body: JSON.stringify({
+        before,
+        after: await position(),
+        count: await rows.count(),
+        nativeWheel: true,
+      }),
+    });
+  } finally {
+    releaseScripts?.();
+    await page.unrouteAll({ behavior: "wait" });
+    const deleted = await request.delete(
+      `${backend}/__reader-title-fixtures/${fixture.scope}`,
+    );
+    expect(deleted.status()).toBe(200);
+    expect(await deleted.json()).toEqual({ deleted: true });
+  }
+});
