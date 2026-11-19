@@ -1,6 +1,11 @@
-import { Activity, useState } from "react";
-import { createRoot } from "react-dom/client";
-import { MaterialBodyView, type RenderedBlock } from "@/entities/material";
+import { Activity, useState, useSyncExternalStore } from "react";
+import { createRoot, hydrateRoot } from "react-dom/client";
+import { renderToString } from "react-dom/server";
+import {
+  LessonSteps,
+  MaterialBodyView,
+  type RenderedBlock,
+} from "@/entities/material";
 import "../../app/globals.css";
 
 const paragraph = (text: string): RenderedBlock => ({
@@ -68,5 +73,69 @@ function App() {
     </>
   );
 }
+const lessonBlocks: readonly RenderedBlock[] = Array.from(
+  { length: 4 },
+  (_, part): RenderedBlock[] => [
+    {
+      kind: "heading",
+      level: 2,
+      content: [
+        {
+          kind: "text",
+          marks: [],
+          text: part === 3 ? "Итог" : `Раздел ${String(part + 1)}`,
+        },
+      ],
+    },
+    ...Array.from({ length: 22 }, (_, index) =>
+      paragraph(`Раздел ${String(part + 1)}, абзац ${String(index + 1)}.`),
+    ),
+    ...(part === 3
+      ? []
+      : [
+          {
+            kind: "step_break" as const,
+            label: `Открыть часть ${String(part + 2)}`,
+          },
+        ]),
+  ],
+).flat();
+const subscribeProgress = () => () => undefined;
+const readProgress = () => 3;
+const serverProgress = () => undefined;
+const saveProgress = () => undefined;
+
+/** Real hydration admits the initial hash before the external progress snapshot is published. */
+function HydratingLesson() {
+  const saved = useSyncExternalStore<number | undefined>(
+    subscribeProgress,
+    readProgress,
+    serverProgress,
+  );
+  return (
+    <LessonSteps
+      blocks={lessonBlocks}
+      progress={{ saved, save: saveProgress }}
+      reader={{ name: "Вы", avatar: null }}
+    >
+      <article className="mx-auto max-w-2xl" data-reader-body>
+        <MaterialBodyView
+          blocks={lessonBlocks}
+          path={[]}
+          rendering={{
+            headingId: (path) => `legacy-${path.join("-")}`,
+            image: () => null,
+            file: () => null,
+          }}
+        />
+      </article>
+    </LessonSteps>
+  );
+}
 const root = document.getElementById("root");
-if (root !== null) createRoot(root).render(<App />);
+if (root !== null) {
+  if (new URLSearchParams(location.search).has("hydrate-lesson")) {
+    root.innerHTML = renderToString(<HydratingLesson />);
+    hydrateRoot(root, <HydratingLesson />);
+  } else createRoot(root).render(<App />);
+}
