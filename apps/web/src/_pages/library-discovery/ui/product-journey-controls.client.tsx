@@ -376,8 +376,8 @@ export function ProductJourneyControls({
         (query.hasPage && requestedPage > 1
           ? visible[(requestedPage - 1) * PRODUCT_BATCH_SIZE]?.slug
           : undefined));
-  // Both hydration commits belong to one initial positioning phase. An already established
-  // scroll position belongs to the reader or browser; later address changes keep their commands.
+  // Preserve an established position across both initial hydration commits; later address changes
+  // keep their commands: https://github.com/sachkov-inside/platform/issues/2460.
   const initialScroll = useRef<{
     readonly slug: string | undefined;
     readonly preserve: boolean;

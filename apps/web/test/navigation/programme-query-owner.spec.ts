@@ -331,7 +331,7 @@ for (const positionSource of [
         await scriptsHeld;
         await route.continue();
       });
-      // A real reload restores this document's native scroll position. No test scroll follows it.
+      // Mobile reload restores the native document position; desktop setup below restores MAIN.
       await page.reload({ waitUntil: "commit" });
       await expect(rows).toHaveCount(36);
       await expect.poll(() => blockedScripts).toBeGreaterThan(0);
