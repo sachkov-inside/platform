@@ -410,7 +410,11 @@ function RestoredExercises(props: MaterialQuizPresentation) {
         <MaterialQuiz {...props} id={exercise} />
       </ExerciseAnswersObserver>
       <output>{reported}</output>
-      <button onClick={() => setExercise("next-exercise")}>
+      <button
+        onClick={() => {
+          setExercise("next-exercise");
+        }}
+      >
         Следующее упражнение
       </button>
     </ExerciseAnswersProvider>

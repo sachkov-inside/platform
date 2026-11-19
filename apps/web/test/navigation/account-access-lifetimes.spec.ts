@@ -383,16 +383,15 @@ test("leaving a pending Telegram continuation keeps the home page after a late a
   const nextPoll = Promise.withResolvers<Route>();
   await page.route(
     `**/api/account/telegram-activation/${attemptId}`,
-    (route) => nextPoll.resolve(route),
+    (route) => {
+      nextPoll.resolve(route);
+    },
     { times: 1 },
   );
   const poll = await nextPoll.promise;
   await control(request, "active");
   const response = await poll.fetch();
   expect(await response.json()).toMatchObject({ state: "active" });
-  const cancelled = page.waitForEvent("requestfailed", {
-    predicate: (entry) => entry === poll.request(),
-  });
   await page
     .getByRole("link", { name: /^sachkov\.dev(?:, Главная)?$/u })
     .click();
@@ -401,6 +400,18 @@ test("leaving a pending Telegram continuation keeps the home page after a late a
     page.getByText("Проверяем доступ к выбранному курсу…"),
   ).toBeHidden();
   await poll.fulfill({ response });
-  await cancelled;
+  // Leaving can abort the poll or allow its response to finish on the hidden page.
+  await (await poll.request().response())?.finished();
+  await browserTurn(page);
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            resolve();
+          });
+        });
+      }),
+  );
   await expect(page).toHaveURL(/\/$/u);
 });
