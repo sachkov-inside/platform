@@ -8,7 +8,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { Route } from "next";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   useEffect,
   useRef,
@@ -40,6 +40,50 @@ import { useProductOnboardingPresentation } from "./product-programme-onboarding
 import { useProductLearning } from "./product-learning.client";
 import { RoadmapChapterDisclosure } from "./course-roadmap-view";
 import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
+
+interface ProgrammeQuery {
+  readonly page: number;
+  readonly hasPage: boolean;
+  readonly at: string | null;
+  readonly atPlacement: string | null;
+  readonly catalogue: boolean;
+}
+
+/** Activity retains this Programme while the global router displays a different document. */
+function useProgrammeQuery(owner: Route): ProgrammeQuery {
+  const pathname = usePathname();
+  const search = useSearchParams();
+  const active = pathname === owner;
+  const incoming: ProgrammeQuery = active
+    ? {
+        page: readProductPage(search.get("page")),
+        hasPage: search.has("page"),
+        at: search.get("at"),
+        atPlacement: search.get("atPlacement"),
+        catalogue: search.get("part") === "materials",
+      }
+    : {
+        page: 1,
+        hasPage: false,
+        at: null,
+        atPlacement: null,
+        catalogue: false,
+      };
+  const [accepted, setAccepted] = useState({ owner, query: incoming });
+  const changed =
+    accepted.owner !== owner ||
+    (active &&
+      (accepted.query.page !== incoming.page ||
+        accepted.query.hasPage !== incoming.hasPage ||
+        accepted.query.at !== incoming.at ||
+        accepted.query.atPlacement !== incoming.atPlacement ||
+        accepted.query.catalogue !== incoming.catalogue));
+  if (changed) {
+    setAccepted({ owner, query: incoming });
+    return incoming;
+  }
+  return accepted.query;
+}
 
 const subscribeToHydration = () => () => undefined;
 const readClientHydration = () => true;
@@ -154,19 +198,19 @@ export function ProductJourneyControls({
               ]),
           ...suppliedParts.filter((entry) => entry.kind !== "onboarding"),
         ];
-  const search = useSearchParams();
+  const query = useProgrammeQuery(currentHref);
   const router = useRouter();
   const learning = useProductLearning();
-  const requestedPage = readProductPage(search.get("page"));
-  const requestedMaterial = search.get("at");
-  const requestedPlacement = search.get("atPlacement");
+  const requestedPage = query.page;
+  const requestedMaterial = query.at;
+  const requestedPlacement = query.atPlacement;
   const requestedRow = (row: JourneyRow) =>
     requestedPlacement === null
       ? row.slug === requestedMaterial
       : row.id === requestedPlacement;
   const routeRef = useRef<HTMLElement>(null);
   // Возврат из урока в каталог «Материалы» приходит с `part=materials`.
-  const requestedCatalog = search.get("part") === "materials";
+  const requestedCatalog = query.catalogue;
   const defaultPart =
     parts.find((entry) => entry.kind === "onboarding" && entry.incomplete) ??
     parts.find((entry) => entry.id === "programme") ??
@@ -191,7 +235,7 @@ export function ProductJourneyControls({
       ? 0
       : restoredIndex >= 0
         ? restoredIndex + 1
-        : search.has("page")
+        : query.hasPage
           ? requestedPage * PRODUCT_BATCH_SIZE
           : resumeIndex + 1;
   // A folded chapter hides its last lesson from the reveal observer, so a roadmap whose chapters
@@ -210,7 +254,7 @@ export function ProductJourneyControls({
           Math.ceil(restoredCount / PRODUCT_BATCH_SIZE) * PRODUCT_BATCH_SIZE,
         ),
       );
-  const source = `${part?.id ?? "programme"}:${requestedMaterial ?? ""}:${String(requestedPage)}`;
+  const source = `${currentHref}:${part?.id ?? "programme"}:${requestedMaterial ?? ""}:${String(requestedPage)}`;
   const [reveal, setReveal] = useState({ source, count: initialCount });
   if (reveal.source !== source) setReveal({ source, count: initialCount });
   const count = Math.min(
@@ -329,7 +373,7 @@ export function ProductJourneyControls({
     selection !== null
       ? undefined
       : (requestedMaterial ??
-        (search.has("page") && requestedPage > 1
+        (query.hasPage && requestedPage > 1
           ? visible[(requestedPage - 1) * PRODUCT_BATCH_SIZE]?.slug
           : undefined));
   // После гидрации каталог добавляет полку «Новое» и сдвигает полки ниже, поэтому карточку

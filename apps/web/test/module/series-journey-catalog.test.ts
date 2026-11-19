@@ -1,5 +1,6 @@
 import { createElement } from "react";
 import { renderToString } from "react-dom/server";
+import { PathnameContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { withNextNavigation } from "../support/next-navigation";
@@ -17,13 +18,15 @@ beforeEach(() => {
 function renderCatalogue(
   result: ReturnType<typeof productJourneyCorpus> = productJourneyCorpus(),
 ) {
+  const currentHref = productProgrammeHref("platform-inside");
   return renderToString(
-    withNextNavigation(
-      createElement(ProductJourney, {
-        currentHref: productProgrammeHref("platform-inside"),
-        result,
-      }),
-      navigationSearch,
+    createElement(
+      PathnameContext.Provider,
+      { value: currentHref },
+      withNextNavigation(
+        createElement(ProductJourney, { currentHref, result }),
+        navigationSearch,
+      ),
     ),
   );
 }
