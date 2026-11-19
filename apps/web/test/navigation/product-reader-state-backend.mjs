@@ -1,5 +1,25 @@
 // @ts-check
 import { z } from "zod";
+import {
+  confirmedProductPurchase,
+  failedPurchase,
+  productOnlyOffer,
+} from "../../src/storybook/billing.fixtures.ts";
+
+const settlementProductId = z
+  .object({ id: z.uuid() })
+  .parse(productOnlyOffer.product).id;
+const settlementLinkId = "0ce1d000-0000-4000-8000-000000000002";
+const settlementSnapshot = {
+  ...productOnlyOffer,
+  individualPayment: {
+    linkId: settlementLinkId,
+    basePriceKopecks: productOnlyOffer.paymentOption.priceKopecks,
+  },
+};
+/** @type {"ready" | "failed" | null} */
+let settlement = null;
+let restoredPurchase = false;
 const scenarios = [
   "guest",
   "paid",
@@ -156,6 +176,60 @@ const fixtures = scenarios
  * @returns {{status: number, value: unknown} | null}
  */
 export function productReaderStateRoute(request, url, owner) {
+  if (url.pathname === "/__purchase-settlement" && request.method === "POST") {
+    settlement = z
+      .enum(["ready", "failed"])
+      .nullable()
+      .parse(url.searchParams.get("result"));
+    restoredPurchase = false;
+    return { status: 200, value: { linkId: settlementLinkId } };
+  }
+  if (
+    settlement !== null &&
+    url.pathname === "/billing/payment-links/" + settlementLinkId
+  ) {
+    return {
+      status: 200,
+      value: {
+        id: settlementLinkId,
+        revision: 1,
+        state: restoredPurchase
+          ? settlement === "ready"
+            ? "paid"
+            : "revoked"
+          : "pending",
+        createdAt: "2026-10-15T10:00:00Z",
+        expiresAt: null,
+        snapshot: settlementSnapshot,
+        product: {
+          id: settlementProductId,
+          title: restoredPurchase
+            ? "Обновлённое название курса"
+            : "Курс до обновления",
+          kind: "product",
+          slug: "reader-state-paid",
+          available: true,
+        },
+      },
+    };
+  }
+  if (
+    settlement !== null &&
+    url.pathname ===
+      "/accounts/current/billing/products/" +
+        settlementProductId +
+        "/purchase" &&
+    request.headers.authorization === "Bearer reader-state:reader-state-paid"
+  ) {
+    restoredPurchase = true;
+    return {
+      status: 200,
+      value: {
+        ...(settlement === "ready" ? confirmedProductPurchase : failedPurchase),
+        snapshot: settlementSnapshot,
+      },
+    };
+  }
   if (url.pathname === "/__product-reader-state") {
     if (request.method === "DELETE") reads = [];
     if (request.method === "POST")
