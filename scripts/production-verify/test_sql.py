@@ -34,8 +34,11 @@ class SqlContractTests(unittest.TestCase):
                 raise RuntimeError('test database start timeout')
             cls.execute(pathlib.Path(__file__).with_name('sql-fixture.sql').read_text(), readonly=False)
         except BaseException as error:
-            if isinstance(error, subprocess.CalledProcessError) and error.stderr:
-                print('SQL setup Docker stderr: ' + error.stderr, file=sys.stderr)
+            if isinstance(error, (subprocess.CalledProcessError, subprocess.TimeoutExpired)) and error.stderr:
+                stderr = error.stderr
+                if isinstance(stderr, bytes):
+                    stderr = stderr.decode('utf-8', errors='replace')
+                print('SQL setup Docker stderr: ' + stderr, file=sys.stderr)
             try:
                 cls.tearDownClass()
             except Exception as cleanup_error:

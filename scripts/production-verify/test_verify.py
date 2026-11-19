@@ -111,6 +111,23 @@ class SqlSetupDiagnosticsTests(unittest.TestCase):
         self.assertIs(caught.exception, failure)
         self.assertIn('registry refused the requested manifest', diagnostic.getvalue())
 
+    def test_timeout_reports_partial_docker_stderr_and_preserves_the_failure(self):
+        import subprocess
+        import contextlib
+        import io
+        from unittest.mock import patch
+        from test_sql import SqlContractTests
+
+        # TimeoutExpired keeps captured bytes even when run() uses text=True.
+        failure = subprocess.TimeoutExpired(['docker', 'run'], 120, stderr=b'pulling layer')
+        removed = subprocess.CompletedProcess(['docker', 'rm'], 0)
+        diagnostic = io.StringIO()
+        with contextlib.redirect_stderr(diagnostic), patch('test_sql.subprocess.run', side_effect=[failure, removed]):
+            with self.assertRaises(subprocess.TimeoutExpired) as caught:
+                SqlContractTests.setUpClass()
+        self.assertIs(caught.exception, failure)
+        self.assertIn('SQL setup Docker stderr: pulling layer', diagnostic.getvalue())
+
     def test_cleanup_failure_preserves_the_setup_failure(self):
         import subprocess
         import contextlib
