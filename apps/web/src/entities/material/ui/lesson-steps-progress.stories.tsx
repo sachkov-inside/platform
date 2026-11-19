@@ -121,7 +121,9 @@ export const OpenWhileEditionChanges: Story = {
     await expect(target).not.toBeVisible();
     const previousUrl = window.location.href;
     try {
-      window.location.hash = target.id;
+      const address = new URL(previousUrl);
+      address.hash = target.id;
+      window.location.replace(address);
       await waitFor(() => expect(target).toBeVisible());
       await expect(saveExtended.mock.calls).toEqual([[3]]);
       await press("Получить сохранённую часть 2");
@@ -145,6 +147,14 @@ export const RestoreWithinCurrentEdition: Story = {
       canvas.getByText("Пример решения", { selector: "h2" }),
     ).toBeVisible();
     await press("Показать новую редакцию");
+    await expect(
+      canvas.getByRole("button", { name: "К разбору" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByText("Разбор решения", { selector: "h2" }),
+    ).not.toBeVisible();
+    await press("Получить сохранённую часть 2");
+    await press("Получить сохранённую часть 9");
     await expect(
       canvas.getByRole("button", { name: "К разбору" }),
     ).toBeVisible();
