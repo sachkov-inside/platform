@@ -5,7 +5,7 @@ import {
   expectReadableDarkExercise,
 } from "@/storybook/exercise-actions";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
-import { startTransition, Suspense, useState } from "react";
+import { startTransition, Suspense, use, useState } from "react";
 import {
   ExerciseAnswersObserver,
   ExerciseAnswersProvider,
@@ -332,25 +332,37 @@ function SuspendListener({
 }) {
   if (listener === "B") {
     pendingListenerRendered();
-    throw pending;
+    use(pending);
   }
   return null;
 }
 
 function QuizWithChangingListener(props: MaterialQuizPresentation) {
-  const [pending] = useState(() => new Promise<void>(() => {}));
+  const [pending] = useState(() => Promise.withResolvers<undefined>().promise);
   const [listener, setListener] = useState("A");
   return (
     <>
-      <button onClick={() => startTransition(() => setListener("B"))}>
+      <button
+        onClick={() => {
+          startTransition(() => {
+            setListener("B");
+          });
+        }}
+      >
         Отложить смену
       </button>
-      <button onClick={() => setListener("C")}>
+      <button
+        onClick={() => {
+          setListener("C");
+        }}
+      >
         Принять другой обработчик
       </button>
       <Suspense fallback={<span>Загрузка</span>}>
         <ExerciseAnswersObserver
-          onAnswered={(exercise) => answerReported(listener, exercise)}
+          onAnswered={(exercise) => {
+            answerReported(listener, exercise);
+          }}
         >
           <MaterialQuiz {...props} />
           <span>Обработчик {listener}</span>
