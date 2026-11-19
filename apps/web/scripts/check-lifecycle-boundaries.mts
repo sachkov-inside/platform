@@ -89,6 +89,7 @@ const ignoredKeys = new Set([
 ]);
 
 function normalized(value: unknown): unknown {
+  if (typeof value === "bigint") return value.toString();
   if (Array.isArray(value)) return value.map(normalized);
   if (value === null || typeof value !== "object") return value;
   const isLiteral = "type" in value && value.type === "Literal";
@@ -126,7 +127,24 @@ function property(node: MaybeNode): string {
     : nameOf(node.property);
 }
 
-function patternNames(pattern: MaybeNode, scope: Set<string>) {
+class LexicalScope extends Set<string> {
+  readonly classes: Map<
+    string,
+    Extract<Node, { type: "ClassDeclaration" | "ClassExpression" }>
+  >;
+
+  constructor(parent?: LexicalScope) {
+    super();
+    this.classes = new Map(parent?.classes);
+    if (parent) for (const name of parent) super.add(name);
+  }
+
+  override add(name: string): this {
+    this.classes.delete(name);
+    return super.add(name);
+  }
+}
+function patternNames(pattern: MaybeNode, scope: LexicalScope) {
   if (pattern?.type === "Identifier") scope.add(pattern.name);
   else if (pattern?.type === "AssignmentPattern")
     patternNames(pattern.left, scope);
@@ -143,11 +161,13 @@ function patternNames(pattern: MaybeNode, scope: Set<string>) {
   }
 }
 
-function declaredNames(body: readonly Node[], scope: Set<string>) {
+function declaredNames(body: readonly Node[], scope: LexicalScope) {
   for (const item of body) {
     const node = ("declaration" in item ? item.declaration : null) ?? item;
     if (node.type === "ClassDeclaration" || node.type === "FunctionDeclaration")
       patternNames(node.id, scope);
+    if (node.type === "ClassDeclaration" && node.id && node.declare !== true)
+      scope.classes.set(node.id.name, node);
     if (node.type === "VariableDeclaration") {
       for (const declarator of node.declarations)
         patternNames(declarator.id, scope);
@@ -229,7 +249,7 @@ export function inspectSource(
   function visit(
     node: Node,
     parent: MaybeNode,
-    scope: Set<string>,
+    scope: LexicalScope,
     owner: string,
   ) {
     if (
@@ -250,7 +270,7 @@ export function inspectSource(
       return;
     }
     if (node.type === "TSModuleBlock") {
-      const local = new Set(scope);
+      const local = new LexicalScope(scope);
       declaredNames(node.body, local);
       for (const statement of node.body) visit(statement, node, local, owner);
       return;
@@ -266,13 +286,27 @@ export function inspectSource(
       visit(node.parameter, node, scope, owner);
       return;
     }
-    if (
-      node.type === "TSImportEqualsDeclaration" &&
-      node.importKind !== "type" &&
-      node.moduleReference.type === "TSExternalModuleReference" &&
-      node.moduleReference.expression.value === "react"
-    ) {
-      report("indirect-react-import", node, owner);
+    if (node.type === "TSImportEqualsDeclaration") {
+      if (node.importKind === "type") return;
+      const ref = node.moduleReference;
+      if (ref.type === "TSExternalModuleReference") {
+        if (literalName(ref.expression) === "react")
+          report("indirect-react-import", node, owner);
+      } else {
+        let root: Node = ref;
+        while (root.type === "TSQualifiedName") root = root.left;
+        if (root.type !== "Identifier") return;
+        const imported = scope.has(root.name)
+          ? undefined
+          : bindings.get(root.name);
+        if (
+          imported !== undefined &&
+          (ref.type === "Identifier" ||
+            (imported === "namespace" &&
+              (hooks.has(ref.right.name) || ref.right.name === "default")))
+        )
+          report("indirect-lifecycle-reference", node, owner);
+      }
       return;
     }
     if (node.type.startsWith("TS")) {
@@ -322,7 +356,7 @@ export function inspectSource(
       node.type === "FunctionExpression" ||
       node.type === "ArrowFunctionExpression"
     ) {
-      scope = new Set(scope);
+      scope = new LexicalScope(scope);
       for (const parameter of node.params) patternNames(parameter, scope);
       const name = [
         "id" in node ? nameOf(node.id) : "",
@@ -331,7 +365,7 @@ export function inspectSource(
       ].find((value) => value !== "");
       if (name !== undefined) owner = owner === "" ? name : owner + "/" + name;
     } else if (node.type === "BlockStatement" || node.type === "Program") {
-      scope = new Set(scope);
+      scope = new LexicalScope(scope);
       declaredNames(node.body, scope);
     } else if (
       node.type === "CatchClause" ||
@@ -339,7 +373,7 @@ export function inspectSource(
       node.type === "ForInStatement" ||
       node.type === "ForStatement"
     ) {
-      scope = new Set(scope);
+      scope = new LexicalScope(scope);
       if (node.type === "CatchClause") patternNames(node.param, scope);
       else {
         const decl = node.type === "ForStatement" ? node.init : node.left;
@@ -375,10 +409,11 @@ export function inspectSource(
     const binding = (name: string) =>
       scope.has(name) ? undefined : bindings.get(name);
     if (
-      (node.type === "ImportExpression" && nameOf(node.source) === "react") ||
+      (node.type === "ImportExpression" &&
+        literalName(node.source) === "react") ||
       (node.type === "CallExpression" &&
         nameOf(node.callee) === "require" &&
-        nameOf(node.arguments[0]) === "react")
+        literalName(node.arguments[0]) === "react")
     ) {
       report("indirect-react-import", node, owner);
     }
@@ -410,14 +445,32 @@ export function inspectSource(
       if (candidate.type === "MemberExpression") {
         const name = property(candidate);
         if (isReactNamespace(candidate.object) && hooks.has(name)) return name;
-        if (timers.has(name)) return name;
+        if (timers.has(name)) {
+          const receiver = candidate.object;
+          const implementation =
+            receiver.type === "NewExpression"
+              ? scope.classes.get(nameOf(receiver.callee))
+              : undefined;
+          const ownMethod = implementation?.body.body.some(
+            (member) =>
+              member.type === "MethodDefinition" &&
+              !member.static &&
+              !member.computed &&
+              member.kind === "method" &&
+              member.value.body != null &&
+              nameOf(member.key) === name,
+          );
+          if (ownMethod !== true) return name;
+        }
       }
       return undefined;
     }
     if (
       node.type === "ObjectPattern" &&
-      node.properties.some((p) =>
-        timers.has(p.type === "RestElement" ? "" : nameOf(p.key)),
+      node.properties.some(
+        (p) =>
+          p.type !== "RestElement" &&
+          timers.has(p.computed ? (literalName(p.key) ?? "") : nameOf(p.key)),
       )
     )
       report("indirect-lifecycle-reference", node, owner);
@@ -428,15 +481,8 @@ export function inspectSource(
         callback?.type === "FunctionExpression"
           ? callback.body
           : undefined;
-      const next =
-        body?.type === "BlockStatement" && body.body.length === 1
-          ? body.body[0]?.type === "ExpressionStatement"
-            ? body.body[0].expression
-            : body.body[0]?.type === "ReturnStatement"
-              ? body.body[0].argument
-              : undefined
-          : body;
-      if (isFrame(next)) report("nested-frame-review", node, owner);
+      if (body && containsFrameCall(body))
+        report("nested-frame-review", node, owner);
     }
     if (node.type === "CallExpression") {
       const kind = classify(node.callee);
@@ -487,7 +533,7 @@ export function inspectSource(
       visit(child, node, scope, owner);
     });
   }
-  visit(program, null, new Set(), "");
+  visit(program, null, new LexicalScope(), "");
   return { calls, diagnostics };
 }
 
@@ -500,6 +546,22 @@ function isFrame(
       ? property(node.callee)
       : nameOf(node.callee)) === "requestAnimationFrame"
   );
+}
+function containsFrameCall(node: Node): boolean {
+  if (isFrame(node)) return true;
+  if (
+    node.type === "ArrowFunctionExpression" ||
+    node.type === "FunctionExpression" ||
+    node.type === "FunctionDeclaration" ||
+    node.type === "ClassDeclaration" ||
+    node.type === "ClassExpression"
+  )
+    return false;
+  let found = false;
+  walkChildren(node, (child) => {
+    found ||= containsFrameCall(child);
+  });
+  return found;
 }
 function immediateDelay(node: MaybeNode) {
   if (!node) return true;

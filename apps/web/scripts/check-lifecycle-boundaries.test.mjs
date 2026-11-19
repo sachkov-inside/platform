@@ -349,6 +349,7 @@ test("CLI scans new production files in app and src, reports moves and preserves
     writeFileSync(d19Story, "");
     const result = spawnSync(process.execPath, [cli, "audit", root], {
       encoding: "utf8",
+      timeout: 15_000,
     });
     assert.equal(result.status, 1, result.stderr);
     const report = z
@@ -428,4 +429,82 @@ test("a migration or diagnostic disposition remains visible and blocking", () =>
   assert.equal(finding.code, "retained-design");
   assert.equal(finding.disposition, "diagnose");
   assert.equal(finding.next, row.next);
+});
+
+test("statically known React module names and runtime TypeScript aliases require review", () => {
+  for (const expression of ["import(`react`)", 'require("re" + "act")']) {
+    assert.deepEqual(
+      codes("const {useEffect} = await " + expression + ";useEffect(work,[]);"),
+      ["indirect-react-import"],
+    );
+  }
+  assert.deepEqual(
+    codes(
+      'import * as R from "react"; import begin = R.useEffect; begin(work,[]);',
+    ),
+    ["indirect-lifecycle-reference"],
+  );
+  assert.deepEqual(
+    codes('import * as R from "react"; type F = R.FunctionComponent;'),
+    [],
+  );
+});
+test("bigint literal values remain distinct in hook fingerprints", () => {
+  const source = (/** @type {string} */ value) =>
+    inspectSource(
+      path,
+      'import {useEffect} from "react"; useEffect(()=>store(' +
+        value +
+        "),[]);",
+    );
+  assert.deepEqual(
+    compareInventory(source("123n"), [], "audit").map((x) => x.code),
+    ["new-effect"],
+  );
+  assert.notEqual(
+    source("123n").calls[0].fingerprint,
+    source("124n").calls[0].fingerprint,
+  );
+  assert.notEqual(
+    source("123n").calls[0].fingerprint,
+    source('"123"').calls[0].fingerprint,
+  );
+});
+test("computed timer keys cannot hide the timer and a constructed editor method is not a browser timer", () => {
+  assert.deepEqual(
+    codes('const {["set"+"Timeout"]: later}=window; later(done,0);'),
+    ["indirect-lifecycle-reference"],
+  );
+  assert.deepEqual(
+    codes("class Editor {setTimeout(){}} new Editor().setTimeout();"),
+    [],
+  );
+});
+test("a class name shadowed by another constructor cannot exempt a timer", () => {
+  assert.deepEqual(
+    codes(
+      "class Editor {setTimeout(){}} function run(Editor){new Editor().setTimeout(work,0);}",
+    ),
+    ["ordering-timer"],
+  );
+  assert.deepEqual(
+    codes(
+      "class Editor {setTimeout(){window.setTimeout(work,0);}} new Editor().setTimeout();",
+    ),
+    ["ordering-timer"],
+  );
+});
+test("review a directly scheduled second frame even after measuring; skip deferred event handlers", () => {
+  assert.deepEqual(
+    codes(
+      "requestAnimationFrame(()=>{measure();if(ready)requestAnimationFrame(reveal);});",
+    ),
+    ["nested-frame-review"],
+  );
+  assert.deepEqual(
+    codes(
+      "requestAnimationFrame(()=>{button.onclick=()=>requestAnimationFrame(draw);});",
+    ),
+    [],
+  );
 });

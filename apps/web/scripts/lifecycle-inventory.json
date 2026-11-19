@@ -1,6 +1,6 @@
 {
-  "base": "9bb955b8d80272a754d987b50948de6ddab169db",
-  "tree": "10fe3c5261f954fd0ef1612e9ecb15ab47413c4a",
+  "base": "0c0bcda8a55a4160012fda3e075c1082472d6b64",
+  "tree": "a37aae9f54575cd7ffbb4de86a62902f54231958",
   "pins": [
     {
       "id": "T01-delay",
@@ -133,7 +133,7 @@
       "fingerprint": "7986e61f66f2b4cbf41acfb6ceb727a46a0a56762391018b2f25d9802ba9ebbe",
       "reason": "Для привязки открытого маршрута к двум объявлениям биллинга оставить подписку у оболочки. Оба источника после снятия и возврата проверяет постоянная история.",
       "test": "apps/web/src/_app/ui/use-access-change-refresh.stories.tsx",
-      "authority": "Local implementation of #2244 item 3, subject to final tree and independent review."
+      "authority": "Delivered in #2503 at 0c0bcda8a55a4160012fda3e075c1082472d6b64. RouteLifetime checks billing and enrollment announcements across unmount and return."
     },
     {
       "id": "D04",
@@ -144,7 +144,7 @@
       "fingerprint": "70acaae11d395ccbc0b3bbeebf06a2093f9eb48a816545b5d6fa135f4844ffe7",
       "reason": "Штатный тест проверяет подписку открытого маршрута только для разрешённого Account, с заменой A на B и потерей known. Счётчик смены аккаунта D05 отделить.",
       "test": "apps/web/src/_app/ui/use-access-change-refresh.stories.tsx",
-      "authority": "Local implementation of #2244 item 3, subject to final tree and independent review."
+      "authority": "Delivered in #2503 at 0c0bcda8a55a4160012fda3e075c1082472d6b64. RouteLifetime checks known account progress, identity changes and subscription release."
     },
     {
       "id": "D05",
@@ -273,7 +273,7 @@
       "fingerprint": "4298bfa17b58cb657f0240ee34a365f5403d21d5776fbe86ef3f2daa3d6ddcd4",
       "reason": "Record the purchase row shown for the committed account and product pair, preserving it when another render suspends or a different account or product commits.",
       "test": "apps/web/src/_pages/library-discovery/ui/product-journey.stories.tsx",
-      "authority": "Local #2244 candidate. Public contract evidence for the exact existing call on 1af998f4."
+      "authority": "Delivered in #2503 at 0c0bcda8a55a4160012fda3e075c1082472d6b64. D16CommitProof checks suspended and committed updates for distinct account and product pairs."
     },
     {
       "id": "D17",
@@ -307,7 +307,7 @@
       "fingerprint": "18ea115fc86950c4f143bc13a46789542893ce7c0b4e7dd6414593abb2e67fde",
       "reason": "Publish the matching waitlist view and commands to both slots during layout; suspended updates must leave the committed product and its actions available.",
       "test": "apps/web/src/_pages/library-discovery/ui/product-journey.stories.tsx",
-      "authority": "Local #2244 candidate. Suspended and committed product views in Storybook; latest retry in both slots through the real BFF in apps/web/test/navigation/product-reader-state.spec.ts.",
+      "authority": "Delivered in #2503 at 0c0bcda8a55a4160012fda3e075c1082472d6b64. WaitlistPublishesCommittedProduct checks the suspended and committed link. The separate production Next test checks retry through both slots for one product.",
       "additionalTests": [
         "apps/web/test/navigation/product-reader-state.spec.ts"
       ]
@@ -462,7 +462,7 @@
       "fingerprint": "4f67af018692ce92bdbf5d047e60ce8fe07ce2ca9ef604606e9fb59fedbdbf04",
       "reason": "The active Telegram link browser receives focus and visibilitychange for the pending link, releases those listeners and closes a still-opening popup on departure. The server owns confirmation.",
       "test": "apps/web/test/navigation/account-access-lifetimes.spec.ts",
-      "authority": "Local implementation of #2244 item 3; exact public boundary with independent mutation check."
+      "authority": "Delivered in #2503 at 0c0bcda8a55a4160012fda3e075c1082472d6b64. The retained Account test observes outgoing confirmations while hidden and after Back, and one backend confirmation for the current link."
     },
     {
       "id": "D34",
