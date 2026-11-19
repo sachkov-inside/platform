@@ -329,6 +329,17 @@ test("the host follows the visible retained layout when both contexts change", a
           name: new RegExp(name + " revision " + String(index)),
         }),
       ).toBeVisible();
+      await page.getByRole("button", { name: "Update hidden lesson" }).click();
+      await expect(
+        page
+          .locator("[hidden]")
+          .getByText("Hidden revision " + String(index), { exact: true }),
+      ).toHaveCount(1);
+      await expect(
+        rail.getByRole("button", {
+          name: new RegExp(name + " revision " + String(index)),
+        }),
+      ).toBeVisible();
     }
   } finally {
     await browser.close();

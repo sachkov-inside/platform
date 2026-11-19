@@ -63,33 +63,58 @@ function HandoffReturn() {
   );
 }
 
-function RetainedLayouts() {
-  const [second, setSecond] = useState(false);
-  const [revision, setRevision] = useState(0);
-  // Only the visible layout may publish when both retained contexts change together.
-  const layouts = ["First", "Second"].map((name) => ({
+function layoutContext(name: string, revision: number) {
+  return {
     ...context,
     chapters: context.chapters.map((chapter, index) =>
       index === 0
         ? { ...chapter, name: name + " revision " + String(revision) }
         : chapter,
     ),
-  }));
+  };
+}
+
+function RetainedLayouts() {
+  const [second, setSecond] = useState(false);
+  const [revision, setRevision] = useState(0);
+  const [layouts, setLayouts] = useState(() => [
+    layoutContext("First", 0),
+    layoutContext("Second", 0),
+  ]);
   return (
     <>
       <button
         onClick={() => {
+          const next = revision + 1;
           setSecond(!second);
-          setRevision(revision + 1);
+          setRevision(next);
+          setLayouts([
+            layoutContext("First", next),
+            layoutContext("Second", next),
+          ]);
         }}
       >
         Switch lesson
+      </button>
+      <button
+        onClick={() => {
+          setLayouts(
+            layouts.map((item, index) =>
+              second !== (index === 1)
+                ? layoutContext("Hidden", revision)
+                : item,
+            ),
+          );
+        }}
+      >
+        Update hidden lesson
       </button>
       <CourseReadingHost pathname={window.location.pathname}>
         {layouts.map((item, index) => (
           <div key={index} hidden={second !== (index === 1)}>
             <CourseReadingLayout context={item}>
               <h1>{index === 0 ? "First lesson" : "Second lesson"}</h1>
+              <p>{item.chapters[0]?.name}</p>
             </CourseReadingLayout>
           </div>
         ))}
