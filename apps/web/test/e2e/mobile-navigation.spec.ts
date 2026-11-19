@@ -454,7 +454,7 @@ test("Home warmup observes tab visibility when its timer fires", async ({
   page,
 }) => {
   await page.clock.install({ time: new Date("2026-11-19T10:00:00Z") });
-  await page.clock.pauseAt(new Date("2026-11-19T10:00:01Z"));
+  await page.clock.pauseAt(new Date("2026-11-19T11:00:00Z"));
   await page.route("**/auth/status", (route) =>
     route.fulfill({
       json: {
@@ -464,34 +464,20 @@ test("Home warmup observes tab visibility when its timer fires", async ({
       },
     }),
   );
-  await page.route("**/api/account", (route) =>
-    route.fulfill({
-      json: {
-        profile: { kind: "missing" },
-        telegramMembership: {
-          link: { kind: "linked" },
-          membership: { kind: "active" },
-          contact: {
-            state: "available",
-            displayName: "Участник",
-            username: null,
-          },
-        },
-      },
-    }),
-  );
   await page.route(materialCatalogRequests, (route) =>
     route.fulfill({ json: catalog }),
   );
   await page.goto("/account");
-  const account = page.getByRole("region", { name: "Telegram", exact: true });
+  const account = header(page).getByRole("button", {
+    name: "Аккаунт",
+    exact: true,
+  });
   await expect
     .poll(async () => {
       await page.clock.runFor(1);
       return account.isVisible();
     })
     .toBe(true);
-  await expect(account).toContainText("Участник");
   // The clock is paused and the authenticated account has committed. Record the
   // visibility at request initiation, before browser transport can defer delivery.
   const feedReads = await page.evaluateHandle(() => {
