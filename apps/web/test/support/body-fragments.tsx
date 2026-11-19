@@ -217,6 +217,76 @@ function ControlledLessonAdmission() {
     </>
   );
 }
+const fragmentLink = (text: string, href: string): RenderedBlock => ({
+  kind: "paragraph",
+  content: [{ kind: "text", text, marks: [{ kind: "link", href }] }],
+});
+
+function LessonFragmentExample({ isolated }: { readonly isolated: boolean }) {
+  const [mounted, setMounted] = useState(!isolated);
+  const [visible, setVisible] = useState(true);
+  const [saves, setSaves] = useState<readonly number[]>([]);
+  return (
+    <>
+      <button
+        onClick={() => {
+          setMounted(!mounted);
+        }}
+      >
+        {mounted ? "Remove lesson" : "Mount lesson"}
+      </button>
+      <button
+        onClick={() => {
+          setVisible(!visible);
+        }}
+      >
+        {visible ? "Hide lesson" : "Show lesson"}
+      </button>
+      <output aria-label="Saved parts">{saves.join(",")}</output>
+      {isolated && (
+        <>
+          <a href="#lesson-target">Read lesson target</a>
+          <div data-lesson-part="2" />
+          <h2 id="lesson-target">Lesson target</h2>
+        </>
+      )}
+      {mounted && (
+        <Activity mode={visible ? "visible" : "hidden"}>
+          <LessonSteps
+            blocks={isolated ? lessonBlocks : linkedLessonBlocks}
+            progress={{
+              saved: null,
+              save: (count) => {
+                setSaves((old) => [...old, count]);
+              },
+            }}
+            reader={{ name: "Вы", avatar: null }}
+          >
+            {isolated ? null : (
+              <article data-reader-body>
+                <MaterialBodyView
+                  blocks={linkedLessonBlocks}
+                  path={[]}
+                  rendering={{
+                    headingId: (path) => `legacy-${path.join("-")}`,
+                    image: () => null,
+                    file: () => null,
+                  }}
+                />
+              </article>
+            )}
+          </LessonSteps>
+        </Activity>
+      )}
+    </>
+  );
+}
+const linkedLessonBlocks = [
+  fragmentLink("Read final section", "#итог"),
+  fragmentLink("Before final section", "#раздел-2"),
+  ...lessonBlocks,
+  fragmentLink("After final section", "#раздел-1"),
+];
 const root = document.getElementById("root");
 if (root !== null) {
   if (new URLSearchParams(location.search).has("lesson-admission")) {
@@ -225,5 +295,11 @@ if (root !== null) {
     });
     root.innerHTML = renderToString(<ControlledLessonAdmission />);
     hydrateRoot(root, <ControlledLessonAdmission />);
+  } else if (new URLSearchParams(location.search).has("lesson-fragment")) {
+    createRoot(root).render(
+      <LessonFragmentExample
+        isolated={new URLSearchParams(location.search).has("isolated")}
+      />,
+    );
   } else createRoot(root).render(<App />);
 }
