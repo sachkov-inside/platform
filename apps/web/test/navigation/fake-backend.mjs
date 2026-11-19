@@ -233,7 +233,7 @@ const performanceTemplate = (() => {
   if (template === undefined) throw new Error("Missing lesson template");
   return template;
 })();
-/** @typedef {{ scope: string; product: Product; lessons: Lesson[]; opens: Map<string, number>; commands: Set<string>; personalRead: PromiseWithResolvers<void> | null; linear: boolean; programmeReveal: boolean }} ReaderTitleFixture */
+/** @typedef {{ scope: string; product: Product; lessons: Lesson[]; opens: Map<string, number>; commands: Set<string>; personalRead: PromiseWithResolvers<void> | null; nextMaterialRead: PromiseWithResolvers<void> | null; linear: boolean; programmeReveal: boolean }} ReaderTitleFixture */
 /** @type {Map<string, ReaderTitleFixture>} */
 const readerTitleFixtures = new Map();
 
@@ -282,6 +282,7 @@ function createReaderTitleFixture(linear, programmeReveal) {
     opens: new Map(),
     commands: new Set(),
     personalRead: null,
+    nextMaterialRead: null,
     linear,
     programmeReveal,
   };
@@ -1393,19 +1394,19 @@ const server = createServer(async (request, response) => {
   );
   if (titleFixtureControl !== null && request.method === "DELETE") {
     const scope = z.uuid().parse(titleFixtureControl[1]);
-    readerTitleFixtures.get(scope)?.personalRead?.resolve();
+    const fixture = readerTitleFixtures.get(scope);
+    fixture?.personalRead?.resolve();
+    fixture?.nextMaterialRead?.resolve();
     send(200, { deleted: readerTitleFixtures.delete(scope) });
     return;
   }
   // Удержание личного чтения Reader или программы: общая часть приходит до личной (#1908, #1913).
-  const personalReadControl =
-    /^\/__reader-title-fixtures\/([^/]+)\/personal-read-hold$/u.exec(
+  const readControl =
+    /^\/__reader-title-fixtures\/([^/]+)\/(personal-read-hold|next-material-hold)$/u.exec(
       url.pathname,
     );
-  if (personalReadControl !== null && request.method === "POST") {
-    const fixture = readerTitleFixtures.get(
-      z.uuid().parse(personalReadControl[1]),
-    );
+  if (readControl !== null && request.method === "POST") {
+    const fixture = readerTitleFixtures.get(z.uuid().parse(readControl[1]));
     const { held } = z
       .strictObject({ held: z.boolean() })
       .parse(JSON.parse(await readBody(request)));
@@ -1413,8 +1414,12 @@ const server = createServer(async (request, response) => {
       send(404, { code: "fixture_not_found" });
       return;
     }
-    fixture.personalRead?.resolve();
-    fixture.personalRead = held ? Promise.withResolvers() : null;
+    const key =
+      readControl[2] === "next-material-hold"
+        ? "nextMaterialRead"
+        : "personalRead";
+    fixture[key]?.resolve();
+    fixture[key] = held ? Promise.withResolvers() : null;
     send(200, { held });
     return;
   }
@@ -1437,6 +1442,13 @@ const server = createServer(async (request, response) => {
     method: request.method,
     path: `${url.pathname}${url.search}`,
   });
+  if (request.method === "GET" && url.pathname.startsWith("/materials/")) {
+    const target = findReaderTitleLesson(
+      url.pathname.slice("/materials/".length),
+    );
+    if (target && target.fixture.lessons[1] === target.lesson)
+      await target.fixture.nextMaterialRead?.promise;
+  }
   await waitNavigationTask(url.pathname);
   const returnBuyer =
     request.headers.authorization === "Bearer navigation-return-buyer";
