@@ -67,7 +67,10 @@ const protectedBodyMarker = "ЗАКРЫТОЕ-ТЕЛО-УРОКА";
  * Сессия вошедшего читателя. Web берёт действующий токен прямо из cookie и к провайдеру входа не
  * обращается, а подставной backend открывает платные уроки любому, кто предъявил токен.
  */
-async function memberSessionCookie(baseURL: string) {
+async function memberSessionCookie(
+  baseURL: string,
+  token = "navigation-member-token",
+) {
   // Пакет поставляется только как ES-модуль, а набор собирается в CommonJS.
   const { wrapSession } = await import("@logto/node");
   const session = await wrapSession(
@@ -77,7 +80,7 @@ async function memberSessionCookie(baseURL: string) {
           // deterministic-test-allow wall-clock: The separate Web process and Logto SDK validate this live session cookie against their real UTC clock.
           expiresAt: Math.floor(Date.now() / 1_000) + 3_600,
           scope: "",
-          token: "navigation-member-token",
+          token,
         },
       }),
       idToken: "navigation.id.token",
@@ -144,6 +147,7 @@ interface TransitionMetrics {
 }
 
 async function controlBackend(control: {
+  readonly returnPurchaseReady?: boolean;
   readonly delayMs?: number;
   readonly unavailable?: boolean;
 }) {
@@ -1529,5 +1533,93 @@ test("public course body renders while personal Task workspace is held", async (
       method: "POST",
       body: JSON.stringify({ hold: false }),
     });
+  }
+});
+
+test("подтверждение оплаты открывает сохранённый урок до доставки объявления оболочке", async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  if (baseURL === undefined) throw new Error("Проверке нужен адрес приложения");
+  await context.addCookies([
+    await memberSessionCookie(baseURL, "navigation-return-buyer"),
+  ]);
+  await controlBackend({ returnPurchaseReady: false });
+  // Exercise the supported window transport. Delay its one real billing event until the
+  // next visit to the lesson, so the shell cannot account for the panel's own refresh.
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "BroadcastChannel", { value: undefined });
+  });
+  const reference = "00000000-0000-4000-8000-000000000b03";
+  const returnUrl = new URL(
+    `/payment/return?purchaseRef=${reference}`,
+    baseURL,
+  );
+  await page.goto(returnUrl.href);
+  await expect(
+    page.getByText("Ждёт подтверждения оплаты", { exact: true }),
+  ).toBeVisible();
+  const documentOrigin = await page.evaluate(() => performance.timeOrigin);
+  await page
+    .getByRole("link", { name: /^sachkov\.dev(?:, Главная)?$/u })
+    .first()
+    .click();
+  await expect(page).toHaveURL(new URL("/", baseURL).href);
+  await page
+    .locator(`main a:visible[href*='/materials/${paidLesson}']`)
+    .first()
+    .click();
+  await expect(
+    page.locator("[data-material-reader-state='access-required']:visible"),
+  ).toBeVisible();
+  const lessonUrl = page.url();
+  await page.goBack();
+  await page.goBack();
+  await expect(page).toHaveURL(returnUrl.href);
+  const notification = await page.evaluateHandle(() => {
+    const name = "inside.account.billing.changed";
+    const held = Promise.withResolvers<string>();
+    window.addEventListener(
+      name,
+      (event) => {
+        if (!(event instanceof CustomEvent) || typeof event.detail !== "string")
+          return;
+        event.stopImmediatePropagation();
+        held.resolve(event.detail);
+      },
+      { capture: true, once: true },
+    );
+    return {
+      heard: held.promise,
+      release: (id: string) => {
+        window.dispatchEvent(new CustomEvent(name, { detail: id }));
+      },
+    };
+  });
+  try {
+    await controlBackend({ returnPurchaseReady: true });
+    await page.getByRole("button", { name: "Проверить статус" }).click();
+    await expect(page.getByText("Открыт", { exact: true })).toBeVisible();
+    const id = await notification.evaluate((event) => event.heard);
+    expect(id).toMatch(z.regexes.uuid());
+    try {
+      await page.goForward();
+      await page.goForward();
+      await expect(page).toHaveURL(lessonUrl);
+      expect(await page.evaluate(() => performance.timeOrigin)).toBe(
+        documentOrigin,
+      );
+      await expect(
+        page.getByText(protectedBodyMarker, { exact: false }).first(),
+      ).toBeVisible();
+    } finally {
+      await notification.evaluate((event, id) => {
+        event.release(id);
+      }, id);
+    }
+  } finally {
+    await notification.dispose();
+    await controlBackend({ returnPurchaseReady: false });
   }
 });
