@@ -3,6 +3,7 @@ import { expect, userEvent, waitFor, within } from "storybook/test";
 import { z } from "zod";
 import { Activity, useState, type ReactNode } from "react";
 
+import { readShellScroll, resetShellScroll } from "@/shared/lib/shell-scroll";
 import { productPurchaseHref } from "@/shared/routing/subscription-route";
 import { chooseInSelect } from "@/storybook/select-choice";
 
@@ -691,7 +692,7 @@ export const VideoContinuationPreview: Story = {
   },
 };
 
-function ScrollableLesson({ children }: { readonly children: ReactNode }) {
+function RetainedLesson({ children }: { readonly children: ReactNode }) {
   const [visible, setVisible] = useState(true);
   return (
     <>
@@ -703,17 +704,13 @@ function ScrollableLesson({ children }: { readonly children: ReactNode }) {
       >
         {visible ? "Скрыть урок" : "Вернуться к уроку"}
       </button>
-      <section
-        aria-label="Страница урока"
-        style={{ height: 400, overflowY: "auto" }}
-      >
-        <Activity mode={visible ? "visible" : "hidden"}>{children}</Activity>
-      </section>
+      <Activity mode={visible ? "visible" : "hidden"}>{children}</Activity>
     </>
   );
 }
 /** A guest reopens a long lesson at the restored gate and can continue past it. */
 export const RestoredGateScrollsOnce: Story = {
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
   parameters: { guestParts: 3 },
   args: {
     body: body.flatMap((block) =>
@@ -729,24 +726,24 @@ export const RestoredGateScrollsOnce: Story = {
   },
   decorators: [
     (Story) => (
-      <ScrollableLesson>
+      <RetainedLesson>
         <Story />
-      </ScrollableLesson>
+      </RetainedLesson>
     ),
   ],
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const panel = canvas.getByRole("region", { name: "Страница урока" });
-    const restored = panel.querySelector("#lesson-step-2");
+    const restored = canvasElement.querySelector("#lesson-step-2");
     if (restored === null) throw new Error("Missing restored gate");
     const inView = () => {
       const y = restored.getBoundingClientRect().top;
-      const frame = panel.getBoundingClientRect();
-      return panel.scrollTop > 0 && y >= frame.top && y < frame.bottom;
+      return (
+        readShellScroll(canvasElement) > 0 && y >= 0 && y < window.innerHeight
+      );
     };
     await waitFor(() => expect(inView()).toBe(true));
-    panel.scrollTo({ top: 0, behavior: "instant" });
-    await expect(panel.scrollTop).toBe(0);
+    resetShellScroll(canvasElement);
+    await expect(readShellScroll(canvasElement)).toBe(0);
     await userEvent.click(canvas.getByRole("button", { name: "Скрыть урок" }));
     await userEvent.click(
       canvas.getByRole("button", { name: "Вернуться к уроку" }),
@@ -754,7 +751,7 @@ export const RestoredGateScrollsOnce: Story = {
     await expect(
       canvas.getByText("Разбор: проверяйте то, что видит пользователь."),
     ).toBeVisible();
-    await expect(panel.scrollTop).toBe(0);
+    await expect(readShellScroll(canvasElement)).toBe(0);
   },
 };
 
@@ -774,8 +771,34 @@ export const FirstVisitKeepsScrollAtTop: Story = {
     await expect(
       canvas.getByText("Разбор: проверяйте то, что видит пользователь."),
     ).not.toBeVisible();
-    await expect(
-      canvas.getByRole("region", { name: "Страница урока" }).scrollTop,
-    ).toBe(0);
+    await expect(readShellScroll(canvasElement)).toBe(0);
   },
+};
+
+export const DirectHeadingOverridesSavedGate: Story = {
+  ...RestoredGateScrollsOnce,
+  beforeEach: () => {
+    const previous = window.location.href;
+    history.replaceState(history.state, "", "#итог");
+    return () => {
+      history.replaceState(history.state, "", previous);
+    };
+  },
+  play: async ({ canvasElement }) => {
+    const heading = within(canvasElement).getByRole("heading", {
+      name: "Итог",
+      hidden: true,
+    });
+    await waitFor(async () => {
+      await expect(heading).toBeVisible();
+      const rect = heading.getBoundingClientRect();
+      await expect(rect.top).toBeGreaterThanOrEqual(0);
+      await expect(rect.bottom).toBeLessThanOrEqual(window.innerHeight);
+      await expect(readShellScroll(canvasElement)).toBeGreaterThan(0);
+    });
+  },
+};
+export const DirectHeadingOverridesSavedGateMobile: Story = {
+  ...DirectHeadingOverridesSavedGate,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
 };
