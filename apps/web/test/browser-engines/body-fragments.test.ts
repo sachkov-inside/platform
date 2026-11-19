@@ -365,8 +365,10 @@ test("chromium: following a link to a closed lesson section continues keyboard n
       name: "Итог",
       includeHidden: true,
     });
-    await ui(heading).toBeHidden();
     const link = page.getByRole("link", { name: "Read final section" });
+    await ui(link).toBeVisible();
+    await ui(heading).toHaveCount(1);
+    await ui(heading).toBeHidden();
     await link.click();
     await ui(page).toHaveURL(/#(?:итог|%D0%B8%D1%82%D0%BE%D0%B3)$/u);
     await ui(heading).toBeInViewport({ ratio: 1 });
@@ -447,10 +449,8 @@ test("chromium: the lesson releases its fragment subscriptions while hidden and 
       });
     const saves = page.getByLabel("Saved parts");
     await press("Mount lesson");
-    await ui
-      .poll(() => listenerCount("window", "hashchange", false))
-      .toBe(baseline[1] + 1);
-    const active = await counts();
+    const active = [baseline[0] + 1, baseline[1] + 1];
+    await ui.poll(counts).toEqual(active);
     await press("Hide lesson");
     await ui.poll(counts).toEqual(baseline);
     await follow();
