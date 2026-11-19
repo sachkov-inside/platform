@@ -22,7 +22,7 @@ export function MaterialAgentPrompt({
   readonly text: string;
   readonly title?: string | undefined;
 }) {
-  const { copy, state } = useCopyText(text);
+  const { copy, copyButtonRef, state } = useCopyText(text);
 
   return (
     <div
@@ -34,6 +34,7 @@ export function MaterialAgentPrompt({
           {title ?? "Промпт"}
         </p>
         <Button
+          ref={copyButtonRef}
           aria-label={labels[state]}
           className="min-h-11 min-w-[10.5rem] rounded-xl bg-sidebar-accent px-4 text-sidebar-accent-foreground hover:bg-sidebar-accent/80"
           onClick={copy}
