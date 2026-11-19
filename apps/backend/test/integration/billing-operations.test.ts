@@ -67,7 +67,6 @@ test("owner sees a refundable balance only after the bank confirms payment", asy
   await s.notify("CONFIRMED");
   await expectBalance(200000);
   // Historical partial refund, already recorded before the owner opens the card.
-  const now = new Date();
   const paid = await world.db.prisma.billingPurchase.findUniqueOrThrow({
     where: { id: purchaseRef },
   });
@@ -84,8 +83,8 @@ test("owner sees a refundable balance only after the bank confirms payment", asy
       reason: "Частичный возврат",
       state: "executed",
       revision: 1,
-      createdAt: now,
-      updatedAt: now,
+      createdAt: paid.updatedAt,
+      updatedAt: paid.updatedAt,
       refund: {
         create: {
           id: randomUUID(),
@@ -95,8 +94,8 @@ test("owner sees a refundable balance only after the bank confirms payment", asy
           paymentId: paid.paymentId,
           amountKopecks: 50000n,
           state: "confirmed",
-          createdAt: now,
-          updatedAt: now,
+          createdAt: paid.updatedAt,
+          updatedAt: paid.updatedAt,
         },
       },
     },
