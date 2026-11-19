@@ -47,7 +47,7 @@ async function changeHash(hash: string) {
       { once: true },
     );
   });
-  location.hash = hash;
+  location.replace(`#${hash}`);
   await changed;
 }
 

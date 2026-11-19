@@ -29,10 +29,10 @@ function EmailReaders({
     <>
       <button
         onClick={() => {
-          setIndex(index + 1);
+          setIndex((index + 1) % (clients.length + 1));
         }}
       >
-        Следующий читатель
+        {client ? "Следующий читатель" : "Вернуть панель"}
       </button>
       {client && (
         <QueryClientProvider key={index} client={client}>
@@ -49,11 +49,15 @@ const meta = {
 } satisfies Meta<typeof AccountEmailPanel>;
 export default meta;
 
+let clients: QueryClient[];
+let pending: ReturnType<typeof Promise.withResolvers<Response>>;
+let reads: number;
+
 export const AnAnnouncementJoinsThePendingRead: StoryObj<typeof meta> = {
-  play: async ({ mount, canvasElement }) => {
-    const clients = [new QueryClient(), new QueryClient()];
-    const pending = Promise.withResolvers<Response>();
-    let reads = 0;
+  beforeEach: () => {
+    clients = [new QueryClient(), new QueryClient()];
+    pending = Promise.withResolvers<Response>();
+    reads = 0;
     const restore = fetchBeforeRender(async (input) => {
       if (input !== "/api/account/email")
         throw new Error("Unexpected email request");
@@ -64,35 +68,38 @@ export const AnAnnouncementJoinsThePendingRead: StoryObj<typeof meta> = {
         email: `reader${String(reads)}@example.org`,
       });
     })();
-    try {
-      await mount(<EmailReaders clients={clients} />);
-      const canvas = within(canvasElement);
-      await canvas.findByText("reader1@example.org");
-      await announceAttachment();
-      await waitFor(() => expect(reads).toBe(2));
-      await announceAttachment();
-      pending.resolve(
-        Response.json({ ok: true, email: "attached@example.org" }),
-      );
-      await canvas.findByText("attached@example.org");
-      await expect(reads).toBe(2);
-      const next = canvas.getByRole("button", { name: "Следующий читатель" });
-      await userEvent.click(next);
-      await canvas.findByText("reader3@example.org");
-      await announceAttachment();
-      await canvas.findByText("reader4@example.org");
-      await userEvent.click(next);
-      await announceAttachment();
-      await expect(reads).toBe(4);
-      for (const client of clients) {
-        const queries = client.getQueryCache().getAll();
-        await expect(queries).toHaveLength(1);
-        await expect(queries[0]?.state.isInvalidated).toBe(false);
-      }
-    } finally {
+    return () => {
       pending.resolve(new Response(null, { status: 503 }));
       restore();
       for (const client of clients) client.clear();
+    };
+  },
+  play: async ({ mount, canvasElement }) => {
+    await mount(<EmailReaders clients={clients} />);
+    const canvas = within(canvasElement);
+    await canvas.findByText("reader1@example.org");
+    await announceAttachment();
+    await waitFor(() => expect(reads).toBe(2));
+    await announceAttachment();
+    pending.resolve(Response.json({ ok: true, email: "attached@example.org" }));
+    await canvas.findByText("attached@example.org");
+    await expect(reads).toBe(2);
+    const next = canvas.getByRole("button", { name: "Следующий читатель" });
+    await userEvent.click(next);
+    await canvas.findByText("reader3@example.org");
+    await announceAttachment();
+    await canvas.findByText("reader4@example.org");
+    await userEvent.click(next);
+    await announceAttachment();
+    await expect(reads).toBe(4);
+    for (const client of clients) {
+      const queries = client.getQueryCache().getAll();
+      await expect(queries).toHaveLength(1);
+      await expect(queries[0]?.state.isInvalidated).toBe(false);
     }
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Вернуть панель" }),
+    );
+    await canvas.findByText("reader5@example.org");
   },
 };
