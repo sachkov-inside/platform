@@ -12,27 +12,3 @@ export const courseMenuRestoreSource = `try{if(localStorage.getItem(${JSON.strin
 )})==="collapsed")document.documentElement.setAttribute(${JSON.stringify(
   courseMenuAttribute,
 )},"collapsed")}catch(e){}`;
-
-export function readCourseMenuCollapsed(): boolean {
-  try {
-    return localStorage.getItem(courseMenuStorageKey) === "collapsed";
-  } catch {
-    return false;
-  }
-}
-
-export function applyCourseMenuCollapsed(collapsed: boolean): void {
-  if (collapsed)
-    document.documentElement.setAttribute(courseMenuAttribute, "collapsed");
-  else document.documentElement.removeAttribute(courseMenuAttribute);
-}
-
-export function saveCourseMenuCollapsed(collapsed: boolean): void {
-  applyCourseMenuCollapsed(collapsed);
-  try {
-    if (collapsed) localStorage.setItem(courseMenuStorageKey, "collapsed");
-    else localStorage.removeItem(courseMenuStorageKey);
-  } catch {
-    // Blocked or full storage: the choice lasts until the page reloads.
-  }
-}
