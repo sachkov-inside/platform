@@ -50,6 +50,7 @@ import { salesCatalogRoute } from "./sales-catalog-backend.mjs";
 import { authoringOverviewRoute } from "./authoring-overview-backend.mjs";
 import { learningScenarioRoute } from "./learning-scenario-backend.mjs";
 import { commerceScenarioRoute } from "./commerce-scenario-backend.mjs";
+import { exerciseOwnerRoute } from "./exercise-owner-backend.mjs";
 import { accountAccessRoute } from "./account-access-backend.mjs";
 
 // Request bodies the checks send to the double; a malformed body fails the request.
@@ -1213,6 +1214,9 @@ const server = createServer(async (request, response) => {
     });
     response.end(JSON.stringify(value));
   };
+  const exerciseOwner = await exerciseOwnerRoute(request, url, readBody);
+  if (exerciseOwner !== null)
+    return send(exerciseOwner.status, exerciseOwner.value);
   const accountAccess = await accountAccessRoute(request, url);
   if (accountAccess !== null)
     return send(accountAccess.status, accountAccess.value);
