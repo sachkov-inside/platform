@@ -191,8 +191,12 @@ job (#827). After a runner image update pull requests restore the previous entry
 the changed packages until the next run on `main` saves a new one.
 
 The archive cache does not skip apt index updates. `scripts/install-playwright-ci.sh` bounds
-system-package installation to 180 seconds per attempt, then kills the whole process group as root.
-Each dependency invocation receives a temporary copy of the APT source lists through `APT_CONFIG`.
+index and archive downloads to 180 seconds per attempt. Playwright's Linux dry run supplies the
+direct packages for the requested engines. Both attempts use APT download-only mode. Once all
+archives are available, a single foreground APT install uses the cache with downloads disabled.
+The workflow job deadline bounds this transaction. A transaction failure ends setup before browser
+downloads. In #2455 the earlier per-attempt deadline covered package configuration too, and the
+second attempt encountered interrupted dpkg state. Each APT invocation receives a temporary copy of the APT source lists through `APT_CONFIG`.
 Only the exact Microsoft Ubuntu 24.04 `prod` feed observed returning HTTP429 in #2431 is omitted
 from that copy; other hosts, suites, options and signing keys stay. Top-level settings avoid moving
 empty `Binary::apt-get` parent values over APT's normal `Dir` and `Dir::Etc` defaults (#2442).
@@ -201,7 +205,7 @@ these inputs when the runner configuration changes. Scoped list cleanup is disab
 APT consumer retains its original sources and cached indexes. Dpkg state, locks and signature
 verification are unchanged. The copy is removed on exit, including failed installation.
 HTTP and HTTPS connection and data waits time out after 15 seconds and retry once; index errors fail
-the installation. After a failed first attempt the script replaces the Azure Ubuntu mirror and
+the installation. After a failed first acquisition attempt the script replaces the Azure Ubuntu mirror and
 the exact `us-east-2.ec2.archive.ubuntu.com` host observed in #2411 with
 `https://archive.ubuntu.com` and retries once. Other hosts remain unchanged. In #2411 the previous
 Azure-only fallback reached the same HTTP EC2 host twice; the package-transfer delay remains
