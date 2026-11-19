@@ -207,7 +207,10 @@ verification are unchanged. The copy is removed on exit, including failed instal
 HTTP and HTTPS connection and data waits time out after 15 seconds and retry once; index errors fail
 the installation. After a failed first acquisition attempt the script replaces the Azure Ubuntu mirror and
 the exact `us-east-2.ec2.archive.ubuntu.com` host observed in #2411 with
-`https://archive.ubuntu.com` and retries once. Other hosts remain unchanged. In #2411 the previous
+`https://archive.ubuntu.com` and retries once. On that retry a direct HTTP source at
+`http://security.ubuntu.com/ubuntu` serving `noble-security` also uses the official HTTPS archive.
+The suite, components and signing key stay the same. The normal first attempt and the runner’s
+global sources keep their original addresses (#2473). In #2411 the previous
 Azure-only fallback reached the same HTTP EC2 host twice; the package-transfer delay remains
 unexplained. This also replaces the original HTTP scheme:
 the previous fallback preserved HTTP on the highest-priority mirror despite an existing HTTPS
