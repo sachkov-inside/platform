@@ -1,9 +1,12 @@
 import { internalRoute } from "../../src/shared/routing/internal-route";
-import { useState } from "react";
+import { Activity, useState } from "react";
 import { hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import { CourseReadingHost } from "../../src/features/library-discovery/ui/course-reading-host.client";
-import { CourseReadingLayout } from "../../src/features/library-discovery/ui/course-reading.client";
+import {
+  CourseReadingLayout,
+  ProgrammeDialog,
+} from "../../src/features/library-discovery/ui/course-reading.client";
 import { courseGuide } from "../../src/storybook/course-reading.fixtures";
 import { releaseLocation } from "./course-reading-router";
 import "../../app/globals.css";
@@ -37,7 +40,38 @@ const context = {
     },
   ],
 };
+function DialogLifetime() {
+  const [current, setCurrent] = useState(courseGuide.current);
+  const [visible, setVisible] = useState(true);
+  return (
+    <>
+      <button
+        onClick={() => {
+          setCurrent({ ...current, id: "another-step" });
+        }}
+      >
+        Change step
+      </button>
+      <button
+        onClick={() => {
+          setVisible(!visible);
+        }}
+      >
+        Toggle lesson
+      </button>
+      <Activity mode={visible ? "visible" : "hidden"}>
+        <ProgrammeDialog
+          context={{ ...courseGuide, current }}
+          supplementary={false}
+        />
+      </Activity>
+    </>
+  );
+}
+
 function Fixture() {
+  if (new URLSearchParams(window.location.search).has("dialog-lifetime"))
+    return <DialogLifetime />;
   return (
     <CourseReadingHost pathname={window.location.pathname}>
       <CourseReadingLayout context={context}>
