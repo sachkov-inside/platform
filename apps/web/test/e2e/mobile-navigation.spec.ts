@@ -110,6 +110,49 @@ test("root tabs restore Home feed URL and scroll without a second loading screen
   );
 });
 
+test("the Home link follows committed query changes and History while the feed is retained", async ({
+  page,
+}) => {
+  await page.route(materialCatalogRequests, (route) =>
+    route.fulfill({ json: catalog }),
+  );
+  await page.goto("/");
+  const platform = topicChip(page, "Platform");
+  await expect(platform).toBeVisible();
+  await page.evaluate(() =>
+    window.history.pushState(null, "", "/?topic=platform"),
+  );
+  await expect(homeLink(page)).toHaveAttribute("href", "/?topic=platform");
+
+  // Await the traversal itself: the browser dispatches popstate after this task.
+  await page.evaluate(() => {
+    const traversed = new Promise<void>((resolve) =>
+      window.addEventListener("popstate", () => resolve(), { once: true }),
+    );
+    window.history.pushState(null, "", "/");
+    window.history.back();
+    return traversed;
+  });
+  await expect(page).toHaveURL("/?topic=platform");
+  await expect(homeLink(page)).toHaveAttribute("href", "/?topic=platform");
+  await page.goForward();
+  await expect(homeLink(page)).toHaveAttribute("href", "/");
+  await page.goBack();
+  await expect(homeLink(page)).toHaveAttribute("href", "/?topic=platform");
+
+  const retainedChip = await platform.elementHandle();
+  await navigation(page).getByRole("link", { name: "Закладки" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Войдите в аккаунт" }),
+  ).toBeVisible();
+  await expect(
+    retainedChip.evaluate(
+      (node) => node.isConnected && node.getClientRects().length === 0,
+    ),
+  ).resolves.toBe(true);
+  await expect(homeLink(page)).toHaveAttribute("href", "/?topic=platform");
+});
+
 test("Home feed data is prefetched before the first tab visit", async ({
   page,
 }) => {
