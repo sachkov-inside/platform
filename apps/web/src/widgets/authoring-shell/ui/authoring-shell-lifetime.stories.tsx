@@ -139,3 +139,45 @@ export const NativeCloseAfterReopen: Story = {
     }
   },
 };
+
+export const FastBreakpointReturn: Story = {
+  play: async ({ canvasElement }) => {
+    const frame = window.frameElement;
+    if (!(frame && frame.tagName === "IFRAME"))
+      throw new Error("A resizable story viewport is required");
+    const viewport = frame as HTMLIFrameElement;
+    const previousStyle = viewport.style.cssText;
+    const canvas = within(canvasElement);
+    const trigger = canvas.getByRole("button", { name: "Ещё" });
+    await userEvent.click(trigger);
+    const dialog = canvas.getByRole<HTMLDialogElement>("dialog", {
+      name: "Ещё",
+    });
+    const media = matchMedia("(width >= 64rem)");
+    const deliveries: boolean[] = [];
+    const record = (event: MediaQueryListEvent) => {
+      deliveries.push(event.matches);
+    };
+    media.addEventListener("change", record);
+    let wide = false;
+    const returnToMobile = () => {
+      wide = media.matches;
+      if (wide) {
+        viewport.style.setProperty("width", "390px", "important");
+        void document.documentElement.clientWidth;
+      }
+    };
+    window.addEventListener("resize", returnToMobile, { once: true });
+    try {
+      viewport.style.setProperty("width", "1440px", "important");
+      await waitFor(() => expect(deliveries).toContain(false));
+      await expect(wide).toBe(true);
+      await expect(dialog.open).toBe(false);
+      await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    } finally {
+      window.removeEventListener("resize", returnToMobile);
+      media.removeEventListener("change", record);
+      viewport.style.cssText = previousStyle;
+    }
+  },
+};
