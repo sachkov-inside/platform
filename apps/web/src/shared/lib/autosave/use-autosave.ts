@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { flushSync } from "react-dom";
 
 import {
   createAutosaveModel,
@@ -47,7 +48,16 @@ export function useAutosave<T>({
       window.clearTimeout(timer);
     };
   }, [key, delay, shouldSchedule, model]);
-  useNavigationSave(model.flush, dirty || status.pending);
+  const flushForNavigation = useCallback(async () => {
+    if (!(await model.flush())) return false;
+    // The write can finish before React commits its outcome. A browser navigation reads the guard immediately.
+    // See [prompt-free product navigation](../../../../test/navigation/content-collections.spec.ts).
+    flushSync(() => {
+      setStatus(model.status());
+    });
+    return model.isSaved();
+  }, [model]);
+  useNavigationSave(flushForNavigation, dirty || status.pending);
   return {
     dirty,
     pending: status.pending,

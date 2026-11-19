@@ -45,15 +45,15 @@ export function createAutosaveModel<T>(
     result: "invalid" | "failed";
   } | null = null;
   let running: Promise<boolean> | null = null;
-  function publish(pending: boolean) {
-    publishStatus({
+  function status(): AutosaveStatus {
+    return {
       savedKey,
-      pending,
+      pending: running !== null,
       rejection: rejected && {
         key: rejected.key,
         result: rejected.result,
       },
-    });
+    };
   }
 
   async function write(input: Pick<AutosaveInput<T>, "key" | "value">) {
@@ -83,10 +83,10 @@ export function createAutosaveModel<T>(
     if (!rejected && committed.key === savedKey) return true;
     const input = rejected?.result === "failed" ? rejected : committed;
     running = write(input);
-    publish(true);
+    publishStatus(status());
     const saved = await running;
     running = null;
-    publish(false);
+    publishStatus(status());
     return saved && committed.key !== savedKey ? flush() : saved;
   }
 
@@ -99,9 +99,11 @@ export function createAutosaveModel<T>(
         rejected?.result === "invalid"
       ) {
         rejected = null;
-        publish(false);
+        publishStatus(status());
       }
     },
     flush,
+    status,
+    isSaved: () => !running && !rejected && committed.key === savedKey,
   };
 }

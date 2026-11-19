@@ -26,7 +26,7 @@ import {
   type ProductChapterRoadmapStatus,
 } from "@/features/library-discovery";
 import { Button } from "@/shared/ui/button";
-import { resetShellScroll } from "@/shared/lib/shell-scroll";
+import { readShellScroll, resetShellScroll } from "@/shared/lib/shell-scroll";
 import { cn } from "@/shared/lib/utils";
 import { readProductPage } from "@/shared/routing/material-reader";
 
@@ -376,10 +376,25 @@ export function ProductJourneyControls({
         (query.hasPage && requestedPage > 1
           ? visible[(requestedPage - 1) * PRODUCT_BATCH_SIZE]?.slug
           : undefined));
+  // Preserve an established position across both initial hydration commits; later address changes
+  // keep their commands: https://github.com/sachkov-inside/platform/issues/2460.
+  const initialScroll = useRef<{
+    readonly slug: string | undefined;
+    readonly preserve: boolean;
+  } | null>(null);
   // После гидрации каталог добавляет полку «Новое» и сдвигает полки ниже, поэтому карточку
   // возврата находим ещё раз; в «Новом» её копия целью не служит.
   useEffect(() => {
-    if (returnSlug === undefined) return;
+    const initial = (initialScroll.current ??= {
+      slug: returnSlug,
+      preserve: readShellScroll(routeRef.current) > 0,
+    });
+    if (hydrated) initialScroll.current = { slug: returnSlug, preserve: false };
+    if (
+      returnSlug === undefined ||
+      (initial.preserve && initial.slug === returnSlug)
+    )
+      return;
     routeRef.current
       ?.querySelector<HTMLElement>(
         `[data-route-material="${CSS.escape(returnSlug)}"]`,
