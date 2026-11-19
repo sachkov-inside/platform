@@ -192,6 +192,7 @@ export function productReaderStateRoute(request, url, owner) {
     settlement !== null &&
     url.pathname === "/billing/payment-links/" + settlementLinkId
   ) {
+    if (request.method !== "GET") return { status: 405, value: null };
     return {
       status: 200,
       value: {
@@ -225,6 +226,7 @@ export function productReaderStateRoute(request, url, owner) {
         "/purchase" &&
     request.headers.authorization === "Bearer reader-state:reader-state-paid"
   ) {
+    if (request.method !== "GET") return { status: 405, value: null };
     restoredPurchase = true;
     return {
       status: 200,
