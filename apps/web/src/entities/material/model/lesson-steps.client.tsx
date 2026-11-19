@@ -93,7 +93,13 @@ export function LessonSteps({
   const pendingScroll = useRef<string | null>(null);
   const latest = useRef({ opened, progress, parts });
   useEffect(() => {
-    latest.current = { opened, progress, parts };
+    // A hydrated external store can commit the earlier count before an admitted reveal renders.
+    // Parts only open during this lesson lifetime; keep that accepted command ahead of the DOM.
+    latest.current = {
+      opened: Math.max(opened, latest.current.opened),
+      progress,
+      parts,
+    };
   });
 
   const open = useCallback((count: number, sync: boolean): boolean => {

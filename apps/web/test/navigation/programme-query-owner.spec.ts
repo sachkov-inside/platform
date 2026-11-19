@@ -1,11 +1,66 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { z } from "zod";
+import { scrollProgrammeBoundaryIntoView } from "../support/programme-scroll";
 
 const fixtureSchema = z.object({
   scope: z.uuid(),
   productSlug: z.string(),
   materialSlugs: z.array(z.string()).length(120),
 });
+
+async function readFirstProgrammeBoundary(page: Page, productSlug: string) {
+  return page.locator("[data-application-content]").evaluate((shell, slug) => {
+    const currentProgramme = Array.from(
+      shell.querySelectorAll<HTMLElement>("[data-product-programme]"),
+    ).find(
+      (programme) =>
+        programme.getAttribute("data-product-programme") === slug &&
+        programme.getClientRects().length > 0,
+    );
+    const node = currentProgramme?.querySelector<HTMLElement>(
+      '[data-product-ordinal="12"]',
+    );
+    if (node === undefined || node === null)
+      throw new Error("Missing current Programme boundary");
+    const rect = (element: Element) => {
+      const { x, y, width, height, top, right, bottom, left } =
+        element.getBoundingClientRect();
+      return { x, y, width, height, top, right, bottom, left };
+    };
+    let elementRoot = node.parentElement;
+    while (
+      elementRoot !== null &&
+      !/^(auto|scroll)$/.test(getComputedStyle(elementRoot).overflowY)
+    )
+      elementRoot = elementRoot.parentElement;
+    const root = elementRoot ?? document.scrollingElement;
+    if (root === null) throw new Error("Missing Programme scroll root");
+    return {
+      time: performance.now(),
+      connected: node.isConnected,
+      belongsToCurrentProgramme: currentProgramme?.contains(node) ?? false,
+      isCurrentBoundary:
+        currentProgramme?.querySelectorAll("[data-product-ordinal]")[11] ===
+        node,
+      targetRect: rect(node),
+      root: {
+        kind: elementRoot === null ? "document" : "element",
+        tag: root.tagName,
+        connected: root.isConnected,
+        scrollTop: root.scrollTop,
+        clientHeight: root.clientHeight,
+        scrollHeight: root.scrollHeight,
+        rect: rect(root),
+      },
+      visibleRoot: {
+        top: elementRoot === null ? 0 : rect(elementRoot).top,
+        bottom: elementRoot === null ? innerHeight : rect(elementRoot).bottom,
+      },
+      temporaryBlockPresent:
+        document.querySelector('[hidden][id^="S:"]') !== null,
+    };
+  }, productSlug);
+}
 
 test("an active programme accepts semantic native query changes and History return", async ({
   page,
@@ -32,56 +87,13 @@ test("an active programme accepts semantic native query changes and History retu
     );
     const rows = surface.locator("[data-product-ordinal]");
     await expect(rows).toHaveCount(12);
-    const firstReveal = await rows.nth(11).evaluate((node, productSlug) => {
-      const rect = (element: Element) => {
-        const { x, y, width, height, top, right, bottom, left } =
-          element.getBoundingClientRect();
-        return { x, y, width, height, top, right, bottom, left };
-      };
-      const observe = () => {
-        const currentProgramme = Array.from(
-          document.querySelectorAll("[data-product-programme]"),
-        ).find(
-          (programme) =>
-            programme.getAttribute("data-product-programme") === productSlug &&
-            programme.getClientRects().length > 0,
-        );
-        let elementRoot = node.parentElement;
-        while (
-          elementRoot !== null &&
-          !/^(auto|scroll)$/.test(getComputedStyle(elementRoot).overflowY)
-        )
-          elementRoot = elementRoot.parentElement;
-        const root =
-          elementRoot ?? (node.isConnected ? document.scrollingElement : null);
-        return {
-          time: performance.now(),
-          connected: node.isConnected,
-          belongsToCurrentProgramme: currentProgramme?.contains(node) ?? false,
-          isCurrentBoundary:
-            currentProgramme?.querySelectorAll("[data-product-ordinal]")[11] ===
-            node,
-          targetRect: rect(node),
-          root:
-            root === null
-              ? null
-              : {
-                  kind: elementRoot === null ? "document" : "element",
-                  tag: root.tagName,
-                  connected: root.isConnected,
-                  scrollTop: root.scrollTop,
-                  clientHeight: root.clientHeight,
-                  scrollHeight: root.scrollHeight,
-                  rect: rect(root),
-                },
-          temporaryBlockPresent:
-            document.querySelector('[hidden][id^="S:"]') !== null,
-        };
-      };
-      const before = observe();
-      node.scrollIntoView({ block: "end", behavior: "instant" });
-      return { before, after: observe() };
-    }, fixture.productSlug);
+    const before = await readFirstProgrammeBoundary(page, fixture.productSlug);
+    await scrollProgrammeBoundaryIntoView(page, 12);
+    const firstReveal = {
+      action: "current row native scrollIntoView center",
+      before,
+      after: await readFirstProgrammeBoundary(page, fixture.productSlug),
+    };
     try {
       await expect(rows).toHaveCount(24);
     } finally {
@@ -183,6 +195,93 @@ test("an active programme accepts semantic native query changes and History retu
   } finally {
     const deleted = await request.delete(
       `${backend}/__reader-title-fixtures/${scope}`,
+    );
+    expect(deleted.status()).toBe(200);
+    expect(await deleted.json()).toEqual({ deleted: true });
+  }
+});
+
+test("the current programme boundary reveals after Materials replaces its rows", async ({
+  page,
+  request,
+}, info) => {
+  const backend = `http://127.0.0.1:${process.env["FAKE_BACKEND_PORT"] ?? ""}`;
+  const allocated = await request.post(
+    `${backend}/__reader-title-fixtures?layout=programme-reveal`,
+  );
+  const fixture = fixtureSchema.parse(await allocated.json());
+  try {
+    expect(allocated.status()).toBe(201);
+    const first = fixture.materialSlugs[0];
+    if (first === undefined) throw new Error("Missing controlled first lesson");
+    await page.goto(
+      `/products/${fixture.productSlug}/programme?page=1&at=${first}`,
+    );
+    const surface = page.locator(
+      `[data-product-programme="${fixture.productSlug}"]:visible`,
+    );
+    const rows = surface.locator("[data-product-ordinal]");
+    await expect(rows).toHaveCount(12);
+    const tabs = page.getByRole("navigation", { name: "Разделы продукта" });
+    const materials = tabs.getByRole("button", { name: /^Материалы/u });
+    const programme = tabs.getByRole("button", { name: /^Программа/u });
+    await expect(materials).toBeEnabled();
+    const original = await rows.nth(11).elementHandle();
+    try {
+      expect(await original.evaluate((node) => node.isConnected)).toBe(true);
+      await materials.click();
+      await expect(materials).toHaveAttribute("aria-current", "true");
+      expect(await original.evaluate((node) => node.isConnected)).toBe(false);
+      await programme.click();
+      await expect(programme).toHaveAttribute("aria-current", "true");
+      await expect(rows).toHaveCount(12);
+      expect(
+        await rows.nth(11).evaluate((node, old) => node === old, original),
+      ).toBe(false);
+      const before = await readFirstProgrammeBoundary(
+        page,
+        fixture.productSlug,
+      );
+      expect(before.connected).toBe(true);
+      expect(before.belongsToCurrentProgramme).toBe(true);
+      expect(before.isCurrentBoundary).toBe(true);
+      expect(before.root.tag).toBe(
+        info.project.name === "desktop-chromium" ? "MAIN" : "HTML",
+      );
+      expect(before.targetRect.top).toBeGreaterThan(before.visibleRoot.bottom);
+      await scrollProgrammeBoundaryIntoView(page, 12);
+      const after = await readFirstProgrammeBoundary(page, fixture.productSlug);
+      try {
+        await expect(rows).toHaveCount(24);
+        expect(after.connected).toBe(true);
+        expect(after.belongsToCurrentProgramme).toBe(true);
+        expect(after.isCurrentBoundary).toBe(true);
+        expect(after.root.tag).toBe(before.root.tag);
+        expect(after.root.scrollTop).toBeGreaterThan(before.root.scrollTop);
+        expect(after.targetRect.top).toBeGreaterThanOrEqual(
+          after.visibleRoot.top,
+        );
+        expect(after.targetRect.bottom).toBeLessThanOrEqual(
+          after.visibleRoot.bottom,
+        );
+      } finally {
+        await info.attach("programme-replaced-boundary.json", {
+          contentType: "application/json",
+          body: JSON.stringify({
+            oldRowDisconnected: true,
+            newRowIdentity: true,
+            action: "current row native scrollIntoView center",
+            before,
+            after,
+          }),
+        });
+      }
+    } finally {
+      await original.dispose();
+    }
+  } finally {
+    const deleted = await request.delete(
+      `${backend}/__reader-title-fixtures/${fixture.scope}`,
     );
     expect(deleted.status()).toBe(200);
     expect(await deleted.json()).toEqual({ deleted: true });

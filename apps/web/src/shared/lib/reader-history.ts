@@ -169,7 +169,13 @@ export function enterReaderHistory(
   current ??= { id: crypto.randomUUID(), href: window.location.href };
   window.history.replaceState({ ...state(), insideReader: current }, "");
   window.dispatchEvent(new Event(readerHistoryEntryEvent));
-  if (activeEntryId === current.id && restoreFrom === undefined) return;
+  // Home has no Reader tracker to observe Back. Release the departed entry on
+  // disconnect, while a reconnect on the same address keeps its activation (#2480).
+  const leave = () => {
+    if (activeEntryId === current.id && window.location.href !== current.href)
+      activeEntryId = undefined;
+  };
+  if (activeEntryId === current.id && restoreFrom === undefined) return leave;
   activeEntryId = current.id;
   let raw: unknown;
   try {
@@ -177,14 +183,14 @@ export function enterReaderHistory(
       sessionStorage.getItem(key(restoreFrom ?? current.id)) ?? "null",
     );
   } catch {
-    return;
+    return leave;
   }
   const view = viewSchema.safeParse(raw).data;
   if (
     view === undefined ||
     (restoreFrom === undefined && view.href !== window.location.href)
   )
-    return;
+    return leave;
   const anchor = root;
   let waitingForView = true;
   let observedRoot: ParentNode | undefined;
@@ -319,7 +325,10 @@ export function enterReaderHistory(
       capture: true,
     });
   readiness.request();
-  return stop;
+  return () => {
+    stop();
+    leave();
+  };
 }
 
 /** Capture ordinary in-tab supplementary and same-document fragment transitions. */

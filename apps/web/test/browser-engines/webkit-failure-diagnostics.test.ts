@@ -29,10 +29,14 @@ it("captures WebKit page creation and runner measurements without stderr output,
       expect(ownedBrowser.isConnected()).toBe(false);
   });
   const initial = await capture.snapshot();
+  expect(capture.processObservation().historicalLaunchPid).toBe("unknown");
   signal.throwIfAborted();
   launching = webkit.launch();
   browser = await launching;
   signal.throwIfAborted();
+  const launched = capture.processObservation();
+  expect(launched.historicalLaunchPid).toEqual(expect.any(Number));
+  expect(launched.nodeChildClose).toBe("unknown");
   const context = await browser.newContext();
   signal.throwIfAborted();
   await context.newPage();
@@ -41,6 +45,13 @@ it("captures WebKit page creation and runner measurements without stderr output,
   browser = undefined;
   signal.throwIfAborted();
   const final = await capture.snapshot();
+  expect(capture.processObservation()).toEqual({
+    historicalLaunchPid: launched.historicalLaunchPid,
+    nodeChildClose: "observed",
+    osProcessState: "unknown",
+    stdio: "unknown",
+    transport: "unknown",
+  });
   signal.throwIfAborted();
   const logs = capture.logs();
   const messages = [...logs.head, ...logs.tail]
@@ -134,5 +145,6 @@ exit 7
   expect(messages).toContain("[err] fixture-browser-stderr-final");
   expect(messages).toContain("exitCode=7");
   expect(logs.droppedEntries).toBeGreaterThan(0);
+  expect(capture.processObservation().historicalLaunchPid).toBe("unknown");
   expect(logs.bytes).toBeLessThanOrEqual(logs.logByteLimit);
 }, 30000);

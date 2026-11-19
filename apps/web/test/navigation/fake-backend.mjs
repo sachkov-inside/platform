@@ -50,6 +50,7 @@ import { salesCatalogRoute } from "./sales-catalog-backend.mjs";
 import { authoringOverviewRoute } from "./authoring-overview-backend.mjs";
 import { learningScenarioRoute } from "./learning-scenario-backend.mjs";
 import { commerceScenarioRoute } from "./commerce-scenario-backend.mjs";
+import { exerciseOwnerRoute } from "./exercise-owner-backend.mjs";
 import { accountAccessRoute } from "./account-access-backend.mjs";
 
 // Request bodies the checks send to the double; a malformed body fails the request.
@@ -233,7 +234,7 @@ const performanceTemplate = (() => {
   if (template === undefined) throw new Error("Missing lesson template");
   return template;
 })();
-/** @typedef {{ scope: string; product: Product; lessons: Lesson[]; opens: Map<string, number>; commands: Set<string>; personalRead: PromiseWithResolvers<void> | null; linear: boolean; programmeReveal: boolean }} ReaderTitleFixture */
+/** @typedef {{ scope: string; product: Product; lessons: Lesson[]; opens: Map<string, number>; commands: Set<string>; personalRead: PromiseWithResolvers<void> | null; nextMaterialRead: PromiseWithResolvers<void> | null; linear: boolean; programmeReveal: boolean }} ReaderTitleFixture */
 /** @type {Map<string, ReaderTitleFixture>} */
 const readerTitleFixtures = new Map();
 
@@ -282,6 +283,7 @@ function createReaderTitleFixture(linear, programmeReveal) {
     opens: new Map(),
     commands: new Set(),
     personalRead: null,
+    nextMaterialRead: null,
     linear,
     programmeReveal,
   };
@@ -1212,6 +1214,9 @@ const server = createServer(async (request, response) => {
     });
     response.end(JSON.stringify(value));
   };
+  const exerciseOwner = await exerciseOwnerRoute(request, url, readBody);
+  if (exerciseOwner !== null)
+    return send(exerciseOwner.status, exerciseOwner.value);
   const accountAccess = await accountAccessRoute(request, url);
   if (accountAccess !== null)
     return send(accountAccess.status, accountAccess.value);
@@ -1301,6 +1306,62 @@ const server = createServer(async (request, response) => {
   );
   if (glossaryLifetime !== null) {
     send(glossaryLifetime.status, glossaryLifetime.value);
+    return;
+  }
+  // #2479: a public, guest-readable four-part lesson for real AppShell hydration.
+  if (
+    request.method === "GET" &&
+    url.pathname === "/materials/initial-fragment-2479"
+  ) {
+    /** @param {string} text */
+    const paragraph = (text) => ({
+      kind: "paragraph",
+      content: [{ kind: "text", marks: [], text }],
+    });
+    send(200, {
+      kind: "available",
+      cacheScope: "public",
+      glossaryTerms: [],
+      lessonTerms: [],
+      primaryVideo: null,
+      projection: {
+        ...readerProjection(readerFixture),
+        materialId: "50002479-0000-4000-8000-000000000001",
+        slug: "initial-fragment-2479",
+        title: "Пошаговый урок с прямым якорем",
+        productMemberships: [],
+        access: "free",
+      },
+      body: {
+        schemaVersion: 1,
+        blocks: Array.from({ length: 4 }, (_, part) => [
+          {
+            kind: "heading",
+            level: 2,
+            content: [
+              {
+                kind: "text",
+                marks: [],
+                text: part === 3 ? "Итог" : `Раздел ${String(part + 1)}`,
+              },
+            ],
+          },
+          ...Array.from({ length: 22 }, (_, index) =>
+            paragraph(
+              `Раздел ${String(part + 1)}, абзац ${String(index + 1)}.`,
+            ),
+          ),
+          ...(part === 3
+            ? []
+            : [
+                {
+                  kind: "step_break",
+                  label: `Открыть часть ${String(part + 2)}`,
+                },
+              ]),
+        ]).flat(),
+      },
+    });
     return;
   }
   const tableNames = tableNamesRoute(
@@ -1393,19 +1454,19 @@ const server = createServer(async (request, response) => {
   );
   if (titleFixtureControl !== null && request.method === "DELETE") {
     const scope = z.uuid().parse(titleFixtureControl[1]);
-    readerTitleFixtures.get(scope)?.personalRead?.resolve();
+    const fixture = readerTitleFixtures.get(scope);
+    fixture?.personalRead?.resolve();
+    fixture?.nextMaterialRead?.resolve();
     send(200, { deleted: readerTitleFixtures.delete(scope) });
     return;
   }
   // Удержание личного чтения Reader или программы: общая часть приходит до личной (#1908, #1913).
-  const personalReadControl =
-    /^\/__reader-title-fixtures\/([^/]+)\/personal-read-hold$/u.exec(
+  const readControl =
+    /^\/__reader-title-fixtures\/([^/]+)\/(personal-read-hold|next-material-hold)$/u.exec(
       url.pathname,
     );
-  if (personalReadControl !== null && request.method === "POST") {
-    const fixture = readerTitleFixtures.get(
-      z.uuid().parse(personalReadControl[1]),
-    );
+  if (readControl !== null && request.method === "POST") {
+    const fixture = readerTitleFixtures.get(z.uuid().parse(readControl[1]));
     const { held } = z
       .strictObject({ held: z.boolean() })
       .parse(JSON.parse(await readBody(request)));
@@ -1413,8 +1474,12 @@ const server = createServer(async (request, response) => {
       send(404, { code: "fixture_not_found" });
       return;
     }
-    fixture.personalRead?.resolve();
-    fixture.personalRead = held ? Promise.withResolvers() : null;
+    const key =
+      readControl[2] === "next-material-hold"
+        ? "nextMaterialRead"
+        : "personalRead";
+    fixture[key]?.resolve();
+    fixture[key] = held ? Promise.withResolvers() : null;
     send(200, { held });
     return;
   }
@@ -1437,6 +1502,13 @@ const server = createServer(async (request, response) => {
     method: request.method,
     path: `${url.pathname}${url.search}`,
   });
+  if (request.method === "GET" && url.pathname.startsWith("/materials/")) {
+    const target = findReaderTitleLesson(
+      url.pathname.slice("/materials/".length),
+    );
+    if (target && target.fixture.lessons[1] === target.lesson)
+      await target.fixture.nextMaterialRead?.promise;
+  }
   await waitNavigationTask(url.pathname);
   const returnBuyer =
     request.headers.authorization === "Bearer navigation-return-buyer";

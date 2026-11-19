@@ -30,26 +30,28 @@ const collectionWriteSchema = z
  *   publishedMaterialCount: number;
  *   name: string;
  *   slug: string;
+ *   sourceId?: string;
  *   summary: string;
  *   version: number;
  * }} Collection
  */
 
+/** @param {Partial<Collection> & Pick<Collection, "id" | "kind" | "name" | "slug">} value */
+const collection = (value) => ({
+  archived: false,
+  cover: null,
+  // Как у backend: число обладателей есть только у продукта, у темы его нет.
+  holderCount: value.kind === "product" ? 0 : null,
+  introduction: null,
+  materialCount: 4,
+  publishedMaterialCount: 2,
+  summary: "Синтетический состав для проверки переходов.",
+  version: 1,
+  ...value,
+});
+
 /** @returns {Collection[]} */
 function initialCollections() {
-  /** @param {Partial<Collection> & Pick<Collection, "id" | "kind" | "name" | "slug">} value */
-  const collection = (value) => ({
-    archived: false,
-    cover: null,
-    // Как у backend: число обладателей есть только у продукта, у темы его нет.
-    holderCount: value.kind === "product" ? 0 : null,
-    introduction: null,
-    materialCount: 4,
-    publishedMaterialCount: 2,
-    summary: "Синтетический состав для проверки переходов.",
-    version: 1,
-    ...value,
-  });
   return [
     collection({
       id: authoringScenario.products.architecture.id,
@@ -110,6 +112,26 @@ function initialCollections() {
 let collections = initialCollections();
 const pinnedProductId = authoringScenario.products.architecture.id;
 
+const orderProductId = "c0110000-0000-4000-8000-000000000053";
+const orderMaterialId = "c0110000-0000-4000-8000-000000000101";
+const chapterIds = [
+  "c0110000-0000-4000-8000-000000000051",
+  "c0110000-0000-4000-8000-000000000052",
+];
+function createOrderScenario() {
+  return {
+    version: "a".repeat(64),
+    writes:
+      /** @type {{chapterId:string, expectedOrderVersion:string, materialIds:string[]}[]} */ ([]),
+    selections: new Map(
+      chapterIds.map((id) => [id, /** @type {string[]} */ ([])]),
+    ),
+    pending: false,
+    hold: Promise.withResolvers(),
+  };
+}
+let orderScenario = createOrderScenario();
+
 /**
  * @param {import("node:http").IncomingMessage} request
  * @param {URL} url
@@ -120,6 +142,95 @@ export async function contentCollectionsRoute(request, url, readBody) {
   if (url.pathname === "/__collections/reset" && request.method === "POST") {
     collections = initialCollections();
     return { status: 200, value: { reset: true } };
+  }
+  const control = "/__collections/order-version";
+  if (url.pathname === control && request.method === "POST") {
+    orderScenario.hold.resolve(undefined);
+    orderScenario = createOrderScenario();
+    collections.push(
+      collection({
+        kind: "product",
+        slug: "imported-version-check",
+        id: orderProductId,
+        sourceId: "synthetic-import",
+        name: "Редактирование вложений",
+      }),
+    );
+    return { status: 200, value: { ready: true } };
+  }
+  if (url.pathname === control && request.method === "GET") {
+    return {
+      status: 200,
+      value: { pending: orderScenario.pending, writes: orderScenario.writes },
+    };
+  }
+  if (url.pathname === control && request.method === "DELETE") {
+    orderScenario.hold.resolve(undefined);
+    collections = collections.filter((entry) => entry.id !== orderProductId);
+    return { status: 200, value: {} };
+  }
+  if (url.pathname === control + "/release" && request.method === "POST") {
+    orderScenario.hold.resolve(undefined);
+    return { status: 200, value: {} };
+  }
+  const attachmentPrefix =
+    "/authoring/products/" + orderProductId + "/chapters/";
+  if (url.pathname.startsWith(attachmentPrefix)) {
+    if (request.headers.authorization === undefined)
+      return { status: 401, value: { code: "invalid_proof", status: 401 } };
+    if (request.method !== "PUT") return { status: 405, value: {} };
+    const chapter = chapterIds.find(
+      (id) => url.pathname === attachmentPrefix + id + "/attachments",
+    );
+    if (chapter === undefined) return { status: 404, value: {} };
+    const parsed = z
+      .object({
+        expectedOrderVersion: z.string().regex(/^[a-f0-9]{64}$/u),
+        materialIds: z.array(z.uuid()),
+      })
+      .safeParse(
+        await readBody(request)
+          .then(JSON.parse)
+          .catch(() => null),
+      );
+    if (!parsed.success)
+      return { status: 400, value: { code: "invalid_request", status: 400 } };
+    const { expectedOrderVersion, materialIds } = parsed.data;
+    orderScenario.writes.push({
+      chapterId: chapter,
+      expectedOrderVersion,
+      materialIds,
+    });
+    if (
+      JSON.stringify(materialIds) ===
+      JSON.stringify(orderScenario.selections.get(chapter))
+    ) {
+      return {
+        status: 200,
+        value: {
+          productId: orderProductId,
+          orderVersion: orderScenario.version,
+        },
+      };
+    }
+    if (expectedOrderVersion !== orderScenario.version)
+      return {
+        status: 409,
+        value: {
+          code: "stale_product_order",
+          status: 409,
+          currentOrderVersion: orderScenario.version,
+        },
+      };
+    orderScenario.selections.set(chapter, materialIds);
+    const saved =
+      expectedOrderVersion === "a".repeat(64) ? "b".repeat(64) : "d".repeat(64);
+    // The competing write in “a later product order read” happens before the pending GET returns.
+    orderScenario.version = saved === "b".repeat(64) ? "c".repeat(64) : saved;
+    return {
+      status: 200,
+      value: { productId: orderProductId, orderVersion: saved },
+    };
   }
   const authoring =
     url.pathname === "/authoring/collections" ||
@@ -147,14 +258,29 @@ export async function contentCollectionsRoute(request, url, readBody) {
     const product = collections.find(({ id }) => id === order[1]);
     if (product === undefined)
       return { status: 404, value: { code: "product_not_found", status: 404 } };
+    const scoped = product.id === orderProductId;
+    if (scoped && orderScenario.version === "c".repeat(64)) {
+      orderScenario.pending = true;
+      await orderScenario.hold.promise;
+    }
     return {
       status: 200,
       value: {
         archived: product.archived,
-        chapters: [],
+        chapters: scoped
+          ? chapterIds.map((id, index) => ({
+              id,
+              name:
+                (index === 0 ? "Первая глава" : "Вторая глава") +
+                (orderScenario.version !== "a".repeat(64) ? " обновлена" : ""),
+              ordinal: index + 1,
+              summary: "",
+              supplementaryMaterialIds: orderScenario.selections.get(id),
+            }))
+          : [],
         items: [
           {
-            materialId: "c0110000-0000-4000-8000-000000000101",
+            materialId: orderMaterialId,
             ordinal: 1,
             publicationState: "published",
             title: "Первый шаг программы",
@@ -167,7 +293,7 @@ export async function contentCollectionsRoute(request, url, readBody) {
           },
         ],
         name: product.name,
-        orderVersion: "a".repeat(64),
+        orderVersion: scoped ? orderScenario.version : "a".repeat(64),
         productId: product.id,
       },
     };
