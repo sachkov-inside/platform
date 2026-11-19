@@ -1,4 +1,6 @@
 import { expect as ui, type Browser } from "@playwright/test";
+import { mkdir, writeFile } from "node:fs/promises";
+import { z } from "zod";
 import { beforeAll, afterAll, test } from "vitest";
 import { createOwnedBrowserFixture } from "../support/owned-browser-fixture";
 
@@ -246,3 +248,114 @@ for (const engine of ["chromium", "webkit"]) {
     }
   }, 30_000);
 }
+
+test("chromium: an admitted lesson fragment survives an intermediate render before saved progress", async () => {
+  const browser = browsers.get("chromium");
+  if (browser === undefined) throw new Error("Missing body fragment browser");
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const diagnostics: string[] = [];
+  page.on("console", (message) => {
+    if (message.text().startsWith("[CONTROL-2479]"))
+      diagnostics.push(message.text());
+  });
+  try {
+    await page.goto(`${url}?lesson-admission#итог`);
+    await ui(page.getByRole("status")).toHaveText(
+      "Продолжение рендера ожидает готовности",
+    );
+    const body = page.locator("[data-controlled-lesson]");
+    const originalBody = await body.elementHandle();
+    await page
+      .getByRole("button", {
+        name: "Доставить сохранённый прогресс",
+        exact: true,
+      })
+      .click();
+    await ui(page.getByLabel("Сохранённые части")).toHaveText("3");
+    const observations = z
+      .array(
+        z.object({
+          phase: z.string(),
+          at: z.number(),
+          openedParts: z.number().optional(),
+          saved: z.number().nullable().optional(),
+        }),
+      )
+      .parse(
+        await page.evaluate((): unknown =>
+          Reflect.get(window, "lessonAdmissionObservations"),
+        ),
+      );
+    const accepted = observations.findIndex(
+      (event) => event.phase === "accepted" && event.openedParts === 4,
+    );
+    const intermediate = observations.findIndex(
+      (event) => event.phase === "intermediate",
+    );
+    const delivered = observations.findIndex(
+      (event) => event.phase === "saved",
+    );
+    ui(accepted).toBeGreaterThanOrEqual(0);
+    ui(intermediate).toBeGreaterThan(accepted);
+    ui(delivered).toBeGreaterThan(intermediate);
+    ui(observations[intermediate]).toMatchObject({
+      openedParts: 1,
+      saved: null,
+    });
+    ui(observations[delivered]).toMatchObject({ saved: 3 });
+    const target = body.getByRole("heading", {
+      name: "Итог",
+      exact: true,
+      includeHidden: true,
+    });
+    await ui(target).toBeVisible();
+    await ui(target).toBeInViewport({ ratio: 1 });
+    await ui(body.locator("[data-lesson-part][data-closed]")).toHaveCount(0);
+    ui(
+      await originalBody.evaluate(
+        (node) => node === document.querySelector("[data-controlled-lesson]"),
+      ),
+    ).toBe(true);
+  } finally {
+    try {
+      const observation = await page.evaluate(() => {
+        const events: unknown = Reflect.get(
+          window,
+          "lessonAdmissionObservations",
+        );
+        return {
+          events,
+          hash: location.hash,
+          bodies: document.querySelectorAll("[data-controlled-lesson]").length,
+          cuts: [
+            ...document.querySelectorAll<HTMLElement>(
+              "[data-controlled-lesson] [data-lesson-part]",
+            ),
+          ].map((node) => ({
+            part: node.dataset["lessonPart"],
+            closed: node.hasAttribute("data-closed"),
+          })),
+          target: [
+            ...document.querySelectorAll<HTMLElement>(
+              "[data-controlled-lesson] [id=итог]",
+            ),
+          ].map((node) => ({
+            connected: node.isConnected,
+            rects: node.getClientRects().length,
+            top: node.getBoundingClientRect().top,
+            bottom: node.getBoundingClientRect().bottom,
+          })),
+        };
+      });
+      await mkdir("test-results/lesson-fragment-admission", {
+        recursive: true,
+      });
+      await writeFile(
+        "test-results/lesson-fragment-admission/chromium.json",
+        JSON.stringify({ observation, diagnostics }, null, 2),
+      );
+    } finally {
+      await page.close();
+    }
+  }
+}, 30_000);
