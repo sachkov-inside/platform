@@ -65,7 +65,7 @@ const protectedBodyMarker = "ЗАКРЫТОЕ-ТЕЛО-УРОКА";
 
 /**
  * Сессия вошедшего читателя. Web берёт действующий токен прямо из cookie и к провайдеру входа не
- * обращается, а подставной backend открывает платные уроки любому, кто предъявил токен.
+ * обращается, а подставной backend определяет доступ к уроку по токену и состоянию покупки тестового читателя.
  */
 async function memberSessionCookie(
   baseURL: string,
@@ -533,7 +533,11 @@ test.beforeEach(async ({ baseURL }) => {
   await expireServerCatalogCache(baseURL);
 });
 test.afterEach(async () => {
-  await controlBackend({ delayMs: 0, unavailable: false });
+  await controlBackend({
+    delayMs: 0,
+    unavailable: false,
+    returnPurchaseReady: false,
+  });
 });
 
 test("shared navigation fixture returns complete private Product sale admission for guest and viewer", async ({
@@ -1546,7 +1550,7 @@ test("подтверждение оплаты открывает сохранё�
     await memberSessionCookie(baseURL, "navigation-return-buyer"),
   ]);
   await controlBackend({ returnPurchaseReady: false });
-  // Exercise the supported window transport. Delay its one real billing event until the
+  // Exercise the supported window transport. Delay billing events until the
   // next visit to the lesson, so the shell cannot account for the panel's own refresh.
   await page.addInitScript(() => {
     Object.defineProperty(window, "BroadcastChannel", { value: undefined });
@@ -1579,44 +1583,42 @@ test("подтверждение оплаты открывает сохранё�
   await expect(page).toHaveURL(returnUrl.href);
   const notification = await page.evaluateHandle(() => {
     const name = "inside.account.billing.changed";
-    let heldId: string | undefined;
+    const heldIds: string[] = [];
     const hold = (event: Event) => {
       if (!(event instanceof CustomEvent) || typeof event.detail !== "string")
         return;
       event.stopImmediatePropagation();
-      heldId = event.detail;
+      heldIds.push(event.detail);
     };
-    window.addEventListener(name, hold, { capture: true, once: true });
+    window.addEventListener(name, hold, true);
     return {
-      id: () => heldId,
+      firstId: () => heldIds[0],
       release: () => {
         window.removeEventListener(name, hold, true);
-        if (heldId !== undefined)
-          window.dispatchEvent(new CustomEvent(name, { detail: heldId }));
+        for (const id of heldIds)
+          window.dispatchEvent(new CustomEvent(name, { detail: id }));
       },
     };
   });
-  try {
-    await controlBackend({ returnPurchaseReady: true });
-    await page.getByRole("button", { name: "Проверить статус" }).click();
-    await expect(page.getByText("Открыт", { exact: true })).toBeVisible();
-    await expect
-      .poll(() => notification.evaluate((event) => event.id()))
-      .toMatch(z.regexes.uuid());
-    await page.goForward();
-    await page.goForward();
-    await expect(page).toHaveURL(lessonUrl);
-    expect(await page.evaluate(() => performance.timeOrigin)).toBe(
-      documentOrigin,
-    );
-    await expect(
-      page.getByText(protectedBodyMarker, { exact: false }).first(),
-    ).toBeVisible();
-  } finally {
-    await notification.evaluate((event) => {
-      event.release();
-    });
-    await notification.dispose();
-    await controlBackend({ returnPurchaseReady: false });
-  }
+  await controlBackend({ returnPurchaseReady: true });
+  await page.getByRole("button", { name: "Проверить статус" }).click();
+  await expect(page.getByText("Открыт", { exact: true })).toBeVisible();
+  await expect
+    .poll(() => notification.evaluate((event) => event.firstId()))
+    .toMatch(z.regexes.uuid());
+  await page.goForward();
+  await page.goForward();
+  await expect(page).toHaveURL(lessonUrl);
+  expect(await page.evaluate(() => performance.timeOrigin)).toBe(
+    documentOrigin,
+  );
+  await expect(
+    page.getByText(protectedBodyMarker, { exact: false }).first(),
+  ).toBeVisible();
+  // A failed assertion closes this isolated document with its listeners. Playwright's
+  // afterEach resets the backend even if navigation has destroyed this evaluation handle.
+  await notification.evaluate((event) => {
+    event.release();
+  });
+  await notification.dispose();
 });
