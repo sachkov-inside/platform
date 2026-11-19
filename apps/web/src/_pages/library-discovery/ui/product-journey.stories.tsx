@@ -1,11 +1,17 @@
 import { legacyCatalogueScenario } from "../../../../../../scenarios/legacy-catalog.mjs";
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { page } from "vitest/browser";
 import {
   ReadonlyURLSearchParams,
   usePathname,
   useSearchParams,
 } from "next/navigation";
-import { useLayoutEffect, useState, type ComponentProps } from "react";
+import {
+  Activity,
+  useLayoutEffect,
+  useState,
+  type ComponentProps,
+} from "react";
 import { z } from "zod";
 import {
   expect,
@@ -1123,6 +1129,11 @@ export const PartSwitchStartsAtBeginning: Story = {
     learning: { kind: "guest" },
     result: {
       ...result,
+      // Keep the manual reveal outside the existing 600px automatic reveal margin.
+      items: materials.map((material) => ({
+        ...material,
+        title: `${material.title}. Практический разбор: подготовь проект к разработке, проверь требования и настрой рабочий процесс команды.`,
+      })),
       chapters: chapters.map((chapter, index) =>
         index === 0
           ? { ...chapter, materialIds: chapter.materialIds.slice(0, 5) }
@@ -1132,6 +1143,19 @@ export const PartSwitchStartsAtBeginning: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await expect(
+      canvasElement.querySelectorAll("[data-product-ordinal]"),
+    ).toHaveLength(12);
+    const last = canvasElement.querySelector<HTMLElement>(
+      '[data-product-ordinal="12"]',
+    );
+    if (last === null) throw new Error("Missing manual reveal boundary");
+    const main = last.closest("main");
+    const edge =
+      main !== null && getComputedStyle(main).overflowY === "auto"
+        ? main.getBoundingClientRect().bottom
+        : window.innerHeight;
+    await expect(last.getBoundingClientRect().top).toBeGreaterThan(edge + 600);
     await userEvent.click(
       canvas.getByRole("button", { name: "Показать ещё уроки" }),
     );
@@ -1969,6 +1993,360 @@ export const EarlyLessonReveal: Story = {
 export const EarlyLessonRevealMobile: Story = {
   ...EarlyLessonReveal,
   globals: { viewport: { value: "mobile320", isRotated: false } },
+};
+
+let lateProgrammeDeliveryActive = false;
+
+function observeProgrammeResources() {
+  if (lateProgrammeDeliveryActive)
+    throw new Error("The named late programme delivery test is exclusive");
+  // These spies call the original native methods and only retain their receipts.
+  const observed = spyOn(IntersectionObserver.prototype, "observe");
+  const disconnected = spyOn(IntersectionObserver.prototype, "disconnect");
+  return {
+    activeOwnersFor: (node: Element) => {
+      const owners = new Set(
+        observed.mock.contexts.filter(
+          (_owner, index) => observed.mock.calls[index]?.[0] === node,
+        ),
+      );
+      return [...owners].filter((owner) => {
+        const latestObserve = Math.max(
+          0,
+          ...observed.mock.invocationCallOrder.filter(
+            (_order, index) =>
+              observed.mock.contexts[index] === owner &&
+              observed.mock.calls[index]?.[0] === node,
+          ),
+        );
+        const latestDisconnect = Math.max(
+          0,
+          ...disconnected.mock.invocationCallOrder.filter(
+            (_order, index) => disconnected.mock.contexts[index] === owner,
+          ),
+        );
+        return latestObserve > latestDisconnect;
+      });
+    },
+    disconnectedOwners: () => disconnected.mock.contexts,
+    restore: () => {
+      observed.mockRestore();
+      disconnected.mockRestore();
+    },
+  };
+}
+
+let programmeResources: ReturnType<typeof observeProgrammeResources> | null =
+  null;
+
+function RetainedProgrammeReveal({
+  learning,
+  initiallyVisible = true,
+  ...args
+}: ProgrammeStoryArgs & { initiallyVisible?: boolean }) {
+  const [mode, setMode] = useState<"visible" | "hidden" | null>(
+    initiallyVisible ? "visible" : "hidden",
+  );
+  return (
+    <>
+      <div className="sticky top-0 z-50 flex gap-2 bg-background p-2">
+        <Button
+          onClick={() => {
+            setMode("hidden");
+          }}
+        >
+          Скрыть программу
+        </Button>
+        <Button
+          onClick={() => {
+            setMode("visible");
+          }}
+        >
+          Вернуть программу
+        </Button>
+        <Button
+          onClick={() => {
+            setMode(null);
+          }}
+        >
+          Убрать программу
+        </Button>
+      </div>
+      {mode === null ? null : (
+        <Activity mode={mode}>
+          <ProductLearningProvider learning={learning ?? { kind: "guest" }}>
+            <ProductProgrammeView {...args} />
+          </ProductLearningProvider>
+        </Activity>
+      )}
+    </>
+  );
+}
+
+export const RetainedProgrammeRevealLifetime: Story = {
+  ...EarlyLessonReveal,
+  beforeEach: () => {
+    const cleanup = environment.beforeEach();
+    programmeResources = observeProgrammeResources();
+    return () => {
+      programmeResources?.restore();
+      programmeResources = null;
+      cleanup?.();
+    };
+  },
+  render: (args) => <RetainedProgrammeReveal {...args} />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const resources = programmeResources;
+    if (resources === null) throw new Error("Missing native observation");
+    const first = canvasElement.querySelector('[data-product-ordinal="1"]');
+    const last = canvasElement.querySelector<HTMLElement>(
+      '[data-product-ordinal="12"]',
+    );
+    if (first === null || last === null)
+      throw new Error("Missing initial programme rows");
+    await expect(
+      canvasElement.querySelectorAll("[data-product-ordinal]"),
+    ).toHaveLength(12);
+    await waitFor(async () => {
+      await expect(resources.activeOwnersFor(last)).toHaveLength(1);
+    });
+    const originalOwner = resources.activeOwnersFor(last)[0];
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Скрыть программу" }),
+    );
+    await waitFor(async () => {
+      await expect(resources.disconnectedOwners()).toContain(originalOwner);
+      await expect(resources.activeOwnersFor(last)).toHaveLength(0);
+    });
+    await expect(last.getClientRects()).toHaveLength(0);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Вернуть программу" }),
+    );
+    await waitFor(async () => {
+      await expect(resources.activeOwnersFor(last)).toHaveLength(1);
+    });
+    const returnedOwner = resources.activeOwnersFor(last)[0];
+    await expect(
+      canvasElement.querySelector('[data-product-ordinal="1"]'),
+    ).toBe(first);
+    await expect(
+      canvasElement.querySelector('[data-product-ordinal="12"]'),
+    ).toBe(last);
+    last.scrollIntoView({ block: "end" });
+    await waitFor(async () => {
+      await expect(
+        canvasElement.querySelectorAll("[data-product-ordinal]"),
+      ).toHaveLength(24);
+    });
+    await expect(
+      canvasElement.querySelector('[data-product-ordinal="1"]'),
+    ).toBe(first);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Убрать программу" }),
+    );
+    await waitFor(async () => {
+      await expect(
+        canvasElement.querySelector('[data-product-ordinal="1"]'),
+      ).toBeNull();
+      await expect(resources.disconnectedOwners()).toContain(returnedOwner);
+      await expect(resources.activeOwnersFor(last)).toHaveLength(0);
+    });
+    // A complete batch has no observer. Mount a fresh partial programme so removal
+    // must release a still-active DOM owner, independently of the reveal cleanup.
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Вернуть программу" }),
+    );
+    const mountedLast = canvasElement.querySelector<HTMLElement>(
+      '[data-product-ordinal="12"]',
+    );
+    if (mountedLast === null) throw new Error("Missing remounted boundary");
+    await expect(mountedLast).not.toBe(last);
+    await expect(
+      canvasElement.querySelectorAll("[data-product-ordinal]"),
+    ).toHaveLength(12);
+    await waitFor(async () => {
+      await expect(resources.activeOwnersFor(mountedLast)).toHaveLength(1);
+    });
+    const mountedOwner = resources.activeOwnersFor(mountedLast)[0];
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Убрать программу" }),
+    );
+    await waitFor(async () => {
+      await expect(mountedLast.isConnected).toBe(false);
+      await expect(resources.disconnectedOwners()).toContain(mountedOwner);
+      await expect(resources.activeOwnersFor(mountedLast)).toHaveLength(0);
+    });
+  },
+};
+
+export const ProgrammeRevealFollowsScrollRoot: Story = {
+  ...RetainedProgrammeRevealLifetime,
+  play: async ({ canvasElement }) => {
+    const resources = programmeResources;
+    if (resources === null) throw new Error("Missing native observation");
+    const last = canvasElement.querySelector<HTMLElement>(
+      '[data-product-ordinal="12"]',
+    );
+    if (last === null) throw new Error("Missing programme boundary");
+    const main = last.closest("main");
+    if (main === null) throw new Error("Missing application scroll root");
+    const originalWidth = window.innerWidth;
+    const originalHeight = window.innerHeight;
+    const expectRoot = async (root: Element | Document) => {
+      await waitFor(async () => {
+        const owners = resources.activeOwnersFor(last);
+        await expect(owners).toHaveLength(1);
+        const owner = owners[0];
+        if (!(owner instanceof IntersectionObserver))
+          throw new Error("Missing actual native observer");
+        await expect(owner.root).toBe(root);
+      });
+    };
+    try {
+      await page.viewport(1440, 900);
+      await expectRoot(main);
+      await page.viewport(390, 844);
+      await expectRoot(document);
+      await page.viewport(1440, 900);
+      await expectRoot(main);
+      await expect(
+        canvasElement.querySelector('[data-product-ordinal="12"]'),
+      ).toBe(last);
+      last.scrollIntoView({ block: "end" });
+      await waitFor(async () => {
+        await expect(
+          canvasElement.querySelectorAll("[data-product-ordinal]"),
+        ).toHaveLength(24);
+      });
+    } finally {
+      await page.viewport(originalWidth, originalHeight);
+    }
+  },
+};
+
+export const ArtificialLateProgrammeDeliveryAfterDisconnect: Story = {
+  ...EarlyLessonReveal,
+  beforeEach: () => environment.beforeEach(),
+  render: (args) => (
+    <RetainedProgrammeReveal {...args} initiallyVisible={false} />
+  ),
+  play: async ({ canvasElement }) => {
+    if (lateProgrammeDeliveryActive || programmeResources !== null)
+      throw new Error("The named late programme delivery test is exclusive");
+    const descriptor = Object.getOwnPropertyDescriptor(
+      window,
+      "IntersectionObserver",
+    );
+    if (descriptor === undefined)
+      throw new Error("Missing native IntersectionObserver descriptor");
+    const NativeObserver = window.IntersectionObserver;
+    const callbacks = new Map<
+      IntersectionObserver,
+      IntersectionObserverCallback
+    >();
+    const resources = observeProgrammeResources();
+    lateProgrammeDeliveryActive = true;
+    try {
+      // Keep the actual constructor arguments, native handle and ordinary delivery.
+      const observedConstructor = new Proxy(NativeObserver, {
+        construct(
+          target,
+          args: ConstructorParameters<typeof IntersectionObserver>,
+        ) {
+          const instance: unknown = Reflect.construct(target, args);
+          if (!(instance instanceof NativeObserver))
+            throw new Error("Expected the actual native observer handle");
+          callbacks.set(instance, args[0]);
+          return instance;
+        },
+      });
+      Object.defineProperty(window, "IntersectionObserver", {
+        ...descriptor,
+        value: observedConstructor,
+      });
+      const canvas = within(canvasElement);
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Вернуть программу" }),
+      );
+      const rows = () =>
+        canvasElement.querySelectorAll("[data-product-ordinal]");
+      const first = canvasElement.querySelector('[data-product-ordinal="1"]');
+      const last = canvasElement.querySelector<HTMLElement>(
+        '[data-product-ordinal="12"]',
+      );
+      if (first === null || last === null)
+        throw new Error("Missing initial programme rows");
+      await expect(rows()).toHaveLength(12);
+      await waitFor(async () => {
+        await expect(resources.activeOwnersFor(last)).toHaveLength(1);
+      });
+      const owner = resources.activeOwnersFor(last)[0];
+      if (!(owner instanceof NativeObserver))
+        throw new Error("Missing original native observer");
+      const callback = callbacks.get(owner);
+      if (callback === undefined)
+        throw new Error("Missing original native observer callback");
+      const beforeHide = last.getBoundingClientRect();
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Скрыть программу" }),
+      );
+      await waitFor(async () => {
+        await expect(resources.disconnectedOwners()).toContain(owner);
+        await expect(resources.activeOwnersFor(last)).toHaveLength(0);
+      });
+      // One explicitly artificial late entry, not a browser scheduling claim.
+      callback(
+        [
+          {
+            target: last,
+            time: performance.now(),
+            isIntersecting: true,
+            intersectionRatio: 1,
+            boundingClientRect: beforeHide,
+            intersectionRect: beforeHide,
+            rootBounds: null,
+          },
+        ],
+        owner,
+      );
+      await expect(rows()).toHaveLength(12);
+      await expect(resources.activeOwnersFor(last)).toHaveLength(0);
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Вернуть программу" }),
+      );
+      await waitFor(async () => {
+        await expect(last).toBeVisible();
+      });
+      await expect(rows()).toHaveLength(12);
+      await expect(
+        canvasElement.querySelector('[data-product-ordinal="1"]'),
+      ).toBe(first);
+      await expect(
+        canvasElement.querySelector('[data-product-ordinal="12"]'),
+      ).toBe(last);
+      await waitFor(async () => {
+        const active = resources.activeOwnersFor(last);
+        await expect(active).toHaveLength(1);
+        await expect(active).not.toContain(owner);
+      });
+      last.scrollIntoView({ block: "end" });
+      await waitFor(async () => {
+        await expect(rows()).toHaveLength(24);
+      });
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Убрать программу" }),
+      );
+      await waitFor(async () => {
+        await expect(rows()).toHaveLength(0);
+        await expect(resources.activeOwnersFor(last)).toHaveLength(0);
+      });
+    } finally {
+      Object.defineProperty(window, "IntersectionObserver", descriptor);
+      resources.restore();
+      lateProgrammeDeliveryActive = false;
+    }
+  },
 };
 
 export const FastLessonReveal: Story = {
