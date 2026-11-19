@@ -587,6 +587,7 @@ test("Back clears a pending course step before its material arrives", async ({
     await expect
       .poll(async () => {
         const response = await request.get(backend + "/__requests");
+        if (!response.ok()) return false;
         const { requests } = z
           .object({
             requests: z.array(
