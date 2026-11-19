@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 import { captureWebkitFailureDiagnostics } from "../support/webkit-failure-diagnostics";
 
 import { checkInlineSvgMarkup } from "@inside/material-blocks/svg-image";
-import { chromium, webkit } from "@playwright/test";
+import { type Browser, chromium, webkit } from "@playwright/test";
 import { test } from "vitest";
 
 declare global {
@@ -44,6 +44,8 @@ for (const engine of [chromium, webkit]) {
     const capture =
       engine === webkit ? captureWebkitFailureDiagnostics() : undefined;
     const started = performance.now();
+    let launchedBrowser: Browser | undefined;
+    let closeStarted: number | undefined;
     let pendingStep: string | null = null;
     let bodyPendingStep: string | null = null;
     const steps: { name: string; milliseconds: number }[] = [];
@@ -63,6 +65,14 @@ for (const engine of [chromium, webkit]) {
     // onTestFailed runs after cleanup hooks, so it also observes a browser.close hook timeout.
     t.onTestFailed(async () => {
       capture?.restore();
+      const observedAt = performance.now();
+      const webkitClose = capture && {
+        phase: "onTestFailed-after-restore",
+        millisecondsSinceCloseStart:
+          closeStarted === undefined ? "unknown" : observedAt - closeStarted,
+        clientConnected: launchedBrowser?.isConnected() ?? "unknown",
+        ...capture.processObservation(),
+      };
       try {
         await mkdir(directory, { recursive: true });
         await writeFile(
@@ -70,6 +80,7 @@ for (const engine of [chromium, webkit]) {
           JSON.stringify(
             {
               engine: engine.name(),
+              webkitClose,
               pendingStep,
               bodyPendingStep,
               elapsedMilliseconds: performance.now() - started,
@@ -95,7 +106,9 @@ for (const engine of [chromium, webkit]) {
     const browser = await step("launch", () =>
       engine.launch({ headless: true }),
     );
+    launchedBrowser = browser;
     t.onTestFinished(() => {
+      closeStarted = performance.now();
       bodyPendingStep = pendingStep;
       return step("close", () => browser.close());
     });

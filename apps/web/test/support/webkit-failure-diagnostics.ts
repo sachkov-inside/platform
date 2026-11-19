@@ -128,6 +128,34 @@ export function captureWebkitFailureDiagnostics() {
         linux,
       };
     },
+    // This worker captures one isolated WebKit launch for the inline SVG test.
+    // Without a complete log and a unique launch marker, ownership is unknown.
+    processObservation() {
+      const messages = [...entries, ...tail]
+        .filter(({ namespace }) => namespace === "pw:browser")
+        .map(({ message }) => message);
+      const launches = messages.flatMap((message) => {
+        const match = /^\S+ pw:browser <launched> pid=(\d+)$/u.exec(message);
+        return match ? [Number(match[1])] : [];
+      });
+      const pid =
+        droppedEntries === 0 && launches.length === 1 ? launches[0] : undefined;
+      const childClosed =
+        pid !== undefined &&
+        messages.some(
+          (message) =>
+            /^\S+ pw:browser \[pid=(\d+)\] <process did exit:/u.exec(
+              message,
+            )?.[1] === String(pid),
+        );
+      return {
+        historicalLaunchPid: pid ?? "unknown",
+        nodeChildClose: childClosed ? "observed" : "unknown",
+        osProcessState: "unknown",
+        stdio: "unknown",
+        transport: "unknown",
+      };
+    },
     logs: () => ({
       logByteLimit,
       bytes: bytes + tailBytes,
