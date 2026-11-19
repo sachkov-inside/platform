@@ -669,12 +669,22 @@ test("leaving a changed product saves its title and opens the list without a bef
     prompts.push(dialog.type());
     await dialog.accept();
   });
-  await title.click();
-  await title.fill(savedTitle);
-  await page.getByRole("link", { name: "Все продукты", exact: true }).click();
-  await expect(page).toHaveURL("/authoring/products");
-  await expect(
-    rows(page, info, "Все продукты").getByRole("link", { name: savedTitle }),
-  ).toBeVisible();
-  expect(prompts).toEqual([]);
+  const release = Promise.withResolvers<undefined>();
+  await page.route("**/api/authoring/collections/metadata", async (route) => {
+    await release.promise;
+    await route.continue();
+  });
+  try {
+    await title.click();
+    await title.fill(savedTitle);
+    await page.getByRole("link", { name: "Все продукты", exact: true }).click();
+    release.resolve(undefined);
+    await expect(page).toHaveURL("/authoring/products");
+    await expect(
+      rows(page, info, "Все продукты").getByRole("link", { name: savedTitle }),
+    ).toBeVisible();
+    expect(prompts).toEqual([]);
+  } finally {
+    release.resolve(undefined);
+  }
 });
