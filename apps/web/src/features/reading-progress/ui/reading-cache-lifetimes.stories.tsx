@@ -20,7 +20,8 @@ function ReadingIdentity() {
   return <output>{resolved ? (accountId ?? "guest") : "pending"}</output>;
 }
 
-export default { title: "Patterns/Reader/Private cache" };
+const meta = { title: "Patterns/Reader/Private cache" };
+export default meta;
 export const AccountAndSignout = {
   render: () => <div />,
   play: async ({ canvasElement }: { canvasElement: HTMLElement }) => {

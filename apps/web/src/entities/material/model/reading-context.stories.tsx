@@ -16,7 +16,8 @@ import {
   type MaterialReadingValue,
 } from "./reading-context.client";
 
-export default { title: "Patterns/Reader/Reading scope" };
+const meta = { title: "Patterns/Reader/Reading scope" };
+export default meta;
 const initial: MaterialReadingValue = {
   accountId: null,
   resolved: false,
