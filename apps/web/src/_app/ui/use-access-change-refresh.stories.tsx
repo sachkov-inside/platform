@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 import { z } from "zod";
@@ -101,5 +102,58 @@ export const OpenAndReadingWriteRefreshRoutes: Story = {
     await userEvent.click(read);
     await waitFor(() => expect(refreshed).toHaveBeenCalledTimes(2));
     await expect(read).toHaveAttribute("aria-pressed", "true");
+  },
+};
+
+type Session = "unavailable" | "account A" | "account B" | "guest";
+
+function AccountTransition() {
+  const [session, setSession] = useState<Session>("unavailable");
+  const accountId =
+    session === "guest" || session === "unavailable" ? null : session;
+  useAccessChangeRefresh(accountId, session !== "unavailable");
+  return (
+    <div>
+      <output>{session}</output>
+      {(["account A", "unavailable", "account B", "guest"] as const).map(
+        (next) => (
+          <button
+            key={next}
+            onClick={() => {
+              setSession(next);
+            }}
+          >
+            {next}
+          </button>
+        ),
+      )}
+    </div>
+  );
+}
+
+export const KnownAccountChanges: Story = {
+  render: () => <AccountTransition />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const select = async (name: Session) => {
+      await userEvent.click(canvas.getByRole("button", { name }));
+      await expect(canvas.getByRole("status")).toHaveTextContent(name);
+    };
+    await expect(canvas.getByRole("status")).toHaveTextContent("unavailable");
+    await expect(refreshed).toHaveBeenCalledTimes(0);
+    await select("account A");
+    await expect(refreshed).toHaveBeenCalledTimes(0);
+    await select("unavailable");
+    await expect(refreshed).toHaveBeenCalledTimes(0);
+    await select("account A");
+    await expect(refreshed).toHaveBeenCalledTimes(0);
+    await select("unavailable");
+    await expect(refreshed).toHaveBeenCalledTimes(0);
+    await select("account B");
+    await expect(refreshed).toHaveBeenCalledTimes(1);
+    await select("guest");
+    await expect(refreshed).toHaveBeenCalledTimes(2);
+    await select("account A");
+    await expect(refreshed).toHaveBeenCalledTimes(3);
   },
 };
