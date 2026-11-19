@@ -208,8 +208,8 @@ for (const result of ["ready", "failed"] as const) {
           "inside.account.billing.changed",
           (event) => {
             const root = document.documentElement;
-            root.dataset.billingEvents = String(
-              Number(root.dataset.billingEvents ?? 0) + 1,
+            root.dataset["billingEvents"] = String(
+              Number(root.dataset["billingEvents"] ?? 0) + 1,
             );
             if (
               event instanceof CustomEvent &&
