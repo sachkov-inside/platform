@@ -31,7 +31,7 @@ export function MaterialCodeBlock({
   readonly text: string;
 }) {
   const code = useRef<HTMLElement>(null);
-  const { copy, state } = useCopyText(text, () => {
+  const { copy, copyButtonRef, state } = useCopyText(text, () => {
     if (code.current !== null)
       window.getSelection()?.selectAllChildren(code.current);
   });
@@ -47,6 +47,7 @@ export function MaterialCodeBlock({
           {label}
         </span>
         <Button
+          ref={copyButtonRef}
           aria-label="Скопировать код"
           className="relative text-sidebar-foreground/70 after:absolute after:-inset-[5px] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground dark:hover:bg-sidebar-accent"
           onClick={copy}
