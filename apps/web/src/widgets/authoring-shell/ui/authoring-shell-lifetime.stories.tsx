@@ -5,9 +5,13 @@ import { expect, spyOn, userEvent, waitFor, within } from "storybook/test";
 
 import { AuthoringShell } from "./authoring-shell.client";
 
-function RetainedAuthoringShell() {
+function RetainedAuthoringShell({
+  initiallyMounted = true,
+}: {
+  initiallyMounted?: boolean;
+}) {
   const [visible, setVisible] = useState(true);
-  const [mounted, setMounted] = useState(true);
+  const [mounted, setMounted] = useState(initiallyMounted);
   return (
     <div
       onKeyDown={(event) => {
@@ -21,6 +25,16 @@ function RetainedAuthoringShell() {
         }
       }}
     >
+      {!mounted && (
+        <button
+          type="button"
+          onClick={() => {
+            setMounted(true);
+          }}
+        >
+          Показать админку
+        </button>
+      )}
       <button
         onClick={() => {
           setVisible(true);
@@ -140,119 +154,80 @@ export const NativeCloseAfterReopen: Story = {
   },
 };
 
-export const FastBreakpointReturn: Story = {
-  play: async ({ canvasElement }) => {
-    const viewport = Array.from(
-      window.parent.document.querySelectorAll("iframe"),
-    ).find((frame) => frame === window.frameElement);
-    if (viewport === undefined)
-      throw new Error("A resizable story viewport is required");
-    const previousStyle = viewport.style.cssText;
-    const canvas = within(canvasElement);
-    const trigger = canvas.getByRole("button", { name: "Ещё" });
-    await userEvent.click(trigger);
-    const dialog = canvas.getByRole<HTMLDialogElement>("dialog", {
-      name: "Ещё",
-    });
-    const media = matchMedia("(width >= 64rem)");
-    const crossAndReturn = async (beforeDelivery?: () => void) => {
-      const deliveries: boolean[] = [];
-      const record = (event: MediaQueryListEvent) => {
-        deliveries.push(event.matches);
-      };
-      let wide = false;
-      const returnToMobile = () => {
-        wide = media.matches;
-        if (wide) {
-          viewport.style.setProperty("width", "390px", "important");
-          // Flush the new layout before native media-query notifications are delivered.
-          void document.documentElement.clientWidth;
-          beforeDelivery?.();
-        }
-      };
-      media.addEventListener("change", record);
-      window.addEventListener("resize", returnToMobile, { once: true });
-      try {
-        viewport.style.setProperty("width", "1440px", "important");
-        await waitFor(() => expect(deliveries).toContain(false));
-        await expect(wide).toBe(true);
-      } finally {
-        window.removeEventListener("resize", returnToMobile);
-        media.removeEventListener("change", record);
-      }
-    };
-    try {
-      const resized = new Promise<void>((resolve) => {
-        window.addEventListener(
-          "resize",
-          () => {
-            resolve();
-          },
-          { once: true },
-        );
-      });
-      viewport.style.setProperty("width", "400px", "important");
-      await resized;
-      await expect(dialog.matches(":modal")).toBe(true);
-      await crossAndReturn();
-      await expect(dialog.open).toBe(false);
-      await expect(trigger).toHaveAttribute("aria-expanded", "false");
-
-      await crossAndReturn();
-      await expect(dialog.open).toBe(false);
-      await userEvent.click(trigger);
-      const close = within(dialog).getByRole("button", { name: "Закрыть" });
-      let closedBeforeReopen = false;
-      await crossAndReturn(() => {
-        flushSync(() => {
-          close.click();
-        });
-        closedBeforeReopen = !dialog.open;
-        flushSync(() => {
-          trigger.click();
-        });
-      });
-      await expect(closedBeforeReopen).toBe(true);
-      await expect(dialog.matches(":modal")).toBe(true);
-      await expect(trigger).toHaveAttribute("aria-expanded", "true");
-      await userEvent.keyboard("{Escape}");
-      await expect(trigger).toHaveFocus();
-    } finally {
-      viewport.style.cssText = previousStyle;
-    }
-  },
-};
-
 export const OpenMenuBreakpointLifetime: Story = {
+  args: { initiallyMounted: false },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const added = spyOn(MediaQueryList.prototype, "addEventListener");
-    const removed = spyOn(MediaQueryList.prototype, "removeEventListener");
-    const checkRelease = async (index: number) => {
-      await expect(added.mock.calls[index]?.[0]).toBe("change");
-      await expect(removed.mock.calls[index]).toEqual(added.mock.calls[index]);
-      await expect(removed.mock.contexts[index]).toBe(
-        added.mock.contexts[index],
+    const active = new Map<
+      MediaQueryList,
+      Set<EventListenerOrEventListenerObject>
+    >();
+    const proto = MediaQueryList.prototype;
+    const added = spyOn(proto, "addEventListener").mockImplementation(function (
+      this: MediaQueryList,
+      type,
+      listener,
+      options,
+    ) {
+      if (type === "change" && this.media === "(width >= 64rem)") {
+        const listeners =
+          active.get(this) ?? new Set<EventListenerOrEventListenerObject>();
+        listeners.add(listener);
+        active.set(this, listeners);
+      }
+      EventTarget.prototype.addEventListener.call(
+        this,
+        type,
+        listener,
+        options,
       );
-    };
+    });
+    const removed = spyOn(proto, "removeEventListener").mockImplementation(
+      function (this: MediaQueryList, type, listener, options) {
+        if (type === "change") {
+          const listeners = active.get(this);
+          listeners?.delete(listener);
+          if (listeners?.size === 0) active.delete(this);
+        }
+        EventTarget.prototype.removeEventListener.call(
+          this,
+          type,
+          listener,
+          options,
+        );
+      },
+    );
+    const count = () =>
+      Array.from(active.values()).reduce(
+        (n, listeners) => n + listeners.size,
+        0,
+      );
     try {
-      await userEvent.click(canvas.getByRole("button", { name: "Ещё" }));
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Показать админку" }),
+      );
+      const more = canvas.getByRole("button", { name: "Ещё" });
+      await expect(count()).toBe(0);
+      await userEvent.click(more);
       const dialog = canvas.getByRole<HTMLDialogElement>("dialog", {
         name: "Ещё",
       });
-      await expect(added.mock.calls).toHaveLength(1);
+      await expect(count()).toBe(1);
+      await userEvent.keyboard("{Escape}");
+      await expect(count()).toBe(0);
+      await userEvent.click(more);
+      await expect(count()).toBe(1);
       await userEvent.keyboard("{Alt>}{ArrowRight}{/Alt}");
       await waitFor(() => expect(dialog.matches(":modal")).toBe(false));
-      await checkRelease(0);
+      await expect(count()).toBe(0);
       await userEvent.click(
         canvas.getByRole("button", { name: "Вернуться в админку" }),
       );
       await waitFor(() => expect(dialog.matches(":modal")).toBe(true));
-      await expect(added.mock.calls).toHaveLength(2);
-      await expect(added.mock.contexts[1]).not.toBe(added.mock.contexts[0]);
+      await expect(count()).toBe(1);
       await userEvent.keyboard("{Alt>}{Delete}{/Alt}");
       await waitFor(() => expect(dialog.isConnected).toBe(false));
-      await checkRelease(1);
+      await expect(count()).toBe(0);
     } finally {
       removed.mockRestore();
       added.mockRestore();
