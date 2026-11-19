@@ -1,29 +1,22 @@
 // @ts-check
 import { z } from "zod";
-import {
-  confirmedProductPurchase,
-  failedPurchase,
-  productOnlyOffer,
-} from "../../src/storybook/billing.fixtures.ts";
-
-const offer = z
-  .looseObject({
-    product: z.looseObject({ id: z.uuid() }),
-    paymentOption: z.looseObject({ priceKopecks: z.number() }),
-  })
-  .parse(productOnlyOffer);
-const settlementProductId = offer.product.id;
 const settlementLinkId = "0ce1d000-0000-4000-8000-000000000002";
-const settlementSnapshot = {
-  ...offer,
-  individualPayment: {
-    linkId: settlementLinkId,
-    basePriceKopecks: offer.paymentOption.priceKopecks,
-  },
-};
-/** @type {"ready" | "failed" | null} */
+const settlementOffer = z.looseObject({
+  product: z.looseObject({ id: z.uuid() }),
+  paymentOption: z.looseObject({ priceKopecks: z.number() }),
+});
+/** @param {z.infer<typeof settlementOffer>} offer */
+function paymentLinkSnapshot(offer) {
+  return {
+    ...offer,
+    individualPayment: {
+      linkId: settlementLinkId,
+      basePriceKopecks: offer.paymentOption.priceKopecks,
+    },
+  };
+}
+/** @type {{ result: "ready" | "failed", snapshot: ReturnType<typeof paymentLinkSnapshot>, restored: boolean } | null} */
 let settlement = null;
-let restoredPurchase = false;
 const scenarios = [
   "guest",
   "paid",
@@ -181,11 +174,25 @@ const fixtures = scenarios
  */
 export function productReaderStateRoute(request, url, owner) {
   if (url.pathname === "/__purchase-settlement" && request.method === "POST") {
-    settlement = z
+    const result = z
       .enum(["ready", "failed"])
       .nullable()
       .parse(url.searchParams.get("result"));
-    restoredPurchase = false;
+    if (result === null) {
+      settlement = null;
+    } else {
+      const prices = envelope.parse(
+        owner.baseRoute("GET", new URL("/billing/product-prices", url), false),
+      );
+      const offer = settlementOffer.parse(
+        pricesSchema.parse(prices.value).items[0],
+      );
+      settlement = {
+        result,
+        snapshot: paymentLinkSnapshot(offer),
+        restored: false,
+      };
+    }
     return { status: 200, value: { linkId: settlementLinkId } };
   }
   if (
@@ -198,17 +205,17 @@ export function productReaderStateRoute(request, url, owner) {
       value: {
         id: settlementLinkId,
         revision: 1,
-        state: restoredPurchase
-          ? settlement === "ready"
+        state: settlement.restored
+          ? settlement.result === "ready"
             ? "paid"
             : "revoked"
           : "pending",
         createdAt: "2026-10-15T10:00:00Z",
         expiresAt: null,
-        snapshot: settlementSnapshot,
+        snapshot: settlement.snapshot,
         product: {
-          id: settlementProductId,
-          title: restoredPurchase
+          id: settlement.snapshot.product.id,
+          title: settlement.restored
             ? "Обновлённое название курса"
             : "Курс до обновления",
           kind: "product",
@@ -222,17 +229,26 @@ export function productReaderStateRoute(request, url, owner) {
     settlement !== null &&
     url.pathname ===
       "/accounts/current/billing/products/" +
-        settlementProductId +
+        settlement.snapshot.product.id +
         "/purchase" &&
     request.headers.authorization === "Bearer reader-state:reader-state-paid"
   ) {
     if (request.method !== "GET") return { status: 405, value: null };
-    restoredPurchase = true;
+    settlement.restored = true;
     return {
       status: 200,
       value: {
-        ...(settlement === "ready" ? confirmedProductPurchase : failedPurchase),
-        snapshot: settlementSnapshot,
+        purchaseRef: "0ce1d000-0000-4000-8000-000000000003",
+        state: settlement.result === "ready" ? "confirmed" : "failed",
+        access: settlement.result === "ready" ? "ready" : "awaiting_payment",
+        fiscalization:
+          settlement.result === "ready" ? "confirmed" : "not_configured",
+        confirmedAt:
+          settlement.result === "ready" ? "2026-10-15T10:05:00Z" : null,
+        periodEndsAt: null,
+        paymentUrl: null,
+        retirementReason: null,
+        snapshot: settlement.snapshot,
       },
     };
   }
