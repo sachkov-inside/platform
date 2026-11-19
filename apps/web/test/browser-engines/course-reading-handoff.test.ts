@@ -305,3 +305,77 @@ test("reduced-motion programme stays still through host activation", async () =>
     await browser.close();
   }
 }, 30_000);
+
+test("the host follows the visible retained layout when both contexts change", async () => {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({
+      viewport: { width: 1440, height: 1024 },
+    });
+    await page.goto(
+      `${origin}/materials/step-0?from=%2Fproducts%2Fai-engineering%2Fprogramme&scenario=layouts`,
+    );
+    await page.locator("#release").dispatchEvent("click");
+    const host = page.locator("[data-course-reading-host]");
+    const rail = host.getByRole("complementary", { name: "Текущая глава" });
+    for (const [index, name] of ["First", "Second", "First"].entries()) {
+      if (index > 0)
+        await page.getByRole("button", { name: "Switch lesson" }).click();
+      await expect(
+        page.getByRole("heading", { name: name + " lesson" }),
+      ).toBeVisible();
+      await expect(
+        rail.getByRole("button", {
+          name: new RegExp(name + " revision " + String(index)),
+        }),
+      ).toBeVisible();
+      await page.getByRole("button", { name: "Update hidden lesson" }).click();
+      await expect(
+        page
+          .locator("[hidden]")
+          .getByText("Hidden revision " + String(index), { exact: true }),
+      ).toHaveCount(1);
+      await expect(
+        rail.getByRole("button", {
+          name: new RegExp(name + " revision " + String(index)),
+        }),
+      ).toBeVisible();
+    }
+  } finally {
+    await browser.close();
+  }
+}, 30_000);
+
+test("a new local rail starts fresh after the host consumes the first handoff", async () => {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({
+      viewport: { width: 1440, height: 1024 },
+    });
+    await page.goto(
+      `${origin}/materials/step-0?from=%2Fproducts%2Fai-engineering%2Fprogramme&scenario=return`,
+    );
+    const rail = page.getByRole("complementary", { name: "Текущая глава" });
+    const first = rail.getByRole("button", {
+      name: /Глава 1 из 2 First chapter/,
+    });
+    await rail.getByRole("button", { name: "Показать ещё" }).click();
+    await first.click();
+    await rail.getByRole("button", { name: /Глава 2 Second chapter/ }).click();
+    const second = rail.getByRole("button", {
+      name: /Глава 2 из 2 Second chapter/,
+    });
+    await expect(second).toBeFocused();
+    await page.locator("#release").dispatchEvent("click");
+    await expect(page.locator("[data-course-reading-host]")).toBeVisible();
+    await expect(second).toBeFocused();
+    await page.getByRole("button", { name: "Leave course frame" }).click();
+    await expect(page.locator("[data-course-reading-host]")).toHaveCount(0);
+    await expect(first).toBeVisible();
+    await expect(
+      rail.getByRole("button", { name: "Показать ещё" }),
+    ).toHaveAttribute("aria-expanded", "false");
+  } finally {
+    await browser.close();
+  }
+}, 30_000);
