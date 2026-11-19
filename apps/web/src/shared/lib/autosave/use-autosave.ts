@@ -36,7 +36,6 @@ export function useAutosave<T>({
     latest.current = { value, key, save, enabled };
   });
   const baseline = useRef(key);
-  const navigationWaiters = useRef(0);
   const [savedKey, setSavedKey] = useState(key);
   const failed = useRef<{
     value: T;
@@ -87,11 +86,7 @@ export function useAutosave<T>({
       }
       // A link may leave as soon as flush resolves. Commit the clean guard before that navigation.
       // See [prompt-free product navigation](../../../../test/navigation/content-collections.spec.ts).
-      if (
-        navigationWaiters.current > 0 &&
-        result === "saved" &&
-        latest.current.key === baseline.current
-      )
+      if (result === "saved" && latest.current.key === baseline.current)
         flushSync(publishOutcome);
       else publishOutcome();
       return result === "saved";
@@ -130,15 +125,7 @@ export function useAutosave<T>({
   }, [key, enabled, delay, flush, revision]);
 
   const dirty = key !== savedKey;
-  const flushForNavigation = useCallback(async () => {
-    navigationWaiters.current++;
-    try {
-      return await flush();
-    } finally {
-      navigationWaiters.current--;
-    }
-  }, [flush]);
-  useNavigationSave(flushForNavigation, dirty || pending);
+  useNavigationSave(flush, dirty || pending);
   return { dirty, pending, error, flush, retry: () => flush(true) };
 }
 
