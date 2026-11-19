@@ -1,3 +1,4 @@
+import { Activity } from "react";
 import {
   CancelledError,
   QueryClient,
@@ -32,20 +33,25 @@ export const AccountAndSignout = {
       client: QueryClient,
       account: string | null,
       resolved: boolean,
+      mode: "visible" | "hidden" = "visible",
     ) {
       flushSync(() => {
         root.render(
           <QueryClientProvider client={client}>
-            <ReadingProgressProvider accountId={account} resolved={resolved}>
-              <ReadingIdentity />
-            </ReadingProgressProvider>
+            <Activity mode={mode}>
+              <ReadingProgressProvider accountId={account} resolved={resolved}>
+                <ReadingIdentity />
+              </ReadingProgressProvider>
+            </Activity>
           </QueryClientProvider>,
         );
       });
     }
     const form = document.createElement("form");
     canvasElement.append(form);
+    const atTarget: unknown[] = [];
     form.addEventListener("submit", (event) => {
+      atTarget.push(second.getQueryData(["bookmarks", "b"]));
       event.preventDefault();
     });
     function submit(path: string) {
@@ -77,6 +83,7 @@ export const AccountAndSignout = {
     try {
       for (const client of [first, second])
         client.setQueryData(["library"], "public");
+      show(first, "a", true);
       first.setQueryData(["bookmarks", "b"], "b");
       const result = first
         .query({
@@ -96,18 +103,35 @@ export const AccountAndSignout = {
       show(first, null, false);
       await expect(first.getQueryState(key)?.fetchStatus).toBe("fetching");
       show(first, "b", true);
-      gate.resolve(undefined);
       await expect(await result).toBe("cancelled");
-      await finished.promise;
       await expect(first.getQueryData(key)).toBeUndefined();
       await expect(host.textContent).toBe("b");
       await expect(first.getQueryData(["bookmarks", "b"])).toBe("b");
+      show(first, "a", true);
+      await first.query({
+        queryKey: key,
+        queryFn: () =>
+          Promise.resolve({ materialId, isRead: false, version: 2 }),
+      });
+      gate.resolve(undefined);
+      await finished.promise;
+      await expect(first.getQueryData(key)).toMatchObject({
+        materialId,
+        isRead: false,
+        version: 2,
+      });
+      await expect(first.getQueryData(["bookmarks", "b"])).toBeUndefined();
       show(second, "b", true);
       second.setQueryData(["bookmarks", "b"], "b");
       submit("/account");
       await expect(second.getQueryData(["bookmarks", "b"])).toBe("b");
+      show(second, "b", true, "hidden");
       submit("/auth/sign-out");
-      await expect(first.getQueryData(["bookmarks", "b"])).toBe("b");
+      await expect(atTarget).toEqual(["b", "b"]);
+      show(second, "b", true);
+      submit("/auth/sign-out");
+      await expect(atTarget).toEqual(["b", "b", undefined]);
+      await expect(first.getQueryData(key)).toMatchObject({ version: 2 });
       await expect(second.getQueryData(["bookmarks", "b"])).toBeUndefined();
       await expect(second.getQueryData(["library"])).toBe("public");
       await expect(host.textContent).toBe("guest");
@@ -224,12 +248,14 @@ export const AccessReturns = {
         { mutationKey: key },
         { ...state, status: "success", data: denied },
       );
+      const button = within(host).getByRole("button");
+      await waitFor(() => expect(button).toHaveAttribute("aria-busy", "false"));
       await waitFor(() =>
-        expect(within(host).getByRole("button")).toHaveAttribute(
-          "aria-disabled",
-          "true",
+        expect(button).toHaveAccessibleDescription(
+          "Чтобы отметить материал, нужен доступ к нему.",
         ),
       );
+      await expect(button).toHaveAttribute("aria-disabled", "true");
       await expect(cache.getAll()).toContain(newDenial);
     } finally {
       root.unmount();

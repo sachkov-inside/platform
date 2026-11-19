@@ -1,4 +1,11 @@
-import { Activity, Suspense, use, useState } from "react";
+import {
+  Activity,
+  Suspense,
+  startTransition,
+  use,
+  useLayoutEffect,
+  useState,
+} from "react";
 import { flushSync } from "react-dom";
 import { createRoot, hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
@@ -30,14 +37,25 @@ function Late({ gate }: { gate: Promise<void> | null }) {
   if (gate !== null) use(gate);
   return <Reader label="Late" />;
 }
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({
+  children,
+  onCommit,
+}: {
+  children: React.ReactNode;
+  onCommit: () => void;
+}) {
   const [value, setValue] = useState(initial);
+  useLayoutEffect(() => {
+    if (value.resolved) queueMicrotask(onCommit);
+  }, [onCommit, value]);
   return (
     <>
       <button
         type="button"
         onClick={() => {
-          setValue({ ...initial, resolved: true, accountId: "reader" });
+          startTransition(() => {
+            setValue({ ...initial, resolved: true, accountId: "reader" });
+          });
         }}
       >
         Resolve account
@@ -46,9 +64,9 @@ function Shell({ children }: { children: React.ReactNode }) {
     </>
   );
 }
-function tree(gate: Promise<void> | null) {
+function tree(gate: Promise<void> | null, onCommit: () => void) {
   return (
-    <Shell>
+    <Shell onCommit={onCommit}>
       <Reader label="Early" />
       <Suspense fallback="loading">
         <Late gate={gate} />
@@ -62,11 +80,15 @@ export const DelayedHydration = {
     const host = document.createElement("div");
     canvasElement.append(host);
     const gate = Promise.withResolvers<undefined>();
-    host.innerHTML = renderToString(tree(null));
+    const committed = Promise.withResolvers<string | null>();
+    const onCommit = () => {
+      committed.resolve(within(host).getByLabelText("Early").textContent);
+    };
+    host.innerHTML = renderToString(tree(null, onCommit));
     const canvas = within(host);
     const late = canvas.getByLabelText("Late");
     const errors: unknown[] = [];
-    const root = hydrateRoot(host, tree(gate.promise), {
+    const root = hydrateRoot(host, tree(gate.promise, onCommit), {
       onRecoverableError(error) {
         errors.push(error);
       },
@@ -74,9 +96,7 @@ export const DelayedHydration = {
     try {
       await expect(late).toHaveTextContent("pending");
       canvas.getByRole("button", { name: "Resolve account" }).click();
-      await waitFor(() =>
-        expect(canvas.getByLabelText("Early")).toHaveTextContent("reader"),
-      );
+      await expect(await committed.promise).toBe("reader");
       await expect(late).toHaveTextContent("pending");
       gate.resolve(undefined);
       await waitFor(() =>
