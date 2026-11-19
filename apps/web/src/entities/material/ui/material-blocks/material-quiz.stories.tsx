@@ -4,9 +4,10 @@ import {
   expectCalmDisabledCheck,
   expectReadableDarkExercise,
 } from "@/storybook/exercise-actions";
-import { expect, userEvent, within } from "storybook/test";
-import { useState } from "react";
+import { expect, fn, userEvent, waitFor, within } from "storybook/test";
+import { startTransition, Suspense, use, useState } from "react";
 import {
+  ExerciseAnswersObserver,
   ExerciseAnswersProvider,
   type ExerciseAnswerRecord,
 } from "../../model/exercise-answers.client";
@@ -316,5 +317,86 @@ export const UpdatedPastAnswer: Story = {
     await expect(
       quiz.queryByText("Упражнение обновлено, ответь ещё раз"),
     ).toBeNull();
+  },
+};
+
+const answerReported = fn<(listener: string, exercise: string) => void>();
+const pendingListenerRendered = fn();
+
+function SuspendListener({
+  listener,
+  pending,
+}: {
+  readonly listener: string;
+  readonly pending: Promise<void>;
+}) {
+  if (listener === "B") {
+    pendingListenerRendered();
+    use(pending);
+  }
+  return null;
+}
+
+function QuizWithChangingListener(props: MaterialQuizPresentation) {
+  const [pending] = useState(() => Promise.withResolvers<undefined>().promise);
+  const [listener, setListener] = useState("A");
+  return (
+    <>
+      <button
+        onClick={() => {
+          startTransition(() => {
+            setListener("B");
+          });
+        }}
+      >
+        Отложить смену
+      </button>
+      <button
+        onClick={() => {
+          setListener("C");
+        }}
+      >
+        Принять другой обработчик
+      </button>
+      <Suspense fallback={<span>Загрузка</span>}>
+        <ExerciseAnswersObserver
+          onAnswered={(exercise) => {
+            answerReported(listener, exercise);
+          }}
+        >
+          <MaterialQuiz {...props} />
+          <span>Обработчик {listener}</span>
+          <SuspendListener listener={listener} pending={pending} />
+        </ExerciseAnswersObserver>
+      </Suspense>
+    </>
+  );
+}
+
+export const AnswersReachCommittedListener: Story = {
+  beforeEach: () => {
+    answerReported.mockClear();
+    pendingListenerRendered.mockClear();
+  },
+  render: (args) => <QuizWithChangingListener {...args} />,
+  play: async ({ canvasElement }) => {
+    const quiz = within(canvasElement);
+    const press = (name: string) =>
+      userEvent.click(quiz.getByRole("button", { name }));
+    await press("Отложить смену");
+    await waitFor(() => expect(pendingListenerRendered).toHaveBeenCalled());
+    await expect(quiz.getByText("Обработчик A")).toBeVisible();
+    await press("Не знаю");
+    await expect(answerReported.mock.calls).toEqual([["A", "mvp-features"]]);
+    await press("Принять другой обработчик");
+    await expect(quiz.getByText("Обработчик C")).toBeVisible();
+    await expect(quiz.getByText("Не знаю · без оценки")).toBeVisible();
+    await expect(answerReported.mock.calls).toEqual([["A", "mvp-features"]]);
+    await press("Ответить ещё раз");
+    await press("Не знаю");
+    await expect(answerReported.mock.calls).toEqual([
+      ["A", "mvp-features"],
+      ["C", "mvp-features"],
+    ]);
   },
 };

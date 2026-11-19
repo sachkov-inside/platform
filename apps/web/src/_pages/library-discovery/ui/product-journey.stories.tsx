@@ -5,7 +5,7 @@ import {
   usePathname,
   useSearchParams,
 } from "next/navigation";
-import { useState, type ComponentProps } from "react";
+import { useLayoutEffect, useState, type ComponentProps } from "react";
 import { z } from "zod";
 import {
   expect,
@@ -2572,27 +2572,43 @@ const ownedQueryScopeB = {
   },
 };
 
-/** Public component input changes, not a claim about navigation between actual Next routes. */
-function ProgrammeQueryScopeSwitch() {
-  const [stage, setStage] = useState(0);
+type ProgrammeScopeStage =
+  "first product" | "off route" | "accepted" | "equivalent query";
+
+/** Observe the committed Programme DOM when its public inputs change. */
+function ProgrammeQueryScopeSwitch({
+  onCommit,
+}: {
+  readonly onCommit?: (
+    stage: ProgrammeScopeStage,
+    pathname: string,
+    query: string,
+  ) => void;
+}) {
+  const [stage, setStage] = useState<ProgrammeScopeStage>("first product");
+  const pathname = usePathname();
+  const query = useSearchParams().toString();
+  useLayoutEffect(() => {
+    onCommit?.(stage, pathname, query);
+  });
   return (
     <ProductLearningProvider learning={{ kind: "guest" }}>
       <ProductProgrammeView
-        result={stage === 0 ? ownedQueryScopeA : ownedQueryScopeB}
+        result={stage === "first product" ? ownedQueryScopeA : ownedQueryScopeB}
       />
-      {stage === 0 ? (
+      {stage === "first product" ? (
         <Button
           onClick={() => {
             mocked(usePathname).mockReturnValue("/materials/synthetic-reader");
             mocked(useSearchParams).mockReturnValue(
               new ReadonlyURLSearchParams("from=synthetic-reader"),
             );
-            setStage(1);
+            setStage("off route");
           }}
         >
           Показать другой Product вне его маршрута
         </Button>
-      ) : stage === 1 ? (
+      ) : stage === "off route" ? (
         <Button
           onClick={() => {
             mocked(usePathname).mockReturnValue(
@@ -2601,18 +2617,18 @@ function ProgrammeQueryScopeSwitch() {
             mocked(useSearchParams).mockReturnValue(
               new ReadonlyURLSearchParams("page=3"),
             );
-            setStage(2);
+            setStage("accepted");
           }}
         >
           Принять адрес второй программы
         </Button>
-      ) : stage === 2 ? (
+      ) : stage === "accepted" ? (
         <Button
           onClick={() => {
             mocked(useSearchParams).mockReturnValue(
               new ReadonlyURLSearchParams("part=artifacts&page=3"),
             );
-            setStage(3);
+            setStage("equivalent query");
           }}
         >
           Доставить новый объект тех же параметров
@@ -2642,67 +2658,106 @@ export const ProgrammeQueryFollowsProductScope: Story = {
     };
   },
   render: () => <ProgrammeQueryScopeSwitch />,
-  play: async ({ canvasElement }) => {
+  play: async ({ canvasElement, mount }) => {
     const canvas = within(canvasElement);
-    const committedCounts: number[] = [];
-    const observeB = () => {
-      const surface = canvasElement.querySelector(
-        '[data-product-programme="owned-programme-b"]',
+    const observations: {
+      event: "input commit" | "native reveal";
+      stage: ProgrammeScopeStage;
+      slug: string | null;
+      pathname: string;
+      query: string;
+      rows: number;
+    }[] = [];
+    async function scrollToRowAndWaitForCount(ordinal: number, count: number) {
+      const boundary = canvasElement.querySelector<HTMLElement>(
+        `[data-product-ordinal="${String(ordinal)}"]`,
       );
-      if (surface !== null)
-        committedCounts.push(
-          surface.querySelectorAll("[data-product-ordinal]").length,
-        );
-    };
-    const observer = new MutationObserver(observeB);
-    observer.observe(canvasElement, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ["data-product-programme"],
-    });
-    try {
-      await expect(
-        canvasElement.querySelectorAll("[data-product-ordinal]"),
-      ).toHaveLength(24);
-      await userEvent.click(
-        canvas.getByRole("button", {
-          name: "Показать другой Product вне его маршрута",
-        }),
-      );
-      await expect(
-        canvas.getByRole("heading", { name: "Вторая программа", level: 1 }),
-      ).toBeVisible();
-      await expect(committedCounts[0]).toBe(12);
-      // A later native reveal is valid with this retained scroll geometry.
-      committedCounts.length = 0;
-      await userEvent.click(
-        canvas.getByRole("button", { name: "Принять адрес второй программы" }),
-      );
-      await expect(committedCounts[0]).toBe(36);
-      const last = canvasElement.querySelector<HTMLElement>(
-        '[data-product-ordinal="36"]',
-      );
-      if (last === null) throw new Error("Missing current Programme boundary");
-      last.scrollIntoView({ block: "end", behavior: "instant" });
+      if (!boundary)
+        throw new Error(`Missing Programme row ${String(ordinal)}`);
+      boundary.scrollIntoView({ block: "end", behavior: "instant" });
       await waitFor(async () => {
         await expect(
           canvasElement.querySelectorAll("[data-product-ordinal]"),
-        ).toHaveLength(48);
+        ).toHaveLength(count);
       });
-      await userEvent.click(
-        canvas.getByRole("button", {
-          name: "Доставить новый объект тех же параметров",
-        }),
-      );
-      await expect(
-        canvas.getByText("Новый объект параметров обработан"),
-      ).toBeVisible();
-      await expect(
-        canvasElement.querySelectorAll("[data-product-ordinal]"),
-      ).toHaveLength(48);
-    } finally {
-      observer.disconnect();
+      const inputs = observations.at(-1);
+      if (!inputs) throw new Error("Missing Programme input commit");
+      const programme = canvasElement.querySelector("[data-product-programme]");
+      observations.push({
+        ...inputs,
+        event: "native reveal",
+        slug: programme?.getAttribute("data-product-programme") ?? null,
+        rows: programme?.querySelectorAll("[data-product-ordinal]").length ?? 0,
+      });
     }
+    await mount(
+      <ProgrammeQueryScopeSwitch
+        onCommit={(stage, pathname, query) => {
+          const programme = canvasElement.querySelector(
+            "[data-product-programme]",
+          );
+          observations.push({
+            event: "input commit",
+            stage,
+            slug: programme?.getAttribute("data-product-programme") ?? null,
+            pathname,
+            query,
+            rows:
+              programme?.querySelectorAll("[data-product-ordinal]").length ?? 0,
+          });
+        }}
+      />,
+    );
+    await expect(
+      canvasElement.querySelectorAll("[data-product-ordinal]"),
+    ).toHaveLength(24);
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Показать другой Product вне его маршрута",
+      }),
+    );
+    await expect(
+      canvas.getByRole("heading", { name: "Вторая программа", level: 1 }),
+    ).toBeVisible();
+    await expect(
+      observations.find(
+        (entry) =>
+          entry.event === "input commit" && entry.stage === "off route",
+      ),
+      JSON.stringify(observations),
+    ).toMatchObject({
+      slug: "owned-programme-b",
+      pathname: "/materials/synthetic-reader",
+      query: "from=synthetic-reader",
+      rows: 12,
+    });
+    // A native reveal can commit before the second product accepts its address.
+    await scrollToRowAndWaitForCount(12, 24);
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Принять адрес второй программы" }),
+    );
+    await expect(
+      observations.find(
+        (entry) => entry.event === "input commit" && entry.stage === "accepted",
+      ),
+      JSON.stringify(observations),
+    ).toMatchObject({
+      slug: "owned-programme-b",
+      pathname: "/products/owned-programme-b/programme",
+      query: "page=3",
+      rows: 36,
+    });
+    await scrollToRowAndWaitForCount(36, 48);
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Доставить новый объект тех же параметров",
+      }),
+    );
+    await expect(
+      canvas.getByText("Новый объект параметров обработан"),
+    ).toBeVisible();
+    await expect(
+      canvasElement.querySelectorAll("[data-product-ordinal]"),
+    ).toHaveLength(48);
   },
 };
