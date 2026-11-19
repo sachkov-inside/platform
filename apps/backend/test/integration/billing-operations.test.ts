@@ -66,6 +66,42 @@ test("owner sees a refundable balance only after the bank confirms payment", asy
   await expectBalance(0);
   await s.notify("CONFIRMED");
   await expectBalance(200000);
+  // Historical partial refund, already recorded before the owner opens the card.
+  const now = new Date();
+  const paid = await world.db.prisma.billingPurchase.findUniqueOrThrow({
+    where: { id: purchaseRef },
+  });
+  if (paid.paymentId === null)
+    throw new Error("Confirmed purchase has no bank payment ID");
+  await world.db.prisma.billingRefundDecision.create({
+    data: {
+      id: randomUUID(),
+      purchaseRef,
+      accountId: s.buyer,
+      amountKopecks: 50000n,
+      access: "keep",
+      recurring: "keep",
+      reason: "Частичный возврат",
+      state: "executed",
+      revision: 1,
+      createdAt: now,
+      updatedAt: now,
+      refund: {
+        create: {
+          id: randomUUID(),
+          purchaseRef,
+          environment: paid.environment,
+          terminalRef: paid.terminalRef,
+          paymentId: paid.paymentId,
+          amountKopecks: 50000n,
+          state: "confirmed",
+          createdAt: now,
+          updatedAt: now,
+        },
+      },
+    },
+  });
+  await expectBalance(150000);
   expect(s.cancelRequests()).toEqual([]);
 });
 

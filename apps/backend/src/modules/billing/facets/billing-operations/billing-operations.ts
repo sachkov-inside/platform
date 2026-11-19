@@ -376,13 +376,15 @@ export class BillingOperations {
           purchase.id,
           purchase.amountKopecks,
         );
+        const amounts = ownerRefundAmounts(purchase, totals);
         return {
           ok: true,
           operationRef,
           result: {
             outcome: "refunds",
             purchaseRef: purchase.id,
-            ...ownerRefundAmounts(purchase, totals),
+            refundedKopecks: amounts.refundedKopecks,
+            refundableKopecks: amounts.refundableKopecks,
             decisions: await refundDecisionViews(prisma, purchase.id),
           },
         };

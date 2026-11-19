@@ -57,6 +57,7 @@ export async function paymentViews(
       row.amountKopecks,
     );
     const waiting = pending.some((item) => item.purchaseRef === row.id);
+    const amounts = ownerRefundAmounts(row, totals);
     return paymentViewSchema.parse({
       purchaseRef: row.id,
       accountId: row.accountId,
@@ -85,7 +86,8 @@ export async function paymentViews(
             : waiting
               ? "preparing"
               : "ready",
-      ...ownerRefundAmounts(row, totals),
+      refundedKopecks: amounts.refundedKopecks,
+      refundableKopecks: amounts.refundableKopecks,
     });
   });
 }
