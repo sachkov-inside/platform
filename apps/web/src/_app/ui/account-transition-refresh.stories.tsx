@@ -31,29 +31,32 @@ export default {
 } satisfies Meta<typeof AccountTransition>;
 
 export const KnownAccountChanges: StoryObj<typeof AccountTransition> = {
+  beforeEach: () => {
+    const refresh = spyOn(getStoryRouter(), "refresh");
+    return () => refresh.mockRestore();
+  },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const refresh = spyOn(getStoryRouter(), "refresh");
+    const refresh = getStoryRouter().refresh;
     const select = async (name: Session) => {
       await userEvent.click(canvas.getByRole("button", { name }));
       await expect(canvas.getByRole("status")).toHaveTextContent(name);
     };
-    try {
-      await select("account A");
-      await expect(refresh).toHaveBeenCalledTimes(0);
-      await select("unavailable");
-      await expect(refresh).toHaveBeenCalledTimes(0);
-      await select("account A");
-      await expect(refresh).toHaveBeenCalledTimes(0);
-      await select("unavailable");
-      await select("account B");
-      await expect(refresh).toHaveBeenCalledTimes(1);
-      await select("guest");
-      await expect(refresh).toHaveBeenCalledTimes(2);
-      await select("account A");
-      await expect(refresh).toHaveBeenCalledTimes(3);
-    } finally {
-      refresh.mockRestore();
-    }
+    await expect(canvas.getByRole("status")).toHaveTextContent("unavailable");
+    await expect(refresh).toHaveBeenCalledTimes(0);
+    await select("account A");
+    await expect(refresh).toHaveBeenCalledTimes(0);
+    await select("unavailable");
+    await expect(refresh).toHaveBeenCalledTimes(0);
+    await select("account A");
+    await expect(refresh).toHaveBeenCalledTimes(0);
+    await select("unavailable");
+    await expect(refresh).toHaveBeenCalledTimes(0);
+    await select("account B");
+    await expect(refresh).toHaveBeenCalledTimes(1);
+    await select("guest");
+    await expect(refresh).toHaveBeenCalledTimes(2);
+    await select("account A");
+    await expect(refresh).toHaveBeenCalledTimes(3);
   },
 };
