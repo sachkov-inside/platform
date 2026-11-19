@@ -155,7 +155,7 @@ export const FastBreakpointReturn: Story = {
       name: "Ещё",
     });
     const media = matchMedia("(width >= 64rem)");
-    async function crossAndReturn(beforeDelivery?: () => void) {
+    const crossAndReturn = async (beforeDelivery?: () => void) => {
       const deliveries: boolean[] = [];
       const record = (event: MediaQueryListEvent) => {
         deliveries.push(event.matches);
@@ -180,7 +180,7 @@ export const FastBreakpointReturn: Story = {
         window.removeEventListener("resize", returnToMobile);
         media.removeEventListener("change", record);
       }
-    }
+    };
     try {
       const resized = new Promise<void>((resolve) => {
         window.addEventListener(
