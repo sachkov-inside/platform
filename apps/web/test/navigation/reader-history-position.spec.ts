@@ -13,9 +13,22 @@ test("Back restores the reading position at the click that leaves for home", asy
   const body = page.locator("[data-reader-body]:visible");
   await expect(body).toBeVisible();
   const href = page.url();
-  await page.waitForFunction(
-    () => history.state?.insideReader?.href === location.href,
-  );
+  await page.waitForFunction(() => {
+    const state: unknown = history.state;
+    if (
+      state === null ||
+      typeof state !== "object" ||
+      !("insideReader" in state)
+    )
+      return false;
+    const entry = state.insideReader;
+    return (
+      entry !== null &&
+      typeof entry === "object" &&
+      "href" in entry &&
+      entry.href === location.href
+    );
+  });
 
   const root = () =>
     page.locator(isMobile ? "html" : "[data-application-content]:visible");

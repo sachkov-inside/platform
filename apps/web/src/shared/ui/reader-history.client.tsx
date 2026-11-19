@@ -48,7 +48,7 @@ function Tracker({
     const pop = () => {
       resetReaderHistoryActivation();
       if (matchesDocument()) {
-        stopRestoring?.();
+        stopRestoring();
         stopRestoring = enterReaderHistory(originHref, root);
       }
     };
@@ -65,7 +65,7 @@ function Tracker({
     window.addEventListener("pagehide", save);
     window.addEventListener("popstate", pop);
     return () => {
-      stopRestoring?.();
+      stopRestoring();
       if (frame !== undefined) cancelAnimationFrame(frame);
       document.removeEventListener("scroll", scroll, true);
       document.removeEventListener("click", click, true);
