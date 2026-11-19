@@ -1554,6 +1554,25 @@ test("подтверждение оплаты открывает сохранё�
   // next visit to the lesson, so the shell cannot account for the panel's own refresh.
   await page.addInitScript(() => {
     Object.defineProperty(window, "BroadcastChannel", { value: undefined });
+    const name = "inside.account.billing.changed";
+    const heldIds: string[] = [];
+    const hold = (event: Event) => {
+      if (!(event instanceof CustomEvent) || typeof event.detail !== "string")
+        return;
+      event.stopImmediatePropagation();
+      heldIds.push(event.detail);
+      sessionStorage.setItem("test.return-announcement", event.detail);
+    };
+    window.addEventListener(name, hold, true);
+    window.addEventListener(
+      "test.release-return-announcements",
+      () => {
+        window.removeEventListener(name, hold, true);
+        for (const id of heldIds)
+          window.dispatchEvent(new CustomEvent(name, { detail: id }));
+      },
+      { once: true },
+    );
   });
   const reference = "00000000-0000-4000-8000-000000000b03";
   const returnUrl = new URL(
@@ -1581,30 +1600,16 @@ test("подтверждение оплаты открывает сохранё�
   await page.goBack();
   await page.goBack();
   await expect(page).toHaveURL(returnUrl.href);
-  const notification = await page.evaluateHandle(() => {
-    const name = "inside.account.billing.changed";
-    const heldIds: string[] = [];
-    const hold = (event: Event) => {
-      if (!(event instanceof CustomEvent) || typeof event.detail !== "string")
-        return;
-      event.stopImmediatePropagation();
-      heldIds.push(event.detail);
-    };
-    window.addEventListener(name, hold, true);
-    return {
-      firstId: () => heldIds[0],
-      release: () => {
-        window.removeEventListener(name, hold, true);
-        for (const id of heldIds)
-          window.dispatchEvent(new CustomEvent(name, { detail: id }));
-      },
-    };
-  });
+  await expect(
+    page.getByText("Ждёт подтверждения оплаты", { exact: true }),
+  ).toBeVisible();
   await controlBackend({ returnPurchaseReady: true });
   await page.getByRole("button", { name: "Проверить статус" }).click();
   await expect(page.getByText("Открыт", { exact: true })).toBeVisible();
   await expect
-    .poll(() => notification.evaluate((event) => event.firstId()))
+    .poll(() =>
+      page.evaluate(() => sessionStorage.getItem("test.return-announcement")),
+    )
     .toMatch(z.regexes.uuid());
   await page.goForward();
   await page.goForward();
@@ -1615,10 +1620,7 @@ test("подтверждение оплаты открывает сохранё�
   await expect(
     page.getByText(protectedBodyMarker, { exact: false }).first(),
   ).toBeVisible();
-  // A failed assertion closes this isolated document with its listeners. Playwright's
-  // afterEach resets the backend even if navigation has destroyed this evaluation handle.
-  await notification.evaluate((event) => {
-    event.release();
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event("test.release-return-announcements"));
   });
-  await notification.dispose();
 });
