@@ -424,7 +424,7 @@
       "owner": "useLessonFragmentNavigation",
       "kind": "useEffect",
       "fingerprint": "968474548d8cc1df9351ce4df701e900a67b594b24434b62b2fe62ed3652656a",
-      "reason": "The mounted lesson adapter reveals the DOM part addressed by the initial fragment without saving progress, then follows same-page clicks and hash changes. Hiding or unmounting the lesson releases both subscriptions.",
+      "reason": "On initial entry the adapter asks the lesson to reveal the part containing the fragment target and schedules a scroll if it opened that part. It follows same-page fragment clicks and hash changes. Hiding or unmounting the lesson releases both subscriptions.",
       "test": "apps/web/test/browser-engines/body-fragments.test.ts",
       "additionalTests": [
         "apps/web/test/navigation/reader-initial-fragment.spec.ts",
