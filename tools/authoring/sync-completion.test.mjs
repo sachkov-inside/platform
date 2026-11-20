@@ -1335,7 +1335,6 @@ test("a release detaches the recording an original no longer names and keeps it 
     new RegExp(uuid(777), "u"),
   );
 
-  // The next release finds nothing to detach.
   const saves = api.count(/materials\/apply$/u);
   const again = await run(setup, api);
   assert.equal(api.count(/materials\/apply$/u), saves);
@@ -1400,7 +1399,6 @@ test("a release keeps the recording of an original that still names it", async (
   await run(setup, api);
   const video = valueAt(api.materials, "inside-content:video");
   const videoId = video.primaryVideoId;
-  // Only the text changes: the recording and its selection stay.
   itemAt(setup.manifest.materials, 1).markdown = "Новый текст";
   await setup.write();
   const { reviewed, item } = await reviewRelease(setup, api);
@@ -1427,10 +1425,14 @@ test("a receiver before detachment saves the lesson without the recording it no 
     videoChapters: [],
   });
   await setup.write();
+  const { item } = await reviewRelease(setup, api);
+  assert.equal(item("video")?.videoChange, true);
+  assert.equal(item("video")?.videoDetached, undefined);
   const report = await run(setup, api);
   assert.equal(video.primaryVideoId, null);
   assert.equal(valueAt(api.videos, videoId ?? "").detached, undefined);
-  assert.deepEqual(noticePaths(report, "video_detached"), ["video.md"]);
+  assert.deepEqual(noticePaths(report, "video_detached"), []);
+  assert.deepEqual(noticePaths(report, "video_unselected"), ["video.md"]);
 });
 
 test("supplementary originals join the Product after the programme without a chapter", async (t) => {

@@ -577,7 +577,6 @@ describe("authoring source Material", () => {
       }),
     ).toMatchObject({ ok: true, value: { contentVersion: 2 } });
 
-    // Another Material's Video is not this Save's to detach.
     expect(
       await authoring.applySourceMaterial({
         ...command,
@@ -599,7 +598,6 @@ describe("authoring source Material", () => {
     };
     const detached = await authoring.applySourceMaterial(detach);
     expect(detached).toMatchObject({ ok: true, value: { contentVersion: 3 } });
-    // A replay of the same apply keeps the first answer.
     expect(await authoring.applySourceMaterial(detach)).toEqual(detached);
     expect(await authoring.loadMaterial({ actor, materialId })).toMatchObject({
       ok: true,

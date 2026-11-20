@@ -90,7 +90,7 @@ import { gitAncestry, sourceCommitRelation } from "./source-commit.mjs";
  * @property {boolean} [coverChange]
  * @property {boolean} [videoChange]
  * @property {boolean} [videoDetached] The original names no recording, so apply detaches the
- *   Material's own Video; the provider recording stays (ADR 0048)
+ *   Material's own Video on a receiver with `video-detach-v1`; the provider recording stays (ADR 0048)
  * @property {VideoUpload[]} [videoUploads] Recordings `authoring:video` uploaded for this Material
  * @property {import("./local-sync.mjs").DesiredPublication} publication
  * @property {{ from: import("./local-boundaries.mjs").PublicationState; to: import("./local-sync.mjs").DesiredPublication }} [publicationChange]
@@ -269,7 +269,10 @@ export async function previewRelease(
   const publicationOfKey = publicationPolicy(manifest, publish);
   const environment = await request("/authoring/import/materials/environment");
   assertTargetEnvironment(target, environment.mode);
-  assertReceiverContract(environment, manifest);
+  const { packageFeatures: receiverFeatures } = assertReceiverContract(
+    environment,
+    manifest,
+  );
   const preservedLegacyTasks = await assertLegacyTaskTargets(pkg, send);
   if (!manifest.selection.contentOnly)
     await validateProductPages(manifest, send);
@@ -390,7 +393,6 @@ export async function previewRelease(
       sourceVideoReceiptSchema,
       resources[`source-video:${key}`],
     );
-    // An upload stays until the original names its provider record for the first time.
     const pendingUpload =
       uploaded !== undefined &&
       resources[`video:${entry.materialId}:${uploaded.providerVideoId}`] ===
@@ -399,6 +401,7 @@ export async function previewRelease(
         ? uploaded.videoId
         : null;
     const detaches =
+      receiverFeatures.includes("video-detach-v1") &&
       row.video === null &&
       pendingUpload === null &&
       current.primaryVideoId !== null &&
