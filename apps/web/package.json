@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "next typegen && tsc --noEmit",
-    "guardrails": "node scripts/check-web-architecture.mjs && node scripts/check-negative-guardrails.mjs && pnpm --dir ../.. lint:cycles",
+    "guardrails": "node scripts/check-lifecycle-boundaries.mts final && node --test scripts/check-lifecycle-boundaries.test.mjs && node scripts/check-web-architecture.mjs && node scripts/check-negative-guardrails.mjs && pnpm --dir ../.. lint:cycles",
     "test": "bash ../../scripts/heavy-check.sh vitest run --config vitest.config.mts",
     "test:standalone-config": "node --test scripts/check-standalone-runtime-config.test.mjs",
     "test:prerendered-handlers": "node scripts/check-prerendered-route-handlers.mjs",

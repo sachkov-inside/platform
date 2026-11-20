@@ -184,6 +184,15 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
 
 - Compute render-derived values during render. Update event-owned state in its event handler.
   Use effects for external synchronization, with dependencies and cleanup matching that resource's lifetime.
+- Keep direct `useEffect`, `useLayoutEffect` and `useInsertionEffect` calls inside the named
+  adapter that owns the resource or committed state. Product callers use its domain operation.
+  Each exception, including editor and third-party integrations, needs an exact file, owner, hook,
+  call fingerprint, reason and public behaviour test in the [lifecycle inventory](scripts/lifecycle-inventory.json).
+  Adding another call in an approved file requires its own review.
+- Use the event, commit or measurement that makes an operation ready. The reading-state batcher
+  uses a zero-delay timeout to collect registrations in one turn. Preserve intentional debounce,
+  feedback, polling and deadline timers. When adding or changing one, record the timing purpose
+  and review the delay and cancellation. Check directly nested animation frames for ordering workarounds.
 - Give callbacks and mirrored refs a current consumer and a named synchronization purpose.
   Remove redundant synchronization only after checking retained routes, editor revisions and external consumers.
 - Keep at most one in-flight request per polling resource. Schedule the next poll after settlement;
@@ -191,7 +200,10 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
 - Distinguish browser query freshness, route retention, render-local deduplication and shared HTTP/server caches
   when measuring requests. Review effective keys and invalidation at each owner; count physical requests separately.
 
-These rules require review. An effect count or a passing dependency linter cannot prove that an effect is necessary.
+Web guardrails run the [lifecycle check](scripts/check-lifecycle-boundaries.mts) in `final` mode
+on production sources under `app` and `src`. Its [tests](scripts/check-lifecycle-boundaries.test.mjs)
+cover new and changed calls, indirect references and timing patterns. Reviewers verify the reason
+for each boundary and its behaviour through the named tests.
 
 ## Interaction and enforcement
 

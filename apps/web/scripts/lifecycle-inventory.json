@@ -1,6 +1,6 @@
 {
-  "base": "0c0bcda8a55a4160012fda3e075c1082472d6b64",
-  "tree": "a37aae9f54575cd7ffbb4de86a62902f54231958",
+  "base": "5cdde9098d6fcb9e3643365acbfc9a039a9093ef",
+  "tree": "5339698225bf82ea059de0408e166636854e251f",
   "pins": [
     {
       "id": "T01-delay",
@@ -779,22 +779,6 @@
       "authority": "#2244. ReplacementAndRelease delivered in #2486 at 7b9fef9de2327aad909625f62ff7b1f2a9f9a2c2. Independent targeted mutation verified."
     },
     {
-      "id": "D64",
-      "status": "frozen-blocked",
-      "path": "apps/web/src/shared/ui/hide-mobile-navigation.client.tsx",
-      "owner": "HideMobileNavigation",
-      "kind": "useEffect",
-      "fingerprint": "0e58ec47850f66f08da1d5b79cbcf64ec580c5ba749e88c3465bdda568cb9791"
-    },
-    {
-      "id": "D65",
-      "status": "frozen-blocked",
-      "path": "apps/web/src/shared/ui/hide-public-footer.client.tsx",
-      "owner": "HidePublicFooter",
-      "kind": "useEffect",
-      "fingerprint": "e4e1e007037b51e71619f98c75cec07c86262560d38b714ac70183de553a9f22"
-    },
-    {
       "id": "D66",
       "status": "verified-adapter",
       "path": "apps/web/src/shared/ui/reader-history.client.tsx",
@@ -804,22 +788,6 @@
       "reason": "The matching active Reader entry owns capture listeners, its reader root, a coalesced scroll frame and pending restoration. Cleanup cancels the frame so the previous visible chapter and position survive return.",
       "test": "apps/web/src/features/library-discovery/ui/reader-history-tracker.stories.tsx",
       "authority": "#2244. RestoresOwnVisibleEntry delivered in #2486 at 7b9fef9de2327aad909625f62ff7b1f2a9f9a2c2. Tracker cleanup updated in #2489 at d789fd2a072b908c885372a40f04d03629a9074e with the Reader-to-Home Back scenario in reader-history-position.spec.ts."
-    },
-    {
-      "id": "D68",
-      "status": "frozen-blocked",
-      "path": "apps/web/src/widgets/authoring-shell/ui/authoring-shell.client.tsx",
-      "owner": "AuthoringShell",
-      "kind": "useEffect",
-      "fingerprint": "d5cd38a0e16180be9e2d384835a631c64397de60d557a927ba077135aecd89d7"
-    },
-    {
-      "id": "D69",
-      "status": "frozen-blocked",
-      "path": "apps/web/src/widgets/authoring-shell/ui/authoring-shell.client.tsx",
-      "owner": "MoreSheet",
-      "kind": "useEffect",
-      "fingerprint": "8f85ed57ed7c160eaaef091eed5b83fe7a3d038cb64cdef243f7f920c80a3fcd"
     },
     {
       "id": "D70",
