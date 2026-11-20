@@ -1,45 +1,57 @@
 // @ts-check
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import test from "node:test";
-import { restoreLocalProduct } from "./local-product.mjs";
+import { fileURLToPath } from "node:url";
+import { z } from "zod";
 
-test("the stand owner gains access to the product the run imported, after the import", async () => {
-  /** @type {string[]} */
-  const ran = [];
-  const receipt = await restoreLocalProduct({
-    importProduct: async () => {
-      ran.push("import");
-      return { commit: "abc" };
-    },
-    grantStandAccess: async () => {
-      ran.push("grant");
-    },
-  });
-  assert.deepEqual(ran, ["import", "grant"]);
-  assert.deepEqual(receipt, { commit: "abc" });
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const script = fileURLToPath(new URL("local-product.mjs", import.meta.url));
+
+/** Runs the grant with a recording pnpm double from an unrelated directory. */
+async function grantWith(/** @type {number} */ exitCode) {
+  const directory = await mkdtemp(join(tmpdir(), "local-product-grant-"));
+  const record = join(directory, "record.json");
+  const pnpm = join(directory, "pnpm.mjs");
+  await writeFile(
+    pnpm,
+    [
+      'import { writeFileSync } from "node:fs";',
+      `writeFileSync(${JSON.stringify(record)}, JSON.stringify({ args: process.argv.slice(2), cwd: process.cwd() }));`,
+      'process.stdout.write("bootstrap report\\n");',
+      `process.exit(${String(exitCode)});`,
+    ].join("\n"),
+  );
+  const child = spawnSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "--eval",
+      `import { grantStandProductAccess } from ${JSON.stringify(script)}; grantStandProductAccess(${JSON.stringify(pnpm)});`,
+    ],
+    { cwd: directory, encoding: "utf8" },
+  );
+  const recorded = z
+    .object({ args: z.array(z.string()), cwd: z.string() })
+    .parse(JSON.parse(await readFile(record, "utf8")));
+  await rm(directory, { recursive: true, force: true });
+  return { child, recorded };
+}
+
+test("the access grant runs the account bootstrap from the repository root, its report on stderr", async () => {
+  const { child, recorded } = await grantWith(0);
+  assert.equal(child.status, 0, child.stderr);
+  assert.deepEqual(recorded.args, ["local:accounts:bootstrap"]);
+  assert.equal(await realpath(recorded.cwd), await realpath(root));
+  // stdout carries only the transfer's JSON receipt.
+  assert.equal(child.stdout, "");
+  assert.match(child.stderr, /bootstrap report/u);
 });
 
-test("a failed import grants nothing, and a failed grant fails the run", async () => {
-  let granted = false;
-  await assert.rejects(
-    restoreLocalProduct({
-      importProduct: async () => {
-        throw new Error("import refused");
-      },
-      grantStandAccess: async () => {
-        granted = true;
-      },
-    }),
-    /import refused/u,
-  );
-  assert.equal(granted, false);
-  await assert.rejects(
-    restoreLocalProduct({
-      importProduct: async () => ({}),
-      grantStandAccess: async () => {
-        throw new Error("bootstrap refused");
-      },
-    }),
-    /bootstrap refused/u,
-  );
+test("a failed account bootstrap fails the access grant", async () => {
+  const { child } = await grantWith(1);
+  assert.notEqual(child.status, 0);
 });

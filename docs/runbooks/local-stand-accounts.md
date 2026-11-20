@@ -83,10 +83,11 @@ shared `inside-platform_*` volumes, so every branch and worktree sees the same c
   `~/Work/Materials/content-studio` checkout (override with `--content PATH`) and features that product on Home. It starts the authoring
   gateway for the run when none is running and repeats safely at any time. This local reader view
   approves the publication of every transferred original, as `--publish-all` does; see the publication
-  policy below. After the transfer it repeats `pnpm local:accounts:bootstrap`, which grants the stored
-  local owner and the learner with access every Product, including the one just transferred. A stand
-  reset followed by a transfer therefore leaves the owner with access to his course (owner decision
-  20.11.2026).
+  policy below. After the transfer and its JSON receipt it repeats `pnpm local:accounts:bootstrap`, which
+  grants the stored local owner and the learner with access every non-archived Product, including the
+  one just transferred. A stand reset followed by a transfer therefore leaves the owner with access to
+  his course (owner decision 2026-11-20). Products created on the stand by other commands, such as
+  `pnpm authoring:sync-git-local --target stand`, get this access on the next transfer or bootstrap.
 - Host checks that migrate, seed or bootstrap owners (`pnpm smoke:fullstack`, the identity proof,
   the Telegram sign-in launcher) use the `inside_checks` database, never the stand's `inside`,
   unless `DATABASE_URL` is exported explicitly. `pnpm smoke:fullstack` drops and recreates that
