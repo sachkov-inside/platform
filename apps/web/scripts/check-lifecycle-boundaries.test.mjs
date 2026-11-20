@@ -250,6 +250,8 @@ test("unchanged observations cannot grant final effect permission", () => {
     status: /** @type {const} */ ("native-candidate"),
   };
   // The CLI schema excludes this historical status. Direct JS callers must still see it in final.
+  // @ts-expect-error Intentionally exercise a legacy JavaScript input.
+  assert.deepEqual(compareInventory(result, [legacy], "audit"), []);
   assert.deepEqual(
     // @ts-expect-error Intentionally exercise a legacy JavaScript input.
     compareInventory(result, [legacy], "final").map((d) => d.code),
