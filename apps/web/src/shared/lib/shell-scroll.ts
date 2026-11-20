@@ -151,8 +151,8 @@ export function keepShellScrollAcrossBreakpoint(
   const transfer = () => {
     // Layout can clamp the old scroll owner before the media-query event arrives.
     if (desktop.matches) {
-      // Chromium can expose the last desktop offset again when main becomes scrollable.
-      // A different offset or a scroll event in the new owner still takes precedence.
+      // Chromium can expose the last desktop offset again when main becomes scrollable (#1522).
+      // Keep a positive offset if it changed or the new owner already reported a scroll (#1603).
       const top =
         content.scrollTop > 0 && content.scrollTop !== previousDesktopTop
           ? content.scrollTop
