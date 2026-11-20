@@ -171,16 +171,18 @@
     },
     {
       "id": "D07",
-      "status": "retained-design",
+      "status": "verified-adapter",
       "path": "apps/web/src/_app/ui/use-mobile-navigation.client.ts",
       "owner": "useMobileNavigation",
       "kind": "useLayoutEffect",
-      "fingerprint": "b0881ca1f70df2a25e973735274f87d5a4aefe9a433b5add016a40d8bed8f084",
-      "disposition": "model",
-      "next": "Смена известного аккаунта сбрасывает приватные позиции, ссылки, восстановление и семейства кеша. Переносить в модель идентичности, проверив A→B при скрытой оболочке и сохранность общих данных.",
+      "fingerprint": "1af822aad5e48b571d2d89f4765359eb7c363f2d9d5e25413b732a26f22b60b9",
+      "reason": "Commit the shell's known identity to its model before restoring the accepted route's scroll. When the model requests a reset, release the previous restoration, navigation state and the two private query families.",
       "test": "apps/web/src/_app/ui/mobile-navigation-restore.stories.tsx",
-      "additionalTests": ["apps/web/test/e2e/mobile-navigation.spec.ts"],
-      "authority": "Delivered in #2502 at cf4392fb527679b740c1e33a6d01c3577d0c60da. Upon return with accepted account B, the shell clears account A navigation state and inactive private cache entries while preserving the adjacent public entry. Clearing during Activity disconnection for a concurrently visible consumer is outside this evidence."
+      "additionalTests": [
+        "apps/web/test/e2e/mobile-navigation.spec.ts",
+        "apps/web/test/module/mobile-navigation-identity.test.ts"
+      ],
+      "authority": "#2244. The #2502 scenarios distinguish saved positions, pending navigation, active restoration and selective cache resets after accepting B. Clearing the shared cache while Activity is disconnected for a concurrent visible consumer is outside this contract."
     },
     {
       "id": "D08",
