@@ -251,6 +251,10 @@ function publicShell({
     scrollContent(top: number) {
       content.setTop(top);
     },
+    /** Layout can expose the desktop container's prior offset without a new scroll event. */
+    restoreContentLayoutPosition(top: number) {
+      content.scrollTop = top;
+    },
     /** A node inside the second shell, and that shell's content element. */
     otherShell: {
       page: asScope(otherPage),
@@ -451,6 +455,26 @@ describe("shell scroll across the breakpoint", () => {
     expect(shell.contentTop).toBe(0);
     stop();
     expect(shell.listenerCount()).toBe(0);
+  });
+
+  it("transfers the phone position when layout exposes the previous desktop offset", () => {
+    const shell = publicShell({ width: 1_440 });
+    keepShellScrollAcrossBreakpoint();
+    shell.scrollContent(1_200);
+    shell.resize(390);
+    shell.scrollDocument(1_905);
+    shell.resize(1_440, () => {
+      shell.restoreContentLayoutPosition(1_200);
+    });
+    expect(shell.contentTop).toBe(1_905);
+    expect(shell.documentTop).toBe(0);
+
+    shell.resize(390);
+    shell.scrollDocument(500);
+    shell.resize(1_440, () => {
+      shell.scrollContent(1_905);
+    });
+    expect(shell.contentTop).toBe(1_905);
   });
 
   it("keeps a scroll in the new owner that precedes the breakpoint event", () => {

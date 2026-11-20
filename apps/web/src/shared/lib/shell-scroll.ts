@@ -138,8 +138,12 @@ export function keepShellScrollAcrossBreakpoint(
   const desktop = desktopMedia();
   let contentTop = content.scrollTop;
   let documentTop = window.scrollY;
+  let previousDesktopTop: number | undefined;
   const rememberContent = () => {
-    if (desktop.matches) contentTop = content.scrollTop;
+    if (desktop.matches) {
+      contentTop = content.scrollTop;
+      previousDesktopTop = undefined;
+    }
   };
   const rememberDocument = () => {
     if (!desktop.matches) documentTop = window.scrollY;
@@ -147,10 +151,10 @@ export function keepShellScrollAcrossBreakpoint(
   const transfer = () => {
     // Layout can clamp the old scroll owner before the media-query event arrives.
     if (desktop.matches) {
-      // A scroll in the new owner can precede this media-query event.
-      // Preserve it instead of restoring the previous owner's older position.
+      // Chromium can expose the last desktop offset again when main becomes scrollable.
+      // A different offset or a scroll event in the new owner still takes precedence.
       const top =
-        content.scrollTop > 0
+        content.scrollTop > 0 && content.scrollTop !== previousDesktopTop
           ? content.scrollTop
           : window.scrollY > 0
             ? window.scrollY
@@ -159,6 +163,7 @@ export function keepShellScrollAcrossBreakpoint(
       content.scrollTo({ top, behavior: "instant" });
       contentTop = content.scrollTop;
     } else {
+      previousDesktopTop = contentTop;
       const top = window.scrollY > 0 ? window.scrollY : contentTop;
       content.scrollTo({ top: 0, behavior: "instant" });
       window.scrollTo({ top, behavior: "instant" });

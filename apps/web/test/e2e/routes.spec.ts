@@ -12,9 +12,20 @@ test("keeps a scrolled page visible when viewport changes the scroll owner", asy
   await page.setViewportSize({ width: 390, height: 900 });
   await page.goto("/legal/terms");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  await page.evaluate(() => {
-    window.scrollTo({ top: 1_200, behavior: "instant" });
-  });
+  // Let the document deliver the scroll before a resize can clamp it.
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        window.addEventListener(
+          "scroll",
+          () => {
+            resolve();
+          },
+          { once: true },
+        );
+        window.scrollTo({ top: 1_200, behavior: "instant" });
+      }),
+  );
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(1_200);
 
   let desktop = false;
