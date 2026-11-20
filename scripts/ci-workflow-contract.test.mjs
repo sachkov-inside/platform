@@ -192,27 +192,47 @@ describe("application CI workflow contract", () => {
     );
   });
   it("requires the final Web lifecycle check in the static CI stage", () => {
-    const webScripts = readPackageManifest(
-      resolve(repositoryRoot, "apps/web/package.json"),
-    ).scripts;
-    assert.match(jobBlock("static"), /^ {8}run: pnpm check:static$/mu);
-    assert.ok(
-      rootScripts["check:static"]?.split(" && ").includes("pnpm guardrails"),
-    );
-    assert.ok(
-      rootScripts["guardrails"]
-        ?.split(" && ")
-        .includes("pnpm --filter @inside/web guardrails"),
-    );
-    const checks = webScripts["guardrails"]?.split(" && ") ?? [];
-    assert.ok(
-      checks.includes("node scripts/check-lifecycle-boundaries.mts final"),
-    );
-    assert.ok(
-      checks.includes(
-        "node --test scripts/check-lifecycle-boundaries.test.mjs",
-      ),
-    );
+    const webGuardrails =
+      readPackageManifest(resolve(repositoryRoot, "apps/web/package.json"))
+        .scripts["guardrails"] ?? "";
+    /** @param {string} webCommand @param {string} failingNodeArgs */
+    const runStatic = (webCommand, failingNodeArgs) =>
+      spawnSync(
+        "/bin/bash",
+        [
+          "-c",
+          `
+          pnpm() {
+            case "$*" in
+              guardrails) ${rootScripts["guardrails"]} ;;
+              "--filter @inside/web guardrails") ${webCommand} ;;
+              *) return 0 ;;
+            esac
+          }
+          node() { [[ "$*" != "$FAILING_NODE_ARGS" ]]; }
+          ${rootScripts["check:static"]}
+          `,
+        ],
+        {
+          env: { PATH: "", FAILING_NODE_ARGS: failingNodeArgs },
+          timeout: 5000,
+        },
+      ).status;
+    assert.equal(runStatic(webGuardrails, ""), 0);
+    for (const [args, replacement] of /** @type {const} */ ([
+      [
+        "scripts/check-lifecycle-boundaries.mts final",
+        "scripts/check-lifecycle-boundaries.mts audit",
+      ],
+      ["--test scripts/check-lifecycle-boundaries.test.mjs", "--version"],
+    ])) {
+      assert.equal(runStatic(webGuardrails, args), 1, args);
+      assert.equal(
+        runStatic(webGuardrails.replace(args, replacement), args),
+        0,
+        replacement,
+      );
+    }
   });
   it("binds each parallel unit part and both Web projects to the local complete commands", () => {
     assert.equal(
