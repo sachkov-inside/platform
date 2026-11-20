@@ -20,7 +20,10 @@ import {
 } from "../../domain/owner-operations.js";
 import { reviewPaymentEventKinds } from "../../domain/payment-events.js";
 import { bankCancelOpenSql } from "../../shared/open-bank-cancel.js";
-import { refundTotalsOf } from "../../shared/refund-amounts.js";
+import {
+  ownerRefundAmounts,
+  refundTotalsOf,
+} from "../../shared/refund-amounts.js";
 
 type PurchaseRow = Awaited<
   ReturnType<BillingPrisma["billingPurchase"]["findUniqueOrThrow"]>
@@ -54,6 +57,7 @@ export async function paymentViews(
       row.amountKopecks,
     );
     const waiting = pending.some((item) => item.purchaseRef === row.id);
+    const amounts = ownerRefundAmounts(row, totals);
     return paymentViewSchema.parse({
       purchaseRef: row.id,
       accountId: row.accountId,
@@ -82,10 +86,8 @@ export async function paymentViews(
             : waiting
               ? "preparing"
               : "ready",
-      refundedKopecks: row.refundReviewRequired ? null : totals.refundedKopecks,
-      refundableKopecks: row.refundReviewRequired
-        ? null
-        : totals.refundableKopecks,
+      refundedKopecks: amounts.refundedKopecks,
+      refundableKopecks: amounts.refundableKopecks,
     });
   });
 }

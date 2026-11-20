@@ -44,6 +44,66 @@ test("owner reads exact bank history while a buyer cannot use owner operations",
   expect(JSON.stringify(read)).not.toContain(s.config.password);
   expect(JSON.stringify(read)).not.toContain(s.config.bindingEncryptionKey);
 });
+test("owner sees a refundable balance only after the bank confirms payment", async () => {
+  const { s, owner } = await operations();
+  const { purchaseRef } = value(await s.payments.purchase(s.buyer, s.command));
+  async function expectBalance(refundableKopecks: number) {
+    const read = (operation: string) =>
+      owner.execute(world.owner, {
+        operation,
+        operationId: randomUUID(),
+        purchaseRef,
+      });
+    expect(await read("payments.read")).toMatchObject({
+      ok: true,
+      result: { value: { refundableKopecks } },
+    });
+    expect(await read("refunds.read")).toMatchObject({
+      ok: true,
+      result: { refundableKopecks },
+    });
+  }
+  await expectBalance(0);
+  await s.notify("CONFIRMED");
+  await expectBalance(200000);
+  // Historical partial refund, already recorded before the owner opens the card.
+  const paid = await world.db.prisma.billingPurchase.findUniqueOrThrow({
+    where: { id: purchaseRef },
+  });
+  if (paid.paymentId === null)
+    throw new Error("Confirmed purchase has no bank payment ID");
+  await world.db.prisma.billingRefundDecision.create({
+    data: {
+      id: randomUUID(),
+      purchaseRef,
+      accountId: s.buyer,
+      amountKopecks: 50000n,
+      access: "keep",
+      recurring: "keep",
+      reason: "Частичный возврат",
+      state: "executed",
+      revision: 1,
+      createdAt: paid.updatedAt,
+      updatedAt: paid.updatedAt,
+      refund: {
+        create: {
+          id: randomUUID(),
+          purchaseRef,
+          environment: paid.environment,
+          terminalRef: paid.terminalRef,
+          paymentId: paid.paymentId,
+          amountKopecks: 50000n,
+          state: "confirmed",
+          createdAt: paid.updatedAt,
+          updatedAt: paid.updatedAt,
+        },
+      },
+    },
+  });
+  await expectBalance(150000);
+  expect(s.cancelRequests()).toEqual([]);
+});
+
 test.each([
   "refunds.decide",
   "refunds.execute",

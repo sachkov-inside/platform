@@ -32,7 +32,10 @@ import {
 } from "../../features/survey-respondents/survey-respondents.js";
 import type { Tbank } from "../../infrastructure/tbank/tbank.js";
 import { commandFingerprint } from "../../shared/command-fingerprint.js";
-import { refundTotals } from "../../shared/refund-amounts.js";
+import {
+  ownerRefundAmounts,
+  refundTotals,
+} from "../../shared/refund-amounts.js";
 import type { BillingPayments } from "../billing-payments/billing-payments.js";
 import type { BillingPricing } from "../billing-pricing/billing-pricing.js";
 
@@ -373,18 +376,15 @@ export class BillingOperations {
           purchase.id,
           purchase.amountKopecks,
         );
+        const amounts = ownerRefundAmounts(purchase, totals);
         return {
           ok: true,
           operationRef,
           result: {
             outcome: "refunds",
             purchaseRef: purchase.id,
-            refundedKopecks: purchase.refundReviewRequired
-              ? null
-              : totals.refundedKopecks,
-            refundableKopecks: purchase.refundReviewRequired
-              ? null
-              : totals.refundableKopecks,
+            refundedKopecks: amounts.refundedKopecks,
+            refundableKopecks: amounts.refundableKopecks,
             decisions: await refundDecisionViews(prisma, purchase.id),
           },
         };
