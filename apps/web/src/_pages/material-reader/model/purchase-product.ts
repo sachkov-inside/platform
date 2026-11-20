@@ -20,9 +20,9 @@ export type CourseLessonAction =
   | { readonly kind: "course"; readonly href: Route };
 
 /**
- * Из бесплатного и закрытого урока курса человек идёт сразу к оплате (решение владельца
- * 29.10.2026, #1647). Пока курс не продаётся, оплата была бы тупиком, поэтому кнопка ведёт на
- * страницу курса: там набор и список ожидания.
+ * Из закрытого урока курса человек идёт сразу к оплате (решение владельца 29.10.2026, #1647).
+ * Пока курс не продаётся, оплата была бы тупиком, поэтому кнопка ведёт на страницу курса: там набор
+ * и список ожидания. Призыв в конце бесплатного урока владелец снял 20.11.2026.
  */
 export function courseLessonAction({
   invitation,
@@ -34,40 +34,4 @@ export function courseLessonAction({
   return invitation?.kind === "product"
     ? { kind: "purchase", href: invitation.href }
     : { kind: "course", href: courseHref };
-}
-
-/** Призыв в конце бесплатного урока и закрытый шаг, который идёт следом. */
-export interface FreeLessonCall {
-  readonly action: CourseLessonAction;
-  /** Название следующего шага, если он закрыт этому читателю. */
-  readonly lockedNext: string | null;
-}
-
-/**
- * Призыв в конце бесплатного урока курса. Гостя бесплатный урок зовёт войти через Telegram, а не
- * платить (решение владельца 29.10.2026, #1825). Тому, кому курс открыт, звать некуда; без ответа о
- * доступе призыв тоже молчит, чтобы не предложить покупку тому, кто курс уже купил. Следующий шаг
- * назван закрытым по составу программы: раз курс читателю не открыт, закрытое в нём закрыто и ему.
- */
-export function freeLessonCall({
-  signedIn,
-  access,
-  invitation,
-  courseHref,
-  next,
-}: {
-  readonly signedIn: boolean;
-  readonly access: "open" | "closed" | "unknown";
-  readonly invitation: PurchaseInvitation | null;
-  readonly courseHref: Route;
-  readonly next: {
-    readonly title: string;
-    readonly access?: "free" | "closed" | undefined;
-  } | null;
-}): FreeLessonCall | null {
-  if (!signedIn || access !== "closed") return null;
-  return {
-    action: courseLessonAction({ invitation, courseHref }),
-    lockedNext: next?.access === "closed" ? next.title : null,
-  };
 }

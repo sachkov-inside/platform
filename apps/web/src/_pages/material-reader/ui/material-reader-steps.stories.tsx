@@ -4,7 +4,6 @@ import { z } from "zod";
 import { Activity, useState, type ReactNode } from "react";
 
 import { readShellScroll, resetShellScroll } from "@/shared/lib/shell-scroll";
-import { productPurchaseHref } from "@/shared/routing/subscription-route";
 import { chooseInSelect } from "@/storybook/select-choice";
 
 import type { RenderedBlock } from "@inside/material-blocks";
@@ -17,7 +16,6 @@ import { getQueryClient } from "@/shared/api/query-client";
 import { accountPresentationResponse } from "@/storybook/account.fixtures";
 import { fetchBeforeRender } from "@/storybook/mutation-mock";
 import { publicPageEnvironment } from "@/storybook/story-environment";
-import { FreeLessonPurchaseCallView } from "./free-lesson-purchase-call";
 import { MaterialReaderView } from "./material-reader-view";
 
 const materialId = "02000000-0000-4000-8000-000000002122";
@@ -645,34 +643,23 @@ export const TextPreviewBeforeQuestionMobile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 
-/** The locked next step and purchase action wait for every part, including exercise gates. */
-export const PurchaseWaitsForWholeLesson: Story = {
-  args: {
-    purchaseCall: (
-      <FreeLessonPurchaseCallView
-        call={{
-          action: {
-            kind: "purchase",
-            href: productPurchaseHref("ai-engineering"),
-          },
-          lockedNext: "Следующий урок",
-        }}
-      />
-    ),
-  },
+/** The lesson end waits for every part, including exercise gates. */
+export const LessonEndWaitsForExerciseGates: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const call = canvasElement.querySelector("[data-free-lesson-call]");
-    if (call === null) throw new Error("The purchase call is missing");
-    await expect(call).not.toBeVisible();
+    const terms = canvas.getByRole("region", {
+      name: "Термины урока",
+      hidden: true,
+    });
+    await expect(terms).not.toBeVisible();
     await userEvent.click(
       canvas.getByRole("button", { name: "А как проверить результат?" }),
     );
-    await expect(call).not.toBeVisible();
+    await expect(terms).not.toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: "Пропустить" }));
-    await expect(call).not.toBeVisible();
+    await expect(terms).not.toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: "Готово!" }));
-    await expect(call).toBeVisible();
+    await expect(terms).toBeVisible();
   },
 };
 

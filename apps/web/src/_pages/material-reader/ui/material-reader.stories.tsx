@@ -53,7 +53,6 @@ import {
   parseMaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
 import {
-  productHref,
   productPurchaseHref,
   productProgrammeHref,
   subscriptionHrefFrom,
@@ -66,7 +65,6 @@ import {
   MaterialReaderUnavailable,
 } from "./material-reader-states";
 import { MaterialReaderView } from "./material-reader-view";
-import { FreeLessonPurchaseCallView } from "./free-lesson-purchase-call";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 import {
   numberedListBlocks,
@@ -1802,106 +1800,6 @@ export const CourseGuide: Story = {
 export const CourseGuideMobile: Story = {
   ...CourseGuide,
   globals: { viewport: { isRotated: false, value: "mobile390" } },
-};
-
-function fail(message: string): never {
-  throw new Error(message);
-}
-
-/**
- * Бесплатный урок курса для вошедшего, которому курс не открыт (#1647): после текста урока, перед
- * действиями в конце урока, призыв к покупке. Следующий шаг закрыт, поэтому призыв называет его
- * закрытым, а кнопка ведёт сразу на оплату курса.
- */
-export const FreeLessonPurchase: Story = {
-  args: {
-    material: {
-      ...material,
-      access: "free",
-      slug: "course-intro",
-      title: "Как устроен курс",
-    },
-    productContext: courseContext,
-    purchaseCall: (
-      <FreeLessonPurchaseCallView
-        call={{
-          action: {
-            kind: "purchase",
-            href: productPurchaseHref("ai-engineering"),
-          },
-          lockedNext: courseGuide.next?.title ?? fail("Missing next step"),
-        }}
-      />
-    ),
-  },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    const call =
-      canvasElement.querySelector<HTMLElement>("[data-free-lesson-call]") ??
-      fail("Missing free lesson call");
-    const region = within(call);
-    // Закрытый шаг показан замком и названием, без поясняющих фраз (DESIGN.md, #1647).
-    await expect(
-      region.getByText("Онбординг нового разработчика за час"),
-    ).toBeVisible();
-    await expect(call.querySelector("svg.lucide-lock-keyhole")).not.toBeNull();
-    await expect(region.getByText(/закрыт/iu)).toBeInTheDocument();
-    await expect(region.queryByRole("heading")).toBeNull();
-    await expect(region.queryByText(/после покупки/u)).toBeNull();
-    await expect(
-      region.getByRole("link", { name: "Приобрести курс" }),
-    ).toHaveAttribute("href", "/products/ai-engineering/buy");
-    // Призыв стоит после текста урока и перед действиями и навигацией шагов.
-    const actions =
-      canvasElement.querySelector("[data-material-actions]") ??
-      fail("Missing material actions");
-    await expect(
-      call.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    const body =
-      canvasElement.querySelector("[data-reader-body]") ??
-      fail("Missing reader body");
-    await expect(
-      body.compareDocumentPosition(call) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    await expect(
-      canvas.getAllByRole("link", { name: "Приобрести курс" }),
-    ).toHaveLength(1);
-    await expect(canvasElement.scrollWidth).toBe(canvasElement.clientWidth);
-  },
-};
-export const FreeLessonPurchaseMobile: Story = {
-  ...FreeLessonPurchase,
-  globals: { viewport: { isRotated: false, value: "mobile390" } },
-};
-
-/** Курс пока не продаётся: оплата была бы тупиком, кнопка ведёт на страницу курса. */
-export const FreeLessonCourseNotSold: Story = {
-  args: {
-    ...FreeLessonPurchase.args,
-    purchaseCall: (
-      <FreeLessonPurchaseCallView
-        call={{
-          action: { kind: "course", href: productHref("ai-engineering") },
-          lockedNext: null,
-        }}
-      />
-    ),
-  },
-  play: async ({ canvasElement }) => {
-    const call = within(
-      canvasElement.querySelector<HTMLElement>("[data-free-lesson-call]") ??
-        fail("Missing free lesson call"),
-    );
-    await expect(
-      call.getByRole("link", { name: "Подробнее о курсе" }),
-    ).toHaveAttribute("href", "/products/ai-engineering");
-    await expect(
-      call.queryByRole("link", { name: "Приобрести курс" }),
-    ).not.toBeInTheDocument();
-    await expect(call.queryByText(/закрыт/iu)).not.toBeInTheDocument();
-    await expect(call.getByText("Бесплатно")).toBeVisible();
-  },
 };
 
 const supplementaryReturn = parseMaterialReaderReturnTarget(

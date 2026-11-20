@@ -94,8 +94,6 @@ export interface MaterialReaderViewProps {
   readonly submissionWorkspace?: ReactNode;
   /** Streaming practice precedes the end action panel, which also leads to the next step. */
   readonly deferredPracticeActions?: ReactNode;
-  /** Призыв к покупке в конце бесплатного урока курса: стоит перед действиями в конце (#1647). */
-  readonly purchaseCall?: ReactNode;
   /** Плашка «Урок обновлён» над текстом урока: стоит у изучившего урок до обновления (#2125). */
   readonly updateNotice?: ReactNode;
 }
@@ -121,7 +119,6 @@ export function MaterialReaderView({
   practiceActions,
   submissionWorkspace,
   deferredPracticeActions,
-  purchaseCall,
   updateNotice,
 }: MaterialReaderViewProps) {
   const endReadingAction = readingAction ?? topReadingAction;
@@ -276,9 +273,6 @@ export function MaterialReaderView({
                   >
                     {deferredPracticeActions}
                   </div>
-                )}
-                {purchaseCall == null ? null : (
-                  <LessonStepsTail>{purchaseCall}</LessonStepsTail>
                 )}
                 {/* The lesson end waits for its last part; the panel above stays. */}
                 {termDeck === undefined ? null : (
