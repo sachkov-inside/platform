@@ -1,5 +1,9 @@
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
+  lockMaterialReferenceChanges,
+  type VideosPrisma,
+} from "../../../../infrastructure/prisma/index.js";
+import {
   newVideoId,
   providerVideoIdSchema,
   videoIdSchema,
@@ -16,13 +20,14 @@ import {
   toDto,
   type VideoContext,
 } from "./video-records.js";
-import type { Videos } from "./videos.interface.js";
+import { isVideoDeletionState, type Videos } from "./videos.interface.js";
 import {
   markPendingWebhooksReconciled,
   reconcilePendingWebhooks,
 } from "./reconcile-video.js";
 
 // Attaches a Video that already exists at the provider to a Material, as an External Attachment.
+// A recording another Material owns moves to this one with its Video (ADR 0048).
 
 export async function attachExistingVideo(
   context: VideoContext,
@@ -54,18 +59,27 @@ export async function attachExistingVideo(
       where: { providerVideoId: remote.id, projectId },
     });
     if (duplicate !== null) {
-      if (duplicate.materialId !== parsed.data.materialId) {
-        return providerMismatch();
-      }
+      const owned =
+        duplicate.materialId === parsed.data.materialId
+          ? duplicate
+          : await context.prisma.$transaction((transaction) =>
+              moveVideo(
+                transaction,
+                duplicate.id,
+                parsed.data.materialId,
+                context.now(),
+              ),
+            );
+      if (owned === null) return providerMismatch();
       if (
         !(await reconcilePendingWebhooks(
           context,
-          providerVideoIdSchema.parse(duplicate.providerVideoId),
-          videoIdSchema.parse(duplicate.id),
+          providerVideoIdSchema.parse(owned.providerVideoId),
+          videoIdSchema.parse(owned.id),
         ))
       )
         return dependencyUnavailable();
-      return { ok: true, value: toDto(duplicate) };
+      return { ok: true, value: toDto(owned) };
     }
     const lifecycle = providerLifecycle(remote);
     const savedAt = context.now();
@@ -117,4 +131,42 @@ export async function attachExistingVideo(
       dependencyUnavailable(),
     );
   }
+}
+
+/**
+ * Hands the Video to the Material that attaches its recording (ADR 0048). Both Materials' reference
+ * locks order the move with their Saves and with Video deletion.
+ */
+async function moveVideo(
+  transaction: VideosPrisma,
+  videoId: string,
+  materialId: string,
+  movedAt: Date,
+) {
+  const initial = await transaction.video.findUnique({
+    where: { id: videoId },
+  });
+  if (initial === null) return null;
+  await lockMaterialReferenceChanges(transaction, [
+    initial.materialId,
+    materialId,
+  ]);
+  const video = await transaction.video.findUnique({
+    include: { deletionOperation: { select: { id: true } } },
+    where: { id: videoId },
+  });
+  if (video === null) return null;
+  if (video.materialId === materialId) return video;
+  if (
+    // A concurrent move took it elsewhere after the first read: refused like any unmovable Video.
+    video.materialId !== initial.materialId ||
+    video.state === "uploading" ||
+    isVideoDeletionState(video.state) ||
+    video.deletionOperation !== null
+  )
+    return null;
+  return transaction.video.update({
+    data: { detachedAt: null, materialId, updatedAt: movedAt },
+    where: { id: videoId },
+  });
 }

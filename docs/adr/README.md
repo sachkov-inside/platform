@@ -1,6 +1,6 @@
 # Архитектурные решения
 
-В рабочем дереве 39 действующих ADR: 35 Platform и 4 Telegram.
+В рабочем дереве 43 действующих ADR: 39 Platform и 4 Telegram.
 Заменённые решения и дубли удалены; исходные тексты сохраняются в Git.
 Номера оставшихся решений не меняются, удалённые номера не используются повторно.
 
@@ -51,6 +51,7 @@ ADR фиксируют причины выбора и компромиссы; т
 | [0045](0045-assistant-on-ai-sdk-with-own-conversation-storage.md) | Помощник на Vercel AI SDK со своим хранением разговора |
 | [0046](0046-assistant-tools-inside-the-process.md) | Инструменты Помощника внутри процесса |
 | [0047](0047-assistant-hybrid-search-with-pgvector.md) | Гибридный поиск Помощника и pgvector в образе базы |
+| [0048](0048-recording-moves-to-the-material-that-attaches-it.md) | Запись переходит к материалу, который её прикрепил |
 
 ## Telegram
 

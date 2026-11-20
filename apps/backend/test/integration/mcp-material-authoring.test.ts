@@ -674,15 +674,20 @@ describe("delegated Material authoring over MCP", () => {
         body,
       }),
     );
+    // Another Material that attaches the same recording takes its Video (ADR 0048).
     expect(
-      await callTool("video_attach_existing", {
-        ...attachment,
-        materialId: other,
+      successfulValue(
+        await callTool("video_attach_existing", {
+          ...attachment,
+          materialId: other,
+        }),
+      ),
+    ).toMatchObject({ materialId: other, videoId });
+    await expect(
+      database.prisma.video.count({
+        where: { providerVideoId: attachment.providerVideoId },
       }),
-    ).toMatchObject({
-      isError: true,
-      structuredContent: { error: { code: "provider_mismatch" } },
-    });
+    ).resolves.toBe(1);
   });
 
   test("initializes resumable upload once and rejects actor injection", async () => {

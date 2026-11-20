@@ -80,9 +80,15 @@ export function assembleLoadMaterial(
           retryable: true,
         });
       }
+      // A recording that moved to another Material leaves only an inert selection here (ADR 0048):
+      // the author sees no Video, and the next Save drops it.
+      const current =
+        primaryVideo.value === null && dependencies.videos !== undefined
+          ? { ...material.value, primaryVideoId: null }
+          : material.value;
       return {
         ok: true,
-        value: toMaterialDto(material.value, {
+        value: toMaterialDto(current, {
           primaryVideo: primaryVideo.value,
           latestVideoDeletion: latestVideoDeletion.value,
           unselectedVideoUpload: unselectedVideoUpload.value,

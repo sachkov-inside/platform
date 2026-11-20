@@ -891,6 +891,13 @@ export async function loadPackage(path) {
     manifest.materials.map((item) => item.sourceId),
     "Material identity",
   );
+  // A recording plays in one lesson; naming it in two would hand it back and forth (ADR 0048).
+  unique(
+    manifest.materials.flatMap((item) =>
+      item.video === null ? [] : [item.video.kinescopeId],
+    ),
+    "Kinescope recording",
+  );
   unique(
     manifest.products.map((item) => item.sourceId),
     "Product identity",

@@ -589,6 +589,212 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
     ).resolves.toEqual({ ok: false, error: { code: "provider_mismatch" } });
   });
 
+  test("moves an existing recording to the Material that attaches it, keeping the Video and its checks", async () => {
+    const remote = new Map<string, ProviderVideo>();
+    const record = (projectId: string, status = "done"): string => {
+      const id = randomUUID();
+      remote.set(id, {
+        durationSeconds: 300,
+        embedLocator: `https://kinescope.io/embed/${id}`,
+        id,
+        projectId,
+        status,
+        title: "Moved lesson",
+      });
+      return id;
+    };
+    const videos = assembleVideos({
+      canManage: () => Promise.resolve(true),
+      prisma: database.prisma,
+      provider: {
+        delete: unusedDelete,
+        initUpload(input) {
+          const id = randomUUID();
+          remote.set(id, {
+            embedLocator: null,
+            id,
+            projectId: input.projectId,
+            status: "uploading",
+            title: input.title,
+          });
+          return Promise.resolve({
+            id,
+            uploadEndpoint: `https://uploads.example.test/${id}`,
+          });
+        },
+        find: (input) => Promise.resolve(remote.get(input.id) ?? null),
+      },
+      projects: { public: "public-project", protected: "member-project" },
+    });
+    const actor = randomUUID();
+    const previousOwner = randomUUID();
+    const nextOwner = randomUUID();
+    const protectedRecording = record("member-project");
+    const original = await videos.attachExisting({
+      access: "closed",
+      actor,
+      materialId: previousOwner,
+      providerVideoId: protectedRecording,
+    });
+    if (!original.ok) throw new Error(original.error.code);
+    // The previous owner removed it in its editor; the new owner's attachment is a fresh decision.
+    await database.prisma.video.update({
+      data: { detachedAt: new Date("2026-11-20T10:00:00.000Z") },
+      where: { id: original.value.videoId },
+    });
+
+    const viewer = randomUUID();
+    await videos.saveProgress({
+      accountId: viewer,
+      durationSeconds: 300,
+      positionSeconds: 42,
+      videoId: original.value.videoId,
+    });
+    // The same Video, with its playback progress, now belongs to the Material that attached it.
+    const moved = await videos.attachExisting({
+      access: "free",
+      actor,
+      materialId: nextOwner,
+      providerVideoId: protectedRecording,
+    });
+    expect(moved).toEqual({
+      ok: true,
+      value: {
+        ...original.value,
+        materialId: nextOwner,
+      },
+    });
+    await expect(
+      database.prisma.video.findUniqueOrThrow({
+        where: { id: original.value.videoId },
+      }),
+    ).resolves.toMatchObject({ detachedAt: null, materialId: nextOwner });
+    await expect(
+      videos.loadProgress({
+        accountId: viewer,
+        videoId: original.value.videoId,
+      }),
+    ).resolves.toEqual({ ok: true, value: { positionSeconds: 42 } });
+    await expect(
+      videos.loadAccessFacts([original.value.videoId]),
+    ).resolves.toMatchObject({
+      ok: true,
+      value: [{ materialId: nextOwner, videoId: original.value.videoId }],
+    });
+    // The previous owner no longer presents or selects it.
+    await expect(
+      videos.loadPresentation({
+        materialId: previousOwner,
+        videoId: original.value.videoId,
+      }),
+    ).resolves.toEqual({ ok: true, value: null });
+    await expect(
+      videos.inspectPrimaryReference(transactionHandle(database.prisma), {
+        access: "closed",
+        materialId: previousOwner,
+        videoId: original.value.videoId,
+      }),
+    ).resolves.toEqual({ ok: false, error: { code: "provider_mismatch" } });
+    await expect(
+      videos.inspectPrimaryReference(transactionHandle(database.prisma), {
+        access: "free",
+        materialId: nextOwner,
+        videoId: original.value.videoId,
+      }),
+    ).resolves.toEqual({ ok: true, value: undefined });
+    // Attaching again to its owner changes nothing, and it can move back.
+    await expect(
+      videos.attachExisting({
+        access: "free",
+        actor,
+        materialId: nextOwner,
+        providerVideoId: protectedRecording,
+      }),
+    ).resolves.toEqual(moved);
+    await expect(
+      videos.attachExisting({
+        access: "closed",
+        actor,
+        materialId: previousOwner,
+        providerVideoId: protectedRecording,
+      }),
+    ).resolves.toMatchObject({
+      ok: true,
+      value: { materialId: previousOwner, videoId: original.value.videoId },
+    });
+
+    // A public recording still cannot move to a closed Material.
+    const publicRecording = record("public-project");
+    const publicVideo = await videos.attachExisting({
+      access: "free",
+      actor,
+      materialId: previousOwner,
+      providerVideoId: publicRecording,
+    });
+    if (!publicVideo.ok) throw new Error(publicVideo.error.code);
+    await expect(
+      videos.attachExisting({
+        access: "closed",
+        actor,
+        materialId: nextOwner,
+        providerVideoId: publicRecording,
+      }),
+    ).resolves.toEqual({ ok: false, error: { code: "provider_mismatch" } });
+
+    // An upload still in progress stays with the Material that started it.
+    const upload = await videos.initUpload({
+      access: "closed",
+      actor,
+      byteSize: 1_024,
+      filename: "unfinished.mp4",
+      idempotencyKey: "unfinished-upload-stays",
+      materialId: previousOwner,
+      title: "Unfinished",
+    });
+    if (!upload.ok) throw new Error(upload.error.code);
+    await expect(
+      videos.attachExisting({
+        access: "closed",
+        actor,
+        materialId: nextOwner,
+        providerVideoId: upload.value.providerVideoId,
+      }),
+    ).resolves.toEqual({ ok: false, error: { code: "provider_mismatch" } });
+
+    // A recording in its deletion lifecycle is never handed to another Material.
+    const deletedRecording = record("member-project");
+    const deletedVideo = await videos.attachExisting({
+      access: "closed",
+      actor,
+      materialId: previousOwner,
+      providerVideoId: deletedRecording,
+    });
+    if (!deletedVideo.ok) throw new Error(deletedVideo.error.code);
+    await database.prisma.video.update({
+      data: {
+        deletedAt: new Date("2026-11-20T10:00:00.000Z"),
+        providerEmbedLocator: null,
+        state: "deleted",
+      },
+      where: { id: deletedVideo.value.videoId },
+    });
+    await expect(
+      videos.attachExisting({
+        access: "closed",
+        actor,
+        materialId: nextOwner,
+        providerVideoId: deletedRecording,
+      }),
+    ).resolves.toEqual({ ok: false, error: { code: "provider_mismatch" } });
+    for (const videoId of [
+      deletedVideo.value.videoId,
+      upload.value.video.videoId,
+    ])
+      await expect(
+        database.prisma.video.findUniqueOrThrow({ where: { id: videoId } }),
+      ).resolves.toMatchObject({ materialId: previousOwner });
+  });
+
   test("never offers an External Attachment as a recoverable upload", async () => {
     const providerVideoId = randomUUID();
     const videos = assembleVideos({
