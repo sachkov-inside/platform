@@ -17,6 +17,7 @@ import {
   lessonParts,
   type LessonParts,
 } from "./lesson-parts";
+import { useLessonFragmentNavigation } from "./use-lesson-fragment-navigation.client";
 
 /** Who speaks in the reply that replaces a pressed step button: the reader, or «Вы» for a guest. */
 export interface LessonStepsReader {
@@ -167,63 +168,10 @@ export function LessonSteps({
       ?.scrollIntoView({ block: "start", behavior: "instant" });
   }, [opened]);
 
-  // A heading anchor, the course outline or an exercise's review link opens every part up to its
-  // target. Opening happens before the browser and the body's own navigation look for the target.
-  useEffect(() => {
-    if (parts.count === 1) return;
-    // Cuts stand in document order: the target's part is the last cut before it.
-    const partOfTarget = (hash: string): number | undefined => {
-      if (hash === "" || hash === "#") return undefined;
-      const target = document.getElementById(safeDecode(hash.slice(1)));
-      if (target === null) return undefined;
-      let part = 0;
-      for (const cut of document.querySelectorAll<HTMLElement>(
-        "[data-lesson-part]",
-      ))
-        if (
-          (cut.compareDocumentPosition(target) &
-            Node.DOCUMENT_POSITION_FOLLOWING) !==
-          0
-        )
-          part = Math.max(part, Number(cut.dataset["lessonPart"]));
-      return part;
-    };
-    const reveal = (hash: string, sync: boolean): boolean => {
-      const part = partOfTarget(hash);
-      return part !== undefined && open(part + 1, sync);
-    };
-    const followLink = (event: MouseEvent) => {
-      const link =
-        event.target instanceof Element
-          ? event.target.closest<HTMLAnchorElement>("a[href]")
-          : null;
-      if (link === null) return;
-      const target = new URL(link.href);
-      const current = new URL(window.location.href);
-      if (
-        target.hash === "" ||
-        target.origin !== current.origin ||
-        target.pathname !== current.pathname
-      )
-        return;
-      reveal(target.hash, true);
-    };
-    const followHash = () => {
-      if (!reveal(window.location.hash, true)) return;
-      document
-        .getElementById(safeDecode(window.location.hash.slice(1)))
-        ?.scrollIntoView({ block: "start", behavior: "instant" });
-    };
-    // The page opened at an anchor: its part renders first, then the body scrolls to it.
-    if (reveal(window.location.hash, false))
-      pendingScroll.current = safeDecode(window.location.hash.slice(1));
-    document.addEventListener("click", followLink, true);
-    window.addEventListener("hashchange", followHash);
-    return () => {
-      document.removeEventListener("click", followLink, true);
-      window.removeEventListener("hashchange", followHash);
-    };
-  }, [open, parts.count]);
+  const scrollAfterReveal = useCallback((id: string) => {
+    pendingScroll.current = id;
+  }, []);
+  useLessonFragmentNavigation(parts.count, open, scrollAfterReveal);
 
   const value = useMemo<LessonStepsValue>(
     () => ({
@@ -238,12 +186,4 @@ export function LessonSteps({
   );
   if (parts.count === 1) return children;
   return <LessonStepsContext value={value}>{children}</LessonStepsContext>;
-}
-
-function safeDecode(value: string): string {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
 }
