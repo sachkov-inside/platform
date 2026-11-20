@@ -8,7 +8,6 @@ export function useLessonFragmentNavigation(
 ) {
   useEffect(() => {
     if (partCount === 1) return;
-    // Cuts stand in document order: the target's part is the last cut before it.
     const partOfTarget = (hash: string): number | undefined => {
       if (hash === "" || hash === "#") return undefined;
       const target = document.getElementById(safeDecode(hash.slice(1)));
@@ -51,7 +50,6 @@ export function useLessonFragmentNavigation(
         .getElementById(safeDecode(window.location.hash.slice(1)))
         ?.scrollIntoView({ block: "start", behavior: "instant" });
     };
-    // The page opened at an anchor: its part renders first, then the body scrolls to it.
     if (reveal(window.location.hash, false))
       pendingScroll.current = safeDecode(window.location.hash.slice(1));
     document.addEventListener("click", followLink, true);
