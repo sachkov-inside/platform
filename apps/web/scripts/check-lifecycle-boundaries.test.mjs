@@ -1,3 +1,4 @@
+// @ts-check
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
@@ -16,6 +17,16 @@ import {
   inspectSource,
   compareInventory,
 } from "./check-lifecycle-boundaries.mts";
+
+/** @typedef {Parameters<typeof compareInventory>[1][number]} InventoryRow */
+
+/** @param {ReturnType<typeof inspectSource>} inventory */
+function onlyCall(inventory) {
+  assert.equal(inventory.calls.length, 1);
+  const [call] = inventory.calls;
+  assert.ok(call);
+  return call;
+}
 
 const path = "apps/web/src/features/example/view.tsx";
 test("a direct effect in a new product component requires migration or a reviewed boundary", () => {
@@ -45,6 +56,7 @@ test("changing a named timer deadline also requires review when the call stays i
     "const deadline = 0; setTimeout(done, deadline);",
     pins,
   );
+  /** @type {InventoryRow[]} */
   const rows = before.calls.map((c, i) => ({
     ...c,
     id: String(i),
@@ -74,7 +86,7 @@ const codes = (src, filename = path) => {
   const result = inspectSource(filename, src);
   return compareInventory(result, [], "final").map((d) => d.code);
 };
-for (const [name, src, expected] of [
+for (const [name, src, expected] of /** @type {const} */ ([
   [
     "aliased layout effect",
     'import {useLayoutEffect as attach} from "react"; attach(work,[]);',
@@ -150,7 +162,7 @@ for (const [name, src, expected] of [
     "const {setTimeout: later}=globalThis;",
     "indirect-lifecycle-reference",
   ],
-]) {
+])) {
   test(name, () => assert.deepEqual(codes(src), [expected]));
 }
 test("type-only React, locals, derived state, handlers, callback refs and a query are permitted", () => {
@@ -171,8 +183,9 @@ test("exact approval binds path, owner, full body, dependencies and multiplicity
     'import {useEffect} from "react";function Viewer(){useEffect(()=>{open();return close;},[id]);}';
   /** @param {string} s */
   const scan = (s, p = path) => inspectSource(p, s);
+  /** @type {InventoryRow} */
   const row = {
-    ...scan(src).calls[0],
+    ...onlyCall(scan(src)),
     id: "approved-example",
     status: "approved-boundary",
     reason: "Closes the installed dialog",
@@ -220,23 +233,33 @@ test("unchanged observations cannot grant final effect permission", () => {
     path,
     'import {useEffect} from "react";function E(){useEffect(run,[])}',
   );
-  for (const status of [
+  for (const status of /** @type {const} */ ([
     "retained-design",
     "frozen-blocked",
-    "native-candidate",
-  ]) {
-    const row = { ...result.calls[0], id: "sample", status };
+  ])) {
+    const row = { ...onlyCall(result), id: "sample", status };
     assert.deepEqual(compareInventory(result, [row], "audit"), []);
     assert.deepEqual(
       compareInventory(result, [row], "final").map((d) => d.code),
       [status],
     );
   }
+  const legacy = {
+    ...onlyCall(result),
+    id: "legacy",
+    status: /** @type {const} */ ("native-candidate"),
+  };
+  // The CLI schema excludes this historical status. Direct JS callers must still see it in final.
+  assert.deepEqual(
+    // @ts-expect-error Intentionally exercise a legacy JavaScript input.
+    compareInventory(result, [legacy], "final").map((d) => d.code),
+    ["native-candidate"],
+  );
   assert.throws(
     () =>
       compareInventory(
         result,
-        [{ ...result.calls[0], status: "reviewed-timer" }],
+        [{ ...onlyCall(result), id: "timer", status: "reviewed-timer" }],
         "final",
       ),
     /cannot authorize/,
@@ -247,6 +270,7 @@ test("batching exception applies to exactly one call, while a reviewed positive 
     path,
     "function batch(){setTimeout(flush,0);}function search(){setTimeout(load,250);}",
   );
+  /** @type {InventoryRow[]} */
   const rows = result.calls.map((c, i) => ({
     ...c,
     id: "T" + i,
@@ -287,6 +311,7 @@ test("React default forwarding and literal-computed keys retain the React bindin
 test("moving a reviewed positive timer requests a new decision and identifies the removed call", () => {
   const src = "const schedule=()=>setTimeout(work,250);";
   const result = inspectSource(path, src);
+  /** @type {InventoryRow[]} */
   const rows = result.calls.map((c) => ({
     ...c,
     id: "test-timer",
@@ -402,8 +427,9 @@ test("a verified named adapter needs the exact call, a reason and a public test"
   const source =
     'import {useEffect} from "react";function useSearch(){useEffect(start,[query]);}';
   const result = inspectSource(path, source);
+  /** @type {InventoryRow} */
   const adapter = {
-    ...result.calls[0],
+    ...onlyCall(result),
     id: "D",
     status: "verified-adapter",
     reason: "Cancels an obsolete search delay",
@@ -432,14 +458,16 @@ test("a migration or diagnostic disposition remains visible and blocking", () =>
     path,
     'import {useEffect} from "react";function View(){useEffect(run,[]);}',
   );
+  /** @type {InventoryRow} */
   const row = {
-    ...result.calls[0],
+    ...onlyCall(result),
     id: "D",
     status: "retained-design",
     disposition: "diagnose",
     next: "Reproduce the still-active unload guard at the saved indicator.",
   };
   const [finding] = compareInventory(result, [row], "final");
+  assert.ok(finding);
   assert.equal(finding.code, "retained-design");
   assert.equal(finding.disposition, "diagnose");
   assert.equal(finding.next, row.next);
@@ -476,12 +504,12 @@ test("bigint literal values remain distinct in hook fingerprints", () => {
     ["new-effect"],
   );
   assert.notEqual(
-    source("123n").calls[0].fingerprint,
-    source("124n").calls[0].fingerprint,
+    onlyCall(source("123n")).fingerprint,
+    onlyCall(source("124n")).fingerprint,
   );
   assert.notEqual(
-    source("123n").calls[0].fingerprint,
-    source('"123"').calls[0].fingerprint,
+    onlyCall(source("123n")).fingerprint,
+    onlyCall(source('"123"')).fingerprint,
   );
 });
 test("computed timer keys cannot hide the timer and a constructed editor method is not a browser timer", () => {
