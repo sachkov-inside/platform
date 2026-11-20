@@ -15,8 +15,12 @@ an SSH connection or provider API token does not authenticate a Material author.
    access (`free` or `closed`). The recording must be in the protected (membership) project, which
    serves either access, or, for a free Material only, in the public project
    ([ADR 0041](../adr/0041-protected-recording-serves-any-access.md)).
-   Repeating attachment to the same Material reuses the local Video, also after an access change. A different Material
-   cannot silently take the same provider Video. This does not select the primary Video yet.
+   Repeating attachment to the same Material reuses the local Video, also after an access change.
+   Attaching a recording another Material holds moves its Video here: that Material stops playing it
+   at once, and its next Save must name another Video or none
+   ([ADR 0048](../adr/0048-recording-moves-to-the-material-that-attaches-it.md)). An upload still in
+   progress or a Video being deleted is refused with `provider_mismatch`. This does not select the
+   primary Video yet.
 4. Call `video_reconcile` with the returned local `videoId`. Processing is not ready playback.
 5. Call `material_save` with the loaded `expectedContentVersion`, complete state, a stable
    idempotency key and `primaryVideoId` set to that local `videoId`. Keep the intended
@@ -140,6 +144,16 @@ provider recording serves the stand and production and survives a later change o
    `--replace-public-upload` (see above). A
    target that predates ADR 0041 refuses any access change of a lesson that keeps its Video, which
    the preview names `video_access_change`.
+
+### Moving a recording to another lesson
+
+Move `platform_video.kinescope_id` from one lesson's source to another's in one commit; the old lesson
+may also leave the programme, be archived, switch to another recording or lose its video in the same
+commit, and two lessons may swap recordings. The next release on every target attaches all named
+recordings before saving any lesson, so the receiving lesson plays the recording and the old one ends
+without it whatever their order ([ADR 0048](../adr/0048-recording-moves-to-the-material-that-attaches-it.md)).
+The preview marks both lessons with `videoChange`. A package that names one recording in two lessons
+is refused before any write.
 
 ## Links to a video moment
 

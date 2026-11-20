@@ -23,7 +23,7 @@ export function registerVideoTools(
     {
       title: "Attach existing Kinescope video",
       description:
-        "Register the exact provider Video ID for one Material and its current access class. The recording must be in the protected Kinescope project, which serves free and closed access, or, for a free Material only, in the public project; ownership is enforced. Never moves or uploads video bytes. Load the Material first. Then use material_save with the returned videoId as primaryVideoId and the loaded contentVersion to select it. Attachment alone does not publish or change the primary Video.",
+        "Register the exact provider Video ID for one Material and its current access class. The recording must be in the protected Kinescope project, which serves free and closed access, or, for a free Material only, in the public project. A recording another Material holds moves to this one: that Material stops playing it at once and its next save must name another Video or none. An upload in progress or a Video being deleted is refused. Never moves or uploads video bytes. Load the Material first. Then use material_save with the returned videoId as primaryVideoId and the loaded contentVersion to select it. Attachment alone does not publish or change the primary Video.",
       inputSchema: videoAttachmentBodySchema
         .extend({ materialId: z.uuid() })
         .strict(),

@@ -521,6 +521,9 @@ function applicationApi() {
           material.primaryVideoId === null
             ? undefined
             : videos.get(material.primaryVideoId);
+        // A recording that moved to another Material leaves no selection the author sees.
+        if (video !== undefined && video.materialId !== material.materialId)
+          return { ...material, primaryVideoId: null };
         // A target before ADR 0041 reports no protection; this double omits it on request.
         return video === undefined || video.protected === undefined
           ? material
@@ -538,8 +541,15 @@ function applicationApi() {
           current.publicationState !== "draft"
         )
           throw new Error("invalid_publication_transition");
-        if (command.primaryVideoId !== null)
-          assert.equal(valueAt(videos, command.primaryVideoId).state, "ready");
+        if (command.primaryVideoId !== null) {
+          const selected = valueAt(videos, command.primaryVideoId);
+          assert.equal(selected.state, "ready");
+          if (selected.materialId !== current.materialId)
+            throw Object.assign(
+              new Error("invalid_reference video_provider_mismatch"),
+              { status: 422 },
+            );
+        }
         Object.assign(current, {
           contentVersion: current.contentVersion + 1,
           primaryVideoId: command.primaryVideoId,
@@ -565,7 +575,11 @@ function applicationApi() {
         const existing = [...videos.values()].find(
           (video) => video.providerVideoId === providerVideoId,
         );
-        if (existing) return structuredClone(existing);
+        // Platform moves a recording another Material holds to the one that attaches it.
+        if (existing) {
+          existing.materialId = itemAt(match, 1);
+          return structuredClone(existing);
+        }
         const video = {
           videoId: uuid(next++),
           materialId: itemAt(match, 1),
@@ -1076,6 +1090,140 @@ test("a video that never becomes ready stops before Save and resumes with the sa
   await run(setup, api);
   assert.equal(api.count(/videos\/attach$/u), 1);
   assert.equal(api.videos.size, 1);
+});
+
+test("a release moves a recording to another lesson in either order, also when the giver is archived", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  await run(setup, api);
+  const recording = uuid(777);
+  const lesson = valueAt(api.materials, "inside-content:lesson");
+  const video = valueAt(api.materials, "inside-content:video");
+  const videoId = video.primaryVideoId;
+  assert.ok(videoId);
+  const give = (/** @type {number} */ from, /** @type {number} */ to) => {
+    Object.assign(itemAt(setup.manifest.materials, from), {
+      video: null,
+      videoChapters: [],
+    });
+    itemAt(setup.manifest.materials, to).video = { kinescopeId: recording };
+  };
+
+  // The lesson that receives the recording comes before the one that gives it up.
+  give(1, 0);
+  await setup.write();
+  await run(setup, api);
+  assert.equal(lesson.primaryVideoId, videoId);
+  assert.equal(video.primaryVideoId, null);
+  assert.equal(valueAt(api.videos, videoId).materialId, lesson.materialId);
+  assert.equal(api.videos.size, 1);
+
+  // Back again: now the lesson that gives it up comes first.
+  give(0, 1);
+  await setup.write();
+  await run(setup, api);
+  assert.equal(video.primaryVideoId, videoId);
+  assert.equal(lesson.primaryVideoId, null);
+  assert.equal(valueAt(api.videos, videoId).materialId, video.materialId);
+
+  // The giver leaves the Product and the package, and is archived by the same release.
+  give(1, 0);
+  setup.manifest.materials = setup.manifest.materials.filter(
+    (row) => row.sourceId !== "video",
+  );
+  setup.manifest.selection.materialIds = ["lesson", "old"];
+  itemAt(setup.manifest.products, 0).materialIds = ["lesson", "old"];
+  await setup.write();
+  const archived = await run(setup, api, { archive: ["video"] });
+  assert.deepEqual(archived.archived, [{ sourceId: "inside-content:video" }]);
+  assert.equal(lesson.primaryVideoId, videoId);
+  assert.equal(video.publicationState, "unpublished");
+  assert.equal(video.primaryVideoId, null);
+  assert.deepEqual(api.product.members, [
+    lesson.materialId,
+    valueAt(api.materials, "inside-content:old").materialId,
+  ]);
+});
+
+test("a release swaps the recordings of two lessons", async (t) => {
+  const setup = await fixture(t);
+  itemAt(setup.manifest.materials, 0).video = { kinescopeId: uuid(776) };
+  await setup.write();
+  const api = applicationApi();
+  await run(setup, api);
+  const lesson = valueAt(api.materials, "inside-content:lesson");
+  const video = valueAt(api.materials, "inside-content:video");
+  const [lessonVideo, videoVideo] = [
+    lesson.primaryVideoId,
+    video.primaryVideoId,
+  ];
+  assert.ok(lessonVideo && videoVideo);
+
+  itemAt(setup.manifest.materials, 0).video = { kinescopeId: uuid(777) };
+  Object.assign(itemAt(setup.manifest.materials, 1), {
+    video: { kinescopeId: uuid(776) },
+    videoChapters: [],
+  });
+  await setup.write();
+  const reviewed = await previewRelease(setup.packagePath, setup.state, {
+    origin: resolveLocalTarget("editor"),
+    publish: "all",
+    request: api.request,
+  });
+  for (const sourceId of ["lesson", "video"])
+    assert.equal(
+      reviewed.preview.materials.find((item) => item.sourceId === sourceId)
+        ?.videoChange,
+      true,
+    );
+  await applyRelease(reviewed.path, setup.state, { request: api.request });
+  assert.equal(lesson.primaryVideoId, videoVideo);
+  assert.equal(video.primaryVideoId, lessonVideo);
+  assert.equal(api.videos.size, 2);
+
+  // Swapping back reuses the receipts of the first attachments.
+  itemAt(setup.manifest.materials, 0).video = { kinescopeId: uuid(776) };
+  itemAt(setup.manifest.materials, 1).video = { kinescopeId: uuid(777) };
+  await setup.write();
+  await run(setup, api);
+  assert.equal(lesson.primaryVideoId, lessonVideo);
+  assert.equal(video.primaryVideoId, videoVideo);
+});
+
+test("the release preview names the lesson that gives its recording to another", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  await run(setup, api);
+  itemAt(setup.manifest.materials, 0).video = { kinescopeId: uuid(777) };
+  Object.assign(itemAt(setup.manifest.materials, 1), {
+    video: null,
+    videoChapters: [],
+  });
+  await setup.write();
+  const reviewed = await previewRelease(setup.packagePath, setup.state, {
+    origin: resolveLocalTarget("editor"),
+    publish: "all",
+    request: api.request,
+  });
+  const giver = reviewed.preview.materials.find(
+    (item) => item.sourceId === "video",
+  );
+  assert.equal(giver?.change, "changed");
+  assert.equal(giver?.videoChange, true);
+  assert.equal(
+    reviewed.preview.materials.find((item) => item.sourceId === "lesson")
+      ?.videoChange,
+    true,
+  );
+});
+
+test("one recording named by two lessons stops the release before any write", async (t) => {
+  const setup = await fixture(t);
+  itemAt(setup.manifest.materials, 0).video = { kinescopeId: uuid(777) };
+  await setup.write();
+  const api = applicationApi();
+  await assert.rejects(run(setup, api), /Duplicate Kinescope recording/u);
+  assert.equal(api.count(/apply|attach/u), 0);
 });
 
 test("supplementary originals join the Product after the programme without a chapter", async (t) => {

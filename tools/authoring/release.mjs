@@ -320,6 +320,27 @@ export async function previewRelease(
   const materials = [];
   /** @type {Record<string, number | string>} */
   const expected = {};
+  // The recording of each Video this journal attached or uploaded, and the original that names
+  // each recording now: a Material whose recording another original names gives it up on apply.
+  /** @type {Map<string, string>} */
+  const recordingOf = new Map();
+  for (const [key, value] of Object.entries(resources)) {
+    const attachedReceipt = key.startsWith("video:")
+      ? parseReceipt(attachedVideoReceiptSchema, value)
+      : undefined;
+    const uploadedReceipt = key.startsWith("source-video:")
+      ? parseReceipt(sourceVideoReceiptSchema, value)
+      : undefined;
+    if (attachedReceipt)
+      recordingOf.set(attachedReceipt.videoId, key.split(":").at(-1) ?? "");
+    if (uploadedReceipt)
+      recordingOf.set(uploadedReceipt.videoId, uploadedReceipt.providerVideoId);
+  }
+  const namedBy = new Map(
+    contentMaterials(manifest).flatMap((row) =>
+      row.video === null ? [] : [[row.video.kinescopeId, row.sourceId]],
+    ),
+  );
   for (const row of contentMaterials(manifest)) {
     const key = sourceKey(manifest, row.sourceId);
     const entry = journal.materials[key];
@@ -366,10 +387,15 @@ export async function previewRelease(
       sourceVideoReceiptSchema,
       resources[`source-video:${key}`],
     );
+    const kept = uploaded?.videoId ?? current.primaryVideoId;
+    const takenBy =
+      kept === null ? undefined : namedBy.get(recordingOf.get(kept) ?? "");
     // Attaching the provider record of this Material's own upload returns the same Video.
     const attached =
       row.video === null
-        ? (uploaded?.videoId ?? current.primaryVideoId)
+        ? takenBy === undefined || takenBy === row.sourceId
+          ? kept
+          : null
         : (parseReceipt(
             attachedVideoReceiptSchema,
             resources[`video:${entry.materialId}:${row.video.kinescopeId}`],

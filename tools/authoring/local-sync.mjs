@@ -1654,7 +1654,9 @@ export async function syncLocal(
     }
 
     /**
-     * An existing provider record is attached once; the server refuses to move it to another Material.
+     * An existing provider record is attached to the Material whose original names it. When another
+     * Material holds it, the target moves it here (ADR 0048), so a ready receipt that is not the
+     * current selection is attached again: the recording may have moved away since.
      *
      * @param {ManifestMaterial} row
      * @param {{ materialId: string; primaryVideoId: string | null }} current
@@ -1677,12 +1679,13 @@ export async function syncLocal(
         receipt.videoId === current.primaryVideoId
       )
         return current.primaryVideoId;
-      const attached = receipt
-        ? null
-        : await request(
-            `/authoring/materials/${current.materialId}/videos/attach`,
-            { access, providerVideoId: row.video.kinescopeId },
-          );
+      const attached =
+        receipt !== undefined && receipt.state !== "ready"
+          ? null
+          : await request(
+              `/authoring/materials/${current.materialId}/videos/attach`,
+              { access, providerVideoId: row.video.kinescopeId },
+            );
       if (attached) {
         resources[key] = {
           videoId: attached.videoId,
@@ -1709,6 +1712,29 @@ export async function syncLocal(
       return videoId;
     };
 
+    // Every named recording is attached before any Save, so a recording that moves between two
+    // Materials of this release, or two Materials that swap recordings, reach the same state in any
+    // order. A Material whose original no longer names a recording keeps its current Video unless
+    // another Material took it here; then it saves with none.
+    /** @type {Map<string, string>} */
+    const attachedVideos = new Map();
+    for (const row of rows.values()) {
+      if (keptUnpublished.has(row.sourceId) || row.video === null) continue;
+      const videoId = await attachVideo(
+        row,
+        valueAt(currentMaterials, row.sourceId),
+        row.access ?? defaultAccess,
+      );
+      if (videoId !== null) attachedVideos.set(row.sourceId, videoId);
+    }
+    const movedVideoIds = new Set(attachedVideos.values());
+    /** @param {ManifestMaterial} row @param {{ materialId: string; primaryVideoId: string | null }} current */
+    const selectedVideo = async (row, current) => {
+      if (row.video !== null) return valueAt(attachedVideos, row.sourceId);
+      const kept = await attachVideo(row, current, row.access ?? defaultAccess);
+      return kept !== null && movedVideoIds.has(kept) ? null : kept;
+    };
+
     for (const row of rows.values()) {
       // A kept Material gets no video, body, metadata or cover write; the composition still names it.
       // It skips the journal version check below: that check guards an overwrite, and nothing is
@@ -1733,11 +1759,7 @@ export async function syncLocal(
       let current = valueAt(currentMaterials, row.sourceId);
       const revision = source(row).revision;
       const previous = journal.materials[key];
-      const primaryVideoId = await attachVideo(
-        row,
-        current,
-        row.access ?? defaultAccess,
-      );
+      const primaryVideoId = await selectedVideo(row, current);
       const {
         metadata: desiredMetadata,
         videoChapters,
@@ -2190,6 +2212,14 @@ export async function syncLocal(
           `${key}: no applied original is recorded; archive it in Platform instead`,
         );
       const body = last.body;
+      // A recording that moved to another Material, in this release or before, leaves the archived
+      // one without a Video; the target reports no selection for it (ADR 0048).
+      const primaryVideoId =
+        body.primaryVideoId === null ||
+        (await request(`/authoring/materials/${body.materialId}`))
+          .primaryVideoId !== null
+          ? body.primaryVideoId
+          : null;
       // This is a new archive command, not a replay. Historical journal bytes keep their
       // original key; only the current source and metadata vocabulary goes to the receiver.
       const command = {
@@ -2207,10 +2237,12 @@ export async function syncLocal(
         materialId: body.materialId,
         expectedContentVersion: entry.contentVersion,
         publicationState: "unpublished",
-        primaryVideoId: body.primaryVideoId,
+        primaryVideoId,
         ...(body.videoChapters === undefined
           ? {}
-          : { videoChapters: body.videoChapters }),
+          : {
+              videoChapters: primaryVideoId === null ? [] : body.videoChapters,
+            }),
         ...(typeof body["notifyTelegram"] === "boolean"
           ? { notifyTelegram: body["notifyTelegram"] }
           : {}),

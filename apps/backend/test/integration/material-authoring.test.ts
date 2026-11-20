@@ -1186,6 +1186,148 @@ describe("MaterialAuthoring", () => {
     });
   });
 
+  test("moves a recording between published lessons in either order, including a swap", async () => {
+    const topicId = "96000000-0000-4000-8000-000000000051";
+    await testDatabase.prisma.topic.create({
+      data: { id: topicId, name: "Moved video topic", slug: "moved-video" },
+    });
+    const remote = new Map<string, ProviderVideo>();
+    const recording = (title: string) => {
+      const id = `move-${crypto.randomUUID()}`;
+      remote.set(id, {
+        durationSeconds: 120,
+        embedLocator: `https://kinescope.io/embed/${id}`,
+        id,
+        projectId: "member-project",
+        status: "done",
+        title,
+      });
+      return id;
+    };
+    const videos = assembleVideos({
+      canManage: () => Promise.resolve(true),
+      prisma: testDatabase.prisma,
+      projects: { public: "public-project", protected: "member-project" },
+      provider: {
+        delete: () => Promise.reject(new Error("unused")),
+        find: (input) => Promise.resolve(remote.get(input.id) ?? null),
+        initUpload: () => Promise.reject(new Error("unused")),
+      },
+    });
+    const materials = assembleMaterials({
+      authorPolicy: { canManage: () => Promise.resolve(true) },
+      prisma: testDatabase.prisma,
+      videos,
+    });
+    const metadata = (title: string) => ({
+      access: "free" as const,
+      formatId: "guide",
+      difficulty: null,
+      outcomes: [],
+      productIds: [],
+      summary: "A lesson whose recording moves.",
+      tagIds: [],
+      title,
+      topicId,
+    });
+    const versions = new Map<string, number>();
+    const titles = new Map<string, string>();
+    const lesson = async (title: string) => {
+      const created = await materials.authoring.createDraft({
+        actor,
+        body: representativeDocument(title),
+        idempotencyKey: `create-${title}`,
+        metadata: metadata(title),
+      });
+      if (!created.ok) throw new Error(created.error.code);
+      versions.set(created.value.materialId, 1);
+      titles.set(created.value.materialId, title);
+      return created.value.materialId;
+    };
+    const save = async (materialId: string, primaryVideoId: string | null) => {
+      const title = titles.get(materialId) ?? "";
+      const expectedContentVersion = versions.get(materialId) ?? 0;
+      const saved = await materials.authoring.saveMaterial({
+        actor,
+        body: representativeDocument(title),
+        expectedContentVersion,
+        idempotencyKey: `save-${title}-${expectedContentVersion}`,
+        materialId,
+        metadata: metadata(title),
+        primaryVideoId,
+        publicationState: "published",
+      });
+      if (saved.ok) versions.set(materialId, saved.value.contentVersion);
+      return saved;
+    };
+    const attach = async (materialId: string, providerVideoId: string) => {
+      const attached = await videos.attachExisting({
+        access: "free",
+        actor,
+        materialId,
+        providerVideoId,
+      });
+      if (!attached.ok) throw new Error(attached.error.code);
+      return attached.value.videoId;
+    };
+    const plays = async (slug: string) => {
+      const read = await materials.publishedMaterialReader.read({
+        slug,
+        subject: { kind: "anonymous" },
+      });
+      if (!read.ok || read.value.kind !== "available")
+        throw new Error("not available");
+      return read.value.primaryVideo?.videoId ?? null;
+    };
+    const selected = async (materialId: string) => {
+      const loaded = await materials.authoring.loadMaterial({
+        actor,
+        materialId,
+      });
+      if (!loaded.ok) throw new Error(loaded.error.code);
+      return loaded.value.primaryVideoId;
+    };
+
+    const start = await lesson("Moved recording start");
+    const workspace = await lesson("Moved recording workspace");
+    const first = recording("First");
+    const firstVideo = await attach(start, first);
+    await expect(save(start, firstVideo)).resolves.toMatchObject({ ok: true });
+    await expect(save(workspace, null)).resolves.toMatchObject({ ok: true });
+
+    // The lesson that receives the recording attaches it first, while the old lesson still selects it.
+    await expect(attach(workspace, first)).resolves.toBe(firstVideo);
+    // The old lesson stops playing it at once and its editor sees no Video; it cannot select it again.
+    await expect(plays("moved-recording-start")).resolves.toBeNull();
+    await expect(selected(start)).resolves.toBeNull();
+    await expect(save(start, firstVideo)).resolves.toEqual({
+      error: {
+        code: "invalid_reference",
+        issues: [{ code: "video_provider_mismatch", path: "/primaryVideoId" }],
+      },
+      ok: false,
+    });
+    await expect(save(workspace, firstVideo)).resolves.toMatchObject({
+      ok: true,
+    });
+    await expect(save(start, null)).resolves.toMatchObject({ ok: true });
+    await expect(plays("moved-recording-workspace")).resolves.toBe(firstVideo);
+    await expect(selected(workspace)).resolves.toBe(firstVideo);
+
+    // Two lessons swap recordings; the Saves run in either order after both attachments.
+    const second = recording("Second");
+    const secondVideo = await attach(start, second);
+    await expect(save(start, secondVideo)).resolves.toMatchObject({ ok: true });
+    await expect(attach(workspace, second)).resolves.toBe(secondVideo);
+    await expect(attach(start, first)).resolves.toBe(firstVideo);
+    await expect(save(workspace, secondVideo)).resolves.toMatchObject({
+      ok: true,
+    });
+    await expect(save(start, firstVideo)).resolves.toMatchObject({ ok: true });
+    await expect(plays("moved-recording-start")).resolves.toBe(firstVideo);
+    await expect(plays("moved-recording-workspace")).resolves.toBe(secondVideo);
+  });
+
   test("records active Platform upload deletion on Save and defers physical DELETE to the worker", async () => {
     let providerDeleteCalls = 0;
     const provider: VideoProvider = {
