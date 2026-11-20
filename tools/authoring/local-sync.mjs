@@ -1664,14 +1664,8 @@ export async function syncLocal(
      * @returns {Promise<string | null>}
      */
     const attachVideo = async (row, current, access) => {
-      if (row.video === null) {
-        // A recording uploaded by authoring:video stays attached until the original names its provider record.
-        const uploaded = parseReceipt(
-          sourceVideoReceiptSchema,
-          resources[`source-video:${sourceId(row.sourceId)}`],
-        );
-        return uploaded?.videoId ?? current.primaryVideoId;
-      }
+      if (row.video === null)
+        throw new Error(`${row.sourcePath}: the original names no recording`);
       const key = `video:${current.materialId}:${row.video.kinescopeId}`;
       const receipt = parseReceipt(attachedVideoReceiptSchema, resources[key]);
       if (
@@ -1736,8 +1730,9 @@ export async function syncLocal(
 
     // Every named recording is attached before any Save, so a recording that moves between two
     // Materials of this release, or two Materials that swap recordings, reach the same state in any
-    // order. A Material whose original no longer names a recording keeps its current Video unless
-    // another Material took it here; then it saves with none.
+    // order. The original is the authority over its lesson's recording (ADR 0048): a Material whose
+    // original names none saves with none. Its own Video is detached, unless another Material took
+    // it here; the provider recording stays.
     /** @type {Map<string, string>} */
     const attachedVideos = new Map();
     for (const row of rows.values()) {
@@ -1750,11 +1745,47 @@ export async function syncLocal(
       if (videoId !== null) attachedVideos.set(row.sourceId, videoId);
     }
     const movedVideoIds = new Set(attachedVideos.values());
-    /** @param {ManifestMaterial} row @param {{ materialId: string; primaryVideoId: string | null }} current */
+    const detachable = receiverFeatures.includes("video-detach-v1");
+    /**
+     * @param {ManifestMaterial} row
+     * @param {{ materialId: string; primaryVideoId: string | null }} current
+     * @returns {Promise<{ primaryVideoId: string | null; detached: string | null }>}
+     */
     const selectedVideo = async (row, current) => {
-      if (row.video !== null) return valueAt(attachedVideos, row.sourceId);
-      const kept = await attachVideo(row, current, row.access ?? defaultAccess);
-      return kept !== null && movedVideoIds.has(kept) ? null : kept;
+      if (row.video !== null)
+        return {
+          primaryVideoId: valueAt(attachedVideos, row.sourceId),
+          detached: null,
+        };
+      // A recording uploaded by authoring:video stays until the original names its provider record
+      // for the first time; once a release attached it by that name, the original decides.
+      const uploaded = parseReceipt(
+        sourceVideoReceiptSchema,
+        resources[`source-video:${sourceId(row.sourceId)}`],
+      );
+      if (
+        uploaded !== undefined &&
+        resources[`video:${current.materialId}:${uploaded.providerVideoId}`] ===
+          undefined
+      )
+        return {
+          primaryVideoId: movedVideoIds.has(uploaded.videoId)
+            ? null
+            : uploaded.videoId,
+          detached: null,
+        };
+      const held = current.primaryVideoId;
+      if (held === null || movedVideoIds.has(held))
+        return { primaryVideoId: null, detached: null };
+      // The journal may remember a selection the target no longer holds: a recording another
+      // release moved away is not this Material's to detach.
+      const target = await request(
+        `/authoring/materials/${current.materialId}`,
+      );
+      return {
+        primaryVideoId: null,
+        detached: target.primaryVideoId === held ? held : null,
+      };
     };
 
     for (const row of rows.values()) {
@@ -1781,7 +1812,7 @@ export async function syncLocal(
       let current = valueAt(currentMaterials, row.sourceId);
       const revision = source(row).revision;
       const previous = journal.materials[key];
-      const primaryVideoId = await selectedVideo(row, current);
+      const { primaryVideoId, detached } = await selectedVideo(row, current);
       const {
         metadata: desiredMetadata,
         videoChapters,
@@ -1838,6 +1869,11 @@ export async function syncLocal(
           metadata: desiredMetadata,
           body: convert(row, links, images),
           primaryVideoId,
+          // A receiver before `video-detach-v1` refuses the field; the Save without it still
+          // leaves the lesson without the recording.
+          ...(detached !== null && detachable
+            ? { detachVideoIds: [detached] }
+            : {}),
           videoChapters,
         };
         const saved = materialReceiptSchema.parse(
@@ -1860,6 +1896,21 @@ export async function syncLocal(
         current = { ...current, contentVersion: saved.contentVersion };
         await persist();
         report.applied++;
+        if (detached !== null) {
+          // The recording a receipt of this Material names, or the Video when none does.
+          const recording =
+            Object.entries(resources).find(
+              ([other, value]) =>
+                other.startsWith(`video:${current.materialId}:`) &&
+                parseReceipt(attachedVideoReceiptSchema, value)?.videoId ===
+                  detached,
+            )?.[0] ?? `video:${current.materialId}:${detached}`;
+          report.notices.push({
+            code: "video_detached",
+            path: row.sourcePath,
+            message: `Оригинал больше не называет запись ${recording.split(":").at(-1) ?? detached}; она откреплена от урока и осталась в Kinescope`,
+          });
+        }
       }
       const synchronized = journal.materials[key];
       if (synchronized === undefined)

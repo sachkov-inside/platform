@@ -37,5 +37,8 @@ export const authoringImportContract = {
     // A Product may carry its course roadmap; the client writes it through
     // PUT /authoring/products/:productId/roadmap (#2141).
     "product-roadmap-v1",
+    // A lesson apply may carry `detachVideoIds`: the Videos it detaches from its Material when the
+    // original no longer names a recording; the provider recording stays (ADR 0048).
+    "video-detach-v1",
   ],
 } as const;

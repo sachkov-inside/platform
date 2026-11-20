@@ -157,6 +157,17 @@ The preview marks both lessons with `videoChange`. Each move becomes a `video_mo
 state journal. A package that names one recording in two lessons
 is refused before any write.
 
+### Removing a recording from a lesson
+
+Remove `platform_video` (and the `video` fence) from the lesson source and commit. The next release
+saves the lesson without a video and detaches its Video, so the editor never offers it back; the
+recording stays in Kinescope, and deleting it there is a separate owner decision
+([ADR 0048](../adr/0048-recording-moves-to-the-material-that-attaches-it.md)). The preview marks the
+lesson with `videoChange` and `videoDetached`; apply reports a `video_detached` notice naming the
+recording. A recording another lesson takes in the same release is moved, not detached. A lesson
+whose `authoring:video` upload the source has not yet named keeps that upload. A receiver without
+`video-detach-v1` gets the Save without `detachVideoIds`: the lesson still loses its player.
+
 ## Links to a video moment
 
 Reader links support `#t=<whole seconds>`, for example `/materials/example#t=261`. The explicit

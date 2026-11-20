@@ -202,6 +202,7 @@ test("the import environment names the runtime mode and the accepted import cont
         "exercise-v1",
         "step-breaks-v1",
         "product-roadmap-v1",
+        "video-detach-v1",
       ],
     },
   });

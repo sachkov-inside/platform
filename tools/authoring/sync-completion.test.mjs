@@ -173,6 +173,7 @@ async function fixture(t) {
  *   state: string;
  *   reconciles: number;
  *   protected?: boolean;
+ *   detached?: boolean;
  * }} FakeVideo
  * @typedef {{
  *   artifactId: string;
@@ -342,6 +343,8 @@ function applicationApi() {
     glossary: [],
     /** @type {string | undefined} */
     rejectValidation: undefined,
+    /** Receiver features withheld, as a receiver before them reports. @type {string[]} */
+    withheldFeatures: [],
     /** @param {RegExp} pattern */
     count: (pattern) => calls.filter((call) => pattern.test(call.path)).length,
     /** @type {LocalTransport} */
@@ -357,8 +360,14 @@ function applicationApi() {
               )
             : structuredClone(body),
       });
-      if (path === "/authoring/import/materials/environment")
-        return currentEnvironment("development");
+      if (path === "/authoring/import/materials/environment") {
+        const environment = currentEnvironment("development");
+        environment.contract.packageFeatures =
+          environment.contract.packageFeatures.filter(
+            (feature) => !api.withheldFeatures.includes(feature),
+          );
+        return environment;
+      }
       if (path === "/authoring/glossary")
         return { terms: structuredClone(api.glossary) };
       if (path === "/authoring/glossary/terms") {
@@ -549,6 +558,28 @@ function applicationApi() {
               new Error("invalid_reference video_provider_mismatch"),
               { status: 422 },
             );
+        }
+        // A receiver before detachment refuses the field; this one detaches only its own Videos.
+        const detachVideoIds = command.detachVideoIds ?? [];
+        if (
+          detachVideoIds.length > 0 &&
+          api.withheldFeatures.includes("video-detach-v1")
+        )
+          throw Object.assign(new Error("invalid_request /detachVideoIds"), {
+            status: 400,
+          });
+        for (const videoId of detachVideoIds) {
+          const detached = videos.get(videoId);
+          if (
+            detached === undefined ||
+            detached.materialId !== current.materialId ||
+            videoId === command.primaryVideoId
+          )
+            throw Object.assign(
+              new Error("invalid_reference video_not_found"),
+              { status: 422 },
+            );
+          detached.detached = true;
         }
         Object.assign(current, {
           contentVersion: current.contentVersion + 1,
@@ -1235,6 +1266,171 @@ test("one recording named by two lessons stops the release before any write", as
   const api = applicationApi();
   await assert.rejects(run(setup, api), /Duplicate Kinescope recording/u);
   assert.equal(api.count(/apply|attach/u), 0);
+});
+
+/**
+ * @param {Awaited<ReturnType<typeof fixture>>} setup
+ * @param {ReturnType<typeof applicationApi>} api
+ */
+async function reviewRelease(setup, api) {
+  const reviewed = await previewRelease(setup.packagePath, setup.state, {
+    origin: resolveLocalTarget("editor"),
+    publish: "all",
+    request: api.request,
+  });
+  /** @param {string} sourceId */
+  const item = (sourceId) =>
+    reviewed.preview.materials.find((entry) => entry.sourceId === sourceId);
+  return { reviewed, item };
+}
+
+/**
+ * The notices of a sync or release report; a release of another scope has none.
+ *
+ * @param {object} report
+ * @param {string} code
+ */
+const noticesOf = (report, code) => {
+  assert.ok("notices" in report && Array.isArray(report.notices));
+  return z
+    .array(
+      z.object({ code: z.string(), path: z.string(), message: z.string() }),
+    )
+    .parse(report.notices)
+    .filter((notice) => notice.code === code);
+};
+/** @param {object} report @param {string} code */
+const noticePaths = (report, code) =>
+  noticesOf(report, code).map((notice) => notice.path);
+
+test("a release detaches the recording an original no longer names and keeps it at the provider", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  await run(setup, api);
+  const video = valueAt(api.materials, "inside-content:video");
+  const videoId = video.primaryVideoId;
+  assert.ok(videoId);
+
+  Object.assign(itemAt(setup.manifest.materials, 1), {
+    video: null,
+    videoChapters: [],
+  });
+  await setup.write();
+  const { reviewed, item } = await reviewRelease(setup, api);
+  assert.equal(item("video")?.change, "changed");
+  assert.equal(item("video")?.videoChange, true);
+  assert.equal(item("video")?.videoDetached, true);
+  assert.equal(item("lesson")?.videoChange, undefined);
+  const applied = await applyRelease(reviewed.path, setup.state, {
+    request: api.request,
+  });
+  assert.equal(video.primaryVideoId, null);
+  assert.deepEqual(video.videoChapters, []);
+  const detached = valueAt(api.videos, videoId);
+  assert.equal(detached.detached, true);
+  assert.equal(detached.materialId, video.materialId);
+  assert.deepEqual(noticePaths(applied, "video_detached"), ["video.md"]);
+  assert.match(
+    noticesOf(applied, "video_detached")[0]?.message ?? "",
+    new RegExp(uuid(777), "u"),
+  );
+
+  // The next release finds nothing to detach.
+  const saves = api.count(/materials\/apply$/u);
+  const again = await run(setup, api);
+  assert.equal(api.count(/materials\/apply$/u), saves);
+  assert.deepEqual(noticePaths(again, "video_detached"), []);
+});
+
+test("a release moves one recording and detaches another in either order", async (t) => {
+  for (const order of [
+    ["lesson", "video", "old"],
+    ["old", "video", "lesson"],
+  ]) {
+    const setup = await fixture(t);
+    itemAt(setup.manifest.materials, 2).video = { kinescopeId: uuid(775) };
+    await setup.write();
+    const api = applicationApi();
+    await run(setup, api);
+    const lesson = valueAt(api.materials, "inside-content:lesson");
+    const video = valueAt(api.materials, "inside-content:video");
+    const old = valueAt(api.materials, "inside-content:old");
+    const moved = video.primaryVideoId;
+    const removed = old.primaryVideoId;
+    assert.ok(moved && removed);
+
+    // The video lesson gives its recording to the lesson; the old one loses its own.
+    itemAt(setup.manifest.materials, 0).video = { kinescopeId: uuid(777) };
+    Object.assign(itemAt(setup.manifest.materials, 1), {
+      video: null,
+      videoChapters: [],
+    });
+    itemAt(setup.manifest.materials, 2).video = null;
+    setup.manifest.materials = order.map((id) => {
+      const row = setup.manifest.materials.find(
+        (entry) => entry.sourceId === id,
+      );
+      assert.ok(row);
+      return row;
+    });
+    await setup.write();
+    const { reviewed, item } = await reviewRelease(setup, api);
+    for (const id of ["lesson", "video", "old"])
+      assert.equal(item(id)?.videoChange, true, id);
+    assert.equal(item("video")?.videoDetached, undefined);
+    assert.equal(item("lesson")?.videoDetached, undefined);
+    assert.equal(item("old")?.videoDetached, true);
+    const applied = await applyRelease(reviewed.path, setup.state, {
+      request: api.request,
+    });
+    assert.equal(lesson.primaryVideoId, moved);
+    assert.equal(video.primaryVideoId, null);
+    assert.equal(old.primaryVideoId, null);
+    assert.equal(valueAt(api.videos, moved).materialId, lesson.materialId);
+    assert.equal(valueAt(api.videos, moved).detached, undefined);
+    assert.equal(valueAt(api.videos, removed).detached, true);
+    assert.deepEqual(noticePaths(applied, "video_detached"), ["old.md"]);
+    assert.deepEqual(noticePaths(applied, "video_moved"), ["lesson.md"]);
+  }
+});
+
+test("a release keeps the recording of an original that still names it", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  await run(setup, api);
+  const video = valueAt(api.materials, "inside-content:video");
+  const videoId = video.primaryVideoId;
+  // Only the text changes: the recording and its selection stay.
+  itemAt(setup.manifest.materials, 1).markdown = "Новый текст";
+  await setup.write();
+  const { reviewed, item } = await reviewRelease(setup, api);
+  assert.equal(item("video")?.change, "changed");
+  assert.equal(item("video")?.videoChange, undefined);
+  assert.equal(item("video")?.videoDetached, undefined);
+  const applied = await applyRelease(reviewed.path, setup.state, {
+    request: api.request,
+  });
+  assert.equal(video.primaryVideoId, videoId);
+  assert.equal(valueAt(api.videos, videoId ?? "").detached, undefined);
+  assert.deepEqual(noticePaths(applied, "video_detached"), []);
+});
+
+test("a receiver before detachment saves the lesson without the recording it no longer names", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  await run(setup, api);
+  const video = valueAt(api.materials, "inside-content:video");
+  const videoId = video.primaryVideoId;
+  api.withheldFeatures = ["video-detach-v1"];
+  Object.assign(itemAt(setup.manifest.materials, 1), {
+    video: null,
+    videoChapters: [],
+  });
+  await setup.write();
+  const report = await run(setup, api);
+  assert.equal(video.primaryVideoId, null);
+  assert.equal(valueAt(api.videos, videoId ?? "").detached, undefined);
+  assert.deepEqual(noticePaths(report, "video_detached"), ["video.md"]);
 });
 
 test("supplementary originals join the Product after the programme without a chapter", async (t) => {

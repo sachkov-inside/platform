@@ -109,13 +109,14 @@ export function assembleApplySourceMaterial(
   return async (input) => {
     const parsed = parseCommand(applyCommand, input);
     if (!parsed.ok) return parsed;
-    const { source, videoChapters, ...command } = parsed.value;
+    const { source, videoChapters, detachVideoIds, ...command } = parsed.value;
     return assembleSaveMaterial(
       dependencies,
       source,
     )({
       ...command,
       ...(videoChapters === undefined ? {} : { videoChapters }),
+      ...(detachVideoIds === undefined ? {} : { detachVideoIds }),
     });
   };
 }
