@@ -418,12 +418,12 @@
     {
       "id": "D29",
       "status": "retained-design",
-      "path": "apps/web/src/entities/material/model/lesson-steps.client.tsx",
-      "owner": "LessonSteps",
+      "path": "apps/web/src/entities/material/model/use-lesson-fragment-navigation.client.ts",
+      "owner": "useLessonFragmentNavigation",
       "kind": "useEffect",
-      "fingerprint": "e7c40c25b24c2625c16973f1c0dd1499323647640dcc1c2c686d73b79e537c15",
+      "fingerprint": "a2d9d2dd7be6bf8b5e5ec34b841b41efc3770d3247c22c5ebd652f613fc03869",
       "disposition": "extract",
-      "next": "Отделить слушателей capture click/hashchange и начальное чтение hash от модели открытых частей. Сохранить расчёт части по порядку DOM и глубокую ссылку при первом показе.",
+      "next": "Подтвердить доставку отдельного адаптера начальной ссылки и подписок click/hashchange с сохранением поведения Reader.",
       "test": "apps/web/test/browser-engines/body-fragments.test.ts",
       "additionalTests": [
         "apps/web/test/navigation/reader-initial-fragment.spec.ts",
