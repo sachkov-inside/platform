@@ -9,7 +9,7 @@
  * Every function takes an optional `scope`: a node inside or around one shell picks that shell,
  * so a page that renders several shells (a Storybook docs page) reaches the right one.
  *
- * Browser-only: call these functions from effects and event handlers.
+ * Browser-only. Read the breakpoint in the browser when attaching a shell control.
  */
 
 const desktopQuery = "(width >= 64rem)";
@@ -17,6 +17,11 @@ const contentSelector = "[data-application-content]";
 
 function desktopMedia(): MediaQueryList {
   return window.matchMedia(desktopQuery);
+}
+
+/** The same browser breakpoint that owns shell scrolling and desktop navigation. */
+export function readShellDesktop(): boolean {
+  return desktopMedia().matches;
 }
 
 /** A node inside or around one shell; without one, the first shell in the document. */

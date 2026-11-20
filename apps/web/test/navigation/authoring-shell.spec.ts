@@ -259,3 +259,111 @@ test("global search refuses an account without the right instead of answering em
   ).toBeVisible();
   await expect(dialog.getByRole("option")).toHaveCount(0);
 });
+
+test("the mobile more sheet stays closed after a desktop round trip (#2424)", async ({
+  context,
+  page,
+  baseURL,
+}) => {
+  if (baseURL === undefined) throw new Error("baseURL required");
+  await context.addCookies([await authorCookie(baseURL)]);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/authoring/topics");
+  await expect(
+    page.getByRole("heading", { name: "Темы", level: 1 }),
+  ).toBeVisible();
+  const more = page
+    .getByRole("navigation", { name: "Основные разделы" })
+    .getByRole("button", { name: "Ещё" });
+  const sheet = page.getByRole("dialog", { name: "Ещё" });
+  await more.click();
+  await expect(sheet).toBeVisible();
+  await page.setViewportSize({ width: 1440, height: 1024 });
+  await expect(sheet).toBeHidden();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(more).toBeVisible();
+  await expect(more).toHaveAttribute("aria-expanded", "false");
+  await expect(sheet).toBeHidden();
+  await more.click();
+  await expect(sheet).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+  await expect(more).toBeFocused();
+});
+
+test("a backdrop click dismisses the mobile More sheet and restores its trigger", async ({
+  context,
+  page,
+  baseURL,
+}) => {
+  if (baseURL === undefined) throw new Error("baseURL required");
+  await context.addCookies([await authorCookie(baseURL)]);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/authoring/topics");
+  const trigger = page.getByRole("button", { name: "Ещё", exact: true });
+  const sheet = page.getByRole("dialog", { name: "Ещё", exact: true });
+  await trigger.click();
+  await expect(sheet).toBeVisible();
+  const bounds = await sheet.boundingBox();
+  if (!bounds || bounds.y < 2)
+    throw new Error("No visible backdrop above the More sheet");
+  await page.mouse.click(bounds.x + bounds.width / 2, bounds.y / 2);
+  await expect(sheet).toBeHidden();
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
+  await expect(trigger).toBeFocused();
+});
+
+test("the More sheet is visible or released at the desktop resize event", async ({
+  context,
+  page,
+  baseURL,
+}) => {
+  if (baseURL === undefined) throw new Error("baseURL required");
+  await context.addCookies([await authorCookie(baseURL)]);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/authoring/topics");
+  const trigger = page.getByRole("button", { name: "Ещё", exact: true });
+  const sheet = page.getByRole("dialog", { name: "Ещё", exact: true });
+  await trigger.click();
+  await expect(sheet).toBeVisible();
+  const dialog = await sheet.elementHandle();
+  const sample = await dialog.evaluateHandle((element) => {
+    if (
+      !(element instanceof HTMLDialogElement) ||
+      !element.open ||
+      !element.matches(":modal")
+    )
+      throw new Error("Expected the open native More dialog");
+    return {
+      resize: new Promise<boolean>((resolve) => {
+        window.addEventListener(
+          "resize",
+          () => {
+            resolve(
+              element.open &&
+                element.matches(":modal") &&
+                getComputedStyle(element).display === "none",
+            );
+          },
+          { once: true },
+        );
+      }),
+    };
+  });
+  await page.setViewportSize({ width: 1440, height: 1024 });
+  expect(await sample.evaluate((observation) => observation.resize)).toBe(
+    false,
+  );
+  await expect
+    .poll(() =>
+      dialog.evaluate(
+        (element) =>
+          element.isConnected &&
+          !element.hasAttribute("open") &&
+          !element.matches(":modal"),
+      ),
+    )
+    .toBe(true);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
+});
