@@ -22,9 +22,9 @@ import type {
 
 type Buttons = AuthorButton[];
 const MAX_DELAY = 2147483647;
-const back: Buttons = [["К последовательности", { kind: "seq:show" }]];
+const back: Buttons = [["К воронке", { kind: "seq:show" }]];
 const root: Buttons = [
-  ["Все последовательности", { kind: "seq:list" }],
+  ["Все воронки", { kind: "seq:list" }],
   ["В меню", { kind: "home" }],
 ];
 const names = {
@@ -51,6 +51,7 @@ export function isSequenceEditorAction(
 /** Sequence buttons that do not leave the current prompt. */
 const PROMPT_STEPS = [
   "seq:settings",
+  "seq:manage",
   "seq:messages",
   "seq:message",
   "seq:timing",
@@ -105,7 +106,7 @@ export function newSequence(t: Turn) {
   t.state.sequenceAuthor = {
     sequence: {
       sequenceId: t.newId(),
-      name: "Новая последовательность",
+      name: "Новая воронка",
       isDefault: false,
       entryResponse: { stepId: t.newId(), parts: [] },
       steps: [],
@@ -129,8 +130,7 @@ export function appendPrepared(t: Turn, content: TemplateContent) {
   s.sequence = {
     ...f,
     name:
-      !isTruthy(f.entryResponse.parts.length) &&
-      f.name === "Новая последовательность"
+      !isTruthy(f.entryResponse.parts.length) && f.name === "Новая воронка"
         ? (presentText(content.text.slice(0, 80)) ?? messageLabel(content))
         : f.name,
     entryResponse: {
@@ -174,110 +174,93 @@ export function showSequence(t: Turn): void {
     f = s.sequence;
   s.prompt = undefined;
   if (!f) return performSequence(t, { kind: "seq:list" });
+  s.target = "entry";
   const pending = t.compositionButtons(f.sequenceId);
+  const first = f.entryResponse.parts[0];
+  const single = f.entryResponse.parts.length === 1 && f.steps.length === 0;
+  const editable = f.lifecycle !== "archived";
+  const onlySource = f.sources.length === 1 ? f.sources[0] : undefined;
   t.reply(
-    `${f.name}\n${names[f.lifecycle]}${isTruthy(s.dirty) ? " · есть правки" : ""}\nСообщений: ${f.entryResponse.parts.length + f.steps.reduce((n, step) => n + step.parts.length, 0)}. Основная последовательность: ${f.isDefault ? "да" : "нет"}.\n${f.steps
-      .map((step, i) => `${i + 1}. Через ${stepTime(step)}`)
-      .slice(0, 5)
-      .join("\n")}`,
+    `${f.name}\n${names[f.lifecycle]}${isTruthy(s.dirty) ? " · есть правки" : ""}${f.isDefault ? " · основной вход" : ""}\n\nПри входе: ${f.entryResponse.parts.length} сообщ.\n${first ? messageLabel(first.content, 220) : "Добавьте первое сообщение."}\n${isTruthy(f.steps.length) ? `Отложенных шагов: ${f.steps.length}` : "Отложенных сообщений нет."}\nИсточников входа: ${f.sources.length}`,
     [
       ...pending,
-      ...(f.lifecycle !== "archived" && !isTruthy(pending.length)
+      ...(editable && !isTruthy(pending.length)
         ? [
             [
-              "Добавить сообщение",
-              { kind: "sequence:sequence" },
+              single && first ? "Изменить сообщение" : "Сообщения",
+              single && first
+                ? { kind: "compose:edit-sequence", id: first.partId }
+                : { kind: "seq:messages" },
+            ] as AuthorButton,
+          ]
+        : []),
+      ...(editable
+        ? [
+            [
+              "Ссылка для входа",
+              onlySource
+                ? { kind: "seq:source", id: onlySource.sourceId }
+                : { kind: "seq:sources" },
             ] as AuthorButton,
           ]
         : []),
       ...(isTruthy(s.dirty)
         ? [["Сохранить черновик", { kind: "seq:save" }] as AuthorButton]
-        : []),
-      ...(!isTruthy(s.dirty) &&
-      f.lifecycle !== "archived" &&
-      isTruthy(f.revision) &&
-      f.revision !== f.publishedRevision
-        ? [
-            [
-              f.publishedRevision === null
-                ? "Включить последовательность"
-                : "Применить изменения",
-              { kind: "seq:preview" },
-            ] as AuthorButton,
-          ]
-        : []),
-      ...(f.lifecycle !== "archived"
-        ? [["Сообщения", { kind: "seq:messages" }] as AuthorButton]
-        : []),
+        : editable && isTruthy(f.revision) && f.revision !== f.publishedRevision
+          ? [
+              [
+                f.publishedRevision === null
+                  ? "Включить воронку"
+                  : "Применить изменения",
+                { kind: "seq:preview" },
+              ] as AuthorButton,
+            ]
+          : []),
       ["Настройки", { kind: "seq:settings" }],
-      ...(f.lifecycle === "draft" && !f.isDefault
-        ? [["Сделать основной", { kind: "seq:default" }] as AuthorButton]
-        : []),
-      ...(f.lifecycle === "published"
-        ? [
-            [
-              "Приостановить",
-              { kind: "seq:life", value: "pause" },
-            ] as AuthorButton,
-          ]
-        : []),
-      ...(f.lifecycle === "paused"
-        ? [
-            [
-              "Продолжить",
-              { kind: "seq:life", value: "resume" },
-            ] as AuthorButton,
-          ]
-        : []),
-      ...(f.lifecycle !== "archived"
-        ? [
-            [
-              "Отменить последовательность",
-              {
-                kind: isTruthy(f.revision)
-                  ? "seq:confirm-archive"
-                  : "seq:discard",
-              },
-            ] as AuthorButton,
-          ]
-        : []),
-      ["Все последовательности", { kind: "seq:list" }],
+      ["Все воронки", { kind: "seq:list" }],
     ],
   );
 }
 
-/**
- * The sequence's configuration. Saving, publication and the other lifecycle actions stay on its
- * card; an archived sequence is restored here.
- */
 function settings(t: Turn) {
-  const s = sequenceState(t),
-    f = openSequence(s);
+  const f = openSequence(sequenceState(t));
   t.reply(`Настройки · ${f.name}`, [
-    ...t.compositionButtons(f.sequenceId),
     ...(f.lifecycle !== "archived"
       ? ([
           ["Название", { kind: "seq:name" }],
           ["Первый ответ", { kind: "seq:parts", id: "entry" }],
           ["Шаги и задержки", { kind: "seq:steps" }],
-          ["Источники", { kind: "seq:sources" }],
-          [
-            f.isDefault ? "Убрать из основных" : "Сделать основной",
-            { kind: "seq:default" },
-          ],
         ] as Buttons)
-      : [
-          [
-            "Восстановить",
-            { kind: "seq:life", value: "restore" },
-          ] as AuthorButton,
-        ]),
-    ["Общий вводный блок", { kind: "seq:intro" }],
-    ...(isTruthy(s.dirty)
-      ? [["Отказаться от правок", { kind: "seq:discard" }] as AuthorButton]
       : []),
+    ["Управление воронкой", { kind: "seq:manage" }],
     ...back,
   ]);
+}
+
+function manage(t: Turn) {
+  const s = sequenceState(t),
+    f = openSequence(s);
+  const buttons: Buttons = [];
+  if (f.lifecycle === "archived") {
+    buttons.push(["Восстановить", { kind: "seq:life", value: "restore" }]);
+  } else {
+    buttons.push([
+      f.isDefault ? "Убрать из основных" : "Сделать основной",
+      { kind: "seq:default" },
+    ]);
+    if (f.lifecycle === "published")
+      buttons.push(["Приостановить", { kind: "seq:life", value: "pause" }]);
+    if (f.lifecycle === "paused")
+      buttons.push(["Продолжить", { kind: "seq:life", value: "resume" }]);
+    buttons.push([
+      "Архивировать воронку",
+      { kind: isTruthy(f.revision) ? "seq:confirm-archive" : "seq:discard" },
+    ]);
+  }
+  buttons.push(["Общий вводный блок", { kind: "seq:intro" }]);
+  if (isTruthy(s.dirty))
+    buttons.push(["Отказаться от правок", { kind: "seq:discard" }]);
+  t.reply(`Управление · ${f.name}`, [...buttons, ...back]);
 }
 
 function parts(s: AuthorSequenceState): readonly MessagePart[] {
@@ -411,7 +394,7 @@ function partsMenu(t: Turn, offset = 0) {
         ? ([
             ["Сохранить общий блок", { kind: "seq:save-intro" }],
             // One way out keeps the save button on the first page of a short intro.
-            ["Все последовательности", { kind: "seq:list" }],
+            ["Все воронки", { kind: "seq:list" }],
           ] as Buttons)
         : back),
     ],
@@ -423,6 +406,8 @@ export function performSequence(t: Turn, a: SequenceEditorAction): void {
   switch (a.kind) {
     case "seq:settings":
       return settings(t);
+    case "seq:manage":
+      return manage(t);
     case "seq:messages":
       return messages(t, Number(a.value ?? 0));
     case "seq:message":
@@ -494,7 +479,6 @@ function performSelection(
       const index = current.findIndex((p) => p.partId === a.id);
       const part = current[index];
       if (!part) throw new CommunicationsError("not_found");
-      t.preview(part.content);
       return t.reply(
         `Сообщение ${index + 1} · ${part.content.type}\n${part.content.text.slice(0, 1000)}\nКнопок: ${part.content.buttons.length}`,
         [
@@ -571,16 +555,13 @@ function performSelection(
 
 function performEdit(t: Turn, s: AuthorSequenceState, a: SequenceEdit): void {
   const f = s.sequence;
-  if (!f) return t.reply("Сначала откройте последовательность.", root);
+  if (!f) return t.reply("Сначала откройте воронку.", root);
   if (f.lifecycle === "archived" && a.kind !== "seq:life")
     return showSequence(t);
   switch (a.kind) {
     case "seq:name":
       s.prompt = "name";
-      return t.reply(
-        "Напишите название последовательности (до 128 символов).",
-        back,
-      );
+      return t.reply("Напишите название воронки (до 128 символов).", back);
     case "seq:default":
       s.sequence = { ...f, isDefault: !f.isDefault };
       s.dirty = true;
@@ -621,7 +602,7 @@ function performEdit(t: Turn, s: AuthorSequenceState, a: SequenceEdit): void {
     }
     case "seq:add-step": {
       if (f.steps.length >= 100)
-        return t.reply("В последовательности может быть до 100 шагов.", back);
+        return t.reply("В воронки может быть до 100 шагов.", back);
       const fromEntry = timedFromEntry(f.steps);
       const step: SequenceStep = {
         stepId: t.newId(),
@@ -733,7 +714,7 @@ function performEdit(t: Turn, s: AuthorSequenceState, a: SequenceEdit): void {
       const source = f.sources.find((item) => item.sourceId === a.id);
       if (!source) throw new CommunicationsError("not_found");
       return t.reply(
-        `${source.name}\nКод: ${source.code}\nПараметр ссылки: ?start=${source.code}`,
+        `${source.name}\n${t.botStartUrl === undefined ? `Параметр ссылки: ?start=${source.code}` : `Ссылка для входа: ${t.botStartUrl}?start=${source.code}`}`,
         [
           [
             "Убрать источник",
@@ -745,10 +726,7 @@ function performEdit(t: Turn, s: AuthorSequenceState, a: SequenceEdit): void {
     }
     case "seq:add-source":
       if (f.sources.length >= 100)
-        return t.reply(
-          "В последовательности может быть до 100 источников.",
-          back,
-        );
+        return t.reply("В воронки может быть до 100 источников.", back);
       s.prompt = "source-name";
       return t.reply(
         "Как назвать источник? Например: канал или описание видео.",
@@ -783,7 +761,7 @@ function performEdit(t: Turn, s: AuthorSequenceState, a: SequenceEdit): void {
       });
     case "seq:confirm-archive":
       return t.reply(
-        "Отменить последовательность? Новые сообщения больше не будут отправляться. Уже доставленные останутся у получателей.",
+        "Отменить воронку? Новые сообщения больше не будут отправляться. Уже доставленные останутся у получателей.",
         [["Да, отменить", { kind: "seq:life", value: "archive" }], ...back],
       );
     case "seq:life":
@@ -945,7 +923,7 @@ export function answerSequence(t: Turn, input: { text: string }) {
   const s = sequenceState(t);
   const f = s.sequence;
   const text = input.text.trim();
-  if (!f) return t.reply("Откройте последовательность заново.", root);
+  if (!f) return t.reply("Откройте воронку заново.", root);
   switch (s.prompt) {
     case "part-delay": {
       const delay = parseSequenceDelay(text);
@@ -1045,25 +1023,22 @@ export function answerSequenceQuery(
   switch (event.kind) {
     case "sequences-listed":
       t.state.sequenceAuthor = {};
-      return t.reply(
-        "Последовательности · черновики сохраняются при каждом действии",
-        [
-          ["Создать последовательность", { kind: "seq:new" }],
-          ...event.items.map(({ id, name, status }): AuthorButton => [
-            `${name.slice(0, 40)} · ${status === "edited" ? "есть правки" : names[status]}`,
-            { kind: "seq:read", id },
-          ]),
-          ...(hasText(event.nextCursor)
-            ? [
-                [
-                  "Следующие последовательности",
-                  { kind: "seq:list", id: event.nextCursor },
-                ] as AuthorButton,
-              ]
-            : []),
-          ["В меню", { kind: "home" }],
-        ],
-      );
+      return t.reply("Воронки · черновики сохраняются при каждом действии", [
+        ["Создать воронку", { kind: "seq:new" }],
+        ...event.items.map(({ id, name, status }): AuthorButton => [
+          `${name.slice(0, 40)} · ${status === "edited" ? "есть правки" : names[status]}`,
+          { kind: "seq:read", id },
+        ]),
+        ...(hasText(event.nextCursor)
+          ? [
+              [
+                "Следующие воронки",
+                { kind: "seq:list", id: event.nextCursor },
+              ] as AuthorButton,
+            ]
+          : []),
+        ["В меню", { kind: "home" }],
+      ]);
     case "sequence-read":
       t.state.sequenceAuthor = event.sequenceAuthor;
       return showSequence(t);
@@ -1136,8 +1111,8 @@ export function answerSequenceQuery(
     case "publication-previewed": {
       const p = event.preview;
       return t.reply(
-        `Публикация версии ${p.revision}\nНовых шагов: ${p.addedStepIds.length}\nИзменённых: ${p.editedStepIds.length}\nУдалённых: ${p.deletedStepIds.length}\nПорядок изменён: ${p.reorderedStepIds.length}\nПолучателей продолжения: ${p.eligibleContacts}\nИз них уже завершили прежнюю последовательность: ${p.completedParticipantsReceivingNewSteps}\nУже доставленное повторно не отправляется.`,
-        [["Опубликовать последовательность", { kind: "seq:publish" }], ...back],
+        `Публикация версии ${p.revision}\nНовых шагов: ${p.addedStepIds.length}\nИзменённых: ${p.editedStepIds.length}\nУдалённых: ${p.deletedStepIds.length}\nПорядок изменён: ${p.reorderedStepIds.length}\nПолучателей продолжения: ${p.eligibleContacts}\nИз них уже завершили прежнюю воронку: ${p.completedParticipantsReceivingNewSteps}\nУже доставленное повторно не отправляется.`,
+        [["Опубликовать воронку", { kind: "seq:publish" }], ...back],
       );
     }
     case "sequence-changed": {

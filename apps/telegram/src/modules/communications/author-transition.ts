@@ -145,8 +145,8 @@ function step(t: Turn, event: AuthorEvent): void {
       t.reset();
       return t.reply(
         event.during === "callback"
-          ? "Пост, рассылка или последовательность изменились либо действие недоступно. Откройте актуальную версию."
-          : "Данные изменились. Откройте актуальный пост, рассылку или последовательность и повторите правку.",
+          ? "Пост, рассылка или воронка изменились либо действие недоступно. Откройте актуальную версию."
+          : "Данные изменились. Откройте актуальный пост, рассылку или воронку и повторите правку.",
         HOME,
       );
     case "statistics-read": {
@@ -301,7 +301,7 @@ function perform(t: Turn, a: AuthorAction): void {
   const unavailable = () =>
     b
       ? t.reply("Откройте меню заново.", HOME)
-      : t.reply("Выберите пост, рассылку или последовательность.", HOME);
+      : t.reply("Выберите пост, рассылку или воронку.", HOME);
   switch (a.kind) {
     case "sequence:broadcast":
       return beginSequence(t, "broadcast");
@@ -630,7 +630,7 @@ function audienceText(audience: AuthorBroadcast["audience"]): string {
       ? "кроме купивших курс"
       : "включая купивших курс";
   if (audience.kind === "all") return `все доступные контакты, ${buyers}`;
-  return `выбранные последовательности: ${audience.sequenceIds.length}, без дублей, ${buyers}`;
+  return `выбранные воронки: ${audience.sequenceIds.length}, без дублей, ${buyers}`;
 }
 
 function selectedBroadcast(t: Turn): AuthorBroadcast {
@@ -1170,10 +1170,7 @@ function answer(t: Turn, input: { text: string; content: unknown }): void {
       return unhandled(prompt, "author prompt");
   }
   t.reset();
-  t.reply(
-    "Выберите «Рассылки» или «Последовательности», чтобы добавить сообщения.",
-    HOME,
-  );
+  t.reply("Выберите «Рассылки» или «Воронки», чтобы добавить сообщения.", HOME);
 }
 
 function moscowTime(date: string) {

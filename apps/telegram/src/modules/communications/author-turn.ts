@@ -26,6 +26,7 @@ import type {
 export interface DialogEnvironment {
   /** Broadcasts and sequence blocks that have a saved unfinished message. */
   readonly pendingCompositions: ReadonlySet<string>;
+  readonly botUsername?: string | undefined;
   readonly now: Date;
   newId(): string;
 }
@@ -296,7 +297,7 @@ export interface Transition {
 
 export const HOME: AuthorButton[] = [
   ["Рассылки", { kind: "broadcasts" }],
-  ["Последовательности", { kind: "seq:list" }],
+  ["Воронки", { kind: "seq:list" }],
   ["Статистика", { kind: "overview" }],
 ];
 const BACK_HOME: AuthorButton[] = [["В меню", { kind: "home" }]];
@@ -316,6 +317,12 @@ export class Turn {
 
   get now(): Date {
     return this.env.now;
+  }
+
+  get botStartUrl(): string | undefined {
+    return this.env.botUsername === undefined
+      ? undefined
+      : `https://t.me/${this.env.botUsername}`;
   }
 
   newId(): string {

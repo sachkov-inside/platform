@@ -74,6 +74,7 @@ class Dialog {
   get env(): DialogEnvironment {
     return {
       pendingCompositions: this.pending,
+      botUsername: "inside_demo_bot",
       now,
       newId: () => uuid(++this.ids),
     };
@@ -143,11 +144,7 @@ describe("main menu", () => {
       });
 
       expect(dialog.menu?.text).toBe("Админка коммуникаций");
-      expect(dialog.labels()).toEqual([
-        "Рассылки",
-        "Последовательности",
-        "Статистика",
-      ]);
+      expect(dialog.labels()).toEqual(["Рассылки", "Воронки", "Статистика"]);
     },
   );
 
@@ -161,11 +158,7 @@ describe("main menu", () => {
       text: "Админка коммуникаций. Текст и медиа готовьте здесь, в Telegram.",
       fresh: false,
     });
-    expect(dialog.labels()).toEqual([
-      "Рассылки",
-      "Последовательности",
-      "Статистика",
-    ]);
+    expect(dialog.labels()).toEqual(["Рассылки", "Воронки", "Статистика"]);
     expect(dialog.state.broadcast).toBeUndefined();
     expect(required(required(dialog.menu).buttons[0]).callbackData).toBe(
       `author:${dialog.state.token}:0`,
@@ -251,14 +244,14 @@ describe("main menu", () => {
     }).write("привет");
 
     expect(required(dialog.menu).text).toBe(
-      "Выберите «Рассылки» или «Последовательности», чтобы добавить сообщения.",
+      "Выберите «Рассылки» или «Воронки», чтобы добавить сообщения.",
     );
     expect(dialog.state.broadcast).toBeUndefined();
   });
 
   it("restarts from home after a step failed on changed data", () => {
     for (const [during, message] of [
-      ["callback", "Пост, рассылка или последовательность изменились"],
+      ["callback", "Пост, рассылка или воронка изменились"],
       ["text", "Данные изменились"],
     ] as const) {
       const dialog = new Dialog({
@@ -266,11 +259,7 @@ describe("main menu", () => {
         broadcast: broadcast(),
       }).send({ kind: "failed", during });
       expect(required(dialog.menu).text).toContain(message);
-      expect(dialog.labels()).toEqual([
-        "Рассылки",
-        "Последовательности",
-        "Статистика",
-      ]);
+      expect(dialog.labels()).toEqual(["Рассылки", "Воронки", "Статистика"]);
       expect(dialog.state.broadcast).toBeUndefined();
     }
   });
@@ -286,11 +275,7 @@ describe("stale menu", () => {
     expect(required(dialog.menu).text).toBe(
       "Это меню уже устарело. Незавершённое сообщение сохранено, если вы начали его создание.",
     );
-    expect(dialog.labels()).toEqual([
-      "Рассылки",
-      "Последовательности",
-      "Статистика",
-    ]);
+    expect(dialog.labels()).toEqual(["Рассылки", "Воронки", "Статистика"]);
     expect(dialog.state.broadcast).toBeUndefined();
   });
 
@@ -319,11 +304,7 @@ describe("stale menu", () => {
     const dialog = new Dialog(emptyAuthorState("fresh"));
     dialog.pending.add(uuid(900));
     dialog.send({ kind: "callback", data: "author:old:0" });
-    expect(dialog.labels()).toEqual([
-      "Рассылки",
-      "Последовательности",
-      "Статистика",
-    ]);
+    expect(dialog.labels()).toEqual(["Рассылки", "Воронки", "Статистика"]);
     expect(dialog.kinds()).not.toContain("discard-composition");
 
     dialog.send({
@@ -724,9 +705,7 @@ describe("composer", () => {
 
 describe("sequence", () => {
   it("lists saved sequences and unsaved drafts", () => {
-    const dialog = new Dialog()
-      .send({ kind: "open" })
-      .click("Последовательности");
+    const dialog = new Dialog().send({ kind: "open" }).click("Воронки");
     expect(dialog.kinds()).toEqual(["retain-sequence-draft", "list-sequences"]);
 
     dialog.send({
@@ -737,7 +716,7 @@ describe("sequence", () => {
       ],
     });
     expect(dialog.labels()).toEqual([
-      "Создать последовательность",
+      "Создать воронку",
       "Прогрев · есть правки",
       "Курс · Опубликована",
       "В меню",
@@ -805,15 +784,17 @@ describe("sequence", () => {
       sequenceAuthor: { sequence: sequence(), dirty: false },
     }).send({ kind: "callback", data: "author:menu:0" });
     expect(dialog.labels()).toEqual([
-      "Добавить сообщение",
+      "Изменить сообщение",
+      "Ссылка для входа",
       "Применить изменения",
-      "Сообщения",
       "Настройки",
-      "Ещё →",
-      "Все последовательности",
+      "Все воронки",
     ]);
 
-    dialog.click("Ещё →").click("Приостановить");
+    dialog
+      .click("Настройки")
+      .click("Управление воронкой")
+      .click("Приостановить");
     expect(dialog.query("change-sequence")).toEqual({
       kind: "change-sequence",
       sequenceId: uuid(800),
@@ -825,7 +806,9 @@ describe("sequence", () => {
       sequence: sequence({ lifecycle: "paused", revision: 3 }),
     });
     expect(dialog.kinds()).toEqual(["remove-draft", "menu"]);
-    expect(dialog.click("Ещё →").labels()).toContain("Продолжить");
+    expect(
+      dialog.click("Настройки").click("Управление воронкой").labels(),
+    ).toContain("Продолжить");
   });
 
   it("previews publication only for the locked revision with valid materials", () => {
@@ -889,10 +872,7 @@ describe("sequence", () => {
         validationErrors: [],
       },
     });
-    expect(dialog.labels()).toEqual([
-      "Опубликовать последовательность",
-      "К последовательности",
-    ]);
+    expect(dialog.labels()).toEqual(["Опубликовать воронку", "К воронке"]);
   });
 
   it("moves a delayed message to entry only when it was never published there", () => {
@@ -961,15 +941,69 @@ describe("sequence settings", () => {
     }).send({ kind: "callback", data: "author:menu:0" });
   }
 
+  it("opens a one-message funnel directly without action pagination", () => {
+    const dialog = card(
+      sequence({
+        publishedRevision: 2,
+        sources: [{ sourceId: uuid(850), code: "m_video", name: "Видео" }],
+      }),
+    );
+    expect(dialog.labels()).toEqual([
+      "Изменить сообщение",
+      "Ссылка для входа",
+      "Настройки",
+      "Все воронки",
+    ]);
+    expect(required(dialog.menu).text).toContain("Вход");
+    expect(required(dialog.menu).text).toContain("Отложенных сообщений нет");
+    dialog.click("Изменить сообщение");
+    expect(dialog.kinds()).toEqual(["menu"]);
+    expect(dialog.state.composing?.destination).toMatchObject({
+      kind: "sequence",
+      id: uuid(800),
+      target: "entry",
+      partId: uuid(802),
+    });
+  });
+
+  it("opens delayed message controls without sending another post or menu", () => {
+    const dialog = card(
+      sequence({
+        steps: [
+          {
+            stepId: uuid(803),
+            delaySeconds: 3600,
+            delayAnchor: "entry",
+            parts: [{ partId: uuid(804), content: text("Урок") }],
+          },
+        ],
+      }),
+    )
+      .click("Сообщения")
+      .click("2. Через 1 ч · 📝 Текст · Урок");
+    expect(dialog.kinds()).toEqual(["menu"]);
+    expect(dialog.labels()).toContain("Когда отправить");
+  });
+
+  it("shows a complete entry link directly from the funnel card", () => {
+    const dialog = card(
+      sequence({
+        sources: [{ sourceId: uuid(850), code: "m_video", name: "Видео" }],
+      }),
+    ).click("Ссылка для входа");
+    expect(required(dialog.menu).text).toContain(
+      "https://t.me/inside_demo_bot?start=m_video",
+    );
+  });
+
   it("opens settings and messages from the sequence card and returns to it", () => {
     const dialog = card();
     expect(dialog.labels()).toEqual([
-      "Добавить сообщение",
+      "Изменить сообщение",
+      "Ссылка для входа",
       "Применить изменения",
-      "Сообщения",
       "Настройки",
-      "Ещё →",
-      "Все последовательности",
+      "Все воронки",
     ]);
 
     dialog.click("Настройки");
@@ -978,35 +1012,35 @@ describe("sequence settings", () => {
       "Название",
       "Первый ответ",
       "Шаги и задержки",
-      "Источники",
-      "Ещё →",
-      "К последовательности",
+      "Управление воронкой",
+      "К воронке",
     ]);
-    dialog.click("Ещё →");
+    dialog.click("Управление воронкой");
     expect(dialog.labels()).toEqual([
       "Сделать основной",
+      "Приостановить",
+      "Архивировать воронку",
       "Общий вводный блок",
-      "← Предыдущие действия",
-      "К последовательности",
+      "К воронке",
     ]);
-    dialog.click("К последовательности");
+    dialog.click("К воронке");
     expect(required(dialog.menu).text).toContain("Прогрев\nОпубликована");
 
-    dialog.click("Сообщения");
-    expect(required(dialog.menu).text).toContain("Прогрев · сообщения");
-    dialog.click("К последовательности");
+    dialog.click("Настройки").click("Первый ответ");
+    expect(required(dialog.menu).text).toContain("Первый ответ");
+    dialog.click("К воронке");
     expect(dialog.labels()).toContain("Настройки");
   });
 
   it("restores an archived sequence from its settings", () => {
     const dialog = card(sequence({ lifecycle: "archived" }));
-    expect(dialog.labels()).toEqual(["Настройки", "Все последовательности"]);
+    expect(dialog.labels()).toEqual(["Настройки", "Все воронки"]);
 
-    dialog.click("Настройки");
+    dialog.click("Настройки").click("Управление воронкой");
     expect(dialog.labels()).toEqual([
       "Восстановить",
       "Общий вводный блок",
-      "К последовательности",
+      "К воронке",
     ]);
     dialog.click("Восстановить");
     expect(dialog.query("change-sequence")).toEqual({
@@ -1045,7 +1079,7 @@ describe("sequence settings", () => {
       "Шаг 1 · 1 ч от входа",
       "Шаг 2 · 2 ч от входа",
       "Добавить шаг",
-      "К последовательности",
+      "К воронке",
     ]);
 
     dialog.click("Добавить шаг");
@@ -1132,7 +1166,7 @@ describe("sequence settings", () => {
       "3. Через 1 ч · 📝 Текст · Урок",
       "4. Через 2 ч · 📝 Текст · Задание",
       "Добавить сообщения",
-      "К последовательности",
+      "К воронке",
     ]);
 
     dialog.click("4. Через 2 ч · 📝 Текст · Задание").click("Когда отправить");
@@ -1174,14 +1208,17 @@ describe("sequence settings", () => {
     dialog.write("Весенний прогрев");
     expect(required(dialog.menu).text).toMatch(/^Весенний прогрев\n/);
 
-    dialog.click("Настройки").click("Ещё →").click("Сделать основной");
+    dialog
+      .click("Настройки")
+      .click("Управление воронкой")
+      .click("Сделать основной");
     expect(
       required(required(dialog.state.sequenceAuthor).sequence).isDefault,
     ).toBe(true);
-    dialog.click("Настройки").click("Ещё →");
+    dialog.click("Настройки").click("Управление воронкой");
     expect(dialog.labels()).toContain("Убрать из основных");
 
-    dialog.click("К последовательности").click("Настройки").click("Источники");
+    dialog.click("К воронке").click("Ссылка для входа");
     dialog.click("Добавить источник").write("Канал");
     dialog.write("m_x y");
     expect(required(dialog.menu).text).toContain("Код должен начинаться с m_");
@@ -1189,7 +1226,7 @@ describe("sequence settings", () => {
     expect(dialog.labels()).toEqual([
       "Канал",
       "Добавить источник",
-      "К последовательности",
+      "К воронке",
     ]);
     dialog.click("Канал");
     expect(required(dialog.menu).text).toContain("?start=m_channel");
@@ -1198,7 +1235,7 @@ describe("sequence settings", () => {
       required(required(dialog.state.sequenceAuthor).sequence).sources,
     ).toEqual([]);
 
-    dialog.click("К последовательности").click("Сохранить черновик");
+    dialog.click("К воронке").click("Сохранить черновик");
     const save = dialog.query("save-sequence");
     expect(save.sequence).toMatchObject({
       name: "Весенний прогрев",
@@ -1217,7 +1254,7 @@ describe("sequence settings", () => {
         .parts,
     ).toEqual([]);
 
-    dialog.click("К последовательности").click("Настройки").click("Ещё →");
+    dialog.click("К воронке").click("Настройки").click("Управление воронкой");
     dialog.click("Общий вводный блок");
     expect(dialog.kinds()).toEqual(["retain-sequence-draft", "read-intro"]);
     const intro = {
@@ -1272,8 +1309,8 @@ describe("sequence settings", () => {
       "Все шаги",
     ]);
 
-    dialog.click("Все шаги").click("К последовательности").click("Настройки");
-    expect(dialog.click("Источники").labels()).toHaveLength(7);
+    dialog.click("Все шаги").click("К воронке");
+    expect(dialog.click("Ссылка для входа").labels()).toHaveLength(7);
   });
 });
 

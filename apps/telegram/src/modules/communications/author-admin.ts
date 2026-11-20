@@ -314,6 +314,7 @@ export class AuthorAdmin {
     while (event) {
       const next = transition(state, event, {
         pendingCompositions: pending,
+        botUsername: c.input.botUsername,
         now: new Date(),
         newId: randomUUID,
       });

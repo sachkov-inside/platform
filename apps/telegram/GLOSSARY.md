@@ -41,7 +41,8 @@ _Avoid_: Contactability, Product Access, mandatory opt-in
 **Communication Sequence**:
 An authored series of messages and waits that one BotContact can enter and progress through.
 Its published message snapshots are independent of later template edits and of the Sales Funnel report.
-_Avoid_: Funnel, Sales Funnel, Broadcast
+The author interface calls it «Воронка»; this display name does not mean the Sales Funnel report.
+_Avoid_: Sales Funnel, Broadcast
 
 **Sequence Participation**:
 One BotContact's entry and progress in a Communication Sequence, separate from Product Access,
