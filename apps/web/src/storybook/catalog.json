@@ -2,8 +2,6 @@
   "sharedModuleExceptions": {
     "shared/ui/body-fragment-navigation.client.tsx": "Invisible fragment navigation helper; verified by route navigation tests.",
     "shared/ui/full-load-link.client.tsx": "Unstyled document navigation adapter; rendered in the application shell stories.",
-    "shared/ui/hide-mobile-navigation.client.tsx": "Invisible shell visibility effect; rendered by page stories.",
-    "shared/ui/hide-public-footer.client.tsx": "Invisible footer visibility effect; rendered by page stories.",
     "shared/ui/sidebar.tsx": "Legacy module outside the current production import graph; current shells have their own stories."
   }
 }
