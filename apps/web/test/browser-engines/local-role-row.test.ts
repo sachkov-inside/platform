@@ -25,6 +25,15 @@ test("the local role controls scroll away with the material", async () => {
       main.scrollTop = 700;
     });
     await expect(change).not.toBeInViewport({ timeout: 1000 });
+    // Client navigation keeps the previous page mounted but hidden.
+    await page.locator("main").evaluate((main) => {
+      main.hidden = true;
+      main.insertAdjacentHTML(
+        "afterend",
+        '<main id="authoring-content">Редактор</main>',
+      );
+    });
+    await expect(change).toBeInViewport({ timeout: 1000 });
   } finally {
     await browser.close();
   }
