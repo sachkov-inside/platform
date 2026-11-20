@@ -191,6 +191,29 @@ describe("application CI workflow contract", () => {
       /pnpm check:web-e2e --project=\$\{\{ matrix.project \}\}/u,
     );
   });
+  it("requires the final Web lifecycle check in the static CI stage", () => {
+    const webScripts = readPackageManifest(
+      resolve(repositoryRoot, "apps/web/package.json"),
+    ).scripts;
+    assert.match(jobBlock("static"), /^ {8}run: pnpm check:static$/mu);
+    assert.ok(
+      rootScripts["check:static"]?.split(" && ").includes("pnpm guardrails"),
+    );
+    assert.ok(
+      rootScripts["guardrails"]
+        ?.split(" && ")
+        .includes("pnpm --filter @inside/web guardrails"),
+    );
+    const checks = webScripts["guardrails"]?.split(" && ") ?? [];
+    assert.ok(
+      checks.includes("node scripts/check-lifecycle-boundaries.mts final"),
+    );
+    assert.ok(
+      checks.includes(
+        "node --test scripts/check-lifecycle-boundaries.test.mjs",
+      ),
+    );
+  });
   it("binds each parallel unit part and both Web projects to the local complete commands", () => {
     assert.equal(
       rootScripts["check:unit"],
