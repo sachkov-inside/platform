@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { cpus, freemem, loadavg, totalmem } from "node:os";
-import { format } from "node:util";
+import { format, stripVTControlCharacters } from "node:util";
 import { z } from "zod";
 
 interface Debug {
@@ -126,6 +126,39 @@ export function captureWebkitFailureDiagnostics() {
           resourceUsage: process.resourceUsage(),
         },
         linux,
+      };
+    },
+    // This worker captures one isolated WebKit launch for the inline SVG test.
+    // Without a complete log and a unique launch marker, ownership is unknown.
+    processObservation() {
+      const messages = [...entries, ...tail]
+        .filter(({ namespace }) => namespace === "pw:browser")
+        .map(({ message }) =>
+          stripVTControlCharacters(message)
+            .trimStart()
+            .replace(/^\d{4}-\d{2}-\d{2}T\S+ /u, "")
+            .replace(/ \+\d+[a-z]+$/u, ""),
+        );
+      const launches = messages.flatMap((message) => {
+        const match = /^pw:browser <launched> pid=(\d+)$/u.exec(message);
+        return match ? [Number(match[1])] : [];
+      });
+      const pid =
+        droppedEntries === 0 && launches.length === 1 ? launches[0] : undefined;
+      const childClosed =
+        pid !== undefined &&
+        messages.some(
+          (message) =>
+            /^pw:browser \[pid=(\d+)\] <process did exit:/u.exec(
+              message,
+            )?.[1] === String(pid),
+        );
+      return {
+        historicalLaunchPid: pid ?? "unknown",
+        nodeChildClose: childClosed ? "observed" : "unknown",
+        osProcessState: "unknown",
+        stdio: "unknown",
+        transport: "unknown",
       };
     },
     logs: () => ({

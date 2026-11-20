@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Collapsible } from "radix-ui";
 import { Minus, Plus, type LucideIcon } from "lucide-react";
+
+import { useAccountDisclosure } from "../model/use-account-disclosure.client";
 
 /** Account settings row with an accessible Radix disclosure and explicit action icon. */
 export function AccountDisclosure({
@@ -18,17 +20,7 @@ export function AccountDisclosure({
   readonly id: string;
   readonly title: string;
 }) {
-  const [open, setOpen] = useState(false);
-  useEffect(() => {
-    const reveal = () => {
-      if (window.location.hash === `#${id}`) setOpen(true);
-    };
-    reveal();
-    window.addEventListener("hashchange", reveal);
-    return () => {
-      window.removeEventListener("hashchange", reveal);
-    };
-  }, [id]);
+  const { open, setOpen } = useAccountDisclosure(id);
 
   return (
     <Collapsible.Root

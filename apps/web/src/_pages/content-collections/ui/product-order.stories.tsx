@@ -13,6 +13,7 @@ import {
   type CreateProductOrderMaterialSearchQueryOptions,
   type ProductOrderMaterialSearchResult,
 } from "@/features/product-order";
+import { flushPendingEdits } from "@/shared/lib/autosave/use-autosave";
 import { withMutationFetch } from "@/storybook/mutation-mock";
 import { ProductEditorPageFrame } from "@/_pages/content-collections";
 
@@ -58,11 +59,21 @@ const failedOrderSpy = fn((_input: RequestInfo | URL, _init?: RequestInit) =>
 
 const environment = authoringPageEnvironment(
   "/authoring/products/95000000-0000-4000-8000-000000000010",
-  { frame: ProductEditorPageFrame },
 );
 
 const meta = {
   ...environment,
+  decorators: [
+    (Story, { args }) =>
+      args.embedded === true ? (
+        <ProductEditorPageFrame>
+          <Story />
+        </ProductEditorPageFrame>
+      ) : (
+        <Story />
+      ),
+    ...environment.decorators,
+  ],
   args: {
     // На маршруте состав руководства встроен в страницу редактора: свой `main` он не рисует.
     embedded: true,
@@ -134,6 +145,47 @@ export const Reordering: Story = {
     await expect(sentField(secondBody, "expectedOrderVersion")).toBe(
       "b".repeat(64),
     );
+  },
+};
+
+const guardAfterOrderSave = fn(async () => {
+  const saved = await flushPendingEdits();
+  const unload = new Event("beforeunload", { cancelable: true });
+  window.dispatchEvent(unload);
+  return { saved, prevented: unload.defaultPrevented };
+});
+
+export const LeaveJustAfterOrderSave: Story = {
+  args: {
+    embedded: false,
+    onBack: fn(() => {
+      void guardAfterOrderSave();
+    }),
+  },
+  decorators: [withMutationFetch(saveOrderSpy)],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const release = Promise.withResolvers<undefined>();
+    guardAfterOrderSave.mockClear();
+    saveOrderSpy.mockClear();
+    saveOrderSpy.mockImplementationOnce(async () => {
+      await release.promise;
+      return Response.json({ kind: "saved", orderVersion: "b".repeat(64) });
+    });
+    try {
+      await moveFirstItem(canvasElement);
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Вернуться к материалам" }),
+      );
+      await waitFor(() => expect(saveOrderSpy).toHaveBeenCalledOnce());
+      release.resolve(undefined);
+      await waitFor(() => expect(guardAfterOrderSave).toHaveBeenCalledOnce());
+      await expect(guardAfterOrderSave.mock.results[0]?.value).resolves.toEqual(
+        { saved: true, prevented: false },
+      );
+    } finally {
+      release.resolve(undefined);
+    }
   },
 };
 

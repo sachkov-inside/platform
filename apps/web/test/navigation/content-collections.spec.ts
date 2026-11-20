@@ -489,6 +489,10 @@ test("topics filter and search live in the address and a topic opens as its own 
   ).toHaveValue("Инфра");
   await expect(topics).toHaveCount(1);
 
+  await expect(
+    topics.getByRole("link", { name: "Инфраструктура" }),
+  ).toBeFocused();
+
   // Адрес темы открывается и сам по себе.
   await page.goto(`/authoring/topics?topic=${infrastructureId}`);
   await expect(
@@ -497,6 +501,19 @@ test("topics filter and search live in the address and a topic opens as its own 
   await page.getByRole("button", { name: "Все темы" }).click();
   await expect(page).toHaveURL(/\/authoring\/topics$/u);
   await expect(topics).toHaveCount(3);
+  await expect(
+    topics.getByRole("link", { name: "Инфраструктура" }),
+  ).toBeFocused();
+  const otherTopic = topics.getByRole("link", {
+    name: "Продуктовая разработка",
+  });
+  await otherTopic.click();
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Продуктовая разработка" }),
+  ).toBeFocused();
+  await page.goBack();
+  await expect(page).toHaveURL("/authoring/topics");
+  await expect(otherTopic).toBeFocused();
 });
 
 test("topic row archive waits for the pending draft and uses its accepted version (#2382)", async ({
@@ -656,4 +673,103 @@ test("a retained Product ignores another route tab and returns to the same descr
       (node) => node.isConnected && node.getClientRects().length > 0,
     ),
   ).resolves.toBe(true);
+});
+
+test("leaving a changed product saves its title and opens the list without a beforeunload prompt", async ({
+  page,
+}, info) => {
+  await page.goto(`/authoring/products/${architectureId}?tab=description`);
+  const title = page.getByRole("textbox", { name: "Название продукта" });
+  const savedTitle = "Сохранено перед переходом";
+  const prompts: string[] = [];
+  page.on("dialog", async (dialog) => {
+    prompts.push(dialog.type());
+    await dialog.accept();
+  });
+  const release = Promise.withResolvers<undefined>();
+  await page.route("**/api/authoring/collections/metadata", async (route) => {
+    await release.promise;
+    await route.continue();
+  });
+  try {
+    await title.click();
+    await title.fill(savedTitle);
+    await page.getByRole("link", { name: "Все продукты", exact: true }).click();
+    release.resolve(undefined);
+    await expect(page).toHaveURL("/authoring/products");
+    await expect(
+      rows(page, info, "Все продукты").getByRole("link", { name: savedTitle }),
+    ).toBeVisible();
+    expect(prompts).toEqual([]);
+  } finally {
+    release.resolve(undefined);
+  }
+});
+
+test("a later product order read supplies the version for the next chapter save", async ({
+  page,
+  request,
+}) => {
+  const control = backend + "/__collections/order-version";
+  try {
+    expect((await request.post(control)).ok()).toBe(true);
+    await page.goto(
+      "/authoring/products/c0110000-0000-4000-8000-000000000053?tab=program",
+    );
+    const editor = (name: string) =>
+      page
+        .locator("details")
+        .filter({ has: page.locator("summary", { hasText: name }) });
+    const first = editor("Первая глава");
+    const second = editor("Вторая глава");
+    for (const chapter of [first, second]) {
+      await chapter.locator("summary").click();
+      await chapter
+        .getByRole("button", { name: "Первый шаг программы" })
+        .click();
+    }
+    const save = "Сохранить привязки";
+    await first.getByRole("button", { name: save }).click();
+    await expect(first.getByRole("status")).toHaveText("Сохранено");
+    await expect
+      .poll(async () => {
+        const result = await request.get(control);
+        return result.ok() ? ((await result.json()) as unknown) : null;
+      })
+      .toMatchObject({ pending: true });
+    await second.getByRole("button", { name: save }).click();
+    await expect(second.getByRole("alert")).toContainText("Состав изменился");
+    expect((await request.post(control + "/release")).ok()).toBe(true);
+    await expect(second.locator("summary")).toContainText(
+      "Вторая глава обновлена",
+    );
+    await second.getByRole("button", { name: save }).click();
+    await expect(second.getByRole("status")).toHaveText("Сохранено");
+    const result = await request.get(control);
+    expect(result.ok()).toBe(true);
+    const materialIds = ["c0110000-0000-4000-8000-000000000101"];
+    const firstChapterId = "c0110000-0000-4000-8000-000000000051";
+    const secondChapterId = "c0110000-0000-4000-8000-000000000052";
+    expect(await result.json()).toMatchObject({
+      writes: [
+        {
+          chapterId: firstChapterId,
+          expectedOrderVersion: "a".repeat(64),
+          materialIds,
+        },
+        {
+          chapterId: secondChapterId,
+          expectedOrderVersion: "b".repeat(64),
+          materialIds,
+        },
+        {
+          chapterId: secondChapterId,
+          expectedOrderVersion: "c".repeat(64),
+          materialIds,
+        },
+      ],
+    });
+  } finally {
+    expect((await request.delete(control)).ok()).toBe(true);
+  }
 });

@@ -60,6 +60,86 @@ afterAll(async () => {
   }
 });
 
+test("the open programme follows its step, path, visibility and desktop breakpoint", async () => {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({
+      viewport: { width: 390, height: 844 },
+    });
+    await page.goto(`${origin}/materials/step-0?dialog-lifetime=1`);
+    const trigger = page.getByRole("button", { name: /^Вся программа:/ });
+    const dialog = page.locator("dialog");
+    await trigger.click();
+    await expect(dialog).toHaveJSProperty("open", true);
+    const original = await dialog.evaluateHandle((node) => node);
+
+    await page
+      .getByRole("button", { name: "Change step", includeHidden: true })
+      .dispatchEvent("click");
+    await expect(dialog).toHaveJSProperty("open", false);
+    await trigger.click();
+    await page.evaluate(() => {
+      history.pushState(
+        history.state,
+        "",
+        "/materials/other?dialog-lifetime=1",
+      );
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    await expect(dialog).toHaveJSProperty("open", false);
+    await trigger.click();
+    await page
+      .getByRole("button", { name: "Toggle lesson", includeHidden: true })
+      .dispatchEvent("click");
+    await expect(dialog).toHaveJSProperty("open", false);
+    await page.getByRole("button", { name: "Toggle lesson" }).click();
+    await expect(dialog).toHaveJSProperty("open", false);
+    await trigger.click();
+    await expect(dialog).toHaveJSProperty("open", true);
+    expect(
+      await dialog.evaluate((node, previous) => node === previous, original),
+    ).toBe(true);
+
+    await dialog.evaluate((node) => {
+      if (!(node instanceof HTMLDialogElement))
+        throw new Error("Missing programme dialog");
+      const close = node.close.bind(node);
+      let calls = 0;
+      node.close = (...args) => {
+        calls += 1;
+        node.dataset["closeCalls"] = String(calls);
+        close(...args);
+      };
+    });
+    const tablet = await page.evaluateHandle(() => ({
+      settled: new Promise<void>((resolve) => {
+        window.matchMedia("(min-width: 820px)").addEventListener(
+          "change",
+          () => {
+            requestAnimationFrame(() => {
+              resolve();
+            });
+          },
+          { once: true },
+        );
+      }),
+    }));
+    await page.setViewportSize({ width: 820, height: 844 });
+    await tablet.evaluate(({ settled }) => settled);
+    await expect(dialog).toHaveJSProperty("open", true);
+    await page.setViewportSize({ width: 1440, height: 1024 });
+    await expect(dialog).toHaveJSProperty("open", false);
+    await expect(dialog).toHaveAttribute("data-close-calls", "1");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(trigger).toBeVisible();
+    await expect(dialog).toHaveJSProperty("open", false);
+    await trigger.click();
+    await expect(dialog).toHaveJSProperty("open", true);
+  } finally {
+    await browser.close();
+  }
+}, 30_000);
+
 test("desktop retains an early chapter choice and focus through host activation", async () => {
   const browser = await chromium.launch();
   try {
@@ -301,6 +381,80 @@ test("reduced-motion programme stays still through host activation", async () =>
     expect(await dialog.evaluate((node) => node.getAnimations().length)).toBe(
       0,
     );
+  } finally {
+    await browser.close();
+  }
+}, 30_000);
+
+test("the host follows the visible retained layout when both contexts change", async () => {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({
+      viewport: { width: 1440, height: 1024 },
+    });
+    await page.goto(
+      `${origin}/materials/step-0?from=%2Fproducts%2Fai-engineering%2Fprogramme&scenario=layouts`,
+    );
+    await page.locator("#release").dispatchEvent("click");
+    const host = page.locator("[data-course-reading-host]");
+    const rail = host.getByRole("complementary", { name: "Текущая глава" });
+    for (const [index, name] of ["First", "Second", "First"].entries()) {
+      if (index > 0)
+        await page.getByRole("button", { name: "Switch lesson" }).click();
+      await expect(
+        page.getByRole("heading", { name: name + " lesson" }),
+      ).toBeVisible();
+      await expect(
+        rail.getByRole("button", {
+          name: new RegExp(name + " revision " + String(index)),
+        }),
+      ).toBeVisible();
+      await page.getByRole("button", { name: "Update hidden lesson" }).click();
+      await expect(
+        page
+          .locator("[hidden]")
+          .getByText("Hidden revision " + String(index), { exact: true }),
+      ).toHaveCount(1);
+      await expect(
+        rail.getByRole("button", {
+          name: new RegExp(name + " revision " + String(index)),
+        }),
+      ).toBeVisible();
+    }
+  } finally {
+    await browser.close();
+  }
+}, 30_000);
+
+test("a new local rail starts fresh after the host consumes the first handoff", async () => {
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({
+      viewport: { width: 1440, height: 1024 },
+    });
+    await page.goto(
+      `${origin}/materials/step-0?from=%2Fproducts%2Fai-engineering%2Fprogramme&scenario=return`,
+    );
+    const rail = page.getByRole("complementary", { name: "Текущая глава" });
+    const first = rail.getByRole("button", {
+      name: /Глава 1 из 2 First chapter/,
+    });
+    await rail.getByRole("button", { name: "Показать ещё" }).click();
+    await first.click();
+    await rail.getByRole("button", { name: /Глава 2 Second chapter/ }).click();
+    const second = rail.getByRole("button", {
+      name: /Глава 2 из 2 Second chapter/,
+    });
+    await expect(second).toBeFocused();
+    await page.locator("#release").dispatchEvent("click");
+    await expect(page.locator("[data-course-reading-host]")).toBeVisible();
+    await expect(second).toBeFocused();
+    await page.getByRole("button", { name: "Leave course frame" }).click();
+    await expect(page.locator("[data-course-reading-host]")).toHaveCount(0);
+    await expect(first).toBeVisible();
+    await expect(
+      rail.getByRole("button", { name: "Показать ещё" }),
+    ).toHaveAttribute("aria-expanded", "false");
   } finally {
     await browser.close();
   }

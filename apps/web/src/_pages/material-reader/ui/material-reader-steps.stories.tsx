@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 import { z } from "zod";
+import { Activity, useState, type ReactNode } from "react";
 
+import { readShellScroll, resetShellScroll } from "@/shared/lib/shell-scroll";
 import { productPurchaseHref } from "@/shared/routing/subscription-route";
 import { chooseInSelect } from "@/storybook/select-choice";
 
@@ -688,4 +690,115 @@ export const VideoContinuationPreview: Story = {
       ...body.slice(3),
     ],
   },
+};
+
+function RetainedLesson({ children }: { readonly children: ReactNode }) {
+  const [visible, setVisible] = useState(true);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          setVisible(!visible);
+        }}
+      >
+        {visible ? "Скрыть урок" : "Вернуться к уроку"}
+      </button>
+      <Activity mode={visible ? "visible" : "hidden"}>{children}</Activity>
+    </>
+  );
+}
+/** A guest reopens a long lesson at the restored gate and can continue past it. */
+export const RestoredGateScrollsOnce: Story = {
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+  parameters: { guestParts: 3 },
+  args: {
+    body: body.flatMap((block) =>
+      block.kind === "paragraph"
+        ? [
+            block,
+            ...Array.from({ length: 12 }, () =>
+              paragraph(text("Подробности задачи.")),
+            ),
+          ]
+        : [block],
+    ),
+  },
+  decorators: [
+    (Story) => (
+      <RetainedLesson>
+        <Story />
+      </RetainedLesson>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const restored = canvasElement.querySelector("#lesson-step-2");
+    if (restored === null) throw new Error("Missing restored gate");
+    const inView = () => {
+      const y = restored.getBoundingClientRect().top;
+      return (
+        readShellScroll(canvasElement) > 0 && y >= 0 && y < window.innerHeight
+      );
+    };
+    await waitFor(() => expect(inView()).toBe(true));
+    resetShellScroll(canvasElement);
+    await expect(readShellScroll(canvasElement)).toBe(0);
+    await userEvent.click(canvas.getByRole("button", { name: "Скрыть урок" }));
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Вернуться к уроку" }),
+    );
+    await expect(
+      canvas.getByText("Разбор: проверяйте то, что видит пользователь."),
+    ).toBeVisible();
+    await expect(readShellScroll(canvasElement)).toBe(0);
+  },
+};
+
+export const RestoredGateScrollsOnceMobile: Story = {
+  ...RestoredGateScrollsOnce,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+export const FirstVisitKeepsScrollAtTop: Story = {
+  ...RestoredGateScrollsOnce,
+  parameters: {},
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("button", { name: "А как проверить результат?" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByText("Разбор: проверяйте то, что видит пользователь."),
+    ).not.toBeVisible();
+    await expect(readShellScroll(canvasElement)).toBe(0);
+  },
+};
+
+export const DirectHeadingOverridesSavedGate: Story = {
+  ...RestoredGateScrollsOnce,
+  beforeEach: () => {
+    const previous = window.location.href;
+    history.replaceState(history.state, "", "#итог");
+    return () => {
+      history.replaceState(history.state, "", previous);
+    };
+  },
+  play: async ({ canvasElement }) => {
+    const heading = within(canvasElement).getByRole("heading", {
+      name: "Итог",
+      hidden: true,
+    });
+    await waitFor(async () => {
+      await expect(heading).toBeVisible();
+      const rect = heading.getBoundingClientRect();
+      await expect(rect.top).toBeGreaterThanOrEqual(0);
+      await expect(rect.bottom).toBeLessThanOrEqual(window.innerHeight);
+      await expect(readShellScroll(canvasElement)).toBeGreaterThan(0);
+    });
+  },
+};
+export const DirectHeadingOverridesSavedGateMobile: Story = {
+  ...DirectHeadingOverridesSavedGate,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
 };

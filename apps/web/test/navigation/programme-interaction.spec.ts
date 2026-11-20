@@ -358,6 +358,15 @@ test("a selected catalogue survives delivery of optional onboarding without repl
   await request.post(
     `${backend}/__reader-optional-hold?held=true&target=community-link`,
   );
+  const personalBrowserReads: string[] = [];
+  page.on("request", (request) => {
+    const path = new URL(request.url()).pathname;
+    if (
+      path === "/api/account/billing" ||
+      path === "/api/account/community-entry"
+    )
+      personalBrowserReads.push(path);
+  });
   let documentResponse;
   try {
     documentResponse = await page.goto(`/products/${slug}/programme`, {
@@ -380,6 +389,7 @@ test("a selected catalogue survives delivery of optional onboarding without repl
     expect(gate.blocked.some((path) => path.includes("community-entry"))).toBe(
       true,
     );
+    expect(personalBrowserReads).toEqual([]);
     await request.post(
       `${backend}/__reader-optional-hold?held=false&target=community-link`,
     );

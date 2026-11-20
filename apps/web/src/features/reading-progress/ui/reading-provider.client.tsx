@@ -1,18 +1,11 @@
 "use client";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQueries, useQueryClient } from "@tanstack/react-query";
 import {
   MaterialReadingScope,
   type MaterialReadingSnapshot,
 } from "@/entities/material";
-import { clearOtherReadingAccounts } from "../model/reading-cache";
+import { useReadingAccountCache } from "../model/use-reading-account-cache.client";
 import { getReadingStates } from "../api/reading.browser";
 import { createReadingStateBatcher } from "../model/reading-state-batcher";
 import { readingProgressChanges } from "../model/reading-progress-events";
@@ -29,7 +22,11 @@ export function ReadingProgressProvider({
   readonly children: ReactNode;
 }) {
   const queryClient = useQueryClient();
-  const [signedOut, setSignedOut] = useState(false);
+  const visibleAccountId = useReadingAccountCache(
+    queryClient,
+    accountId,
+    resolved,
+  );
   const registrations = useRef(new Map<string, number>());
   const [ids, setIds] = useState<string[]>([]);
   const register = useCallback((id: string) => {
@@ -53,7 +50,7 @@ export function ReadingProgressProvider({
   const results = useQueries({
     queries: ids.map((id) => ({
       queryKey: ["reading-progress", accountId, "material", id],
-      enabled: resolved && accountId !== null && !signedOut,
+      enabled: resolved && visibleAccountId !== null,
       queryFn: () => loadState(id),
       retry: false,
     })),
@@ -69,34 +66,15 @@ export function ReadingProgressProvider({
     [accountId, resolved],
   );
   useAnnouncedRefresh(changes, ["reading-progress", accountId]);
-  useEffect(() => {
-    if (resolved) clearOtherReadingAccounts(queryClient, accountId);
-  }, [accountId, queryClient, resolved]);
-  useEffect(() => {
-    const clear = (event: Event) => {
-      const form = event.target;
-      if (
-        form instanceof HTMLFormElement &&
-        new URL(form.action).pathname === "/auth/sign-out"
-      ) {
-        setSignedOut(true);
-        clearOtherReadingAccounts(queryClient, null);
-      }
-    };
-    document.addEventListener("submit", clear, true);
-    return () => {
-      document.removeEventListener("submit", clear, true);
-    };
-  }, [queryClient]);
   const states = new Map<string, MaterialReadingSnapshot>();
-  if (resolved && !signedOut && accountId !== null)
+  if (resolved && visibleAccountId !== null)
     for (const result of results)
       if (!result.isError && result.data !== undefined)
         states.set(result.data.materialId, result.data);
   return (
     <MaterialReadingScope
       value={{
-        accountId: signedOut ? null : accountId,
+        accountId: visibleAccountId,
         resolved,
         states,
         register,

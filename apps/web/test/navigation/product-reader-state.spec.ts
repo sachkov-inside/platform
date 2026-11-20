@@ -184,6 +184,155 @@ for (const scenario of [
   });
 }
 
+test("each product resumes its own ready waitlist intent across a client navigation", async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  if (baseURL === undefined) throw new Error("Web origin required");
+  const first = {
+    productSlug: "reader-state-waitlist",
+    productId: "17100000-0000-4000-8000-000000000006",
+  };
+  const next = {
+    productSlug: "reader-state-waitlist-mobile",
+    productId: "17100000-0000-4000-8000-000000000106",
+  };
+  await signIn(context, baseURL, "reader-state-paid");
+  const begin = async (product: typeof first) => {
+    const response = await context.request.post(
+      new URL("/api/product-waitlist/intent", baseURL).href,
+      {
+        headers: { origin: new URL(baseURL).origin },
+        data: product,
+      },
+    );
+    expect(response.ok()).toBe(true);
+    const result = z
+      .object({ kind: z.literal("continue"), returnTo: z.string() })
+      .parse(await response.json());
+    return new URL(result.returnTo, baseURL);
+  };
+  const firstReturn = await begin(first);
+  const nextPath = "/products/" + next.productSlug;
+  firstReturn.searchParams.set("from", nextPath);
+  const writes: unknown[] = [];
+  page.on("request", (request) => {
+    if (
+      new URL(request.url()).pathname === "/api/product-waitlist/join" &&
+      request.method() === "POST"
+    )
+      writes.push(request.postDataJSON());
+  });
+  const expired =
+    "Время подтверждения истекло. Вы ещё не в списке. Попробуйте снова.";
+  await page.goto(firstReturn.href);
+  await expect(page.getByText(expired, { exact: true })).toHaveCount(2);
+  expect(writes).toEqual([{ productId: first.productId }]);
+  const timeOrigin = await page.evaluate(() => performance.timeOrigin);
+  await begin(next);
+  const link = page.getByRole("link", { name: "Назад к продукту" });
+  await expect(link).toHaveAttribute("href", nextPath);
+  await link.click();
+  await expect(page).toHaveURL(new URL(nextPath, baseURL).href);
+  await expect(
+    page
+      .locator(`[data-product-landing="${next.productSlug}"]:visible`)
+      .getByText(expired, { exact: true }),
+  ).toHaveCount(2);
+  expect(await page.evaluate(() => performance.timeOrigin)).toBe(timeOrigin);
+  expect(writes).toEqual([
+    { productId: first.productId },
+    { productId: next.productId },
+  ]);
+});
+
+for (const result of ["ready", "failed"] as const) {
+  test(`the restored ${result} purchase refreshes its individual payment link`, async ({
+    page,
+    context,
+    request,
+    baseURL,
+  }) => {
+    if (baseURL === undefined) throw new Error("Web origin required");
+    await signIn(context, baseURL, "reader-state-paid");
+    try {
+      const setup = await request.post(
+        backend + "/__purchase-settlement?result=" + result,
+      );
+      expect(setup.ok()).toBe(true);
+      const { linkId } = z
+        .object({ linkId: z.uuid() })
+        .parse(await setup.json());
+      // #2244 measures this page's refresh independently of the AppShell billing listener.
+      await page.addInitScript(() => {
+        Object.defineProperty(window, "BroadcastChannel", { value: undefined });
+        window.addEventListener(
+          "inside.account.billing.changed",
+          (event) => {
+            const root = document.documentElement;
+            root.dataset["billingEvents"] = String(
+              Number(root.dataset["billingEvents"] ?? 0) + 1,
+            );
+            if (
+              event instanceof CustomEvent &&
+              typeof event.detail === "string"
+            )
+              document.documentElement.setAttribute(
+                "data-billing-announcement",
+                event.detail,
+              );
+            event.stopImmediatePropagation();
+          },
+          { capture: true },
+        );
+      });
+      const restore = page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname ===
+          "/api/account/billing/product-purchase",
+      );
+      await page.goto("/payment/links/" + linkId);
+      expect(await (await restore).json()).toMatchObject({
+        ok: true,
+        value: result === "ready" ? { access: "ready" } : { state: "failed" },
+      });
+      await expect(
+        page.getByRole("heading", { name: "Обновлённое название курса" }),
+      ).toBeVisible();
+      expect(
+        await page
+          .locator("html")
+          .evaluate((root) =>
+            Number(root.getAttribute("data-billing-events") ?? 0),
+          ),
+      ).toBe(result === "ready" ? 1 : 0);
+      if (result === "ready") {
+        await expect(
+          page.getByRole("link", { name: "Открыть продукт" }),
+        ).toBeVisible();
+        expect(
+          z
+            .uuid()
+            .safeParse(
+              await page
+                .locator("html")
+                .getAttribute("data-billing-announcement"),
+            ).success,
+        ).toBe(true);
+      } else {
+        await expect(
+          page.getByRole("heading", { name: "Ссылка отозвана" }),
+        ).toBeVisible();
+      }
+    } finally {
+      expect(
+        (await request.post(backend + "/__purchase-settlement")).ok(),
+      ).toBe(true);
+    }
+  });
+}
+
 test("the same public Product shell isolates guest, holder and later guest across requests", async ({
   browser,
   request,
@@ -401,3 +550,43 @@ for (const optional of ["all", "community"] as const) {
     });
   }
 }
+
+test("both waitlist slots retry the committed join without starting a second intent", async ({
+  page,
+  context,
+  baseURL,
+}, info) => {
+  if (baseURL === undefined) throw new Error("Web origin required");
+  const slug = `reader-state-waitlist${info.project.name === "mobile-chromium" ? "-mobile" : ""}`;
+  await signIn(context, baseURL, slug);
+  await page.goto(`/products/${slug}`);
+  const actions = page.getByRole("button", {
+    name: "Вступить в список ожидания",
+  });
+  const alerts = page.getByText(
+    "Не удалось проверить или сохранить запись. Попробуйте снова.",
+    { exact: true },
+  );
+  const writes: string[] = [];
+  page.on("request", (request) => {
+    const path = new URL(request.url()).pathname;
+    if (
+      request.method() === "POST" &&
+      path.startsWith("/api/product-waitlist/")
+    )
+      writes.push(path);
+  });
+  await expect(actions).toHaveCount(2);
+  await actions.first().click();
+  await expect(alerts).toHaveCount(2);
+  const intent = "/api/product-waitlist/intent";
+  const join = "/api/product-waitlist/join";
+  expect(writes).toEqual([intent, join]);
+  const response = page.waitForResponse(
+    (response) => new URL(response.url()).pathname === join,
+  );
+  await actions.last().click();
+  expect(await (await response).json()).toMatchObject({ kind: "unavailable" });
+  await expect(alerts).toHaveCount(2);
+  expect(writes).toEqual([intent, join, join]);
+});
