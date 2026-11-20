@@ -11,7 +11,7 @@ needed before buying. See [Seeded offer catalog](local-acceptance-sale.md#develo
 2. Open <http://127.0.0.1:3000>. A fresh browser context immediately uses the local owner,
    including authoring, private drafts and all local Materials. `localhost` redirects to
    `127.0.0.1` before authentication, so the stand has one origin and one account-choice cookie.
-3. The local panel shows the current profile. «Сменить» opens `/__local/accounts`; choose owner,
+3. The row at the top of the content shows the current profile and scrolls with the page. «Сменить» opens `/__local/accounts`; choose owner,
    learner with access, learner without access, or guest. «К владельцу» returns in one action.
    Explicit learner/guest selection survives reload, tabs and stand restarts. A separate clean
    context starts as owner. The application's sign-out selects guest too.
