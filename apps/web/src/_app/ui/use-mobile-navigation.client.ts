@@ -131,7 +131,6 @@ export function useMobileNavigation(
         pending.current = null;
         positions.current = {};
         setLinks({});
-        // Account presentation is shared by Profile and onboarding; never reuse the old identity.
         void queryClient.resetQueries({
           queryKey: accountPresentationQueryKey(),
         });
