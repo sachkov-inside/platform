@@ -152,8 +152,9 @@ may also leave the programme, be archived, switch to another recording or lose i
 commit, and two lessons may swap recordings. The next release on every target attaches all named
 recordings (except those of lessons it keeps unpublished) before saving any lesson, so the receiving lesson plays the recording and the old one ends
 without it whatever their order ([ADR 0048](../adr/0048-recording-moves-to-the-material-that-attaches-it.md)).
-The preview marks both lessons with `videoChange`, and the release report names each move in a
-`video_moved` notice. A package that names one recording in two lessons
+The preview marks both lessons with `videoChange`. Each move becomes a `video_moved` notice:
+`authoring:sync-local` prints it, and `authoring:release apply` keeps it in the report stored in the
+state journal. A package that names one recording in two lessons
 is refused before any write.
 
 ## Links to a video moment
