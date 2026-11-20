@@ -23,7 +23,6 @@ export {
   type RenderedText,
 } from "../material.model";
 export { MaterialCard, type MaterialCardProps } from "./ui/material-card";
-export { FreeMaterialBadge } from "./ui/free-material-badge";
 export { MaterialShareButton } from "./ui/material-share-button.client";
 export {
   calloutTonePresentation,

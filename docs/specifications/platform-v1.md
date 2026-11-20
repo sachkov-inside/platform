@@ -299,8 +299,7 @@ Content. Reader подписывает упражнения «Упражнени
 при работающих скриптах, поэтому поиск и читатель без скриптов видят весь текст, а кнопок не видят.
 Переключателя «Показать урок целиком» нет: урок, отмеченный читателем «Изучено», показывается
 целиком без кнопок перехода, не меняя сохранённого; гость и не изучивший урок открывают его по
-частям. Призыв к покупке курса со следующим закрытым шагом ждёт последней открытой части.
-Карточка «Финиш урока» и нижняя панель действий под уроком ждут последней части, верхняя
+частям. Карточка «Финиш урока» и нижняя панель действий под уроком ждут последней части, верхняя
 панель стоит всегда. Внутри курса или продукта карточка заменяет нижнюю панель: в ней «Изучено»
 и «Дальше»; вне курса и у дополнительного материала нижняя панель остаётся под карточкой. Якорь заголовка,
 ссылка оглавления курса, «Повторить раздел» и строка нерешённых упражнений открывают все части до
@@ -526,11 +525,8 @@ source is Home, the header omits the redundant Home breadcrumb. A locked Materia
 Product membership links «Приобрести курс» to that Product's checkout while the Product is sold to
 this reader, and «Получить доступ» to the Product landing otherwise, including before an offer is
 available (owner decision 29.10.2026, #1647). A free Material read inside its checked Product
-programme ends, after practice and before the bottom actions and course navigation, with a purchase
-call for a signed-in reader whose Product access is closed: one row shows the locked next step with a
-lock and its title, or the «Бесплатно» badge when the next step is not closed, and links «Приобрести курс» to checkout while the Product is sold or «Подробнее о
-курсе» to the landing otherwise. The call is read per request outside the shared cache and prefetch;
-it is absent for guests, for readers with open Product access, and when access or sale cannot be read.
+programme has no purchase call at its end: the owner removed the «Бесплатно» / «Приобрести курс» /
+«Подробнее о курсе» row from every chapter and lesson for now (owner decision 20.11.2026).
 Within a checked Product,
 Reader and Product Task share Course B: a 272 px chapter rail and a named previous/next footer.
 The Material's bottom actions follow any practice workspace and precede course navigation.

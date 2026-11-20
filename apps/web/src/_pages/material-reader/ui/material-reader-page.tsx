@@ -78,7 +78,6 @@ import {
 import { FreeLessonAccess } from "./free-lesson-access";
 import { MaterialReaderView } from "./material-reader-view";
 import { readerBodyLink } from "./reader-body-link";
-import { FreeLessonPurchaseCall } from "./free-lesson-purchase-call.server";
 
 type ResolvedMaterial = Extract<
   MaterialReaderResult,
@@ -423,12 +422,9 @@ async function ResolvedMaterialReader({
       />
     );
   }
-  // Бесплатный урок курса ведёт к покупке курса (#1647); у дополнительного материала своего места
-  // в программе нет, и звать оттуда нечего.
-  const purchaseProductSlug = productSlugOf(returnTarget);
   // Подсказка термина и карусель терминов ведут в словарь курса, только когда урок открыт внутри курса.
   const courseGlossarySlug =
-    productContext === null ? undefined : purchaseProductSlug;
+    productContext === null ? undefined : productSlugOf(returnTarget);
   // «Подробнее» ведёт только к термину, который словарь курса показывает читателю.
   const courseGlossaryTerms =
     courseGlossarySlug === undefined || result.glossaryTerms.length === 0
@@ -438,19 +434,6 @@ async function ResolvedMaterialReader({
     courseGlossarySlug === undefined || courseGlossaryTerms?.kind !== "ready"
       ? undefined
       : { slug: courseGlossarySlug, termIds: courseGlossaryTerms.termIds };
-  const purchaseCall =
-    result.material.access === "free" &&
-    purchaseProductSlug !== undefined &&
-    productContext?.programme != null &&
-    productContext.supplementary !== true ? (
-      <Suspense fallback={null}>
-        <FreeLessonPurchaseCall
-          material={result.material}
-          productSlug={purchaseProductSlug}
-          next={productContext.programme.next}
-        />
-      </Suspense>
-    ) : undefined;
   return (
     <VisibleMaterialOpen
       key={`${result.material.materialId}:${String(result.material.contentVersion)}`}
@@ -528,7 +511,6 @@ async function ResolvedMaterialReader({
           </Suspense>
         }
         deferredPracticeActions={deferredPracticeActions}
-        purchaseCall={purchaseCall}
         updateNotice={
           <MaterialUpdateNotice materialId={result.material.materialId} />
         }
