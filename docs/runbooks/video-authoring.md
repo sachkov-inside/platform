@@ -150,9 +150,10 @@ provider recording serves the stand and production and survives a later change o
 Move `platform_video.kinescope_id` from one lesson's source to another's in one commit; the old lesson
 may also leave the programme, be archived, switch to another recording or lose its video in the same
 commit, and two lessons may swap recordings. The next release on every target attaches all named
-recordings before saving any lesson, so the receiving lesson plays the recording and the old one ends
+recordings (except those of lessons it keeps unpublished) before saving any lesson, so the receiving lesson plays the recording and the old one ends
 without it whatever their order ([ADR 0048](../adr/0048-recording-moves-to-the-material-that-attaches-it.md)).
-The preview marks both lessons with `videoChange`. A package that names one recording in two lessons
+The preview marks both lessons with `videoChange`, and the release report names each move in a
+`video_moved` notice. A package that names one recording in two lessons
 is refused before any write.
 
 ## Links to a video moment

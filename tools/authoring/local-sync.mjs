@@ -1691,6 +1691,28 @@ export async function syncLocal(
           videoId: attached.videoId,
           state: attached.state,
         };
+        // The receipt of a Material that held this recording no longer names its Video; dropping it
+        // makes that Material attach again, visibly, if its original still names the recording.
+        for (const [other, value] of Object.entries(resources)) {
+          const [kind, holder, recording] = other.split(":");
+          if (
+            kind !== "video" ||
+            holder === current.materialId ||
+            recording !== row.video.kinescopeId ||
+            parseReceipt(attachedVideoReceiptSchema, value)?.videoId !==
+              attached.videoId
+          )
+            continue;
+          delete resources[other];
+          const giver = Object.entries(journal.materials).find(
+            ([, entry]) => entry.materialId === holder,
+          )?.[0];
+          report.notices.push({
+            code: "video_moved",
+            path: row.sourcePath,
+            message: `Запись ${row.video.kinescopeId} перенесена сюда из материала ${giver ?? holder}; там видео больше нет`,
+          });
+        }
         await persist();
       }
       // Without a stored receipt the video was attached above.

@@ -643,6 +643,13 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       where: { id: original.value.videoId },
     });
 
+    const viewer = randomUUID();
+    await videos.saveProgress({
+      accountId: viewer,
+      durationSeconds: 300,
+      positionSeconds: 42,
+      videoId: original.value.videoId,
+    });
     // The same Video, with its playback progress, now belongs to the Material that attached it.
     const moved = await videos.attachExisting({
       access: "free",
@@ -662,6 +669,12 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
         where: { id: original.value.videoId },
       }),
     ).resolves.toMatchObject({ detachedAt: null, materialId: nextOwner });
+    await expect(
+      videos.loadProgress({
+        accountId: viewer,
+        videoId: original.value.videoId,
+      }),
+    ).resolves.toEqual({ ok: true, value: { positionSeconds: 42 } });
     await expect(
       videos.loadAccessFacts([original.value.videoId]),
     ).resolves.toMatchObject({

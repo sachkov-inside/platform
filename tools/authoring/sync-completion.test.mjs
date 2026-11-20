@@ -1112,7 +1112,18 @@ test("a release moves a recording to another lesson in either order, also when t
   // The lesson that receives the recording comes before the one that gives it up.
   give(1, 0);
   await setup.write();
-  await run(setup, api);
+  const moved = await run(setup, api);
+  assert.deepEqual(
+    moved.notices
+      .filter((notice) => notice.code === "video_moved")
+      .map((notice) => notice.path),
+    ["lesson.md"],
+  );
+  assert.match(
+    moved.notices.find((notice) => notice.code === "video_moved")?.message ??
+      "",
+    /inside-content:video/u,
+  );
   assert.equal(lesson.primaryVideoId, videoId);
   assert.equal(video.primaryVideoId, null);
   assert.equal(valueAt(api.videos, videoId).materialId, lesson.materialId);

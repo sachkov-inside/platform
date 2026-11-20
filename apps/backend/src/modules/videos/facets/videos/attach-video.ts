@@ -134,11 +134,8 @@ export async function attachExistingVideo(
 }
 
 /**
- * Hands the Video to the Material that attaches its recording. The Video keeps its identity,
- * playback progress and origin; its previous Material keeps only an inert selection that no longer
- * presents or plays it, and its next Save must name another Video or none (ADR 0048). Both
- * Materials' reference locks serialize the move with their Saves and with Video deletion. An upload
- * still in progress or a Video whose deletion was requested stays where it is.
+ * Hands the Video to the Material that attaches its recording (ADR 0048). Both Materials' reference
+ * locks order the move with their Saves and with Video deletion.
  */
 async function moveVideo(
   transaction: VideosPrisma,
@@ -161,7 +158,7 @@ async function moveVideo(
   if (video === null) return null;
   if (video.materialId === materialId) return video;
   if (
-    // A concurrent move took it elsewhere after the first read; the caller attaches again.
+    // A concurrent move took it elsewhere after the first read: refused like any unmovable Video.
     video.materialId !== initial.materialId ||
     video.state === "uploading" ||
     isVideoDeletionState(video.state) ||

@@ -674,6 +674,101 @@ describe("independent product, library, support and shared chat rights", () => {
     ).toMatchObject({ ok: true });
   });
 
+  test("a moved recording plays for its new lesson's readers only; tokens of the old lesson stop working", async () => {
+    const [free, closed] = await Promise.all([
+      material([], "published", "free"),
+      material([productA]),
+    ]);
+    await grant([`product:${productA}`], null);
+    const providerVideoId = randomUUID();
+    const videos = assembleVideos({
+      prisma: db.prisma,
+      provider: {
+        delete: () => Promise.reject(new Error("unused")),
+        find: (input) =>
+          Promise.resolve({
+            durationSeconds: 60,
+            embedLocator: `https://kinescope.io/embed/${input.id}`,
+            id: input.id,
+            projectId: "members",
+            status: "done",
+            title: "Moved protected recording",
+          }),
+        initUpload: () => Promise.reject(new Error("unused")),
+      },
+      projects: { public: "free", protected: "members" },
+      canManage: () => Promise.resolve(true),
+      clock: () => now,
+    });
+    const playback = assembleVideoPlayback({
+      contentAccess: assembleContentAccess({
+        videoResourceFacts: assembleVideoResourceFacts(videos),
+        materialResourceFacts: assembleMaterialResourceFacts(
+          materials.materialContent,
+        ),
+        accountPermissions: {
+          hasMaterialsManage: () => Promise.resolve(false),
+        },
+        accountRights: membership,
+      }),
+      videos,
+      jwtSecret: "synthetic-playback-signing-key-move",
+      clock: () => now,
+    });
+    const attach = async (
+      materialIdValue: string,
+      access: "free" | "closed",
+    ) => {
+      const attached = await videos.attachExisting({
+        access,
+        actor: owner,
+        materialId: materialIdValue,
+        providerVideoId,
+      });
+      if (!attached.ok) throw new Error(attached.error.code);
+      await db.prisma.material.update({
+        where: { id: materialIdValue },
+        data: { primaryVideoId: attached.value.videoId },
+      });
+      return attached.value.videoId;
+    };
+    const anonymous = { kind: "anonymous" as const };
+    const reader = { kind: "account" as const, accountId: accountId(buyer) };
+    const session = (
+      materialIdValue: string,
+      videoId: string,
+      subject: typeof anonymous | typeof reader,
+    ) =>
+      playback.createSession({
+        correlationId: randomUUID(),
+        materialId: materialIdValue,
+        subject,
+        videoId,
+      });
+
+    const videoId = await attach(free, "free");
+    const before = await session(free, videoId, anonymous);
+    if (!before.ok || !hasText(before.value.drmAuthToken))
+      throw new Error("Expected protected playback token");
+
+    // The closed lesson takes the recording; the free lesson still names it in its row.
+    await expect(attach(closed, "closed")).resolves.toBe(videoId);
+    for (const subject of [anonymous, reader])
+      expect(await session(free, videoId, subject)).toMatchObject({
+        ok: false,
+      });
+    expect(
+      await playback.authorizeProvider({
+        providerVideoId,
+        token: before.value.drmAuthToken,
+      }),
+    ).toBe(false);
+    expect(await session(closed, videoId, anonymous)).toMatchObject({
+      error: { code: "access_denied" },
+    });
+    expect(await session(closed, videoId, reader)).toMatchObject({ ok: true });
+  });
+
   test("draft video plays only in the author preview; readers, members and guests stay denied", async () => {
     now = new Date("2030-04-01T00:00:00Z");
     await grant([`product:${productA}`], null);
