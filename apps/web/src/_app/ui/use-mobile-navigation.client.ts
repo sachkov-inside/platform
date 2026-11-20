@@ -21,6 +21,8 @@ import {
   parseLibrarySearchParams,
 } from "@/features/library-catalog";
 
+import { MobileNavigationIdentity } from "../model/mobile-navigation-identity";
+
 const rootPaths = ["/", "/bookmarks", "/account"] as const;
 type RootPath = (typeof rootPaths)[number];
 interface TabPosition {
@@ -41,7 +43,7 @@ export function useMobileNavigation(
   const [links, setLinks] = useState<TabPositions>({});
   const pending = useRef<TabPosition | null>(null);
   const stopRestoring = useRef<() => void>(() => undefined);
-  const previousAccount = useRef<string | null | undefined>(undefined);
+  const [identity] = useState(() => new MobileNavigationIdentity());
   const queryClient = useQueryClient();
   const router = useRouter();
   const [isNavigating, startNavigation] = useTransition();
@@ -122,24 +124,24 @@ export function useMobileNavigation(
     };
   }, [saveCurrent]);
 
-  useLayoutEffect(() => {
-    if (!authResolved) return;
-    if (
-      previousAccount.current !== undefined &&
-      previousAccount.current !== accountId
-    ) {
-      stopRestoring.current();
-      pending.current = null;
-      positions.current = {};
-      setLinks({});
-      // Account presentation is shared by Profile and onboarding; never reuse the old identity.
-      void queryClient.resetQueries({
-        queryKey: accountPresentationQueryKey(),
+  useLayoutEffect(
+    function commitNavigationIdentity() {
+      identity.accept(authResolved ? accountId : undefined, () => {
+        stopRestoring.current();
+        pending.current = null;
+        positions.current = {};
+        setLinks({});
+        // Account presentation is shared by Profile and onboarding; never reuse the old identity.
+        void queryClient.resetQueries({
+          queryKey: accountPresentationQueryKey(),
+        });
+        void queryClient.resetQueries({
+          queryKey: libraryCatalogQueryRootKey(),
+        });
       });
-      void queryClient.resetQueries({ queryKey: libraryCatalogQueryRootKey() });
-    }
-    previousAccount.current = accountId;
-  }, [accountId, authResolved, queryClient]);
+    },
+    [accountId, authResolved, identity, queryClient],
+  );
 
   useEffect(() => {
     if (!authResolved || pathname === "/") return;
