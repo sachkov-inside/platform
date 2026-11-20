@@ -419,19 +419,18 @@
     },
     {
       "id": "D29",
-      "status": "retained-design",
+      "status": "verified-adapter",
       "path": "apps/web/src/entities/material/model/use-lesson-fragment-navigation.client.ts",
       "owner": "useLessonFragmentNavigation",
       "kind": "useEffect",
       "fingerprint": "968474548d8cc1df9351ce4df701e900a67b594b24434b62b2fe62ed3652656a",
-      "disposition": "extract",
-      "next": "Подтвердить доставку отдельного адаптера начальной ссылки и подписок click/hashchange с сохранением поведения Reader.",
+      "reason": "On initial entry the adapter asks the lesson to reveal the part containing the fragment target and schedules a scroll if it opened that part. It follows same-page fragment clicks and hash changes. Hiding or unmounting the lesson releases both subscriptions.",
       "test": "apps/web/test/browser-engines/body-fragments.test.ts",
       "additionalTests": [
         "apps/web/test/navigation/reader-initial-fragment.spec.ts",
         "apps/web/src/entities/material/ui/lesson-steps-progress.stories.tsx"
       ],
-      "authority": "Both lesson fragment link and subscription lifetime checks delivered in #2501 on c9c28a095cfe5b2d610760e67e62b8edb21c1145. Removing each cleanup leaves an active subscription. The ordinary click reveals earlier with capture but ends with the same heading in view, one progress save and the same next Tab stop without capture. Direct entry and initial scroll target are independently covered by #2495."
+      "authority": "Both lesson fragment link and subscription lifetime checks delivered in #2501 on c9c28a095cfe5b2d610760e67e62b8edb21c1145. Removing each cleanup leaves an active subscription. The ordinary click reveals earlier with capture but ends with the same heading in view, one progress save and the same next Tab stop without capture. Direct entry and initial scroll target are independently covered by #2495. Adapter independently verified on 257a4e8365ce478cc5391fb7056507c7a704345c and delivered in #2506 at 5b8f1ae884d09ec89b73f7243073fe02a2818209."
     },
     {
       "id": "D30",
