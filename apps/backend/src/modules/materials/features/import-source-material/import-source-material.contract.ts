@@ -9,9 +9,10 @@ import {
   materialBodySnapshotWireSchema,
   materialMetadataSelectionWireSchema,
 } from "../../adapters/material-authoring-wire.js";
-import type {
-  SaveMaterialResult,
-  SaveMaterialError,
+import {
+  MATERIAL_DETACHED_VIDEOS_MAX,
+  type SaveMaterialResult,
+  type SaveMaterialError,
 } from "../save-material/save-material.contract.js";
 import type { Result } from "../../result.js";
 
@@ -27,6 +28,11 @@ export const applySourceBodySchema = z
     notifyTelegram: z.boolean().optional(),
     inFeed: z.boolean().optional(),
     primaryVideoId: z.uuid().nullable(),
+    /** Receiver feature `video-detach-v1`: Videos of this Material the Save detaches (ADR 0048). */
+    detachVideoIds: z
+      .array(z.uuid())
+      .max(MATERIAL_DETACHED_VIDEOS_MAX)
+      .optional(),
     videoChapters: videoChaptersSchema.optional(),
     /** Package feature `material-update-note-v1`; omitted keeps the stored note. */
     updateNote: materialUpdateNoteSchema.optional(),
@@ -53,6 +59,7 @@ export const validateSourceBodySchema = applySourceBodySchema.omit({
   materialId: true,
   expectedContentVersion: true,
   primaryVideoId: true,
+  detachVideoIds: true,
 });
 export type ValidateSourceOperation = (
   command: z.infer<typeof validateSourceBodySchema> & {

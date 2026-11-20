@@ -89,6 +89,8 @@ import { gitAncestry, sourceCommitRelation } from "./source-commit.mjs";
  * @property {"unpublished"} [publicationKept] The target publication a `kept` Material stays in
  * @property {boolean} [coverChange]
  * @property {boolean} [videoChange]
+ * @property {boolean} [videoDetached] The original names no recording, so apply detaches the
+ *   Material's own Video on a receiver with `video-detach-v1`; the provider recording stays (ADR 0048)
  * @property {VideoUpload[]} [videoUploads] Recordings `authoring:video` uploaded for this Material
  * @property {import("./local-sync.mjs").DesiredPublication} publication
  * @property {{ from: import("./local-boundaries.mjs").PublicationState; to: import("./local-sync.mjs").DesiredPublication }} [publicationChange]
@@ -267,7 +269,10 @@ export async function previewRelease(
   const publicationOfKey = publicationPolicy(manifest, publish);
   const environment = await request("/authoring/import/materials/environment");
   assertTargetEnvironment(target, environment.mode);
-  assertReceiverContract(environment, manifest);
+  const { packageFeatures: receiverFeatures } = assertReceiverContract(
+    environment,
+    manifest,
+  );
   const preservedLegacyTasks = await assertLegacyTaskTargets(pkg, send);
   if (!manifest.selection.contentOnly)
     await validateProductPages(manifest, send);
@@ -321,7 +326,8 @@ export async function previewRelease(
   /** @type {Record<string, number | string>} */
   const expected = {};
   // The recording of each Video this journal attached or uploaded, and the original that names
-  // each recording now: a Material whose recording another original names gives it up on apply.
+  // each recording now: a Material whose recording another original names gives it up on apply;
+  // one whose recording no original names detaches it.
   /** @type {Map<string, string>} */
   const recordingOf = new Map();
   for (const [key, value] of Object.entries(resources)) {
@@ -387,15 +393,23 @@ export async function previewRelease(
       sourceVideoReceiptSchema,
       resources[`source-video:${key}`],
     );
-    const kept = uploaded?.videoId ?? current.primaryVideoId;
-    const takenBy =
-      kept === null ? undefined : namedBy.get(recordingOf.get(kept) ?? "");
+    const pendingUpload =
+      uploaded !== undefined &&
+      resources[`video:${entry.materialId}:${uploaded.providerVideoId}`] ===
+        undefined &&
+      !namedBy.has(uploaded.providerVideoId)
+        ? uploaded.videoId
+        : null;
+    const detaches =
+      receiverFeatures.includes("video-detach-v1") &&
+      row.video === null &&
+      pendingUpload === null &&
+      current.primaryVideoId !== null &&
+      !namedBy.has(recordingOf.get(current.primaryVideoId) ?? "");
     // Attaching the provider record of this Material's own upload returns the same Video.
     const attached =
       row.video === null
-        ? takenBy === undefined || takenBy === row.sourceId
-          ? kept
-          : null
+        ? pendingUpload
         : (parseReceipt(
             attachedVideoReceiptSchema,
             resources[`video:${entry.materialId}:${row.video.kinescopeId}`],
@@ -462,6 +476,7 @@ export async function previewRelease(
         desired: materialRevision(manifest, row),
       },
       ...(attached !== current.primaryVideoId ? { videoChange: true } : {}),
+      ...(detaches ? { videoDetached: true } : {}),
       ...(uploads.length === 0 ? {} : { videoUploads: uploads }),
       ...(typeof recordedCommit === "string" || sourceCommit !== undefined
         ? {

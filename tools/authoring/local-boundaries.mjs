@@ -227,6 +227,8 @@ const historicalApplyBodySchema = z
           .passthrough(),
       )
       .optional(),
+    // Videos this Save detaches from its Material (receiver feature `video-detach-v1`, ADR 0048).
+    detachVideoIds: z.array(z.uuid()).optional(),
   })
   .passthrough();
 

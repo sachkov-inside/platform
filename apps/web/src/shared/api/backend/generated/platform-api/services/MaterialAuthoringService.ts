@@ -580,6 +580,7 @@ export class MaterialAuthoringService {
         doc: Record<string, any>;
         schemaVersion: 1;
       };
+      detachVideoIds?: Array<string>;
       expectedContentVersion: number;
       materialId: string;
       metadata: {
@@ -775,6 +776,7 @@ export class MaterialAuthoringService {
         doc: Record<string, any>;
         schemaVersion: 1;
       };
+      detachVideoIds?: Array<string>;
       expectedContentVersion: number;
       inFeed?: boolean;
       materialId: string;

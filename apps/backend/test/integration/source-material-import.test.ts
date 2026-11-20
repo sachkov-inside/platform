@@ -2,6 +2,10 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { anonymousSubject } from "../../src/modules/content-access/index.js";
 import {
+  assembleVideos,
+  type ProviderVideo,
+} from "../../src/modules/videos/index.js";
+import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
@@ -509,5 +513,100 @@ describe("authoring source Material", () => {
       ok: false,
       error: { code: "invalid_content" },
     });
+  });
+
+  test("an apply detaches the Video its original no longer names and keeps the provider recording", async () => {
+    const recording = `detach-${crypto.randomUUID()}`;
+    const remote: ProviderVideo = {
+      durationSeconds: 120,
+      embedLocator: `https://kinescope.io/embed/${recording}`,
+      id: recording,
+      projectId: "public-project",
+      status: "done",
+      title: "Detached recording",
+    };
+    const videos = assembleVideos({
+      canManage: () => Promise.resolve(true),
+      prisma: database.prisma,
+      projects: { public: "public-project", protected: "member-project" },
+      provider: {
+        delete: () => Promise.reject(new Error("the provider keeps it")),
+        find: (input) =>
+          Promise.resolve(input.id === recording ? remote : null),
+        initUpload: () => Promise.reject(new Error("unused")),
+      },
+    });
+    const { authoring } = assembleMaterials({
+      prisma: database.prisma,
+      authorPolicy: { canManage: (id) => id === actor },
+      videos,
+    });
+    const detachedSource = {
+      ...source,
+      id: "authoring-test-detach",
+      path: "materials/detach.md",
+    };
+    const reserved = await authoring.reserveSourceMaterial({
+      actor,
+      source: detachedSource,
+    });
+    if (!reserved.ok) throw new Error(reserved.error.code);
+    const { materialId } = reserved.value;
+    const attached = await videos.attachExisting({
+      access: "free",
+      actor,
+      materialId,
+      providerVideoId: recording,
+    });
+    if (!attached.ok) throw new Error(attached.error.code);
+    const { videoId } = attached.value;
+    const command = {
+      actor,
+      materialId,
+      source: detachedSource,
+      publicationState: "draft" as const,
+      metadata,
+      body: representativeDocument("Imported lesson with a recording"),
+    };
+    expect(
+      await authoring.applySourceMaterial({
+        ...command,
+        expectedContentVersion: 1,
+        idempotencyKey: "detach-select",
+        primaryVideoId: videoId,
+      }),
+    ).toMatchObject({ ok: true, value: { contentVersion: 2 } });
+
+    expect(
+      await authoring.applySourceMaterial({
+        ...command,
+        expectedContentVersion: 2,
+        idempotencyKey: "detach-foreign",
+        primaryVideoId: null,
+        detachVideoIds: ["99999999-9999-4999-8999-999999999999"],
+      }),
+    ).toMatchObject({
+      ok: false,
+      error: { code: "invalid_reference" },
+    });
+    const detach = {
+      ...command,
+      expectedContentVersion: 2,
+      idempotencyKey: "detach-own",
+      primaryVideoId: null,
+      detachVideoIds: [videoId],
+    };
+    const detached = await authoring.applySourceMaterial(detach);
+    expect(detached).toMatchObject({ ok: true, value: { contentVersion: 3 } });
+    expect(await authoring.applySourceMaterial(detach)).toEqual(detached);
+    expect(await authoring.loadMaterial({ actor, materialId })).toMatchObject({
+      ok: true,
+      value: { primaryVideoId: null },
+    });
+    const stored = await database.prisma.video.findUnique({
+      where: { id: videoId },
+    });
+    expect(stored).toMatchObject({ materialId, providerVideoId: recording });
+    expect(stored?.detachedAt).toBeInstanceOf(Date);
   });
 });
