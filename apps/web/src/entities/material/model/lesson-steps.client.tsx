@@ -168,7 +168,10 @@ export function LessonSteps({
       ?.scrollIntoView({ block: "start", behavior: "instant" });
   }, [opened]);
 
-  useLessonFragmentNavigation(parts.count, open, pendingScroll);
+  const scrollAfterReveal = useCallback((id: string) => {
+    pendingScroll.current = id;
+  }, []);
+  useLessonFragmentNavigation(parts.count, open, scrollAfterReveal);
 
   const value = useMemo<LessonStepsValue>(
     () => ({

@@ -1,10 +1,10 @@
 "use client";
-import { useEffect, type RefObject } from "react";
+import { useEffect } from "react";
 
 export function useLessonFragmentNavigation(
   partCount: number,
   open: (count: number, sync: boolean) => boolean,
-  pendingScroll: RefObject<string | null>,
+  scrollAfterReveal: (id: string) => void,
 ) {
   useEffect(() => {
     if (partCount === 1) return;
@@ -51,14 +51,14 @@ export function useLessonFragmentNavigation(
         ?.scrollIntoView({ block: "start", behavior: "instant" });
     };
     if (reveal(window.location.hash, false))
-      pendingScroll.current = safeDecode(window.location.hash.slice(1));
+      scrollAfterReveal(safeDecode(window.location.hash.slice(1)));
     document.addEventListener("click", followLink, true);
     window.addEventListener("hashchange", followHash);
     return () => {
       document.removeEventListener("click", followLink, true);
       window.removeEventListener("hashchange", followHash);
     };
-  }, [open, partCount, pendingScroll]);
+  }, [open, partCount, scrollAfterReveal]);
 }
 
 function safeDecode(value: string): string {

@@ -421,7 +421,7 @@
       "path": "apps/web/src/entities/material/model/use-lesson-fragment-navigation.client.ts",
       "owner": "useLessonFragmentNavigation",
       "kind": "useEffect",
-      "fingerprint": "a2d9d2dd7be6bf8b5e5ec34b841b41efc3770d3247c22c5ebd652f613fc03869",
+      "fingerprint": "968474548d8cc1df9351ce4df701e900a67b594b24434b62b2fe62ed3652656a",
       "disposition": "extract",
       "next": "Подтвердить доставку отдельного адаптера начальной ссылки и подписок click/hashchange с сохранением поведения Reader.",
       "test": "apps/web/test/browser-engines/body-fragments.test.ts",
