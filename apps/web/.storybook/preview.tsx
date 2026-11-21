@@ -19,6 +19,7 @@ sb.mock(
 );
 
 import { QueryProvider } from "@/_app/ui/query-provider.client";
+import { themePreferenceStorageKey } from "@/features/theme-preference/model/theme-preference";
 
 import "@fontsource-variable/jetbrains-mono/wght.css";
 import "@fontsource-variable/manrope/wght.css";
@@ -41,12 +42,16 @@ const withStoryFrame: Decorator = (Story) => {
 const preview: Preview = {
   beforeEach: (context) => {
     assertDeclaredViewport(context);
-    // Тема как в продукте: класс `.dark` на `<html>`, его ставит выбор в шапке.
+    // Тема как в продукте: выбор в хранилище браузера и класс `.dark` на `<html>`. Кнопка темы
+    // в шапке применяет сохранённый выбор, когда подключается, поэтому одного класса мало.
     const root = document.documentElement;
     const dark = context.globals["theme"] === "dark";
+    if (dark) localStorage.setItem(themePreferenceStorageKey, "dark");
+    else localStorage.removeItem(themePreferenceStorageKey);
     root.classList.toggle("dark", dark);
     root.style.colorScheme = dark ? "dark" : "light";
     return () => {
+      localStorage.removeItem(themePreferenceStorageKey);
       root.classList.remove("dark");
       root.style.colorScheme = "";
     };

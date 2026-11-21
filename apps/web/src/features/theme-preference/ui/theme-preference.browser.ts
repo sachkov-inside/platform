@@ -57,9 +57,12 @@ export function chooseThemePreference(preference: ThemePreference): void {
 
 /**
  * Keeps the page in step with the choice: another tab may change it, and «Как в системе» follows
- * the operating system while the page is open.
+ * the operating system while the page is open. The switch subscribes when it mounts and applies the
+ * choice once: a layout that answers «не найдено» before its shell gets a document without the
+ * inline restore script, and the client renders the page.
  */
 export function subscribeThemePreference(onChange: () => void): () => void {
+  applyTheme(readThemePreference());
   const sync = () => {
     applyTheme(readThemePreference());
     onChange();

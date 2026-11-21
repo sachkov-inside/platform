@@ -99,3 +99,18 @@ test("в тёмной теме текст держит контраст WCAG AA"
     expect(audit.violations, path).toEqual([]);
   }
 });
+
+test("«не найдено» из раскладки админки тоже тёмная", async ({ page }) => {
+  // Гость в админке получает «не найдено» ещё до оболочки: документ приходит без встроенного
+  // скрипта темы, и страницу рисует клиент. Тему применяет кнопка в шапке этой страницы.
+  await page.addInitScript((key) => {
+    localStorage.setItem(key, "dark");
+  }, storageKey);
+  await page.goto("/authoring");
+
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Страница не найдена" }),
+  ).toBeVisible();
+  await expect(page.locator("html")).toHaveClass(/\bdark\b/u);
+  expect(await bodyBackground(page)).toBe(darkBackground);
+});
