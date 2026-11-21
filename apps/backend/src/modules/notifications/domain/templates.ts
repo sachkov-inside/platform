@@ -13,6 +13,7 @@ const subjects = {
   access_expired: "Доступ закончился",
   refund_resolved: "Результат возврата",
   sale_recorded: "Новая покупка",
+  lesson_feedback_submitted: "Новый отзыв об уроке",
 } as const;
 /** Авторы работают по московскому времени: снимок цены покупки тоже хранит Europe/Moscow. */
 const moscowTime = new Intl.DateTimeFormat("ru-RU", {
@@ -86,6 +87,16 @@ export function renderNotification(
   )
     throw new Error("notification_link_invalid");
   const subject = subjects[source.content.kind];
+  if (source.content.kind === "lesson_feedback_submitted") {
+    if (source.feedbackText === undefined)
+      throw new Error("notification_lesson_feedback_invalid");
+    return {
+      templateRef: "inside.lesson_feedback_submitted",
+      templateRevision: 1,
+      subject,
+      text: `${subject}\n${url.href}\n\n${source.feedbackText}`,
+    };
+  }
   const amount =
     source.amountMinor === undefined
       ? ""

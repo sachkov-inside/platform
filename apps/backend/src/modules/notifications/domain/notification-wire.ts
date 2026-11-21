@@ -15,7 +15,11 @@ export type Channel = z.infer<typeof channelSchema>;
 export const eventSchema = z.object({
   contractVersion: z.literal("inside.notification-event.v1"),
   messageId: id,
-  eventType: z.enum(["billing.notice-ready", "material.published"]),
+  eventType: z.enum([
+    "billing.notice-ready",
+    "material.published",
+    "lesson-feedback.submitted",
+  ]),
   accountRef: z.string().optional(),
   kind: z.string().optional(),
   occurrenceRef: id,
@@ -57,6 +61,7 @@ export const contentSchema = z.discriminatedUnion("category", [
       "access_expired",
       "refund_resolved",
       "sale_recorded",
+      "lesson_feedback_submitted",
     ]),
   }),
 ]);

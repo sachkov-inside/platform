@@ -72,4 +72,50 @@ export class LessonRatingsService {
       mediaType: 'application/json',
     });
   }
+  /**
+   * Check if the current Account already sent text feedback on this lesson
+   * @returns any
+   * @throws ApiError
+   */
+  public readLessonFeedback({
+    materialId,
+  }: {
+    materialId: string,
+  }): CancelablePromise<{
+    submitted: boolean;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/lesson-ratings/materials/{materialId}/feedback',
+      path: {
+        'materialId': materialId,
+      },
+    });
+  }
+  /**
+   * Save the current Account's first text feedback on a lesson it may read
+   * @returns any
+   * @throws ApiError
+   */
+  public submitLessonFeedback({
+    materialId,
+    requestBody,
+  }: {
+    materialId: string,
+    requestBody: {
+      text: string;
+    },
+  }): CancelablePromise<{
+    submitted: boolean;
+  }> {
+    return this.httpRequest.request({
+      method: 'PUT',
+      url: '/lesson-ratings/materials/{materialId}/feedback',
+      path: {
+        'materialId': materialId,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
 }

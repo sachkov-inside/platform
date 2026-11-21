@@ -77,6 +77,7 @@ export interface MaterialReaderViewProps {
   readonly termDeck?: ReactNode;
   /** Строка «Как вам урок?» карточки «Финиш урока» (#2124). */
   readonly lessonRating?: ReactNode;
+  readonly lessonFeedback?: ReactNode;
   /**
    * Wraps the lesson text and its finish card: Exercise Attempts restore answers inside it, and
    * the card reads them there (#2121). Without it exercises keep answers on the page only.
@@ -107,6 +108,7 @@ export function MaterialReaderView({
   codeHighlights,
   termDeck,
   lessonRating,
+  lessonFeedback,
   exerciseScope = (lesson) => lesson,
   material,
   primaryVideo,
@@ -157,7 +159,7 @@ export function MaterialReaderView({
             (nextStep === undefined ? productContext.next : nextStep) ?? null,
           programme: productContext.product.href,
         };
-  const finishRows = lessonRating !== undefined;
+  const finishRows = lessonRating !== undefined || lessonFeedback !== undefined;
   const topActions = (
     <ReaderTopActions
       context={productContext?.programme == null ? productContext : null}
@@ -282,6 +284,7 @@ export function MaterialReaderView({
                   <LessonStepsTail>
                     <LessonFinish actions={finishActions}>
                       {lessonRating}
+                      {lessonFeedback}
                     </LessonFinish>
                   </LessonStepsTail>
                 )}

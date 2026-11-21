@@ -26,6 +26,29 @@ describe("GrammyMessagesAdapter", () => {
     expect(receivedChatId).toBe(4_503_599_627_370_495);
   });
 
+  it("honours an explicit request to disable previews of plain text links", async () => {
+    let received: unknown;
+    const adapter = new GrammyMessagesAdapter("synthetic", {
+      editMessageText() {
+        return Promise.resolve(true);
+      },
+      sendMessage(chatId, text, options) {
+        received = { chatId, text, options };
+        return Promise.resolve({ message_id: 99 });
+      },
+    });
+    await adapter.sendText({
+      chatId: "42",
+      text: "Отзыв: https://example.test/lesson",
+      disableLinkPreview: true,
+    });
+    expect(received).toEqual({
+      chatId: 42,
+      text: "Отзыв: https://example.test/lesson",
+      options: { link_preview_options: { is_disabled: true } },
+    });
+  });
+
   it("keeps a stable API rejection terminal", async () => {
     const adapter = adapterThrowing(grammyError(403));
 

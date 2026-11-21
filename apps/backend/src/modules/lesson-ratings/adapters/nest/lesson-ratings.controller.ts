@@ -37,6 +37,7 @@ import {
 } from "../../../accounts/index.js";
 import { lessonRatingSchema } from "../../domain/lesson-rating.js";
 import { LessonRatings } from "../../facets/lesson-ratings/lesson-ratings.js";
+import { feedbackBodySchema } from "../../features/lesson-feedback/lesson-feedback.js";
 import type { RateLessonError } from "../../features/rate-lesson/rate-lesson.js";
 
 /** The request names the rating only: the Account belongs to the session. */
@@ -44,6 +45,8 @@ const rateBodySchema = z.object({ rating: lessonRatingSchema }).strict();
 const ratingResponseSchema = z
   .object({ rating: lessonRatingSchema.nullable() })
   .strict();
+
+const feedbackResponseSchema = z.strictObject({ submitted: z.boolean() });
 
 @ApiTags("Lesson Ratings")
 @ApiBearerAuth("logto")
@@ -129,6 +132,70 @@ export class LessonRatingsController {
     });
     if (!result.ok) throwRatingError(result.error);
     return { rating: result.value };
+  }
+
+  @Get("feedback")
+  @ApiOperation({
+    operationId: "readLessonFeedback",
+    summary:
+      "Check if the current Account already sent text feedback on this lesson",
+  })
+  @ApiOkResponse({ schema: toOpenApiSchema(feedbackResponseSchema) })
+  @ApiResponse({
+    status: 403,
+    content: problemDetailsContent(
+      problemDetailsSchema(403, ["access_denied"]),
+    ),
+  })
+  @ApiResponse({
+    status: 404,
+    content: problemDetailsContent(
+      problemDetailsSchema(404, ["material_not_found"]),
+    ),
+  })
+  async readFeedback(
+    @CurrentAccount() current: AuthenticatedAccount,
+    @Param("materialId") materialId: string,
+  ) {
+    const result = await this.ratings.readFeedback({
+      accountId: current.accountId,
+      materialId,
+    });
+    if (!result.ok) throwRatingError(result.error);
+    return { submitted: result.submitted };
+  }
+
+  @Put("feedback")
+  @ApiOperation({
+    operationId: "submitLessonFeedback",
+    summary:
+      "Save the current Account's first text feedback on a lesson it may read",
+  })
+  @ApiBody({ schema: toOpenApiSchema(feedbackBodySchema) })
+  @ApiOkResponse({ schema: toOpenApiSchema(feedbackResponseSchema) })
+  @ApiResponse({
+    status: 403,
+    content: problemDetailsContent(
+      problemDetailsSchema(403, ["access_denied"]),
+    ),
+  })
+  @ApiResponse({
+    status: 404,
+    content: problemDetailsContent(
+      problemDetailsSchema(404, ["material_not_found"]),
+    ),
+  })
+  async submitFeedback(
+    @CurrentAccount() current: AuthenticatedAccount,
+    @Param("materialId") materialId: string,
+    @Body() input: unknown,
+  ) {
+    const result = await this.ratings.submitFeedback(
+      { accountId: current.accountId, materialId },
+      input,
+    );
+    if (!result.ok) throwRatingError(result.error);
+    return { submitted: result.submitted };
   }
 
   @Delete()

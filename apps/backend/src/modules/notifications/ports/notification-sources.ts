@@ -21,6 +21,7 @@ export type NotificationSource =
       readonly title: string;
       readonly telegramManaged?: boolean;
       readonly readerPath: string;
+      readonly feedbackText?: string;
       readonly purchaseRef?: string;
       readonly amountMinor?: number;
       readonly dueAt?: string;
@@ -110,7 +111,9 @@ export type SendNotificationEmail = (message: {
  * транспорта, поэтому расширение аудитории просит его как способность, а не заводит второй.
  */
 export type QuarantineNotification = (
-  lane: NotificationLane,
+  lane: NotificationInboxLane,
   bytes: Buffer,
   reason: string,
 ) => Promise<void>;
+
+export type NotificationInboxLane = NotificationLane | "lessonFeedback";

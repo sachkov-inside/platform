@@ -106,6 +106,16 @@ text nor `templateRevision`, so this revision needs only a Platform release.
 Platform authorization also denies a recipient who lost the sales permission (`access_denied`).
 An older Telegram rejects the new kind. Release Telegram before Platform for this change.
 
+## Lesson feedback message
+
+Telegram accepts `lesson_feedback_submitted` on the existing `subscription` routing key for
+direct transactional messages. The kind is valid only for Telegram delivery. Platform resolves
+the stored review and the configured author's current confirmed Telegram binding. The command
+carries the plain review text and the canonical Platform lesson link. The provider disables link
+previews for this message. Neither email nor material announcement preferences participate.
+The source occurrence stays within Platform. Enable delivery only after the running Telegram
+worker supports this kind.
+
 ## Delivery command и дедупликация
 
 `inside.notification-delivery.v1`: общий Notification/Delivery, closed content category/kind,

@@ -254,6 +254,11 @@ An Account's current like or dislike of one Material, which can be changed or cl
 no access or reading state. In Russian product language: «Оценка урока».
 _Avoid_: Review, score, Question Reaction
 
+**Lesson Feedback**:
+One text review an Account submits on a Material it may read. The first accepted review is kept.
+The author receives the review with a link to the lesson. In Russian product language:
+«Отзыв об уроке».
+
 **Material Update Note**:
 The author's mark that a published Material changed in a way readers should notice, with a short
 «Что изменилось». Readers who marked the Material studied before it see that it was updated.

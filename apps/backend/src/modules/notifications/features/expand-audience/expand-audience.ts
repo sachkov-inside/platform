@@ -1,3 +1,4 @@
+import { lessonFeedbackLane } from "../../assemble-lesson-feedback-source.js";
 import { stageDeliveryCommand } from "../../infrastructure/stage-delivery-command.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -51,6 +52,12 @@ export function validSource(
 ): source is Extract<NotificationSource, { status: "current" }> {
   if (source.status !== "current") return false;
   const fact = source.event;
+  if (event.eventType === "lesson-feedback.submitted")
+    return (
+      fingerprint(fact) === fingerprint(event) &&
+      source.content.kind === "lesson_feedback_submitted" &&
+      source.accountId === event.accountRef
+    );
   return (
     fingerprint(fact) === fingerprint(event) &&
     (event.eventType === "material.published"
@@ -106,7 +113,17 @@ export function answer<Answer>(read: Read<Answer> | undefined): Answer {
   if (read.status === "rejected") throw read.reason;
   return read.value;
 }
-export type AudienceLane = "billing" | "materials";
+export type AudienceLane = "billing" | "materials" | typeof lessonFeedbackLane;
+
+function readAudienceEvent(lane: AudienceLane, payload: string) {
+  const event: unknown = JSON.parse(payload);
+  if (lane !== lessonFeedbackLane)
+    return parseWire(lane, event, eventSchema).value;
+  const parsed = eventSchema.parse(event);
+  if (parsed.eventType !== "lesson-feedback.submitted")
+    throw new Error("invalid_lesson_feedback_event");
+  return parsed;
+}
 const checkpointSchema = z.object({
   after: z.uuid().nullable().default(null),
   recipients: z.number().int().nonnegative().default(0),
@@ -222,11 +239,7 @@ async function readAudienceFacts(
   const bindings = new Map<string, Read<Binding | null>>();
   // Без адреса читателя строка ждёт настройки и ничего не спрашивает.
   if (deps.origin === undefined) return { after, access, bindings };
-  const { value: event } = parseWire(
-    lane,
-    JSON.parse(row.payload),
-    eventSchema,
-  );
+  const event = readAudienceEvent(lane, row.payload);
   const source = await settle(() => deps.sources.resolve(event));
   if (source.status === "rejected" || !validSource(event, source.value))
     return { after, source, access, bindings };
@@ -311,11 +324,7 @@ async function expandRow(
 ): Promise<AudienceExpansion> {
   const { now } = deps;
   const key = inboxKey(row);
-  const { value: event } = parseWire(
-    lane,
-    JSON.parse(row.payload),
-    eventSchema,
-  );
+  const event = readAudienceEvent(lane, row.payload);
   const occurredAt = new Date(event.occurredAt);
   const deadline = new Date(event.notAfter);
   // One reading decides both that the event is still live and what window its commands get, so the
@@ -402,8 +411,11 @@ async function expandRow(
     const channels: Channel[] = [];
     for (const channel of ["email", "telegram"] as const) {
       if (channel === "telegram" && source.telegramManaged === true) continue;
-      // Сообщение о продаже приходит автору только в Telegram.
-      if (channel === "email" && source.audience === "sales_managers") continue;
+      if (
+        channel === "email" &&
+        (source.audience === "sales_managers" || lane === lessonFeedbackLane)
+      )
+        continue;
       if (
         source.content.category === "subscription" ||
         preferences.get(accountId)?.[channel] === true
@@ -411,6 +423,16 @@ async function expandRow(
         channels.push(channel);
     }
     if (channels.length === 0) continue;
+    if (
+      lane === lessonFeedbackLane &&
+      answer(facts.bindings.get(bindingKey(accountId, "telegram"))) === null
+    ) {
+      await transaction.notificationInbox.update({
+        where: key,
+        data: { nextAttemptAt: new Date(now().getTime() + DELIVERY_WAIT_MS) },
+      });
+      return { progressed: false };
+    }
     const notification = await transaction.notification.upsert({
       where: {
         kind_occurrenceRef_accountId: {
