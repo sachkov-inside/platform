@@ -147,6 +147,33 @@ beforeEach(async () => {
     });
 });
 describe("Notification provider with real PostgreSQL and synthetic external facets", () => {
+  it.each(["delivered", "transport_unknown"] as const)(
+    "sends the lesson review to the linked author once when transport returns %s",
+    async (outcome) => {
+      const c = command("subscription", "lesson-feedback-telegram");
+      await linked(c);
+      if (outcome === "transport_unknown") response = { kind: outcome };
+
+      await expect(receive(c)).resolves.toMatchObject({ state: "accepted" });
+      await provider().processCategory("subscription");
+      expect(sends).toEqual([
+        expect.objectContaining({
+          chatId: "10001",
+          text: c.text,
+          disableLinkPreview: true,
+        }),
+      ]);
+      expect(await result(c)).toMatchObject({
+        state: outcome === "delivered" ? "sent" : "unknown",
+      });
+
+      advance(700000);
+      await receive(c, concurrent());
+      await concurrent().processCategory("subscription");
+      expect(sends).toHaveLength(1);
+    },
+  );
+
   it("disabled or crashed notification workers cannot strand existing traffic behind durable backlog", async () => {
     await receive(command());
     await receive(command("material"));

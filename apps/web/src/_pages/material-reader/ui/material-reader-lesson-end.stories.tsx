@@ -16,6 +16,7 @@ import {
 import {
   lessonRatingChanges,
   SavedLessonRating,
+  SavedLessonFeedback,
 } from "@/features/lesson-rating";
 import { LessonTermDeck } from "@/features/lesson-term-deck";
 import {
@@ -80,6 +81,7 @@ const term = {
 /** What the backend holds for the signed-in reader; another tab may change it. */
 const backend = {
   rating: null as "like" | "dislike" | null,
+  feedback: null as string | null,
   attempts: [] as unknown[],
   recorded: [] as string[],
 };
@@ -141,6 +143,8 @@ const meta = {
     getQueryClient().clear();
     environment.beforeEach();
     backend.rating = null;
+    backend.feedback =
+      parameters["savedFeedback"] === true ? "Уже отправлено" : null;
     backend.attempts = [];
     backend.recorded = [];
     return fetchBeforeRender(async (input, init) => {
@@ -175,6 +179,20 @@ const meta = {
         backend.rating = rating;
         return Response.json({ kind: "ready", rating });
       }
+      if (path === "/api/lesson-ratings/feedback/query")
+        return Response.json({
+          kind: "ready",
+          submitted: backend.feedback !== null,
+        });
+      if (path === "/api/lesson-ratings/feedback") {
+        if (parameters["feedbackUnavailable"] === true)
+          return Response.json({ kind: "unavailable" });
+        const { text } = z
+          .object({ text: z.string() })
+          .parse(await body$(input, init));
+        backend.feedback ??= text;
+        return Response.json({ kind: "ready", submitted: true });
+      }
       if (path === "/api/exercise-attempts/query")
         return Response.json({ kind: "ready", attempts: backend.attempts });
       if (path === "/api/exercise-attempts/attempt") {
@@ -205,6 +223,7 @@ const meta = {
     primaryVideo: null,
     termDeck: <LessonTermDeck terms={[term]} />,
     lessonRating: <SavedLessonRating materialId={materialId} />,
+    lessonFeedback: <SavedLessonFeedback materialId={materialId} />,
     exerciseScope: (lesson) => (
       <LessonExerciseAttempts
         materialId={materialId}
@@ -306,6 +325,44 @@ export const AnswerBeforeIdentityIsSaved: Story = {
     await expect(backend.recorded).toEqual([]);
     identity.dispatchEvent(new Event("resolve"));
     await waitFor(() => expect(backend.recorded).toEqual(["visible"]));
+  },
+};
+
+export const SendsLessonFeedback: Story = {
+  play: async ({ canvasElement }) => {
+    const card = within(finishCard(canvasElement));
+    const send = await card.findByRole("button", { name: "Отправить отзыв" });
+    const text = card.getByRole("textbox", { name: "Отзыв об уроке" });
+    await expect(send).toBeDisabled();
+    await userEvent.type(text, "Больше примеров, пожалуйста.");
+    await userEvent.click(send);
+    await expect(await card.findByText("Спасибо за отзыв.")).toBeVisible();
+    await expect(
+      card.queryByRole("textbox", { name: "Отзыв об уроке" }),
+    ).toBeNull();
+    await expect(
+      card.getByRole("button", { name: "Понравился" }),
+    ).toBeEnabled();
+  },
+};
+
+export const FeedbackAlreadySent: Story = {
+  parameters: { savedFeedback: true },
+};
+
+export const FeedbackSubmissionFailed: Story = {
+  parameters: { feedbackUnavailable: true },
+  play: async ({ canvasElement }) => {
+    const card = within(finishCard(canvasElement));
+    const text = await card.findByRole("textbox", { name: "Отзыв об уроке" });
+    await userEvent.type(text, "Больше примеров.");
+    await userEvent.click(
+      card.getByRole("button", { name: "Отправить отзыв" }),
+    );
+    await expect(
+      await card.findByText("Не удалось отправить отзыв. Попробуйте ещё раз."),
+    ).toBeVisible();
+    await expect(text).toHaveValue("Больше примеров.");
   },
 };
 

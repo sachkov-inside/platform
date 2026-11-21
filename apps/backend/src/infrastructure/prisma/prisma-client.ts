@@ -149,7 +149,7 @@ export type ExerciseAttemptsPrismaClient = ExerciseAttemptsPrisma &
 
 export type LessonRatingsPrisma = Pick<
   PlatformPrisma,
-  "$executeRaw" | "$queryRaw" | "lessonRating"
+  "$executeRaw" | "$queryRaw" | "lessonRating" | "lessonFeedback"
 >;
 export type LessonRatingsPrismaClient = LessonRatingsPrisma &
   TransactionClient<LessonRatingsPrisma>;

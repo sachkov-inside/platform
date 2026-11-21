@@ -1,9 +1,7 @@
 import type { NotificationsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { assembleNotificationOutbox } from "../../../../infrastructure/notification-transport/outbox.js";
-import type {
-  NotificationEnvelope,
-  NotificationLane,
-} from "../../../../infrastructure/notification-transport/wire.js";
+import type { NotificationEnvelope } from "../../../../infrastructure/notification-transport/wire.js";
+import type { QuarantineNotification } from "../../ports/notification-sources.js";
 import {
   acceptTransportMessage,
   quarantineTransportMessage,
@@ -13,6 +11,14 @@ export function assembleNotificationTransport(
   prisma: NotificationsPrismaClient,
   quarantineCapacity: number,
 ) {
+  const quarantine: QuarantineNotification = (lane, bytes, reason) =>
+    quarantineTransportMessage(prisma, {
+      lane,
+      bytes,
+      reason,
+      capacity: quarantineCapacity,
+      now: new Date(),
+    });
   return {
     outbox: assembleNotificationOutbox(prisma.notificationOutbox, [
       "telegramSubscription",
@@ -23,14 +29,7 @@ export function assembleNotificationTransport(
     ]),
     accept: (envelope: NotificationEnvelope) =>
       acceptTransportMessage(prisma, envelope),
-    quarantine: (lane: NotificationLane, bytes: Buffer, reason: string) =>
-      quarantineTransportMessage(prisma, {
-        lane,
-        bytes,
-        reason,
-        capacity: quarantineCapacity,
-        now: new Date(),
-      }),
+    quarantine,
     async observe() {
       const now = new Date();
       await prisma.notificationQuarantine.updateMany({

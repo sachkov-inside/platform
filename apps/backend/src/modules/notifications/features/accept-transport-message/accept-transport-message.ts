@@ -5,10 +5,11 @@ import {
 import {
   lanes,
   type NotificationEnvelope,
-  type NotificationLane,
   digestNotificationPayload,
   NOTIFICATION_MESSAGE_MAX_BYTES,
 } from "../../../../infrastructure/notification-transport/wire.js";
+
+import type { NotificationInboxLane } from "../../ports/notification-sources.js";
 
 const QUARANTINE_RETENTION_MS = 7 * 24 * 60 * 60 * 1_000;
 export async function acceptTransportMessage(
@@ -39,7 +40,7 @@ export async function acceptTransportMessage(
 export async function quarantineTransportMessage(
   prisma: NotificationsPrismaClient,
   input: {
-    lane: NotificationLane;
+    lane: NotificationInboxLane;
     bytes: Buffer;
     reason: string;
     capacity: number;

@@ -25,9 +25,13 @@ import {
 } from "../telegram-membership/index.js";
 import {
   MaterialAnnouncements,
+  MATERIAL_CONTENT,
+  type MaterialContent,
   MaterialsModule,
   materialId,
 } from "../materials/index.js";
+import { LessonRatingsModule, LessonRatings } from "../lesson-ratings/index.js";
+import { assembleLessonFeedbackSource } from "./assemble-lesson-feedback-source.js";
 import { CONTENT_ACCESS, type ContentAccess } from "../content-access/index.js";
 import type { NotificationEvent } from "./domain/notification-wire.js";
 import type { NotificationSource } from "./ports/notification-sources.js";
@@ -47,6 +51,7 @@ import { assembleNotificationRecipients } from "./assemble-notification-recipien
     TelegramAccountLinksModule,
     MaterialsModule,
     BillingModule,
+    LessonRatingsModule,
   ],
   controllers: [
     NotificationPreferencesController,
@@ -66,6 +71,8 @@ import { assembleNotificationRecipients } from "./assemble-notification-recipien
         BillingNotices,
         BillingPayments,
         MaterialAnnouncements,
+        LessonRatings,
+        MATERIAL_CONTENT,
       ],
       useFactory: (
         prisma: PrismaClientProvider,
@@ -77,8 +84,15 @@ import { assembleNotificationRecipients } from "./assemble-notification-recipien
         notices: BillingNotices,
         payments: BillingPayments,
         announcements: MaterialAnnouncements,
-      ) =>
-        new Notifications(
+        ratings: LessonRatings,
+        materials: MaterialContent,
+      ) => {
+        const lessonFeedback = assembleLessonFeedbackSource(
+          ratings,
+          materials,
+          config.lessonFeedbackRecipientAccountId,
+        );
+        return new Notifications(
           {
             // Адрес читателя может отсутствовать: без настройки доставки повод ждёт, а не падает.
             prisma,
@@ -95,6 +109,8 @@ import { assembleNotificationRecipients } from "./assemble-notification-recipien
                   ({
                     "billing.notice-ready": () =>
                       assembleBillingNoticeSource(notices, telegram)(event),
+                    "lesson-feedback.submitted": () =>
+                      lessonFeedback.resolve(event),
                     "material.published": () =>
                       announcements.resolveAnnouncement(event),
                   }) satisfies Record<
@@ -152,7 +168,9 @@ import { assembleNotificationRecipients } from "./assemble-notification-recipien
           },
           accounts,
           config.notifications?.quarantineCapacity,
-        ),
+          lessonFeedback,
+        );
+      },
     },
   ],
   exports: [Notifications],

@@ -5,6 +5,7 @@ export type TelegramButton = { readonly text: string } & (
 export interface TelegramTextMessage {
   readonly chatId: string;
   readonly text: string;
+  readonly disableLinkPreview?: boolean;
   readonly buttons?: readonly TelegramButton[];
 }
 

@@ -1,6 +1,7 @@
 import type { TransactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import { materialsTransaction } from "../../infrastructure/transaction.js";
 import { z } from "zod";
+import { materialReaderPath } from "../../domain/announcement.js";
 
 import {
   dependencyFailure,
@@ -62,6 +63,7 @@ export interface MaterialContent {
   findUpdateNotes(
     materialIds: readonly MaterialId[],
   ): Promise<Result<readonly MaterialUpdateNote[], MaterialContentError>>;
+  findPublishedReaderPath(materialId: MaterialId): Promise<string | null>;
   loadPublishedBody(query: {
     readonly materialId: MaterialId;
     readonly checkedContentVersion: number;
@@ -261,6 +263,14 @@ export function assembleMaterialContent(dependencies: {
           ),
         };
       }
+    },
+
+    async findPublishedReaderPath(id: MaterialId) {
+      const published = await dependencies.prisma.publishedMaterial.findUnique({
+        where: { materialId: id },
+        select: { slug: true },
+      });
+      return published === null ? null : materialReaderPath(published.slug);
     },
 
     async loadPublishedBody(input: {

@@ -1,10 +1,10 @@
 import { z } from "zod";
 import type { NotificationsPrismaClient } from "../../../infrastructure/prisma/index.js";
-import {
-  loggableFailure,
-  type NotificationLane,
-} from "../../../infrastructure/notification-transport/wire.js";
-import type { QuarantineNotification } from "../ports/notification-sources.js";
+import { loggableFailure } from "../../../infrastructure/notification-transport/wire.js";
+import type {
+  NotificationInboxLane,
+  QuarantineNotification,
+} from "../ports/notification-sources.js";
 
 /** Строка входящих в том виде, в каком решается её судьба: ключ выводится из неё, а не носится рядом. */
 export type InboxRow = {
@@ -17,7 +17,7 @@ export function inboxKey(row: InboxRow) {
 }
 /** Что случилось при разборе: наблюдение уходит наружу, потому что модуль не пишет в журнал сам. */
 export type SweepObservation = {
-  readonly lane: NotificationLane | "sweep";
+  readonly lane: NotificationInboxLane | "sweep";
   readonly messageId?: string;
   readonly reason:
     | "delivery_not_configured"
@@ -67,7 +67,7 @@ export function rowAttempts(checkpoint: unknown): number {
 export async function recordRowFailure(input: {
   prisma: NotificationsPrismaClient;
   now: () => Date;
-  lane: NotificationLane;
+  lane: NotificationInboxLane;
   quarantine: QuarantineNotification;
   failure: UnprocessableRow;
 }): Promise<SweepObservation> {

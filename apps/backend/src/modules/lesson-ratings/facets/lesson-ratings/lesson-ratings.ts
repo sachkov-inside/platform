@@ -1,3 +1,4 @@
+import { lessonFeedback } from "../../features/lesson-feedback/lesson-feedback.js";
 import type { AuthorPolicy } from "../../../../infrastructure/content-authoring/author-policy.js";
 import { countLessonRatings } from "../../features/count-lesson-ratings/count-lesson-ratings.js";
 import {
@@ -34,6 +35,32 @@ export class LessonRatings {
   clearRating(command: OwnRating) {
     return clearLessonRating(this.dependencies, command);
   }
+  feedback(query: OwnRating, body?: { readonly text: string }) {
+    return lessonFeedback(this.dependencies, query, body);
+  }
+  pendingFeedbackNotifications() {
+    return this.dependencies.prisma.lessonFeedback.findMany({
+      where: { notificationQueuedAt: null },
+      orderBy: [{ submittedAt: "asc" }, { id: "asc" }],
+      take: 25,
+      select: { id: true, materialId: true, submittedAt: true },
+    });
+  }
+
+  markFeedbackNotificationQueued(id: string, at: Date) {
+    return this.dependencies.prisma.lessonFeedback.updateMany({
+      where: { id, notificationQueuedAt: null },
+      data: { notificationQueuedAt: at },
+    });
+  }
+
+  readFeedbackForNotification(id: string) {
+    return this.dependencies.prisma.lessonFeedback.findUnique({
+      where: { id },
+      select: { id: true, materialId: true, submittedAt: true, text: true },
+    });
+  }
+
   countRatings(query: { readonly actor: string; readonly materialId: string }) {
     return countLessonRatings(this.dependencies, query);
   }

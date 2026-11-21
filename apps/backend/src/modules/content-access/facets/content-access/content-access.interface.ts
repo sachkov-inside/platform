@@ -50,6 +50,7 @@ export type EnforcementPoint =
   | "lesson_parts_open"
   | "exercise_attempt"
   | "lesson_rating"
+  | "lesson_feedback"
   | "published_material_read"
   | "material_preview"
   | "mcp_material_read"

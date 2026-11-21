@@ -1053,6 +1053,39 @@ test("opens a direct link to a sole-course Material inside that course and leave
   await expect(page.locator("[data-product-reader-bar]")).toHaveCount(0);
 });
 
+test("learner saves one lesson review and can still rate and continue the course", async ({
+  page,
+}, testInfo) => {
+  await signInFullStack(
+    page.context(),
+    testInfo.project.name === "desktop-chromium" ? "READER_A" : "READER_B",
+  );
+  const lesson =
+    "/materials/demo-295-obshchiy-gayd?from=%2Fproducts%2Fdemo-product-harness%2Fprogramme";
+  await page.goto(lesson);
+  const finish = page.locator("[data-lesson-finish]");
+  const text = finish.getByRole("textbox", { name: "Отзыв об уроке" });
+  const send = finish.getByRole("button", { name: "Отправить отзыв" });
+  await expect(send).toBeDisabled();
+  await text.fill("  ");
+  await expect(send).toBeDisabled();
+  await text.fill("Понравился пример. Добавьте упражнение.");
+  await send.click();
+  await expect(finish.getByText("Спасибо за отзыв.")).toBeVisible();
+
+  await page.reload();
+  await expect(finish.getByText("Спасибо за отзыв.")).toBeVisible();
+  await expect(text).toHaveCount(0);
+  const like = finish.getByRole("button", { name: "Понравился" });
+  await like.click();
+  await expect(like).toHaveAttribute("aria-pressed", "true");
+  await like.click();
+  await expect(like).toHaveAttribute("aria-pressed", "false");
+  await finish.getByRole("link", { name: "Дальше", exact: true }).click();
+  await expect(page).toHaveURL(/\/materials\/demo-295-finalnyy-gayd/u);
+  await expect(text).toBeVisible();
+});
+
 function readerNextLink(page: Page) {
   return page
     .getByRole("navigation", { name: "Действия материала", exact: true })

@@ -23,6 +23,7 @@ import { LessonRatings } from "./facets/lesson-ratings/lesson-ratings.js";
 @Module({
   imports: [PrismaModule, AccountsModule, MaterialContentModule],
   controllers: [LessonRatingsController, LessonRatingCountsController],
+  exports: [LessonRatings],
   providers: [
     {
       provide: LessonRatings,

@@ -9,6 +9,7 @@ import { createApiApplication } from "../../src/entrypoints/api/create-api-appli
 import { assembleMaterials } from "../../src/entrypoints/composition/assemble-materials.js";
 import { assembleContentAccess } from "../../src/modules/content-access/index.js";
 import { LessonRatings } from "../../src/modules/lesson-ratings/index.js";
+import { Notifications } from "../../src/modules/notifications/index.js";
 import {
   assembleMaterialResourceFacts,
   type MaterialBodySnapshot,
@@ -226,8 +227,11 @@ describe("Lesson Ratings over Nest HTTP", () => {
   let server: DeclaredServer;
   let database: TestDatabase;
   let identity: TestIdentityIssuer;
+  const authorId = randomUUID();
+  const authorLinkId = randomUUID();
   let freeMaterialId: string;
   let closedMaterialId: string;
+  let notificationMaterialId: string;
 
   beforeAll(async () => {
     identity = await startTestIdentityIssuer({
@@ -238,6 +242,24 @@ describe("Lesson Ratings over Nest HTTP", () => {
     const seeded = await seed(database);
     freeMaterialId = await seeded.publish("free");
     closedMaterialId = await seeded.publish("closed");
+    notificationMaterialId = await seeded.publish("free");
+    await database.prisma.account.create({
+      data: {
+        id: authorId,
+        logtoIssuer: identity.issuer,
+        logtoSubject: "feedback-author",
+      },
+    });
+    await database.prisma.telegramAccountLinkState.create({
+      data: {
+        accountId: authorId,
+        linkRef: authorLinkId,
+        revision: 1,
+        principalRef: "feedback-author-principal",
+        identityRef: "feedback-author-telegram",
+        updatedAt: new Date("2026-01-01T00:00:00Z"),
+      },
+    });
     app = await createApiApplication(
       parsePlatformConfig({
         NODE_ENV: "test",
@@ -246,6 +268,10 @@ describe("Lesson Ratings over Nest HTTP", () => {
         LOGTO_AUDIENCE: identity.audience,
         LOGTO_JWKS_URL: identity.jwksUrl,
         IDENTITY_EMAIL_FINGERPRINT_KEY: "lesson-ratings-email-fingerprint-key",
+        NOTIFICATIONS_PLATFORM_ORIGIN: "https://reader.example.test",
+        NOTIFICATIONS_TELEGRAM_SECRET:
+          "synthetic-lesson-feedback-notification-secret",
+        LESSON_FEEDBACK_RECIPIENT_ACCOUNT_ID: authorId,
       }),
       { logger: false },
     );
@@ -322,6 +348,136 @@ describe("Lesson Ratings over Nest HTTP", () => {
       headers: headers(bearer),
     });
   }
+
+  test("only a signed-in reader with access can submit one nonblank lesson review", async () => {
+    const reader = await signedIn();
+    const other = await signedIn();
+    const url = `/lesson-ratings/materials/${freeMaterialId}/feedback`;
+    const submit = (bearer: string | null, text: string, target = url) =>
+      server.inject({
+        method: "PUT",
+        url: target,
+        headers: headers(bearer),
+        payload: { text },
+      });
+    const readFeedback = (bearer: string) =>
+      server.inject({ method: "GET", url, headers: headers(bearer) });
+
+    expect((await submit(null, "Не вошёл")).statusCode).toBe(401);
+    expect((await submit(reader, "   \n")).statusCode).toBe(400);
+    expect(
+      (
+        await submit(
+          reader,
+          "Нет доступа",
+          `/lesson-ratings/materials/${closedMaterialId}/feedback`,
+        )
+      ).statusCode,
+    ).toBe(403);
+    expect((await readFeedback(reader)).json()).toEqual({ submitted: false });
+    const responses = await Promise.all([
+      submit(reader, "Понравился пример"),
+      submit(reader, "Больше упражнений"),
+    ]);
+    for (const response of responses) {
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ submitted: true });
+    }
+    expect((await submit(reader, "Повтор")).json()).toEqual({
+      submitted: true,
+    });
+    expect((await readFeedback(reader)).json()).toEqual({ submitted: true });
+    expect((await readFeedback(other)).json()).toEqual({ submitted: false });
+    expect(
+      await database.prisma.lessonFeedback.count({
+        where: { materialId: freeMaterialId },
+      }),
+    ).toBe(1);
+  });
+
+  test("an accepted review produces one authorized Telegram command for the configured author", async () => {
+    const reader = await signedIn();
+    const text = "Понравился пример.\nДобавьте упражнение.";
+    const materialId = notificationMaterialId;
+    const url = `/lesson-ratings/materials/${materialId}/feedback`;
+    const send = (value: string) =>
+      server.inject({
+        method: "PUT",
+        url,
+        headers: headers(reader),
+        payload: { text: value },
+      });
+    expect((await send(`  ${text}  `)).json()).toEqual({ submitted: true });
+    expect((await send("Второй текст")).json()).toEqual({ submitted: true });
+
+    const notifications = app.get(Notifications);
+    await notifications.sweep();
+    await notifications.sweep();
+    const deliveries = await database.prisma.notificationDelivery.findMany({
+      where: {
+        notification: {
+          accountId: authorId,
+          eventPayload: { contains: materialId },
+        },
+      },
+    });
+    const commands = await database.prisma.notificationCommand.findMany({
+      where: { deliveryId: { in: deliveries.map(({ id }) => id) } },
+    });
+    expect(deliveries).toHaveLength(1);
+    expect(commands).toHaveLength(1);
+    const [command] = commands;
+    if (command === undefined) throw new Error("Missing author notification");
+    expect(JSON.parse(command.payload)).toMatchObject({
+      content: { category: "subscription", kind: "lesson_feedback_submitted" },
+      binding: {
+        channel: "telegram",
+        accountRef: "feedback-author-principal",
+        telegramIdentityRef: "feedback-author-telegram",
+        linkRef: authorLinkId,
+      },
+      text: `Новый отзыв об уроке\nhttps://reader.example.test/materials/${(await database.prisma.publishedMaterial.findUniqueOrThrow({ where: { materialId } })).slug}\n\n${text}`,
+    });
+
+    const authorize = () =>
+      notifications.authorizeDispatch("telegram", {
+        contractVersion: "inside.notification-dispatch.v1",
+        operationId: randomUUID(),
+        deliveryOperationId: command.operationId,
+        deliveryRef: command.deliveryId,
+        commandRevision: command.revision,
+        payloadDigest: command.digest,
+        attemptRef: randomUUID(),
+      });
+    expect(await authorize()).toMatchObject({ status: "allowed" });
+
+    await database.prisma.telegramAccountLinkState.delete({
+      where: { accountId: authorId },
+    });
+    try {
+      expect(await authorize()).toMatchObject({
+        status: "denied",
+        reason: "binding_conflict",
+      });
+    } finally {
+      await database.prisma.telegramAccountLinkState.create({
+        data: {
+          accountId: authorId,
+          linkRef: authorLinkId,
+          revision: 1,
+          principalRef: "feedback-author-principal",
+          identityRef: "feedback-author-telegram",
+          updatedAt: new Date("2026-01-01T00:00:00Z"),
+        },
+      });
+    }
+    const stored = await server.inject({
+      method: "GET",
+      url,
+      headers: headers(reader),
+    });
+    expect(stored.json()).toEqual({ submitted: true });
+  });
 
   test("a guest can neither rate nor read a rating", async () => {
     expect((await read(null, freeMaterialId)).statusCode).toBe(401);

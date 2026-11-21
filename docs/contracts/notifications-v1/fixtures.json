@@ -90,6 +90,35 @@
     }
   },
   {
+    "name": "lesson-feedback-telegram",
+    "definition": "telegramDelivery",
+    "valid": true,
+    "value": {
+      "contractVersion": "inside.notification-delivery.v1",
+      "operationId": "00000000-0000-4000-8000-000000000104",
+      "notificationRef": "00000000-0000-4000-8000-000000000105",
+      "deliveryRef": "00000000-0000-4000-8000-000000000106",
+      "commandRevision": 1,
+      "sourceEventId": "00000000-0000-4000-8000-000000000001",
+      "content": {
+        "category": "subscription",
+        "kind": "lesson_feedback_submitted"
+      },
+      "templateRef": "inside.lesson_feedback_submitted",
+      "templateRevision": 1,
+      "text": "Новый отзыв об уроке\nhttps://sachkov.dev/materials/test-lesson\n\nПолезный пример. Добавьте упражнение.",
+      "issuedAt": "2026-09-08T12:00:00Z",
+      "notAfter": "2026-09-08T12:10:00Z",
+      "binding": {
+        "channel": "telegram",
+        "accountRef": "author-example",
+        "telegramIdentityRef": "identity-example",
+        "linkRef": "00000000-0000-4000-8000-000000000007",
+        "linkRevision": 1
+      }
+    }
+  },
+  {
     "name": "access-ending-telegram",
     "definition": "telegramDelivery",
     "valid": true,

@@ -76,6 +76,8 @@ const failureContracts: readonly FailureContract[] = [
       "recordExerciseAttemptOperation",
       "readLessonRatingOperation",
       "setLessonRatingOperation",
+      "readLessonFeedbackOperation",
+      "submitLessonFeedbackOperation",
       "readLessonStatisticsOperation",
       "setHomePinOperation",
       "submitProductTaskOperation",

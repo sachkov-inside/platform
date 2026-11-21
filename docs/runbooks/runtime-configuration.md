@@ -282,6 +282,14 @@ and definitions are set up by the [production release runbook](production-releas
 `NOTIFICATIONS_TELEGRAM_SECRET` authenticates the public dispatch authorization and must differ from
 every other Telegram secret; startup rejects a reused one.
 
+For lesson feedback delivery, set `LESSON_FEEDBACK_RECIPIENT_ACCOUNT_ID` to the same Platform
+Account UUID in `api.env` and `notifications-worker.env`. Use the owner's Account with a confirmed
+link and a reachable private chat in the existing Telegram bot. Leave the variable unset until
+the owner authorizes activation and the running Telegram worker supports `lesson_feedback_submitted`.
+Delivery is attempted for up to seven days from submission. Changing the
+recipient supersedes messages already queued for the previous Account. Disabling the variable
+pauses new queueing and dispatch authorization. The review remains stored in Platform.
+
 ## Bank certificate chain
 
 The T-Bank payment API presents a chain that ends at the Ministry of Digital Development root

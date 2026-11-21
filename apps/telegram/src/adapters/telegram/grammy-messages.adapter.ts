@@ -77,13 +77,22 @@ export class GrammyMessagesAdapter implements TelegramMessages {
   ): Promise<TelegramDeliveryResult> {
     const chatId = toSafeTelegramNumber(message.chatId);
     try {
-      const sent = message.buttons
-        ? await this.api.sendMessage(chatId, message.text, {
-            reply_markup: {
-              inline_keyboard: inlineKeyboard(message.buttons),
-            },
-          })
-        : await this.api.sendMessage(chatId, message.text);
+      const options = {
+        ...(message.buttons === undefined
+          ? {}
+          : {
+              reply_markup: {
+                inline_keyboard: inlineKeyboard(message.buttons),
+              },
+            }),
+        ...(message.disableLinkPreview === true
+          ? { link_preview_options: { is_disabled: true } }
+          : {}),
+      };
+      const sent =
+        message.buttons === undefined && message.disableLinkPreview !== true
+          ? await this.api.sendMessage(chatId, message.text)
+          : await this.api.sendMessage(chatId, message.text, options);
       return {
         kind: "delivered",
         providerMessageId: String(sent.message_id),
@@ -164,9 +173,8 @@ interface TelegramApi {
     chatId: number,
     text: string,
     options?: {
-      reply_markup: {
-        inline_keyboard: TelegramInlineKeyboard;
-      };
+      reply_markup?: { inline_keyboard: TelegramInlineKeyboard };
+      link_preview_options?: { is_disabled: boolean };
     },
   ): Promise<{ message_id: number }>;
 }

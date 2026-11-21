@@ -300,6 +300,22 @@
             },
             {
               "$ref": "#/definitions/materialContent"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "category",
+                "kind"
+              ],
+              "properties": {
+                "category": {
+                  "const": "subscription"
+                },
+                "kind": {
+                  "const": "lesson_feedback_submitted"
+                }
+              }
             }
           ]
         },

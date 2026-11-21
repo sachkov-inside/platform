@@ -240,6 +240,7 @@ const platformConfigSchema = z
         telegramSecret: z.string().min(32),
       })
       .optional(),
+    lessonFeedbackRecipientAccountId: z.uuid().toLowerCase().optional(),
     mode: platformModeSchema,
     // Приём сдач заданий (#946) включается отдельно: в production только после публикации
     // политики данных v4 владельцем.
@@ -481,6 +482,8 @@ export function parsePlatformConfig(
             telegramSecret: environment["NOTIFICATIONS_TELEGRAM_SECRET"],
           }
         : undefined,
+    lessonFeedbackRecipientAccountId:
+      environment["LESSON_FEEDBACK_RECIPIENT_ACCOUNT_ID"],
     mode,
     tbank: parseBankContour(environment),
     billingContact: [

@@ -3,7 +3,6 @@ import type { Accounts } from "../../../accounts/index.js";
 import {
   loggableFailure,
   type NotificationEnvelope,
-  type NotificationLane,
 } from "../../../../infrastructure/notification-transport/wire.js";
 import { assembleNotificationTransport } from "../notification-transport/notification-transport.js";
 import { authorizeDispatch } from "../../features/authorize-dispatch/authorize-dispatch.js";
@@ -33,9 +32,14 @@ import {
 } from "../../features/read-deliveries/read-deliveries.js";
 import { listTelegramDeliveryProblems } from "../../features/list-telegram-delivery-problems/list-telegram-delivery-problems.js";
 import type {
+  NotificationInboxLane,
   QuarantineNotification,
   SendNotificationEmail,
 } from "../../ports/notification-sources.js";
+import {
+  lessonFeedbackLane,
+  type assembleLessonFeedbackSource,
+} from "../../assemble-lesson-feedback-source.js";
 import type { Channel } from "../../domain/notification-wire.js";
 
 export class Notifications {
@@ -44,6 +48,10 @@ export class Notifications {
     private readonly deps: NotificationDependencies,
     private readonly accounts: Accounts,
     quarantineCapacity = 1_000,
+    private readonly lessonFeedback?: Pick<
+      ReturnType<typeof assembleLessonFeedbackSource>,
+      "queuePending"
+    >,
   ) {
     const transport = assembleNotificationTransport(
       deps.prisma,
@@ -141,7 +149,7 @@ export class Notifications {
   ): Promise<readonly SweepObservation[]> {
     const observations: SweepObservation[] = [];
     const quarantine: QuarantineNotification = this.transport.quarantine;
-    const fate = (lane: NotificationLane, failure: UnprocessableRow) =>
+    const fate = (lane: NotificationInboxLane, failure: UnprocessableRow) =>
       recordRowFailure({
         prisma: this.deps.prisma,
         now: this.deps.now,
@@ -212,7 +220,21 @@ export class Notifications {
         });
       }
     }
-    for (const lane of ["billing", "materials"] as const) {
+    if (this.lessonFeedback !== undefined) {
+      try {
+        await this.lessonFeedback.queuePending(
+          this.deps.prisma,
+          this.deps.now(),
+        );
+      } catch (error) {
+        observations.push({
+          lane: lessonFeedbackLane,
+          reason: "lane_failed",
+          error: loggableFailure(error),
+        });
+      }
+    }
+    for (const lane of ["billing", "materials", lessonFeedbackLane] as const) {
       try {
         const expansion = await expandAudience(this.deps, lane, quarantine);
         if (expansion.observation) observations.push(expansion.observation);
