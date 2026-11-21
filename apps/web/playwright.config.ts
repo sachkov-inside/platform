@@ -22,6 +22,7 @@ export default defineConfig({
         "learning-scenario.spec.ts",
         "subscription.spec.ts",
         "retired-commerce.spec.ts",
+        "theme.spec.ts",
       ],
   fullyParallel: true,
   workers: 2,

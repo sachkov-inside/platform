@@ -25,6 +25,7 @@ import {
   AuthoringSearchRoot,
   AuthoringSearchTrigger,
 } from "@/features/authoring-search";
+import { ThemeSwitch } from "@/features/theme-preference";
 import { useNativeDialog } from "@/shared/lib/native-dialog.client";
 import {
   readShellDesktop,
@@ -150,7 +151,10 @@ export function AuthoringShell({
         <div className="authoring-main">
           <header className="authoring-topbar">
             <p className="authoring-topbar-title">{title}</p>
-            <AuthoringSearchTrigger />
+            <div className="authoring-topbar-actions">
+              <AuthoringSearchTrigger />
+              <ThemeSwitch className="rounded-[10px]" surface="authoring" />
+            </div>
           </header>
           {sectionTabs === undefined ? null : (
             <nav

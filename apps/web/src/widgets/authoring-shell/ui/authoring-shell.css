@@ -187,6 +187,13 @@
   border-bottom: 1px solid var(--border);
   background: var(--background);
 }
+/* Поиск и выбор темы оформления стоят справа одной группой; на широком экране поиск тянется. */
+.authoring-topbar-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+}
 .authoring-topbar-title {
   min-width: 0;
   margin: 0;
@@ -389,6 +396,11 @@
     position: static;
     min-height: 60px;
     padding: 10px 40px;
+  }
+  .authoring-topbar-actions {
+    flex: 1;
+    justify-content: space-between;
+    gap: 12px;
   }
   .authoring-topbar-title,
   .authoring-section-tabs,

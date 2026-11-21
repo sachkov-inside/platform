@@ -96,6 +96,16 @@
   --elevation-cover: 0 1.5rem 3rem -1.5rem oklch(0.21 0.018 128 / 0.65);
   --elevation-floating-nav: 0 1.5rem 4rem -1.25rem oklch(0.21 0.018 128 / 0.6);
   --elevation-note: 0 1.2rem 3rem -2.3rem oklch(0.21 0.018 128 / 0.35);
+  /*
+   * Цвета иллюстраций, которые читают токены один раз (заставка курса на canvas): светлые значения
+   * публичной оболочки. `.dark` их не меняет, поэтому иллюстрация одинакова в обеих темах.
+   */
+  --illustration-ink: #202124;
+  --illustration-paper: #f3f1ed;
+  --illustration-accent: #c7461e;
+  /* Графитовая подложка, которая тёмная в обеих темах: карточки продуктов, итоги, плашки. */
+  --ink-surface: #202124;
+  --ink-surface-foreground: #ffffff;
   --cover-blue: #dce9ff;
   --cover-blue-foreground: #205aa7;
   --cover-coral: #ffdcd2;
@@ -132,7 +142,8 @@
   color-scheme: light;
 }
 
-[data-public-shell] {
+/* Светлая публичная оболочка; в тёмной теме оболочка берёт значения `.dark` с `<html>`. */
+:root:not(.dark) [data-public-shell] {
   --background: #ffffff;
   --foreground: #202124;
   --card: #ffffff;
@@ -153,7 +164,7 @@
   --action-hover: #8f2c16;
   --body-muted: #4d4e51;
   --eyebrow: #66655f;
-  /* Публичная оболочка светлая всегда, поэтому виды врезок держат здесь свои светлые значения. */
+  /* Админка светлой темы держит свои врезки, поэтому публичная оболочка задаёт их здесь заново. */
   --callout-note: oklch(0.45 0.02 128);
   --model-comparison-ink: #42623e;
   --model-comparison-surface: #f0f5ef;
@@ -166,7 +177,6 @@
   --callout-bad: oklch(0.48 0.15 27);
   --callout-definition: oklch(0.47 0.11 300);
   --callout-task: oklch(0.47 0.13 340);
-  /* Урок публичной оболочки тоже светлый всегда. */
   --lesson-surface: #f6f4ef;
   --lesson-line: #e7e2d8;
   --lesson-sand: #f7eedf;
@@ -202,28 +212,36 @@
   color-scheme: light;
 }
 
+/*
+ * Тёмная тема (решение владельца 21.11.2026, #2516): одна графитовая гамма для всей платформы, публичной
+ * части и админки. Она продолжает тёмные блоки урока (#202124) и держит тот же оранжевый сигнал,
+ * только светлее, чтобы текст и ссылки читались на тёмном не хуже AA. Тему включает класс `.dark`
+ * на `<html>`: его ставит выбор в шапке (`@/features/theme-preference`).
+ */
 .dark {
-  --background: oklch(0.17 0.012 128);
-  --foreground: oklch(0.94 0.008 112);
-  --card: oklch(0.22 0.013 128);
+  --background: #18191b;
+  --foreground: #ecebe6;
+  --card: #202124;
   --card-foreground: var(--foreground);
-  --popover: oklch(0.24 0.013 128);
+  --popover: #26272a;
   --popover-foreground: var(--foreground);
-  --primary: oklch(0.88 0.012 115);
-  --primary-foreground: oklch(0.2 0.014 128);
-  --secondary: oklch(0.28 0.014 128);
+  --primary: #ecebe6;
+  --primary-foreground: #18191b;
+  --secondary: #26272a;
   --secondary-foreground: var(--foreground);
-  --muted: oklch(0.28 0.014 128);
-  --muted-foreground: oklch(0.7 0.012 116);
-  --accent: oklch(0.68 0.19 40);
-  --accent-foreground: oklch(0.18 0.012 128);
-  --accent-bright: var(--accent);
-  --accent-hover: oklch(0.74 0.16 40);
-  --action: var(--accent);
-  --action-hover: var(--accent-hover);
-  --body-muted: var(--muted-foreground);
-  --eyebrow: var(--muted-foreground);
-  --reader-foreground: var(--muted-foreground);
+  --muted: #26272a;
+  --muted-foreground: #a8a7a1;
+  --accent: #ef6b3c;
+  --accent-foreground: #18191b;
+  --accent-bright: #ef6b3c;
+  --accent-hover: #f6a582;
+  --action: #f6a582;
+  --action-hover: #ffc4a8;
+  --body-muted: #c9c8c2;
+  --eyebrow: #a8a7a1;
+  --reader-foreground: #a8a7a1;
+  --placeholder: #807f7a;
+  --placeholder-strong: #93928c;
   --callout-note: oklch(0.78 0.02 120);
   --model-comparison-ink: #bfd4b9;
   --model-comparison-surface: #20271f;
@@ -236,39 +254,59 @@
   --callout-bad: oklch(0.72 0.15 27);
   --callout-definition: oklch(0.76 0.12 300);
   --callout-task: oklch(0.78 0.13 340);
-  --lesson-surface: #252623;
-  --lesson-line: #36372f;
-  --lesson-sand: #3a2f20;
-  --lesson-sand-line: #54442c;
+  --lesson-surface: #222326;
+  --lesson-line: #34353a;
+  --lesson-sand: #2e271d;
+  --lesson-sand-line: #4a3d2a;
   --lesson-ink: #e8bb7a;
-  --lesson-graphite: #ede9e0;
-  --lesson-graphite-foreground: #1b1c1a;
-  --lesson-graphite-hover: #d9d4c8;
-  --lesson-reply: #302f2a;
-  --lesson-stack: #33342f;
-  --lesson-dark: #141513;
-  --lesson-dark-foreground: #ede9e0;
-  --lesson-dark-muted: #ada99e;
-  --lesson-dark-line: #2f302b;
-  --lesson-dark-edge: #3c3d38;
-  --lesson-dark-outline: #6f6c64;
-  --lesson-dark-raised: #2a2b27;
-  --lesson-dark-hover: #34352f;
-  --lesson-dark-action-hover: #d9d4c8;
-  --destructive: oklch(0.68 0.2 25);
-  --border: oklch(0.34 0.013 128);
-  --input: oklch(0.34 0.013 128);
-  --ring: oklch(0.72 0.16 40);
-  --sidebar: oklch(0.21 0.013 128);
-  --sidebar-foreground: oklch(0.94 0.008 112);
-  --sidebar-primary: oklch(0.68 0.19 40);
-  --sidebar-primary-foreground: oklch(0.18 0.012 128);
-  --sidebar-accent: oklch(0.29 0.014 128);
-  --sidebar-accent-foreground: oklch(0.98 0.004 112);
-  --sidebar-border: oklch(0.36 0.013 128);
-  --sidebar-ring: oklch(0.72 0.16 40);
-  --elevation-card: 0 0.75rem 2rem -1rem oklch(0.05 0.01 128 / 0.7);
-  --elevation-card-hover: 0 1rem 2.5rem -1rem oklch(0.05 0.01 128 / 0.82);
+  --lesson-graphite: #ecebe6;
+  --lesson-graphite-foreground: #18191b;
+  --lesson-graphite-hover: #d6d4cd;
+  --lesson-reply: #2a2b2e;
+  --lesson-stack: #2e2f33;
+  /* Блоки «Финиш урока» и упражнения на тёмной странице утоплены: темнее фона, с кромкой. */
+  --lesson-dark: #111214;
+  --lesson-dark-foreground: #ecebe6;
+  --lesson-dark-muted: #a8a7a1;
+  --lesson-dark-line: #2a2b2e;
+  --lesson-dark-edge: #3a3b40;
+  --lesson-dark-outline: #6f6e69;
+  --lesson-dark-raised: #222326;
+  --lesson-dark-hover: #2c2d31;
+  --lesson-dark-action-hover: #d6d4cd;
+  --destructive: #ff8a7a;
+  --border: rgb(255 255 255 / 10%);
+  --input: rgb(255 255 255 / 16%);
+  --ring: #ef6b3c;
+  /* Код, медиа и тёмные рабочие области лежат на подложке темнее страницы. */
+  --sidebar: #111214;
+  --sidebar-foreground: #ecebe6;
+  --sidebar-primary: #ef6b3c;
+  --sidebar-primary-foreground: #18191b;
+  --sidebar-accent: #26272a;
+  --sidebar-accent-foreground: #f6f4ef;
+  --sidebar-border: #34353a;
+  --sidebar-ring: #ef6b3c;
+  --elevation-card: 0 1rem 2.5rem -2rem rgb(0 0 0 / 70%);
+  --elevation-card-hover: 0 1.25rem 3rem -2rem rgb(0 0 0 / 80%);
+  --elevation-cover: 0 1.5rem 3rem -1.5rem rgb(0 0 0 / 80%);
+  --elevation-floating-nav: 0 1.5rem 4rem -1.25rem rgb(0 0 0 / 80%);
+  --elevation-note: 0 1.2rem 3rem -2.3rem rgb(0 0 0 / 70%);
+  --ink-surface: #2a2b2f;
+  --ink-surface-foreground: #f6f4ef;
+  /* Пастельные обложки темнеют, подписи на них светлеют. */
+  --cover-blue: #1d2a40;
+  --cover-blue-foreground: #9cc0ff;
+  --cover-coral: #3d241d;
+  --cover-coral-foreground: #ffa28c;
+  --cover-ink: #0f1012;
+  --cover-ink-foreground: #ffffff;
+  --cover-lavender: #2a2440;
+  --cover-lavender-foreground: #c4b3ff;
+  --cover-mint: #1a3128;
+  --cover-mint-foreground: #8fd7b4;
+  --cover-sand: #33291c;
+  --cover-sand-foreground: #e0bf8f;
   --theme-is-dark: 1;
   color-scheme: dark;
 }
@@ -304,6 +342,8 @@
   --color-reader-foreground: var(--reader-foreground);
   --color-placeholder: var(--placeholder);
   --color-placeholder-strong: var(--placeholder-strong);
+  --color-ink-surface: var(--ink-surface);
+  --color-ink-surface-foreground: var(--ink-surface-foreground);
   --color-cover-blue: var(--cover-blue);
   --color-cover-blue-foreground: var(--cover-blue-foreground);
   --color-cover-coral: var(--cover-coral);
@@ -398,8 +438,8 @@ body {
 }
 
 /* Safari's canvas/overscroll must match the public page, including the first paint. */
-html:has([data-public-shell]),
-body:has([data-public-shell]) {
+html:not(.dark):has([data-public-shell]),
+html:not(.dark) body:has([data-public-shell]) {
   background: #fff;
   --theme-is-dark: 0;
   color-scheme: light;

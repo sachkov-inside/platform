@@ -2248,3 +2248,16 @@
 .aie-ticket-contact .aie-telegram-button {
   justify-content: center;
 }
+
+/*
+ * Тёмная тема: графитовые панели остаются графитовыми. Они построены на `--primary`, а в тёмной
+ * теме он светлеет для кнопок, поэтому внутри панели он снова графит.
+ */
+.dark .aie-status,
+.dark .aie-bento > li[data-tone="ink"],
+.dark .aie-value,
+.dark .aie-format li:nth-child(2) .aie-format-art,
+.dark .aie-window {
+  --primary: var(--ink-surface);
+  --primary-foreground: var(--ink-surface-foreground);
+}

@@ -640,3 +640,13 @@
   vertical-align: 0.5em;
   white-space: nowrap;
 }
+
+/*
+ * Тёмная тема: графитовые панели остаются графитовыми. Они построены на `--primary`, а в тёмной
+ * теме он светлеет для кнопок, поэтому внутри панели он снова графит.
+ */
+.dark .ai-product-result-pipeline,
+.dark .ai-product-bonus-code {
+  --primary: var(--ink-surface);
+  --primary-foreground: var(--ink-surface-foreground);
+}

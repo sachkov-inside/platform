@@ -4,6 +4,7 @@ import { cookiesV1 } from "./editions/cookies-v1.js";
 import { cookiesV2 } from "./editions/cookies-v2.js";
 import { cookiesV3 } from "./editions/cookies-v3.js";
 import { cookiesV4 } from "./editions/cookies-v4.js";
+import { cookiesV5 } from "./editions/cookies-v5.js";
 import { privacyV2 } from "./editions/privacy-v2.js";
 import { privacyV3 } from "./editions/privacy-v3.js";
 import { privacyV4 } from "./editions/privacy-v4.js";
@@ -43,6 +44,7 @@ export const legalEditions: readonly LegalEdition[] = [
   cookiesV2,
   cookiesV3,
   cookiesV4,
+  cookiesV5,
   purchaseV1,
   purchaseV3,
   purchaseV4,

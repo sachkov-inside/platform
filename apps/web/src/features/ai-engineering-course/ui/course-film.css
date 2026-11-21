@@ -13,3 +13,14 @@
   width: 100%;
   height: 100%;
 }
+
+/*
+ * Заставка рисуется на canvas цветами `--primary`, `--secondary` и `--accent` и читает их один раз.
+ * В тёмной теме ей отдаются цвета иллюстраций, поэтому заставка одинакова в обеих темах и не
+ * зависит от того, когда читатель переключил тему.
+ */
+.dark .aie-film {
+  --primary: var(--illustration-ink);
+  --secondary: var(--illustration-paper);
+  --accent: var(--illustration-accent);
+}

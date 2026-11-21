@@ -141,7 +141,7 @@ sachkov.dev Platform выглядит как спокойная светлая �
 
 ## Colors
 
-Палитра строится на тёплых near-paper neutrals, charcoal ink/workbench regions и одном редком orange signal. Light is the application default; dark values exist in the token source for controlled theme rendering, but the accepted H1 direction does not make a dark application shell the default.
+Палитра строится на тёплых near-paper neutrals, charcoal ink/workbench regions и одном редком orange signal. Light is the application default. The dark theme is the reader's choice (see [Dark theme](#dark-theme)).
 
 ### Primary
 
@@ -174,6 +174,26 @@ sachkov.dev Platform выглядит как спокойная светлая �
 - **Destructive Red** (`destructive`): authorization, conflict and infrastructure failure only.
 
 **The Orange Proof Signal Rule.** Orange marks current state, focus or a meaningful product accent; if it does not help the user verify or act, do not use it.
+
+### Dark theme
+
+Тёмная тема (решение владельца 21.11.2026, [#2516](https://github.com/sachkov-inside/platform/pull/2516)) включается классом `.dark` на `<html>`: его ставят
+выбор в шапке и встроенный скрипт до первой отрисовки (`@/features/theme-preference`). Одна
+графитовая гамма служит всей платформе, публичной части и админке. Она продолжает тёмные блоки
+урока (#202124) и держит тот же оранжевый сигнал, только светлее, чтобы текст и ссылки читались на
+тёмном не хуже AA. Значения живут в [`app/globals.css`](app/globals.css), блок `.dark`; светлая
+публичная оболочка задаёт свои значения только вне `.dark`.
+
+- Цвет берётся только из токенов. `white`, `black` и hex в компоненте ломают тёмную тему: плашка
+  над картинкой берёт `background`, текст на акцентной кнопке `accent-foreground`.
+- **Ink Surface** (`ink-surface`, `ink-surface-foreground`): графитовая подложка, тёмная в обеих
+  темах. На ней стоят карточки продуктов, панели с подсказкой для агента и другие блоки, которые
+  задуманы тёмными. `primary` для таких панелей не годится: в тёмной теме он светлеет для кнопок.
+  Панель, уже построенная на `primary`, в тёмной теме переопределяет у себя `--primary` и
+  `--primary-foreground` на `ink-surface`.
+- Иллюстрация, которая читает цвета один раз (заставка на canvas), получает в тёмной теме токены
+  `illustration-*` и выглядит одинаково в обеих темах.
+- Пастельные обложки (`cover-*`) в тёмной теме темнеют, подписи на них светлеют.
 
 ## Typography
 

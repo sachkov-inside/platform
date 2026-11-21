@@ -78,7 +78,7 @@ function ArtifactAction({
   readonly productId: string;
 }) {
   const className = cn(
-    "inline-flex min-h-11 items-center gap-2 self-start rounded-full bg-primary px-5 text-sm font-semibold text-white no-underline hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:self-auto",
+    "inline-flex min-h-11 items-center gap-2 self-start rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground no-underline hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:self-auto",
   );
   if (artifact.content.kind === "file") {
     return (

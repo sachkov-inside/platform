@@ -308,7 +308,7 @@ function MaterialRow({
   return (
     <article
       className={cn(
-        "group/row relative grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[5.5rem_minmax(0,1fr)_auto] sm:gap-3 rounded-2xl border border-black/8 bg-muted/55 p-3 shadow-card transition-[box-shadow,transform,background-color] duration-200 hover:-translate-y-0.5 hover:bg-white hover:shadow-card-hover motion-reduce:transform-none motion-reduce:transition-none",
+        "group/row relative grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[5.5rem_minmax(0,1fr)_auto] sm:gap-3 rounded-2xl border border-foreground/8 bg-muted/55 p-3 shadow-card transition-[box-shadow,transform,background-color] duration-200 hover:-translate-y-0.5 hover:bg-card hover:shadow-card-hover motion-reduce:transform-none motion-reduce:transition-none",
         showAccessDetails && "@max-[13rem]/series-entry:grid-cols-1",
       )}
       data-material-id={material.slug}
@@ -655,7 +655,9 @@ function LibraryMaterialCard({
         <span
           className={cn(
             "absolute right-2 bottom-2 inline-flex min-h-5 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums shadow-sm",
-            video ? "bg-accent text-white" : "bg-white text-foreground",
+            video
+              ? "bg-accent text-accent-foreground"
+              : "bg-background text-foreground",
           )}
         >
           <FormatIcon
@@ -707,7 +709,7 @@ function AccessCover({
       data-access-cover={material.availability}
     >
       <span className="block scale-[1.04] blur-[4px]">{children}</span>
-      <span className="absolute inset-0 grid place-items-center bg-white/20">
+      <span className="absolute inset-0 grid place-items-center bg-background/20">
         <MaterialAccessBadge compact={compact} material={material} />
       </span>
     </span>
@@ -724,7 +726,7 @@ function MaterialAccessBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full bg-white/92 font-semibold text-foreground shadow-xl backdrop-blur-xl",
+        "inline-flex items-center gap-1.5 rounded-full bg-background/92 font-semibold text-foreground shadow-xl backdrop-blur-xl",
         compact ? "size-8 justify-center p-0" : "px-3 py-2 text-xs",
       )}
     >

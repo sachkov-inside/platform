@@ -68,7 +68,7 @@ export function ProfileAvatar({
   return (
     <div
       aria-label={`Аватар: ${presentText(displayName.trim()) ?? "участник"}`}
-      className={`${className} grid place-items-center rounded-full bg-white font-bold tracking-[-0.03em] text-black`}
+      className={`${className} grid place-items-center rounded-full bg-card font-bold tracking-[-0.03em] text-foreground`}
       role="img"
     >
       {fallback === "icon" ? (

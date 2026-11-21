@@ -19,7 +19,7 @@ export function AgentPhrase({ text }: { readonly text: string }) {
   const { copy, copyButtonRef, state } = useCopyText(text);
   return (
     <div
-      className="grid gap-5 rounded-xl bg-foreground p-6 text-card"
+      className="grid gap-5 rounded-xl bg-ink-surface p-6 text-ink-surface-foreground"
       data-agent-phrase
     >
       <p className="text-pretty font-mono text-[0.8125rem] leading-6 [overflow-wrap:anywhere]">
@@ -28,7 +28,7 @@ export function AgentPhrase({ text }: { readonly text: string }) {
       <Button
         ref={copyButtonRef}
         aria-label={labels[state]}
-        className="min-h-11 w-fit max-w-full whitespace-normal rounded-lg bg-card px-4 text-foreground hover:bg-card/90"
+        className="min-h-11 w-fit max-w-full whitespace-normal rounded-lg bg-ink-surface-foreground px-4 text-ink-surface hover:bg-ink-surface-foreground/90"
         onClick={copy}
         type="button"
       >

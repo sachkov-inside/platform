@@ -19,6 +19,7 @@ sb.mock(
 );
 
 import { QueryProvider } from "@/_app/ui/query-provider.client";
+import { themePreferenceStorageKey } from "@/features/theme-preference/model/theme-preference";
 
 import "@fontsource-variable/jetbrains-mono/wght.css";
 import "@fontsource-variable/manrope/wght.css";
@@ -26,7 +27,6 @@ import "@fontsource-variable/manrope/wght.css";
 import { assertDeclaredViewport } from "./viewport-guard";
 import "./story-frame.css";
 
-// Тема одна, как в продукте: production не включает `.dark` ни на одной странице.
 const withStoryFrame: Decorator = (Story) => {
   return (
     <QueryProvider>
@@ -42,7 +42,35 @@ const withStoryFrame: Decorator = (Story) => {
 const preview: Preview = {
   beforeEach: (context) => {
     assertDeclaredViewport(context);
+    // Тема как в продукте: выбор в хранилище браузера и класс `.dark` на `<html>`. Кнопка темы
+    // в шапке применяет сохранённый выбор, когда подключается, поэтому одного класса мало.
+    const root = document.documentElement;
+    const dark = context.globals["theme"] === "dark";
+    if (dark) localStorage.setItem(themePreferenceStorageKey, "dark");
+    else localStorage.removeItem(themePreferenceStorageKey);
+    root.classList.toggle("dark", dark);
+    root.style.colorScheme = dark ? "dark" : "light";
+    return () => {
+      localStorage.removeItem(themePreferenceStorageKey);
+      root.classList.remove("dark");
+      root.style.colorScheme = "";
+    };
   },
+  globalTypes: {
+    theme: {
+      description: "Тема оформления",
+      toolbar: {
+        title: "Тема",
+        icon: "mirror",
+        items: [
+          { value: "light", title: "Светлая" },
+          { value: "dark", title: "Тёмная" },
+        ],
+        dynamicTitle: true,
+      },
+    },
+  },
+  initialGlobals: { theme: "light" },
   decorators: [withStoryFrame],
   tags: ["autodocs"],
   parameters: {

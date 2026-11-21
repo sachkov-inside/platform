@@ -27,6 +27,7 @@ import {
   type StagedLoading,
   type StoryViewport,
 } from "@/storybook/loads-in-place";
+import { textContrast } from "@/storybook/contrast";
 import { withMutationFetch } from "@/storybook/mutation-mock";
 import {
   publicPageEnvironment,
@@ -875,6 +876,23 @@ export const ConnectionHelp: Story = {
     await expect(
       page.getByRole("button", { name: "Скопировать запрос" }),
     ).toBeVisible();
+  },
+};
+
+/** В тёмной теме кнопка копирования остаётся светлой на графитовой плашке и читается. */
+export const ConnectionHelpDark: Story = {
+  ...ConnectionHelp,
+  globals: { ...ConnectionHelp.globals, theme: "dark" },
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await userEvent.click(
+      page.getByRole("button", { name: "Настроить подключение" }),
+    );
+    const copy = page.getByRole("button", {
+      name: "Скопировать запрос подключения",
+    });
+    await expect(copy).toBeVisible();
+    await expect(textContrast(copy)).toBeGreaterThanOrEqual(4.5);
   },
 };
 
