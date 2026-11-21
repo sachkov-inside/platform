@@ -1,7 +1,7 @@
 /**
  * The reader's choice of colour theme. It lives in this browser only: a guest chooses too, and
  * the server renders every page the same. Without a choice the site stays light (owner decision
- * 21.11.2026); «Как в системе» follows the operating system while it stays chosen.
+ * 21.11.2026, #2516); «Как в системе» follows the operating system while it stays chosen.
  */
 export type ThemePreference = "light" | "dark" | "system";
 
@@ -22,7 +22,10 @@ export const themePreferenceStorageKey = "inside.theme.v1";
 
 export const systemDarkQuery = "(prefers-color-scheme: dark)";
 
-/** Browser chrome colour: the page background of each theme. */
+/**
+ * Browser chrome colour: `--background` of each theme in `app/globals.css`. The inline script needs
+ * the literal before any stylesheet applies, so the value is repeated here; change both together.
+ */
 export const themeColors = { light: "#ffffff", dark: "#18191b" } as const;
 
 export function parseThemePreference(

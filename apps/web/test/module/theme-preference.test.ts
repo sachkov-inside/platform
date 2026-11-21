@@ -4,8 +4,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   parseThemePreference,
-  themeColors,
-  themePreferenceStorageKey,
   themeRestoreSource,
 } from "@/features/theme-preference/model/theme-preference";
 
@@ -51,7 +49,7 @@ function runRestore({
   const localStorage = {
     getItem: (key: string) => {
       if (storageFails) throw new Error("SecurityError");
-      return key === themePreferenceStorageKey ? (stored ?? null) : null;
+      return key === "inside.theme.v1" ? (stored ?? null) : null;
     },
   };
   const matchMedia = (query: string) => {
@@ -72,7 +70,7 @@ describe("theme preference", () => {
     expect(runRestore({})).toEqual({
       dark: false,
       colorScheme: "light",
-      themeColor: themeColors.light,
+      themeColor: "#ffffff",
       themeColorTags: 1,
     });
     expect(parseThemePreference(null)).toBe("light");
@@ -82,7 +80,7 @@ describe("theme preference", () => {
     expect(runRestore({ stored: "dark" })).toEqual({
       dark: true,
       colorScheme: "dark",
-      themeColor: themeColors.dark,
+      themeColor: "#18191b",
       themeColorTags: 1,
     });
   });
