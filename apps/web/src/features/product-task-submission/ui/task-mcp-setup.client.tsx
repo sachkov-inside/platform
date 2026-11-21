@@ -66,7 +66,7 @@ export function TaskMcpSetup({
             Один раз для всех заданий. Передай запрос агенту и подтверди вход в
             браузере тем же аккаунтом, что на сайте.
           </p>
-          <div className="grid gap-5 rounded-xl bg-foreground p-6 text-card">
+          <div className="grid gap-5 rounded-xl bg-ink-surface p-6 text-ink-surface-foreground">
             <p className="whitespace-pre-line font-mono text-sm leading-6 [overflow-wrap:anywhere]">
               {connectionPrompt}
             </p>
@@ -74,7 +74,7 @@ export function TaskMcpSetup({
               type="button"
               aria-label={copyState}
               variant="outline"
-              className="min-h-11 w-fit max-w-full whitespace-normal bg-card text-foreground hover:bg-card/90"
+              className="min-h-11 w-fit max-w-full whitespace-normal bg-ink-surface-foreground text-ink-surface hover:bg-ink-surface-foreground/90"
               onClick={() => {
                 void navigator.clipboard
                   .writeText(connectionPrompt)

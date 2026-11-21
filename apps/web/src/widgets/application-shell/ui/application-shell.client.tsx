@@ -207,7 +207,8 @@ function MobileTopNavigation({
           <span className="text-action">.dev</span>
         </Link>
         <nav aria-label="Мобильная навигация" className="ml-auto">
-          <ul className="flex flex-wrap items-center gap-1">
+          {/* При крупном шрифте значки переносятся рядом и остаются у правого края. */}
+          <ul className="flex flex-wrap items-center justify-end gap-1">
             {sections.map((item) => {
               const Icon = iconByName[item.icon];
               const current = isCurrentPath(currentPath, item.href);
@@ -243,7 +244,7 @@ function MobileTopNavigation({
                     {item.badge === true && !current ? (
                       <span
                         aria-hidden="true"
-                        className="absolute right-2 top-2 size-2 rounded-full bg-accent ring-2 ring-white"
+                        className="absolute right-2 top-2 size-2 rounded-full bg-accent ring-2 ring-background"
                       />
                     ) : null}
                   </Link>

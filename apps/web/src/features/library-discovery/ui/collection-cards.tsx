@@ -90,7 +90,7 @@ export function PlaylistCard({
   return (
     <IntentPrefetchLink
       aria-label={`${playlist.continuation === undefined ? "Открыть" : "Продолжить"} продукт ${playlist.name}`}
-      className="group/playlist flex h-full min-w-0 flex-col overflow-hidden rounded-[2rem] bg-primary p-5 text-left text-white no-underline transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-ring motion-reduce:transform-none motion-reduce:transition-none"
+      className="group/playlist flex h-full min-w-0 flex-col overflow-hidden rounded-[2rem] bg-ink-surface p-5 text-left text-ink-surface-foreground no-underline transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-ring motion-reduce:transform-none motion-reduce:transition-none"
       data-playlist-card
       // Начатое руководство продолжается в программе: там материалы и подсвеченное место чтения.
       // Непрочитанное открывается со страницы продукта, где руководство сначала рассказывает о себе.
@@ -105,7 +105,7 @@ export function PlaylistCard({
           className={cn(
             "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold",
             playlist.continuation === undefined
-              ? "bg-white/10 text-white/75"
+              ? "bg-ink-surface-foreground/10 text-ink-surface-foreground/75"
               : "bg-accent text-accent-foreground",
           )}
         >
@@ -120,7 +120,7 @@ export function PlaylistCard({
         </span>
         <span
           aria-hidden="true"
-          className="grid size-9 shrink-0 place-items-center rounded-full bg-white text-foreground"
+          className="grid size-9 shrink-0 place-items-center rounded-full bg-ink-surface-foreground text-ink-surface"
         >
           <ArrowRight className="size-4 transition-transform group-hover/playlist:translate-x-0.5 motion-reduce:transform-none" />
         </span>
@@ -128,7 +128,7 @@ export function PlaylistCard({
       <strong className="mt-4 block text-lg leading-6 tracking-[-0.035em] md:text-2xl md:leading-7">
         {playlist.name}
       </strong>
-      <span className="mt-2 block text-sm leading-5 text-white/65">
+      <span className="mt-2 block text-sm leading-5 text-ink-surface-foreground/65">
         {playlist.summary === ""
           ? "Последовательность материалов"
           : playlist.summary}
@@ -171,8 +171,8 @@ export function PlaylistCard({
                 />
               </span>
               {locked ? (
-                <span className="absolute inset-0 grid place-items-center bg-white/20">
-                  <span className="grid size-8 place-items-center rounded-full bg-white/92 text-accent shadow-xl backdrop-blur-xl">
+                <span className="absolute inset-0 grid place-items-center bg-background/20">
+                  <span className="grid size-8 place-items-center rounded-full bg-background/92 text-accent shadow-xl backdrop-blur-xl">
                     <LockKeyhole className="size-4" />
                   </span>
                 </span>

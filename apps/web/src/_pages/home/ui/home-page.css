@@ -621,3 +621,12 @@
     inset: -4px 0;
   }
 }
+
+/*
+ * Тёмная тема: графитовые панели остаются графитовыми. Они построены на `--primary`, а в тёмной
+ * теме он светлеет для кнопок, поэтому внутри панели он снова графит.
+ */
+.dark .home-product {
+  --primary: var(--ink-surface);
+  --primary-foreground: var(--ink-surface-foreground);
+}

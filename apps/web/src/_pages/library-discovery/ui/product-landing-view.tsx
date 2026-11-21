@@ -181,10 +181,10 @@ function DefaultProductLandingView({
         </div>
 
         <header
-          className="mt-3 overflow-hidden rounded-[1.75rem] bg-primary p-4 text-white"
+          className="mt-3 overflow-hidden rounded-[1.75rem] bg-ink-surface p-4 text-ink-surface-foreground"
           data-product-part="hero"
         >
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-white/60">
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-ink-surface-foreground/60">
             Продукт
           </p>
           <div className="mt-3 overflow-hidden rounded-2xl">
@@ -198,13 +198,13 @@ function DefaultProductLandingView({
             />
           </div>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm tabular-nums text-white/70">
+            <p className="text-sm tabular-nums text-ink-surface-foreground/70">
               {formatMaterialCount(items.length)}
             </p>
             {freeEntry === undefined ? null : (
               <Button
                 asChild
-                className="h-auto min-h-11 max-w-full whitespace-normal rounded-full border-0 bg-white/15 text-white hover:bg-white/25 hover:text-white"
+                className="h-auto min-h-11 max-w-full whitespace-normal rounded-full border-0 bg-ink-surface-foreground/15 text-ink-surface-foreground hover:bg-ink-surface-foreground/25 hover:text-ink-surface-foreground"
                 variant="outline"
               >
                 <IntentPrefetchLink href={freeEntry}>

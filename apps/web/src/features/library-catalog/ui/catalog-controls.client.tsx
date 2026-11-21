@@ -108,7 +108,7 @@ export function LibrarySearchControl({
           {query.q.length > 0 ? (
             <button
               aria-label="Очистить поиск"
-              className="grid size-8 shrink-0 place-items-center rounded-full bg-white text-muted-foreground"
+              className="grid size-8 shrink-0 place-items-center rounded-full bg-card text-muted-foreground"
               onClick={() => {
                 onQueryChange(changeLibraryQuery(query, { q: "" }));
               }}
@@ -292,7 +292,7 @@ function TopicOption({
         type="radio"
         value={value}
       />
-      <span className="inline-flex min-h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-muted px-3.5 text-[0.8125rem] sm:min-h-10 sm:px-4 sm:text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground peer-checked:bg-primary peer-checked:text-white peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring">
+      <span className="inline-flex min-h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-muted px-3.5 text-[0.8125rem] sm:min-h-10 sm:px-4 sm:text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring">
         {label}
         {count === undefined ? null : <span className="text-xs">{count}</span>}
       </span>
@@ -341,7 +341,7 @@ function CatalogFormatFieldset({
               type="radio"
               value={option.slug ?? ""}
             />
-            <span className="inline-flex min-h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-muted px-3.5 text-[0.8125rem] sm:min-h-10 sm:px-4 sm:text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground peer-checked:bg-primary peer-checked:text-white peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring">
+            <span className="inline-flex min-h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-muted px-3.5 text-[0.8125rem] sm:min-h-10 sm:px-4 sm:text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring">
               {option.label}
               {option.slug !== null && counts.has(option.slug) ? (
                 <span className="text-xs">{counts.get(option.slug)}</span>

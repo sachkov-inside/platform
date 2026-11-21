@@ -3,6 +3,7 @@
 import "@/_app/ui/fonts";
 import { StandalonePageError } from "@/_pages/route-states";
 import { useRenderErrorReport } from "@/features/client-telemetry";
+import { ThemeRestore } from "@/features/theme-preference";
 
 import "./globals.css";
 
@@ -19,7 +20,10 @@ export default function GlobalError({
 }) {
   useRenderErrorReport("global", error);
   return (
-    <html lang="ru">
+    <html lang="ru" suppressHydrationWarning>
+      <head>
+        <ThemeRestore />
+      </head>
       <body>
         <title>Страница недоступна · sachkov.dev</title>
         <StandalonePageError onRetry={retry} />

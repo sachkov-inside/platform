@@ -26,7 +26,6 @@ import "@fontsource-variable/manrope/wght.css";
 import { assertDeclaredViewport } from "./viewport-guard";
 import "./story-frame.css";
 
-// Тема одна, как в продукте: production не включает `.dark` ни на одной странице.
 const withStoryFrame: Decorator = (Story) => {
   return (
     <QueryProvider>
@@ -42,7 +41,31 @@ const withStoryFrame: Decorator = (Story) => {
 const preview: Preview = {
   beforeEach: (context) => {
     assertDeclaredViewport(context);
+    // Тема как в продукте: класс `.dark` на `<html>`, его ставит выбор в шапке.
+    const root = document.documentElement;
+    const dark = context.globals["theme"] === "dark";
+    root.classList.toggle("dark", dark);
+    root.style.colorScheme = dark ? "dark" : "light";
+    return () => {
+      root.classList.remove("dark");
+      root.style.colorScheme = "";
+    };
   },
+  globalTypes: {
+    theme: {
+      description: "Тема оформления",
+      toolbar: {
+        title: "Тема",
+        icon: "mirror",
+        items: [
+          { value: "light", title: "Светлая" },
+          { value: "dark", title: "Тёмная" },
+        ],
+        dynamicTitle: true,
+      },
+    },
+  },
+  initialGlobals: { theme: "light" },
   decorators: [withStoryFrame],
   tags: ["autodocs"],
   parameters: {

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 import "@/_app/ui/fonts";
+import { ThemeRestore } from "@/features/theme-preference";
 
 import "./globals.css";
 
@@ -19,8 +20,11 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: ReactNode }>) {
   return (
-    // The lesson-menu restore script marks <html> before hydration (#2158).
+    // The theme and lesson-menu restore scripts mark <html> before hydration (#2158).
     <html lang="ru" suppressHydrationWarning>
+      <head>
+        <ThemeRestore />
+      </head>
       <body>{children}</body>
     </html>
   );

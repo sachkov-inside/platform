@@ -17,6 +17,7 @@ import {
   useAccountPresentation,
   AccountTelegramNotice,
 } from "@/features/account-access";
+import { ThemeSwitch } from "@/features/theme-preference";
 
 export interface PublicApplicationFrameProps {
   readonly authState: AuthControlState;
@@ -65,6 +66,7 @@ export function PublicApplicationFrame({
       currentPath={currentPath}
       accountSlot={
         <div className="flex items-center gap-2 sm:gap-3">
+          <ThemeSwitch surface="public" />
           {telegramPending ? (
             <AccountTelegramNotice
               onRefresh={() => presentation.refetch().then(() => undefined)}

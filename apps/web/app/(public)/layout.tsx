@@ -15,7 +15,6 @@ export const instant = false;
  * нулю. Оболочка сама отступает от чёлки, скруглений и полосы «Домой».
  */
 export const viewport: Viewport = {
-  themeColor: "#ffffff",
   colorScheme: "light",
   viewportFit: "cover",
 };

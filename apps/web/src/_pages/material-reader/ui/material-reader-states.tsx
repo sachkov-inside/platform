@@ -237,7 +237,7 @@ const accessCopy = {
 
 /** Единственная кнопка отказа: покупка или вход для бесплатного урока. */
 export const readerAccessActionClass =
-  "h-auto min-h-11 max-w-full whitespace-normal rounded-xl bg-accent px-4 text-white hover:bg-accent-hover";
+  "h-auto min-h-11 max-w-full whitespace-normal rounded-xl bg-accent px-4 text-accent-foreground hover:bg-accent-hover";
 
 /** Шаг вместо покупки: значок, заголовок, объяснение и одно действие рисует рамка отказа. */
 export interface MaterialReaderGate {
@@ -362,7 +362,7 @@ export function MaterialReaderAccess({
               showShare={false}
             />
             <section
-              className="relative mt-10 overflow-hidden rounded-[2rem] border border-black/6 bg-muted p-6 md:mt-12 md:p-9"
+              className="relative mt-10 overflow-hidden rounded-[2rem] border border-foreground/6 bg-muted p-6 md:mt-12 md:p-9"
               aria-labelledby="access-heading"
             >
               <div
@@ -375,10 +375,10 @@ export function MaterialReaderAccess({
                   <div className="h-4 w-11/12 rounded-full bg-placeholder" />
                   <div className="h-4 w-4/5 rounded-full bg-placeholder" />
                 </div>
-                <div className="h-36 rounded-[1.5rem] bg-white" />
+                <div className="h-36 rounded-[1.5rem] bg-card" />
               </div>
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-white/20 via-white/70 to-white/95 px-6 text-center">
-                <span className="grid size-12 place-items-center rounded-full bg-white text-accent shadow-lg">
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-background/20 via-background/70 to-background/95 px-6 text-center">
+                <span className="grid size-12 place-items-center rounded-full bg-background text-accent shadow-lg">
                   {gate?.icon ?? (
                     <LockKeyhole aria-hidden="true" className="size-5" />
                   )}

@@ -15,7 +15,6 @@ export const metadata: Metadata = { robots: { follow: false, index: false } };
  * нулю, и нижняя панель админки уходила бы под полосу «Домой».
  */
 export const viewport: Viewport = {
-  themeColor: "#ffffff",
   colorScheme: "light",
   viewportFit: "cover",
 };

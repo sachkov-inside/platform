@@ -186,7 +186,7 @@ function DiscoveryHero({
             sizes="8rem"
           />
         ) : (
-          <span className="grid size-24 shrink-0 rotate-[-5deg] place-items-center rounded-[1.6rem] border border-white/45 bg-white/75 text-foreground shadow-xl backdrop-blur-sm md:size-32">
+          <span className="grid size-24 shrink-0 rotate-[-5deg] place-items-center rounded-[1.6rem] border border-background/45 bg-background/75 text-foreground shadow-xl backdrop-blur-sm md:size-32">
             <Tags
               aria-hidden="true"
               className="size-12 md:size-16"
