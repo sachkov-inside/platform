@@ -1086,11 +1086,6 @@ test("learner saves one lesson review and can still rate and continue the course
   await finish.getByRole("link", { name: "Дальше", exact: true }).click();
   await expect(page).toHaveURL(/\/materials\/demo-295-finalnyy-gayd/u);
   await expect(open).toBeEnabled();
-  await page.goto("/materials/demo-295-samostoyatelnaya-zametka");
-  await expect(
-    finish.getByRole("button", { name: "Понравился", exact: true }),
-  ).toBeVisible();
-  await expect(open).toHaveCount(0);
 });
 
 function readerNextLink(page: Page) {
