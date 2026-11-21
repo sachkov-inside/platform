@@ -35,6 +35,7 @@ registerFixedClock();
 const actor = randomUUID();
 const topicId = randomUUID();
 const closedProductId = randomUUID();
+const feedbackProductId = randomUUID();
 
 const body: MaterialBodySnapshot = {
   schemaVersion: 1,
@@ -57,16 +58,32 @@ async function seed(database: TestDatabase) {
       name: "Ratings closed product",
     },
   });
+  await database.prisma.product.create({
+    data: {
+      id: feedbackProductId,
+      slug: "example-feedback-product",
+      name: "Example feedback product",
+    },
+  });
   const materials = assembleMaterials({
     prisma: database.prisma,
     authorPolicy: { canManage: (id) => id === actor },
   });
-  const publish = async (access: "free" | "closed") => {
+  const publish = async (
+    access: "free" | "closed",
+    options?: { readonly title: string; readonly placement?: number },
+  ) => {
+    const productId =
+      access === "closed"
+        ? closedProductId
+        : options?.placement === undefined
+          ? null
+          : feedbackProductId;
     const created = await materials.authoring.createDraft({
       actor,
       idempotencyKey: randomUUID(),
       metadata: {
-        title: `Lesson ${randomUUID()}`,
+        title: options?.title ?? `Lesson ${randomUUID()}`,
         summary: "Lesson ratings",
         topicId,
         formatId: "note",
@@ -74,7 +91,7 @@ async function seed(database: TestDatabase) {
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        productIds: access === "closed" ? [closedProductId] : [],
+        productIds: productId === null ? [] : [productId],
       },
       body,
     });
@@ -87,6 +104,15 @@ async function seed(database: TestDatabase) {
       publicationState: "published",
     });
     if (!published.ok) throw new Error(published.error.code);
+    if (options?.placement !== undefined && productId !== null)
+      await database.prisma.productProgrammePlacement.create({
+        data: {
+          id: randomUUID(),
+          productId,
+          materialId: published.value.materialId,
+          ordinal: options.placement,
+        },
+      });
     return published.value.materialId;
   };
   return { materials, publish };
@@ -117,6 +143,11 @@ describe("Lesson Ratings on PostgreSQL", () => {
         }),
       }),
       authorPolicy: { canManage: (id) => id === actor },
+      feedbackPolicy: {
+        enabled: false,
+        hasActiveLessonPlacement: () =>
+          Promise.resolve({ ok: true, value: false }),
+      },
     });
   });
   afterAll(async () => {
@@ -232,6 +263,8 @@ describe("Lesson Ratings over Nest HTTP", () => {
   let freeMaterialId: string;
   let closedMaterialId: string;
   let notificationMaterialId: string;
+  let referenceMaterialId: string;
+  let feedbackMaterialId: string;
 
   beforeAll(async () => {
     identity = await startTestIdentityIssuer({
@@ -241,8 +274,21 @@ describe("Lesson Ratings over Nest HTTP", () => {
     database = await createMigratedTestDatabase();
     const seeded = await seed(database);
     freeMaterialId = await seeded.publish("free");
-    closedMaterialId = await seeded.publish("closed");
-    notificationMaterialId = await seeded.publish("free");
+    feedbackMaterialId = await seeded.publish("free", {
+      title: "First lesson",
+      placement: 1,
+    });
+    closedMaterialId = await seeded.publish("closed", {
+      title: "Closed lesson",
+      placement: 2,
+    });
+    notificationMaterialId = await seeded.publish("free", {
+      title: "Example lesson",
+      placement: 3,
+    });
+    referenceMaterialId = await seeded.publish("closed", {
+      title: "Supplementary reading",
+    });
     await database.prisma.account.create({
       data: {
         id: authorId,
@@ -288,6 +334,7 @@ describe("Lesson Ratings over Nest HTTP", () => {
 
   async function signedIn(
     permission?: "materials:manage" | "platform:admin",
+    feedbackProductAccess = false,
   ): Promise<string> {
     const subject = `lesson-ratings-${randomUUID()}`;
     const bearer = await identity.sign(subject, {
@@ -299,13 +346,20 @@ describe("Lesson Ratings over Nest HTTP", () => {
       headers: { authorization: `Bearer ${bearer}` },
     });
     expect(created.statusCode).toBe(201);
-    if (permission !== undefined) {
+    if (permission !== undefined || feedbackProductAccess) {
       const account = await database.prisma.account.findFirstOrThrow({
         where: { logtoSubject: subject },
       });
-      await database.prisma.accountPermission.create({
-        data: { accountId: account.id, permission },
-      });
+      if (permission !== undefined)
+        await database.prisma.accountPermission.create({
+          data: { accountId: account.id, permission },
+        });
+      if (feedbackProductAccess)
+        await grantProductFixture(
+          database.prisma,
+          account.id,
+          feedbackProductId,
+        );
     }
     return bearer;
   }
@@ -350,9 +404,9 @@ describe("Lesson Ratings over Nest HTTP", () => {
   }
 
   test("only a signed-in reader with access can submit one nonblank lesson review", async () => {
-    const reader = await signedIn();
-    const other = await signedIn();
-    const url = `/lesson-ratings/materials/${freeMaterialId}/feedback`;
+    const reader = await signedIn(undefined, true);
+    const other = await signedIn(undefined, true);
+    const url = `/lesson-ratings/materials/${feedbackMaterialId}/feedback`;
     const submit = (bearer: string | null, text: string, target = url) =>
       server.inject({
         method: "PUT",
@@ -365,6 +419,17 @@ describe("Lesson Ratings over Nest HTTP", () => {
 
     expect((await submit(null, "Не вошёл")).statusCode).toBe(401);
     expect((await submit(reader, "   \n")).statusCode).toBe(400);
+    expect((await submit(reader, "а".repeat(2001))).statusCode).toBe(400);
+    expect(
+      (
+        await server.inject({
+          method: "PUT",
+          url,
+          headers: headers(reader),
+          payload: { text: "Подмена получателя", accountId: authorId },
+        })
+      ).statusCode,
+    ).toBe(400);
     expect(
       (
         await submit(
@@ -390,13 +455,40 @@ describe("Lesson Ratings over Nest HTTP", () => {
     expect((await readFeedback(other)).json()).toEqual({ submitted: false });
     expect(
       await database.prisma.lessonFeedback.count({
-        where: { materialId: freeMaterialId },
+        where: { materialId: feedbackMaterialId },
       }),
     ).toBe(1);
   });
 
+  test("an available catalogue reference cannot receive lesson feedback without a programme placement", async () => {
+    const author = await signedIn("materials:manage");
+    expect(
+      (await rate(author, referenceMaterialId, { rating: "like" })).statusCode,
+    ).toBe(200);
+    const url = `/lesson-ratings/materials/${referenceMaterialId}/feedback`;
+    expect(
+      (
+        await server.inject({
+          method: "GET",
+          url,
+          headers: headers(author),
+        })
+      ).statusCode,
+    ).toBe(404);
+    expect(
+      (
+        await server.inject({
+          method: "PUT",
+          url,
+          headers: headers(author),
+          payload: { text: "Отзыв о дополнении" },
+        })
+      ).statusCode,
+    ).toBe(404);
+  });
+
   test("an accepted review produces one authorized Telegram command for the configured author", async () => {
-    const reader = await signedIn();
+    const reader = await signedIn(undefined, true);
     const text = "Понравился пример.\nДобавьте упражнение.";
     const materialId = notificationMaterialId;
     const url = `/lesson-ratings/materials/${materialId}/feedback`;
@@ -436,7 +528,7 @@ describe("Lesson Ratings over Nest HTTP", () => {
         telegramIdentityRef: "feedback-author-telegram",
         linkRef: authorLinkId,
       },
-      text: `Новый отзыв об уроке\nhttps://reader.example.test/materials/${(await database.prisma.publishedMaterial.findUniqueOrThrow({ where: { materialId } })).slug}\n\n${text}`,
+      text: `Новый отзыв об уроке\nhttps://reader.example.test/materials/example-lesson\n\n${text}`,
     });
 
     const authorize = () =>

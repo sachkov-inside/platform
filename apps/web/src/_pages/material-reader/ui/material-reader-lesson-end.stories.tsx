@@ -15,6 +15,7 @@ import {
 } from "@/features/exercise-attempts";
 import {
   lessonRatingChanges,
+  lessonFeedbackChanges,
   SavedLessonRating,
   SavedLessonFeedback,
 } from "@/features/lesson-rating";
@@ -331,6 +332,9 @@ export const AnswerBeforeIdentityIsSaved: Story = {
 export const SendsLessonFeedback: Story = {
   play: async ({ canvasElement }) => {
     const card = within(finishCard(canvasElement));
+    await userEvent.click(
+      await card.findByRole("button", { name: "Оставить отзыв" }),
+    );
     const send = await card.findByRole("button", { name: "Отправить отзыв" });
     const text = card.getByRole("textbox", { name: "Отзыв об уроке" });
     await expect(send).toBeDisabled();
@@ -354,6 +358,9 @@ export const FeedbackSubmissionFailed: Story = {
   parameters: { feedbackUnavailable: true },
   play: async ({ canvasElement }) => {
     const card = within(finishCard(canvasElement));
+    await userEvent.click(
+      await card.findByRole("button", { name: "Оставить отзыв" }),
+    );
     const text = await card.findByRole("textbox", { name: "Отзыв об уроке" });
     await userEvent.type(text, "Больше примеров.");
     await userEvent.click(
@@ -363,6 +370,17 @@ export const FeedbackSubmissionFailed: Story = {
       await card.findByText("Не удалось отправить отзыв. Попробуйте ещё раз."),
     ).toBeVisible();
     await expect(text).toHaveValue("Больше примеров.");
+  },
+};
+
+export const FeedbackSentInAnotherTab: Story = {
+  play: async ({ canvasElement }) => {
+    const card = within(finishCard(canvasElement));
+    const open = await card.findByRole("button", { name: "Оставить отзыв" });
+    await waitFor(() => expect(open).toBeEnabled());
+    backend.feedback = "Отправлено в другой вкладке";
+    lessonFeedbackChanges(accountId).announce();
+    await expect(await card.findByText("Спасибо за отзыв.")).toBeVisible();
   },
 };
 

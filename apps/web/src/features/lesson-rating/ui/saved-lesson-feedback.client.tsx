@@ -1,9 +1,10 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useId, useState } from "react";
+import { useCallback, useId, useMemo, useState } from "react";
 
 import { useMaterialReading } from "@/entities/material";
+import { useAnnouncedRefresh } from "@/shared/api/use-announced-refresh.client";
 import { Button } from "@/shared/ui/button";
 
 import {
@@ -11,6 +12,7 @@ import {
   readLessonFeedbackOperation,
   submitLessonFeedbackOperation,
 } from "../api/lesson-feedback.operation";
+import { lessonFeedbackChanges } from "../model/lesson-rating-events";
 
 export function SavedLessonFeedback({
   materialId,
@@ -42,8 +44,14 @@ function AccountLessonFeedback({
     queryFn: () => readLessonFeedbackOperation.send({ materialId }),
     retry: false,
   });
+  const changes = useMemo(() => lessonFeedbackChanges(accountId), [accountId]);
+  useAnnouncedRefresh(changes, queryKey);
+  const [opened, setOpened] = useState(false);
   const [text, setText] = useState("");
   const textId = useId();
+  const focusField = useCallback((element: HTMLTextAreaElement | null) => {
+    element?.focus();
+  }, []);
   const mutation = useMutation({
     mutationFn: (value: string) =>
       submitLessonFeedbackOperation.send({ materialId, text: value }),
@@ -51,26 +59,35 @@ function AccountLessonFeedback({
       if (result.kind === "ready" && result.submitted) {
         client.setQueryData(queryKey, result);
         setText("");
+        changes.announce();
       }
     },
   });
 
-  if (query.isPending || query.data?.kind === "unauthorized") return null;
-  if (query.data?.kind !== "ready")
-    return (
-      <p className="py-3 text-sm text-muted-foreground" role="status">
-        Отзыв сейчас недоступен.
-      </p>
-    );
-
-  const submitted = query.data.submitted;
+  const status = query.data?.kind;
+  if (status === "not_lesson" || status === "unauthorized") return null;
+  const submitted = query.data?.kind === "ready" && query.data.submitted;
+  const unavailable = !query.isPending && status !== "ready";
   const failed =
     mutation.isError ||
     (mutation.isSuccess &&
       (mutation.data.kind !== "ready" || !mutation.data.submitted));
   return (
-    <div className="py-3">
-      {submitted ? null : (
+    <div className="py-2">
+      {!opened && !submitted && !unavailable ? (
+        <Button
+          className="min-h-11"
+          disabled={query.isPending}
+          onClick={() => {
+            setOpened(true);
+          }}
+          type="button"
+          variant="outline"
+        >
+          Оставить отзыв
+        </Button>
+      ) : null}
+      {opened && !submitted && !unavailable ? (
         <form
           className="grid gap-2"
           onSubmit={(event) => {
@@ -94,6 +111,7 @@ function AccountLessonFeedback({
               setText(event.target.value);
             }}
             readOnly={mutation.isPending}
+            ref={focusField}
             required
             rows={3}
             value={text}
@@ -107,18 +125,24 @@ function AccountLessonFeedback({
             {mutation.isPending ? "Отправляем…" : "Отправить отзыв"}
           </Button>
         </form>
-      )}
+      ) : null}
       <p
         className={
-          submitted || failed ? "text-sm text-muted-foreground" : "sr-only"
+          submitted || unavailable
+            ? "flex min-h-11 items-center text-sm text-muted-foreground"
+            : failed
+              ? "mt-2 text-sm text-muted-foreground"
+              : "sr-only"
         }
         role="status"
       >
         {submitted
           ? "Спасибо за отзыв."
-          : failed
-            ? "Не удалось отправить отзыв. Попробуйте ещё раз."
-            : ""}
+          : unavailable
+            ? "Отзыв сейчас недоступен."
+            : failed
+              ? "Не удалось отправить отзыв. Попробуйте ещё раз."
+              : ""}
       </p>
     </div>
   );

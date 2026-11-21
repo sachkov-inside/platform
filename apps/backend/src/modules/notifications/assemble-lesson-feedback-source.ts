@@ -44,7 +44,9 @@ export function assembleLessonFeedbackSource(
       now: Date,
     ) {
       if (recipient === undefined) return;
-      for (const feedback of await ratings.pendingFeedbackNotifications()) {
+      const pending = await ratings.pendingFeedbackNotifications();
+      if (!pending.ok) throw new Error("lesson_feedback_outbox_unavailable");
+      for (const feedback of pending.value) {
         const payload = JSON.stringify(feedbackEvent(feedback, recipient));
         // A crash after insertion leaves the review pending. The same inbox key makes replay safe.
         await prisma.notificationInbox.createMany({
@@ -59,7 +61,12 @@ export function assembleLessonFeedbackSource(
           },
           skipDuplicates: true,
         });
-        await ratings.markFeedbackNotificationQueued(feedback.id, now);
+        const queued = await ratings.markFeedbackNotificationQueued(
+          feedback.id,
+          now,
+        );
+        if (!queued.ok)
+          throw new Error("lesson_feedback_outbox_ack_unavailable");
       }
     },
     async resolve(event: NotificationEvent): Promise<NotificationSource> {
@@ -68,22 +75,25 @@ export function assembleLessonFeedbackSource(
       const feedback = await ratings.readFeedbackForNotification(
         event.occurrenceRef,
       );
-      if (feedback === null) return { status: "superseded" };
+      if (!feedback.ok) return { status: "unavailable" };
+      if (feedback.value === null) return { status: "superseded" };
+      const review = feedback.value;
       const readerPath = await materials.findPublishedReaderPath(
-        materialId(feedback.materialId),
+        materialId(review.materialId),
       );
-      if (readerPath === null) return { status: "superseded" };
+      if (!readerPath.ok) return { status: "unavailable" };
+      if (readerPath.value === null) return { status: "superseded" };
       return {
         status: "current",
-        event: feedbackEvent(feedback, recipient),
+        event: feedbackEvent(review, recipient),
         accountId: recipient,
         content: {
           category: "subscription",
           kind: "lesson_feedback_submitted",
         },
         title: "Отзыв об уроке",
-        readerPath,
-        feedbackText: feedback.text,
+        readerPath: readerPath.value,
+        feedbackText: review.text,
       };
     },
   };

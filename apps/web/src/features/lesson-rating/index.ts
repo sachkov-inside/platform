@@ -7,3 +7,4 @@ export { SavedLessonRating } from "./ui/saved-lesson-rating.client";
 export { lessonRatingChanges } from "./model/lesson-rating-events";
 export type { LessonRatingValue } from "./model/lesson-rating-contract";
 export { SavedLessonFeedback } from "./ui/saved-lesson-feedback.client";
+export { lessonFeedbackChanges } from "./model/lesson-rating-events";

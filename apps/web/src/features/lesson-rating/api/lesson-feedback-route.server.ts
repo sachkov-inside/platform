@@ -17,13 +17,12 @@ async function runFeedbackRequest(
 ) {
   try {
     const result = await request;
-    if (!result.ok)
-      return {
-        kind:
-          result.response.status === 401
-            ? ("unauthorized" as const)
-            : ("unavailable" as const),
-      };
+    if (!result.ok) {
+      const status = result.response.status;
+      if (status === 401) return { kind: "unauthorized" as const };
+      if (status === 404) return { kind: "not_lesson" as const };
+      return { kind: "unavailable" as const };
+    }
     const body = lessonFeedbackBodySchema.safeParse(result.body);
     if (body.success)
       return { kind: "ready" as const, submitted: body.data.submitted };

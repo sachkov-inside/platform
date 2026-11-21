@@ -1065,7 +1065,9 @@ test("learner saves one lesson review and can still rate and continue the course
   await page.goto(lesson);
   const finish = page.locator("[data-lesson-finish]");
   const text = finish.getByRole("textbox", { name: "Отзыв об уроке" });
+  const open = finish.getByRole("button", { name: "Оставить отзыв" });
   const send = finish.getByRole("button", { name: "Отправить отзыв" });
+  await open.click();
   await expect(send).toBeDisabled();
   await text.fill("  ");
   await expect(send).toBeDisabled();
@@ -1076,14 +1078,19 @@ test("learner saves one lesson review and can still rate and continue the course
   await page.reload();
   await expect(finish.getByText("Спасибо за отзыв.")).toBeVisible();
   await expect(text).toHaveCount(0);
-  const like = finish.getByRole("button", { name: "Понравился" });
+  const like = finish.getByRole("button", { name: "Понравился", exact: true });
   await like.click();
   await expect(like).toHaveAttribute("aria-pressed", "true");
   await like.click();
   await expect(like).toHaveAttribute("aria-pressed", "false");
   await finish.getByRole("link", { name: "Дальше", exact: true }).click();
   await expect(page).toHaveURL(/\/materials\/demo-295-finalnyy-gayd/u);
-  await expect(text).toBeVisible();
+  await expect(open).toBeEnabled();
+  await page.goto("/materials/demo-295-samostoyatelnaya-zametka");
+  await expect(
+    finish.getByRole("button", { name: "Понравился", exact: true }),
+  ).toBeVisible();
+  await expect(open).toHaveCount(0);
 });
 
 function readerNextLink(page: Page) {

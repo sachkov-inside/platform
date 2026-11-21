@@ -10,6 +10,7 @@ export const lessonFeedbackBodySchema = z.strictObject({
 const result = z.discriminatedUnion("kind", [
   lessonFeedbackBodySchema.extend({ kind: z.literal("ready") }),
   z.strictObject({ kind: z.literal("unauthorized") }),
+  z.strictObject({ kind: z.literal("not_lesson") }),
   z.strictObject({ kind: z.literal("unavailable") }),
 ]);
 const transportFailure = (failure: { kind: string; status?: number }) =>

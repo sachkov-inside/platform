@@ -157,7 +157,7 @@ export class LessonRatingsController {
     @CurrentAccount() current: AuthenticatedAccount,
     @Param("materialId") materialId: string,
   ) {
-    const result = await this.ratings.feedback({
+    const result = await this.ratings.readFeedback({
       accountId: current.accountId,
       materialId,
     });
@@ -190,11 +190,9 @@ export class LessonRatingsController {
     @Param("materialId") materialId: string,
     @Body() input: unknown,
   ) {
-    const parsed = feedbackBodySchema.safeParse(input);
-    if (!parsed.success) throwRatingError({ code: "invalid_request" });
-    const result = await this.ratings.feedback(
+    const result = await this.ratings.submitFeedback(
       { accountId: current.accountId, materialId },
-      parsed.data,
+      input,
     );
     if (!result.ok) throwRatingError(result.error);
     return { submitted: result.submitted };

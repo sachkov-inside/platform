@@ -526,7 +526,9 @@ async function ResolvedMaterialReader({
           <SavedLessonRating materialId={result.material.materialId} />
         }
         lessonFeedback={
-          <SavedLessonFeedback materialId={result.material.materialId} />
+          result.material.productMemberships.length > 0 ? (
+            <SavedLessonFeedback materialId={result.material.materialId} />
+          ) : undefined
         }
         exerciseScope={(lesson) => (
           <LessonExerciseAttempts

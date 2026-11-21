@@ -3,6 +3,15 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { sessionAdapter } from "@/shared/auth/session-adapter.server";
 import { lessonInteractions } from "../../../../scenarios/lesson-interactions.mjs";
 import { realBffSession } from "../support/real-bff-session";
+import { PUT as submitFeedback } from "../../app/api/lesson-ratings/feedback/route";
+import { POST as readFeedback } from "../../app/api/lesson-ratings/feedback/query/route";
+import {
+  readLessonFeedbackOperation,
+  submitLessonFeedbackOperation,
+} from "@/features/lesson-rating/api/lesson-feedback.operation";
+import { routeBrowserMutations } from "../support/mutation-operation-route";
+
+const feedbackReplies = vi.fn<(request: Request) => Promise<Response>>();
 const ratingReplies = vi.fn<(request: Request) => Promise<Response>>();
 const statsReplies = vi.fn<(request: Request) => Promise<Response>>();
 const countReplies = vi.fn<(request: Request) => Promise<Response>>();
@@ -40,7 +49,13 @@ const ok = (body: unknown) => Response.json(body);
 const failed = (status: number) => new Response(null, { status });
 
 beforeEach(async () => {
-  for (const reply of [backend, ratingReplies, statsReplies, countReplies])
+  for (const reply of [
+    backend,
+    feedbackReplies,
+    ratingReplies,
+    statsReplies,
+    countReplies,
+  ])
     reply.mockReset();
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-11-16T10:00:00Z"));
@@ -51,6 +66,8 @@ beforeEach(async () => {
       throw new Error(`Unexpected origin ${url.origin}`);
     if (url.pathname === `/lesson-ratings/materials/${materialId}`)
       return ratingReplies(request);
+    if (url.pathname === `/lesson-ratings/materials/${materialId}/feedback`)
+      return feedbackReplies(request);
     if (
       url.pathname === `/authoring/materials/${materialId}/exercise-statistics`
     )
@@ -144,6 +161,72 @@ it("reads the reader's own rating", async () => {
   );
   expectBackendRequest("GET", `/lesson-ratings/materials/${materialId}`);
   expect(await response.json()).toEqual({ kind: "ready", rating: "dislike" });
+});
+
+function connectFeedbackRoutes() {
+  routeBrowserMutations(
+    {
+      "/api/lesson-ratings/feedback": { PUT: submitFeedback },
+      "/api/lesson-ratings/feedback/query": { POST: readFeedback },
+    },
+    undefined,
+    { run: session, externalFetch: backend },
+  );
+}
+
+it("reads and submits feedback through the session and uses only the learner's review text", async () => {
+  connectFeedbackRoutes();
+  feedbackReplies.mockResolvedValueOnce(ok({ submitted: false }));
+  await expect(
+    readLessonFeedbackOperation.send({ materialId }),
+  ).resolves.toEqual({
+    kind: "ready",
+    submitted: false,
+  });
+  expectBackendRequest(
+    "GET",
+    `/lesson-ratings/materials/${materialId}/feedback`,
+  );
+  feedbackReplies.mockResolvedValueOnce(ok({ submitted: true }));
+  const input = {
+    materialId,
+    text: "  Больше примеров  ",
+    accountId: "untrusted",
+  };
+  await expect(submitLessonFeedbackOperation.send(input)).resolves.toEqual({
+    kind: "ready",
+    submitted: true,
+  });
+  expect(
+    await expectBackendRequest(
+      "PUT",
+      `/lesson-ratings/materials/${materialId}/feedback`,
+    ).json(),
+  ).toEqual({
+    text: "Больше примеров",
+  });
+});
+
+it("rejects a blank review before the backend and refuses a malformed receipt", async () => {
+  connectFeedbackRoutes();
+  await expect(
+    submitLessonFeedbackOperation.send({ materialId, text: "  \n" }),
+  ).resolves.toEqual({
+    kind: "unavailable",
+  });
+  expect(feedbackReplies).not.toHaveBeenCalled();
+  feedbackReplies.mockResolvedValueOnce(ok({ submitted: "true" }));
+  await expect(
+    submitLessonFeedbackOperation.send({ materialId, text: "Больше примеров" }),
+  ).resolves.toEqual({
+    kind: "unavailable",
+  });
+  feedbackReplies.mockResolvedValueOnce(failed(404));
+  await expect(
+    readLessonFeedbackOperation.send({ materialId }),
+  ).resolves.toEqual({
+    kind: "not_lesson",
+  });
 });
 
 const statistics = { exercises: lessonInteractions.module.statistics };

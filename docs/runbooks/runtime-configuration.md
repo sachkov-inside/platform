@@ -288,7 +288,7 @@ link and a reachable private chat in the existing Telegram bot. Leave the variab
 the owner authorizes activation and the running Telegram worker supports `lesson_feedback_submitted`.
 Delivery is attempted for up to seven days from submission. Changing the
 recipient supersedes messages already queued for the previous Account. Disabling the variable
-pauses new queueing and dispatch authorization. The review remains stored in Platform.
+pauses production submissions, new queueing and dispatch authorization. The review remains stored in Platform.
 
 ## Bank certificate chain
 
