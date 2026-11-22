@@ -448,7 +448,7 @@ describe("Logto BFF route orchestration", () => {
 
     for (const read of [1, 2]) {
       const response = await browser.run(() => readAccountEmail());
-      expect(await response.json(), `cabinet read ${read}`).toEqual({
+      expect(await response.json(), `cabinet read ${String(read)}`).toEqual({
         ok: true,
         email: null,
       });
