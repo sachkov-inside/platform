@@ -131,7 +131,10 @@ async function main() {
   const application = await ensureApplication(api);
   await ensureEmailConnector(api);
   const telegramConnectorId = await ensureTelegramConnector(api);
-  await ensureSignInExperience(api);
+  await ensureSignInExperience(
+    api,
+    process.env["TELEGRAM_SIGN_IN_ENABLED"] === "true",
+  );
   await api("/account-center", {
     method: "PATCH",
     body: { enabled: true, fields: { email: "Edit" } },
@@ -428,6 +431,8 @@ export async function ensureEmailConnector(api) {
 
 /** @param {ManagementApi} api */
 export async function ensureSignInExperience(api) {
+  const telegramSignInEnabled =
+    process.env["TELEGRAM_SIGN_IN_ENABLED"] === "true";
   await api("/sign-in-exp", {
     method: "PATCH",
     body: {
@@ -448,7 +453,11 @@ export async function ensureSignInExperience(api) {
           },
         ],
       },
-      signUp: { identifiers: ["email"], password: false, verify: true },
+      signUp: {
+        identifiers: telegramSignInEnabled ? [] : ["email"],
+        password: false,
+        verify: true,
+      },
       signInMode: "SignInAndRegister",
       // Условия использования принимаются кнопкой сразу после входа, на экране Platform (#658).
       // Здесь только ссылка на политику и предупреждение об этом, без галочки и без ссылки на
@@ -457,10 +466,9 @@ export async function ensureSignInExperience(api) {
       privacyPolicyUrl: `${webBaseUrl}/legal/privacy`,
       agreeToTermsPolicy: "Automatic",
       socialSignIn: { skipRequiredIdentifiers: true },
-      socialSignInConnectorTargets:
-        process.env["TELEGRAM_SIGN_IN_ENABLED"] === "true"
-          ? ["inside-telegram"]
-          : [],
+      socialSignInConnectorTargets: telegramSignInEnabled
+        ? ["inside-telegram"]
+        : [],
     },
   });
 }

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, within } from "storybook/test";
+import { expect, userEvent, within } from "storybook/test";
 
 import { MaterialReadingScope } from "@/entities/material";
 import { accountSectionEnvironment } from "@/storybook/story-environment";
@@ -152,38 +152,31 @@ export const Mobile: Story = {
   globals: { viewport: { isRotated: false, value: "mobile390" } },
 };
 
-const readDisabledEmail = fn(() =>
-  Response.json({ ok: false, code: "unauthorized" }),
-);
-
 export const TelegramOnly: Story = {
   ...accountSectionEnvironment("/account", {
-    fetch: () => {
-      readDisabledEmail.mockClear();
-      return respondByPath({
+    fetch: () =>
+      respondByPath({
         ...subscribedMemberRoutes,
-        "/api/account/email": readDisabledEmail,
-      });
-    },
+        "/api/account/email": () => Response.json({ ok: true, email: null }),
+      }),
   }),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    const connections = within(
+      await canvas.findByRole("region", { name: "Контакты и вход" }),
+    );
     await expect(
-      await canvas.findByRole("textbox", { name: "Имя" }),
-    ).toHaveValue("Покупатель Тестов");
-    await expect(
-      await canvas.findByRole("heading", { name: "Telegram" }),
+      await connections.findByRole("region", { name: "Telegram" }),
     ).toBeVisible();
-    await expect(readDisabledEmail).not.toHaveBeenCalled();
+    const email = within(
+      await connections.findByRole("region", { name: "Почта" }),
+    );
+    await userEvent.click(
+      await email.findByRole("button", { name: "Добавить почту" }),
+    );
     await expect(
-      canvas.queryByText("Войдите снова, чтобы управлять почтой."),
-    ).not.toBeInTheDocument();
-    await expect(
-      canvas.queryByRole("heading", { name: "Почта" }),
-    ).not.toBeInTheDocument();
-    await expect(
-      canvas.queryByRole("button", { name: "Добавить почту" }),
-    ).not.toBeInTheDocument();
+      email.getByRole("textbox", { name: "Адрес почты" }),
+    ).toBeVisible();
   },
 };
 

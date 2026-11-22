@@ -12,7 +12,7 @@ import {
 import { afterAll, beforeAll, expect, it } from "vitest";
 import {
   pollIntervalMilliseconds,
-  telegramSignInPage,
+  renderWaitingForTelegramPage,
   telegramSignInScript,
   type InsideTelegramPresentation,
 } from "../../../../infra/identity/logto/fork/packages/core/src/routes/inside-telegram-view";
@@ -39,7 +39,7 @@ beforeAll(async () => {
   server = createServer((request, response) => {
     if (request.url === "/api/inside-telegram") {
       response.setHeader("Content-Type", "text/html; charset=utf-8");
-      response.end(telegramSignInPage);
+      response.end(renderWaitingForTelegramPage());
     } else if (request.url === "/api/inside-telegram/script") {
       response.setHeader("Content-Type", "application/javascript");
       response.end(telegramSignInScript);

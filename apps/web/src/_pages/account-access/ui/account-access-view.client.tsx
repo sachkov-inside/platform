@@ -10,6 +10,7 @@ import {
   AcceptedDocumentsPanel,
   type AcceptedDocumentsPanelProps,
 } from "@/features/accepted-documents";
+import { AccountEmailPanel } from "@/features/account-email";
 import { Button } from "@/shared/ui/button";
 
 export interface AccountAccessViewProps {
@@ -111,6 +112,7 @@ export function AccountAccessView({
                   onRefresh={onTelegramRefresh}
                 />
               )}
+              {link?.kind === "linked" ? <AccountEmailPanel /> : null}
             </div>
           </section>
           {continuationSlot}

@@ -293,7 +293,7 @@ services:
     build:
       context: ./infra/identity/logto
       dockerfile: Dockerfile
-    image: inside/logto-proof:1.46.0-inside.16
+    image: inside/logto-proof:1.46.0-inside.17
     entrypoint:
       [
         "sh",

@@ -132,7 +132,7 @@ test("cabinet saves display name without a bio editor", async ({
   );
   await expect(
     page.getByRole("region", { name: "Почта", exact: true }),
-  ).toHaveCount(0);
+  ).toBeVisible();
   if (process.env["CAPTURE_EVIDENCE"] === "1") {
     await screenshotWholePage(page, {
       path: info.outputPath("account-profile.png"),

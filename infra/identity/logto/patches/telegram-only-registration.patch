@@ -1,0 +1,35 @@
+--- a/packages/core/src/routes/experience/classes/experience-interaction.ts
++++ b/packages/core/src/routes/experience/classes/experience-interaction.ts
+@@ -544,8 +544,9 @@
+       new RequestError({ code: 'session.invalid_interaction_type', status: 400 })
+     );
+ 
+-    if (verificationId) {
+-      const verificationRecord = this.consumeForCreate(verificationId);
++    const verificationRecord = verificationId ? this.consumeForCreate(verificationId) : undefined;
++
++    if (verificationRecord) {
+       const verificationData = verificationRecord.toJson();
+ 
+       log?.append({
+@@ -560,6 +561,20 @@
+       const identifierProfile = await getNewUserProfileFromVerificationRecord(verificationRecord);
+ 
+       await this.profile.setProfileWithValidation(identifierProfile);
++    }
++
++    const { signUp } = await this.signInExperienceValidator.getSignInExperienceData();
++    // An empty identifier list keeps ordinary registration on Telegram. Preserve the
++    // operator-issued one-time token path independently of the email sign-in method.
++    assertThat(
++      signUp.identifiers.length > 0 ||
++        (verificationRecord?.type === VerificationType.Social &&
++          this.profile.data.socialIdentity?.target === 'inside-telegram') ||
++        verificationRecord?.type === VerificationType.OneTimeToken,
++      new RequestError({ code: 'auth.forbidden', status: 403 })
++    );
++
++    if (verificationRecord) {
+       // Save the updated profile data to the interaction storage
+       await this.save();
+     }

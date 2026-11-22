@@ -48,11 +48,11 @@ If a future pinned SDK starts sending nonce, matching validation becomes mandato
    attempts one `tg://resolve` app handoff per document and retains a validated HTTPS bot link.
    A blocked or unavailable app handler does not stop polling. Explicit bot approval lets the
    original tab continue the Logto callback. OS permission prompts and returning focus from Telegram
-   remain browser/device-dependent. Since 14.11.2026 production offers no email sign-in or
-   registration ([production sign-in methods](../../infra/identity/logto/README.md#production-sign-in-methods)),
-   so the Telegram continuation uses the same Telegram entry. `entry=account-choice` remains for the
-   production access pass, which signs in with a one-time token. It selects presentation only; it does
-   not change accepted identities or proofs.
+   remain browser/device-dependent. The email option opens the Logto email form in the same
+   interaction and preserves the site's return destination. The
+   [production sign-in settings](../../infra/identity/logto/README.md#production-sign-in-methods)
+   limit ordinary registration to Telegram. `entry=account-choice` opens the general Logto page
+   for the production access pass, which uses its existing one-time token.
 3. Official SDK validates callback state/PKCE and exchanges code server-side.
 4. SDK stores provider context in encrypted `HttpOnly`, `SameSite=Lax`, production `Secure` cookie.
 5. Browser JavaScript never receives access, refresh or ID token.
