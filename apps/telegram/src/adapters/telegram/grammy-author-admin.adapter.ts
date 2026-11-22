@@ -1,7 +1,13 @@
+import { z } from "zod";
 import { isTruthy } from "../../shared/truthiness.js";
 import type { AuthorInput } from "../../modules/communications/author-input.js";
 import { snapshot } from "./grammy-template-intake.adapter.js";
 import { nativeMessageSource } from "../../modules/communications/native-message-source.js";
+
+const botProfile = z.object({
+  is_bot: z.literal(true),
+  username: z.string().regex(/^[A-Za-z0-9_]{5,32}$/u),
+});
 
 export function translateAuthorInput(
   botIdentity: string,
@@ -37,6 +43,7 @@ export function translateAuthorInput(
       return;
     pressed = { callbackData: data, callbackQueryId: id };
   }
+  const bot = callback ? botProfile.safeParse(message["from"]) : undefined;
   const source =
     !callback &&
     !(
@@ -47,6 +54,7 @@ export function translateAuthorInput(
       : undefined;
   return {
     botIdentity,
+    ...(bot?.success === true ? { botUsername: bot.data.username } : {}),
     updateId,
     telegramUserId: String(from["id"]),
     privateChatId: String(message["chat"]["id"]),

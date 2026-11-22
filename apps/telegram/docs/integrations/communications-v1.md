@@ -3,7 +3,8 @@
 This stable document path now describes the current `inside-communications-v2` transport.
 Communication Sequence and Sequence Participation are the current business and storage names.
 The runtime owners are `CommunicationSequences`, `SequenceScheduler` and `sequence-timeline`;
-owner interfaces say «Последовательности». Current management operations use `sequences.*`,
+owner interfaces say «Воронки». This is the author-facing name of a Communication Sequence,
+not a second domain object or the Sales Funnel report. Current management operations use `sequences.*`,
 `sequenceId` and `sequenceIds`. Current storage uses `communication_sequences` and
 `communication_participations`; migration `037-canonical-communication-sequences` archives
 original author state before converting recognized machine fields. Authored text, UUIDs, step and
@@ -561,16 +562,20 @@ current Backend facade. Merge, prepared-result acceptance and release follow the
 
 ## Sequence settings in the bot (#38, #100)
 
-`/admin` → «Последовательности» uses the same persisted author session, fresh confirmed-link authorization,
-update receipts and author-only outbox as posts and broadcasts. The sequence card offers «Сообщения»
-and «Настройки», and both return to the card. «Настройки» edits the name, «Первый ответ», «Шаги и
-задержки» (add, move, remove, delay in seconds/minutes/hours/days), «Источники» (`?start=m_...`),
-the main-sequence choice and the shared «Общий вводный блок». «Сообщения» lists every message with its
-time; «Когда отправить» moves a message to entry or to its own delayed step. Saving, publication
-and pause/resume/archive stay on the card; an archived sequence shows only «Настройки», where
-«Восстановить» restores it. Contents are native messages or saved posts from
-`templates.list/read`; choosing copies the saved version, explicit replacement retains the part ID,
-and additions allocate new IDs. Changing a saved post does not modify a chosen draft or publication.
+`/admin` → «Воронки» uses the same persisted author session, fresh confirmed-link authorization,
+update receipts and author-only outbox as posts and broadcasts. The card shows the entry message,
+number of delayed steps and entry sources. A one-message funnel opens «Изменить сообщение» directly;
+a larger one opens «Сообщения» with its timeline. «Ссылка для входа» opens the only source directly,
+or the source list when there are several. A callback from the bot's message supplies its validated
+public username, so the source card shows a complete `https://t.me/<bot>?start=m_...` link. Historical
+inputs without that profile retain the source parameter rather than inventing a bot address.
+
+Saving and publication stay on the card. «Настройки» edits the name, «Первый ответ» and «Шаги и
+задержки». Its «Управление воронкой» contains the main-entry choice, pause/resume, archive and shared
+«Общий вводный блок»; archived funnels can be restored there. Saved funnels still require an explicit
+confirmation before archive. Contents are native messages or saved posts from `templates.list/read`;
+choosing copies the saved version, explicit replacement retains the part ID, and additions allocate
+new IDs. Changing a saved post does not modify a chosen draft or publication.
 
 The bot and the authenticated API/MCP are equal entry points to the same sequence settings. The bot
 writes through the same `sequences.save` and `intro.save` operations with expectedRevision and
@@ -660,7 +665,7 @@ with expectedRevision and operationId, and either side continues the other's dra
 
 ## Simple Telegram authoring (#43)
 
-The current `/admin` menu contains «Рассылки», «Последовательности», and «Статистика».
+The current `/admin` menu contains «Рассылки», «Воронки», and «Статистика».
 Create a broadcast or sequence, send one native message, choose its time, then send the next.
 «Готово» returns to the short summary. The incoming order is the delivery order; elapsed times
 cannot decrease. Text, photo, video, video note, voice and document preserve native formatting and
@@ -680,7 +685,7 @@ A newly authored sequence sends its first message immediately on entry. Later me
 not one then three. Previously saved steps without `delayAnchor` retain delays after the preceding
 step. Entry-anchored steps still respect earlier unfinished delivery; a late worker catches up in
 order. Saving remains separate from publication. «Сделать основной» selects the sequence for ordinary
-entry; «Включить последовательность» explicitly publishes. Existing published edits require «Применить изменения».
+entry; «Включить воронку» explicitly publishes. Existing published edits require «Применить изменения».
 An unpublished draft can be archived/cancelled and restored to draft without publishing.
 
 Each message waits in a durable bot/Account-scoped composition until its time is accepted.

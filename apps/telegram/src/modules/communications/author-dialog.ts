@@ -104,6 +104,7 @@ const AUTHOR_ACTIONS = {
   "seq:save": {},
   "seq:save-intro": {},
   "seq:settings": {},
+  "seq:manage": {},
   "seq:show": {},
   "seq:source": { id: "required" },
   "seq:sources": { value: "optional" },
