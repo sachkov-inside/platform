@@ -16,6 +16,8 @@ const config = z
     PROFILE_PROOF_APP_SECRET: z.string(),
     PROFILE_PROOF_SUBJECT: z.string(),
     PROFILE_PROOF_ONE_TIME_TOKEN: z.string().min(1),
+    PROFILE_PROOF_LEGACY_EMAIL: z.email(),
+    PROFILE_PROOF_LEGACY_SUBJECT: z.string().min(1),
   })
   .parse(process.env);
 const endpoint = config.PROFILE_PROOF_ENDPOINT;
@@ -84,6 +86,41 @@ async function enterEmailCode(page, email) {
   const submit = page.locator('button[type="submit"]');
   if (await submit.isVisible()) await submit.click();
 }
+/**
+ * @param {URL} returned
+ * @param {string} email
+ * @param {string} subject
+ */
+async function assertEmailIdentity(returned, email, subject) {
+  assert.equal(returned.searchParams.get("state"), state);
+  const authorizationCode = returned.searchParams.get("code");
+  assert.ok(authorizationCode);
+  const response = await fetch(new URL("/oidc/token", endpoint), {
+    method: "POST",
+    headers: {
+      authorization: `Basic ${Buffer.from(`${config.PROFILE_PROOF_APP_ID}:${config.PROFILE_PROOF_APP_SECRET}`).toString("base64")}`,
+      "content-type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      grant_type: "authorization_code",
+      code: authorizationCode,
+      redirect_uri: redirect,
+      code_verifier: verifier,
+    }),
+  });
+  const token = z
+    .object({ access_token: z.string() })
+    .parse(await response.json());
+  assert.equal(response.status, 200);
+  const info = await fetch(new URL("/oidc/me", endpoint), {
+    headers: { authorization: `Bearer ${token.access_token}` },
+  });
+  const user = z
+    .object({ sub: z.string(), email: z.email() })
+    .parse(await info.json());
+  assert.equal(user.sub, subject);
+  assert.equal(user.email, email);
+}
 try {
   const authorization = new URL("/oidc/auth", endpoint);
   authorization.search = new URLSearchParams({
@@ -121,34 +158,22 @@ try {
     deadline.removeEventListener("abort", onTimeout);
   }
   assert.ok(returned instanceof URL);
-  assert.equal(returned.searchParams.get("state"), state);
-  const authorizationCode = returned.searchParams.get("code");
-  assert.ok(authorizationCode);
-  const response = await fetch(new URL("/oidc/token", endpoint), {
-    method: "POST",
-    headers: {
-      authorization: `Basic ${Buffer.from(`${config.PROFILE_PROOF_APP_ID}:${config.PROFILE_PROOF_APP_SECRET}`).toString("base64")}`,
-      "content-type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      grant_type: "authorization_code",
-      code: authorizationCode,
-      redirect_uri: redirect,
-      code_verifier: verifier,
-    }),
-  });
-  const token = z
-    .object({ access_token: z.string() })
-    .parse(await response.json());
-  assert.equal(response.status, 200);
-  const info = await fetch(new URL("/oidc/me", endpoint), {
-    headers: { authorization: `Bearer ${token.access_token}` },
-  });
-  const user = z
-    .object({ sub: z.string(), email: z.email() })
-    .parse(await info.json());
-  assert.equal(user.sub, config.PROFILE_PROOF_SUBJECT);
-  assert.equal(user.email, config.PROFILE_PROOF_EMAIL);
+  await assertEmailIdentity(
+    returned,
+    config.PROFILE_PROOF_EMAIL,
+    config.PROFILE_PROOF_SUBJECT,
+  );
+
+  const legacy = await browser.newPage();
+  await legacy.goto(authorization.href);
+  await enterEmailCode(legacy, config.PROFILE_PROOF_LEGACY_EMAIL);
+  await legacy.waitForURL(redirect + "?*");
+  await assertEmailIdentity(
+    new URL(legacy.url()),
+    config.PROFILE_PROOF_LEGACY_EMAIL,
+    config.PROFILE_PROOF_LEGACY_SUBJECT,
+  );
+
   const unknown = await browser.newPage();
   await unknown.goto(authorization.href);
   await enterEmailCode(unknown, "unknown-profile@example.test");
@@ -199,7 +224,7 @@ try {
     "Telegram did not register a new account",
   );
   process.stdout.write(
-    "PASS: Telegram registration, switching from Telegram to email, same provider subject, unknown email rejected.\n",
+    "PASS: Telegram registration, switching from Telegram to email, same provider subject, existing email and one-time access pass, unknown email rejected.\n",
   );
 } finally {
   process.off("SIGTERM", interrupted);

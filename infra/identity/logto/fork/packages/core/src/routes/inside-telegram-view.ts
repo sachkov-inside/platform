@@ -51,7 +51,7 @@ export function renderTelegramSignInContent(view: InsideTelegramView): string {
   const busy = waiting || status === 'loading' || status === 'approved';
   const link = waiting ? telegramBotLinks(view.deepLink) : undefined;
   const deepLink = link?.web.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;') ?? '';
-  const alternativeLabel = view.emailSignInEnabled ? 'Войти по почте' : 'Войти снова';
+  const alternativeLabel = view.emailSignInEnabled ? 'Выбрать способ входа' : 'Войти снова';
   return `<div class="inside-telegram-brand" aria-label="sachkov.dev">sachkov<span>.dev</span></div>
     <div class="inside-telegram-content">
       <div class="inside-telegram-symbol" aria-hidden="true">
@@ -60,7 +60,9 @@ export function renderTelegramSignInContent(view: InsideTelegramView): string {
       <h1>Вход через Telegram</h1>
       <p class="inside-telegram-status" role="status" aria-live="polite" aria-atomic="true">${copy[status]}</p>
       <div class="inside-telegram-actions">
+        <div class="inside-telegram-primary">
         ${deepLink ? `<a class="inside-telegram-button" id="bot" href="${deepLink}" target="_blank" rel="noopener noreferrer">Открыть бота</a>` : busy ? '<span class="inside-telegram-progress" aria-hidden="true"></span>' : `<a class="inside-telegram-button" id="alternative" href="/sign-in">${alternativeLabel}</a>`}
+        </div>
         ${view.emailSignInEnabled && busy && status !== 'approved' ? '<a class="inside-telegram-secondary" id="alternative" href="/sign-in">Войти по почте</a>' : ''}
       </div>
     </div>`;
@@ -77,6 +79,7 @@ export const telegramSignInStyles = `${telegramSignInTheme}
 .inside-telegram h1{margin:0;font:700 26px/1.3 'Inside Manrope',system-ui,sans-serif;letter-spacing:-.8px}
 .inside-telegram-status{min-height:48px;margin:16px 0 24px;color:var(--muted-foreground);font-size:15px;line-height:24px;text-wrap:balance}
 .inside-telegram-actions{min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.inside-telegram-primary{width:100%;min-height:52px;display:flex;align-items:center;justify-content:center}
 .inside-telegram-button{display:flex;align-items:center;justify-content:center;width:100%;min-height:52px;padding:12px 16px;border:1px solid transparent;border-radius:10px;background:var(--primary);color:var(--primary-foreground);font-weight:650;font-size:15px;line-height:24px;text-decoration:none}
 .inside-telegram-button:hover{filter:brightness(1.15)}
 .inside-telegram #bot{background:#087eaf;color:#fff}
@@ -92,7 +95,7 @@ export const telegramSignInStyles = `${telegramSignInTheme}
 `;
 
 export function renderTelegramSignInPage(view: InsideTelegramView): string {
-  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>Вход через Telegram · sachkov.dev</title><style>${telegramSignInStyles}</style></head><body class="inside-telegram"><main>${renderTelegramSignInContent(view)}</main></body></html>`;
+  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>Вход через Telegram · sachkov.dev</title><style>${telegramSignInStyles}</style></head><body class="inside-telegram"><main${view.emailSignInEnabled ? ' data-email-sign-in' : ''}>${renderTelegramSignInContent(view)}</main></body></html>`;
 }
 
 export function renderWaitingForTelegramPage(emailSignInEnabled = false): string {
@@ -109,7 +112,7 @@ export const telegramSignInScript = `
 const telegramBotLinks = ${telegramBotLinks.toString()};
 const render = ${renderTelegramSignInContent.toString()};
 const main = document.querySelector('main');
-const emailSignInEnabled = Boolean(main.querySelector('.inside-telegram-secondary'));
+const emailSignInEnabled = main.hasAttribute('data-email-sign-in');
 let previousContent = main.innerHTML;
 let attemptedBotOpen = false;
 let stopped = false;

@@ -70,7 +70,13 @@ export const Denied: Story = {
 };
 export const Expired: Story = {
   name: "Время вышло",
-  args: { status: "expired" },
+  args: { status: "expired", emailSignInEnabled: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("link", { name: "Выбрать способ входа" }),
+    ).toHaveAttribute("href", "/sign-in");
+  },
 };
 export const Consumed: Story = {
   name: "Запрос использован",

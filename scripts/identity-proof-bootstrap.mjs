@@ -429,10 +429,14 @@ export async function ensureEmailConnector(api) {
   });
 }
 
-/** @param {ManagementApi} api */
-export async function ensureSignInExperience(api) {
-  const telegramSignInEnabled =
-    process.env["TELEGRAM_SIGN_IN_ENABLED"] === "true";
+/**
+ * @param {ManagementApi} api
+ * @param {boolean} [telegramSignInEnabled]
+ */
+export async function ensureSignInExperience(
+  api,
+  telegramSignInEnabled = false,
+) {
   await api("/sign-in-exp", {
     method: "PATCH",
     body: {
