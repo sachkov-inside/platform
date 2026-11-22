@@ -64,6 +64,11 @@ class the SDK builds for every flow of that client. `apps/web/test/module/logto-
 real SDK callback, so an SDK update that bypasses the adapter fails `pnpm check` (#766). Delete the
 adapter when upstream sends `resource` itself.
 
+The cabinet requests an opaque Logto token through a resource-free refresh grant. Its SDK cache
+key uses the provider's user-info URL because the SDK keeps the Platform authorization-code token
+in the default slot. The cabinet's token adapter removes the user-info URL from the provider
+request. Both tokens remain in the same official BFF session.
+
 Platform does not add `inside_session`, `inside_signin`, sessionRef, custom callback idempotency or
 reauthentication cookies. Official Logto SDK context is the only BFF session.
 
