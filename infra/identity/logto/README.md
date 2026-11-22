@@ -55,28 +55,46 @@ pnpm identity:proof:down
 
 ## Production sign-in methods
 
-Production signs people in and registers them only through Telegram (`inside-telegram`). Since
-14.11.2026 its sign-in experience has no email method: `signIn.methods` and `signUp.identifiers`
-are empty, `signInMode` stays `SignInAndRegister`, so Telegram still registers new people. Before
-that, the «Войти снова» link of the Telegram waiting page led to the email form, and a person whose
-Telegram did not open registered a second, empty Account by email.
+Telegram is the primary entry and the only self-service registration method. The waiting page
+offers «Войти по почте» when Logto has email verification-code sign-in enabled. The link keeps
+the current OIDC interaction, including the destination chosen on Platform. A confirmed sign-in
+email works for both newly linked and existing Accounts. The production access pass can still
+sign its pre-provisioned email identities in with an operator-issued one-time token.
 
-The email connector stays enabled: it sends Billing Contact codes. The production access pass keeps
-signing its email identities in with a one-time token: Logto 1.46 skips the sign-in method check
-for a verified one-time token (`guardIdentificationMethod` in
-`packages/core/src/routes/experience/classes/libraries/sign-in-experience-validator.ts`). An existing email Account with a linked Telegram reaches the same Account through
-Telegram sign-in. The local stand and the identity proofs keep email sign-in through
-`ensureSignInExperience` in `scripts/identity-proof-bootstrap.mjs`; production differs from them here.
+Provisioning lives in the production Logto database. To enable the method for #2520:
 
-Production has no provisioning script for the sign-in experience; the setting lives in the
-`logto` database. Read it over SSH:
+1. Deploy fork `inside.17` using the [production Logto runbook](../../../docs/runbooks/production-foundation.md#обновление-logto).
+   This fork enforces the registration rule on the Experience API when the sign-up identifier
+   list is empty. It accepts the verified Telegram connector and the operator-issued one-time
+   token. Keep the existing Telegram connector, terms settings and JWT customizer.
+2. Check the Account Center email permission is `Edit` and that sign-in
+   (`SignIn`) and attachment (`BindNewIdentifier`) email templates are configured in SMTP.
+   Apply this partial update to `PATCH /api/sign-in-exp` via Logto Management API:
 
-```bash
-ssh inside-production 'docker exec inside-production-database-postgres-1 psql -U postgres -d logto -Atc \
-  "select sign_in->'"'"'methods'"'"', sign_up->'"'"'identifiers'"'"', sign_in_mode from sign_in_experiences where tenant_id = '"'"'default'"'"';"'
-```
+   ```json
+   {
+     "signIn": {
+       "methods": [
+         { "identifier": "email", "password": false, "verificationCode": true, "isPasswordPrimary": false }
+       ]
+     },
+     "signUp": { "identifiers": [], "password": false, "verify": true },
+     "signInMode": "SignInAndRegister"
+   }
+   ```
 
-The expected result is `[]|[]|SignInAndRegister`.
+3. Deploy Web with the restored panel. With a synthetic Account, verify Telegram registration,
+   first email attachment, return to the same Account by email code, and the existing access pass.
+   An unknown email cannot complete registration.
+
+To revert, restore the previous Web release and set `signIn.methods` back to `[]`. Keep
+`signUp.identifiers` empty and keep `signInMode` as `SignInAndRegister`. Confirm Telegram and the
+one-time access pass before restoring an older Logto image. Confirmed addresses remain stored
+when the email entry is disabled.
+
+The local bootstrap enables email sign-in and uses the same registration settings whenever
+`TELEGRAM_SIGN_IN_ENABLED=true`. Email-only disposable proofs retain email registration so they
+can create their own test Accounts.
 
 ## Frozen artifacts
 

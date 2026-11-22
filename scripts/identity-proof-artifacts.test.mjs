@@ -139,7 +139,7 @@ test("identity proof dependencies and fork lineage are immutable", async () => {
   assert.equal(versions.logto.version, "1.46.0");
   assert.match(versions.logto.digest, /^sha256:[0-9a-f]{64}$/u);
   assert.equal(versions.logto.upstreamRevision.length, 40);
-  assert.equal(versions.logto.forkRevision, "inside.16");
+  assert.equal(versions.logto.forkRevision, "inside.17");
   assert.match(dockerfile, new RegExp(versions.logto.digest, "u"));
   assert.match(dockerfile, new RegExp(versions.logto.upstreamRevision, "u"));
   assert.match(dockerfile, new RegExp(versions.logto.forkRevision, "u"));
@@ -259,6 +259,28 @@ test("Management API bootstrap forces the Platform light Russian experience", as
     autoDetect: false,
     fallbackLanguage: "ru",
   });
+});
+
+test("Telegram experience enables email-code sign-in and social registration without email registration", async () => {
+  /** @type {ManagementRequest[]} */
+  const requests = [];
+  await ensureSignInExperience(recordingApi(requests), true);
+  const [request] = requests;
+  assert.ok(request);
+
+  assert.deepEqual(at(request.body, "signIn", "methods"), [
+    {
+      identifier: "email",
+      password: false,
+      verificationCode: true,
+      isPasswordPrimary: false,
+    },
+  ]);
+  assert.deepEqual(at(request.body, "signUp", "identifiers"), []);
+  assert.equal(at(request.body, "signInMode"), "SignInAndRegister");
+  assert.deepEqual(at(request.body, "socialSignInConnectorTargets"), [
+    "inside-telegram",
+  ]);
 });
 
 test("sign-in screen links the policy and defers terms to the Platform first sign-in", async () => {

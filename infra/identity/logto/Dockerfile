@@ -8,7 +8,7 @@ RUN apk add --no-cache zlib=1.4-r0 \
   && npm install --global npm@12.2.2
 
 LABEL org.opencontainers.image.source="https://github.com/sachkov-inside/platform"
-LABEL org.opencontainers.image.version="1.46.0-inside.16"
+LABEL org.opencontainers.image.version="1.46.0-inside.17"
 LABEL inside.logto.upstream-revision="d179bf9d2d51104236a342b90c2841df66e4ba5b"
 
 COPY fork/packages/experience/src/Layout/AppLayout/index.tsx packages/experience/src/Layout/AppLayout/index.tsx
@@ -47,8 +47,10 @@ COPY fork/packages/core/src/routes/inside-telegram-theme.ts packages/core/src/ro
 COPY fork/packages/core/src/routes/inside-telegram-view.ts packages/core/src/routes/inside-telegram-view.ts
 COPY fork/packages/core/src/routes/inside-telegram.ts packages/core/src/routes/inside-telegram.ts
 COPY patches/issue-299-telegram-sign-in.patch /tmp/issue-299-telegram-sign-in.patch
+COPY patches/telegram-only-registration.patch /tmp/telegram-only-registration.patch
 RUN apk add --no-cache --virtual .inside-patch-tools patch \
   && patch --fuzz=0 -p1 < /tmp/issue-299-telegram-sign-in.patch \
+  && patch --fuzz=0 -p1 < /tmp/telegram-only-registration.patch \
   && apk del .inside-patch-tools \
   && mkdir -p packages/connectors/connector-inside-telegram/src \
   && cp /tmp/inside-telegram-connector/index.ts packages/connectors/connector-inside-telegram/src/index.ts \

@@ -44,13 +44,16 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Pending: Story = {
+  args: { emailSignInEnabled: true },
   name: "Ожидание подтверждения",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
       canvas.getByRole("link", { name: "Открыть бота" }),
     ).toHaveAttribute("target", "_blank");
-    await expect(canvas.getAllByRole("link")).toHaveLength(1);
+    await expect(
+      canvas.getByRole("link", { name: "Войти по почте" }),
+    ).toHaveAttribute("href", "/sign-in");
     await expect(canvas.getByRole("status")).toHaveTextContent(
       "Подтвердите вход в Telegram.",
     );
@@ -67,7 +70,13 @@ export const Denied: Story = {
 };
 export const Expired: Story = {
   name: "Время вышло",
-  args: { status: "expired" },
+  args: { status: "expired", emailSignInEnabled: true },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("link", { name: "Выбрать способ входа" }),
+    ).toHaveAttribute("href", "/sign-in");
+  },
 };
 export const Consumed: Story = {
   name: "Запрос использован",

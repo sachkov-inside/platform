@@ -27,6 +27,7 @@ import {
   verifyWaitlistIntent,
   WAITLIST_INTENT_COOKIE,
 } from "@/features/product-waitlist/model/product-waitlist-intent";
+import { GET as readAccountEmail } from "../../app/api/account/email/route";
 import { POST as signIn } from "../../app/auth/sign-in/route";
 import { POST as signOut } from "../../app/auth/sign-out/route";
 import { GET as authStatus } from "../../app/auth/status/route";
@@ -151,6 +152,14 @@ async function externalFetch(
       tokenForms.push(form);
       grantStarted();
       await grantGate;
+      if (form.get("grant_type") === "refresh_token" && !form.has("resource")) {
+        return Response.json({
+          access_token: "identity-account-token",
+          token_type: "Bearer",
+          expires_in: 3600,
+          scope: "openid email",
+        });
+      }
       return Response.json({
         access_token: "platform-access-token",
         refresh_token: "synthetic-refresh-token",
@@ -161,6 +170,12 @@ async function externalFetch(
         expires_in: 3600,
         scope: "openid offline_access email",
       });
+    }
+    if (url.pathname === "/api/my-account/first-email") {
+      return request.headers.get("authorization") ===
+        "Bearer identity-account-token"
+        ? Response.json({ email: null })
+        : Response.json({ code: "auth.unauthorized" }, { status: 401 });
     }
   } else if (url.origin === "https://api.example.test") {
     backendRequests.push(request);
@@ -349,7 +364,7 @@ afterEach(() => {
       expect(new URL(request.url).origin).toBe(identityOrigin);
       expect(request.method).toBe(pathname === "/oidc/token" ? "POST" : "GET");
     }
-    for (const form of tokenForms) {
+    for (const form of tokenForms.filter((form) => form.has("code"))) {
       expect(form.get("grant_type")).toBe("authorization_code");
       expect(form.get("redirect_uri")).toBe(
         "https://inside.example.test/callback",
@@ -426,6 +441,27 @@ describe("Logto BFF route orchestration", () => {
       "https://inside.example.test/telegram/continue?attempt=fixture",
     );
   });
+  it("uses a provider-scoped token for the cabinet immediately after a resource-bound sign-in", async () => {
+    const browser = browserSession();
+    const { authorization } = await begin(browser, { returnTo: "/account" });
+    await browser.run(() => callback(callbackRequest(authorization)));
+
+    for (const read of [1, 2]) {
+      const response = await browser.run(() => readAccountEmail());
+      expect(await response.json(), `cabinet read ${String(read)}`).toEqual({
+        ok: true,
+        email: null,
+      });
+    }
+    expect(
+      tokenForms.map((form) => [form.get("grant_type"), form.get("resource")]),
+    ).toEqual([
+      ["authorization_code", "https://api.example.test"],
+      ["refresh_token", "https://api.example.test"],
+      ["refresh_token", null],
+    ]);
+  });
+
   it("establishes the Account after the SDK callback", async () => {
     accountMode = "establish";
     const browser = browserSession();

@@ -12,7 +12,7 @@ import {
 import { afterAll, beforeAll, expect, it } from "vitest";
 import {
   pollIntervalMilliseconds,
-  telegramSignInPage,
+  renderWaitingForTelegramPage,
   telegramSignInScript,
   type InsideTelegramPresentation,
 } from "../../../../infra/identity/logto/fork/packages/core/src/routes/inside-telegram-view";
@@ -39,7 +39,7 @@ beforeAll(async () => {
   server = createServer((request, response) => {
     if (request.url === "/api/inside-telegram") {
       response.setHeader("Content-Type", "text/html; charset=utf-8");
-      response.end(telegramSignInPage);
+      response.end(renderWaitingForTelegramPage(true));
     } else if (request.url === "/api/inside-telegram/script") {
       response.setHeader("Content-Type", "application/javascript");
       response.end(telegramSignInScript);
@@ -250,13 +250,19 @@ it("renders every production state without overflow or accessibility violations 
         ).violations,
       ).toEqual([]);
       if (status === "pending") {
-        expect(await page.locator("a").count()).toBe(1);
+        expect(
+          await page
+            .getByRole("link", { name: "Войти по почте" })
+            .getAttribute("href"),
+        ).toBe("/sign-in");
         expect(await page.locator("#bot").getAttribute("href")).toBe(botLink);
       } else if (status !== "approved") {
         expect(await page.locator("#bot").count()).toBe(0);
-        expect(await page.locator("#alternative").getAttribute("href")).toBe(
-          "/sign-in",
-        );
+        expect(
+          await page
+            .getByRole("link", { name: "Выбрать способ входа" })
+            .getAttribute("href"),
+        ).toBe("/sign-in");
       }
       if (process.env["CAPTURE_TELEGRAM_EVIDENCE"] === "1") {
         await prepareEvidenceDirectory("issue-303");

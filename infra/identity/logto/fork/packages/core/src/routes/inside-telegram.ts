@@ -1,4 +1,5 @@
-import { telegramSignInPage, telegramSignInScript, type InsideTelegramPresentation } from './inside-telegram-view.js';
+import { SignInIdentifier } from '@logto/schemas';
+import { renderWaitingForTelegramPage, telegramSignInScript, type InsideTelegramPresentation } from './inside-telegram-view.js';
 import { z } from 'zod';
 import type { AnonymousRouter, RouterInitArgs } from './types.js';
 
@@ -17,7 +18,12 @@ export default function insideTelegramRoutes<T extends AnonymousRouter>(...[rout
     ctx.set('Cache-Control', 'no-store, private');
     ctx.set('Referrer-Policy', 'no-referrer');
     ctx.type = 'html';
-    ctx.body = telegramSignInPage;
+    const { signIn } = await tenant.queries.signInExperiences.findDefaultSignInExperience();
+    ctx.body = renderWaitingForTelegramPage(
+      signIn.methods.some(({ identifier, verificationCode }) =>
+        identifier === SignInIdentifier.Email && verificationCode
+      )
+    );
     return next();
   });
   router.get('/inside-telegram/script', async (ctx, next) => {

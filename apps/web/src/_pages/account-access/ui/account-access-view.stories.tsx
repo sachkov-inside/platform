@@ -6,9 +6,16 @@ import type { AcceptedDocumentsPanelProps } from "@/features/accepted-documents"
 import { legalEditionPath } from "@/shared/routing/public-page-path";
 
 import { AccountAccessView } from "./account-access-view.client";
+import { respondByPath } from "@/storybook/account.fixtures";
 import { accountSectionEnvironment } from "@/storybook/story-environment";
 
-const environment = accountSectionEnvironment("/account");
+const environment = accountSectionEnvironment("/account", {
+  fetch: () =>
+    respondByPath({
+      "/api/account/email": () =>
+        Response.json({ ok: true, email: "member@example.test" }),
+    }),
+});
 
 const policies: AcceptedDocumentsPanelProps["policies"] = [
   { label: "политика, редакция 3", href: legalEditionPath("privacy", 3) },
@@ -148,7 +155,10 @@ export const AcceptedDocumentsUnavailable: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByText("Документы", { exact: true }));
-    await expect(canvas.getByRole("alert")).toHaveTextContent(
+    const accepted = within(
+      canvas.getByRole("region", { name: "Принятые документы" }),
+    );
+    await expect(accepted.getByRole("alert")).toHaveTextContent(
       "Не удалось загрузить список документов.",
     );
   },

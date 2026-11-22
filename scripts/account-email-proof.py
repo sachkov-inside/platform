@@ -86,6 +86,45 @@ def main():
         run(task + "-mail", "--network-alias", "mailpit", "-p", f"127.0.0.1:{mail_port}:8025",
             "ghcr.io/axllent/mailpit:v1.33.1@sha256:aef2aacc11f075ec0fb6874275ee4a421e688e11a96ebb296134d1735c7761ce")
         wait_for(lambda: docker("exec", db_name, "pg_isready", "-U", "logto"), "PostgreSQL")
+        # Only the Telegram service is a fixture. Exercise the actual Logto connector and callback.
+        provider = """
+          const { createServer } = require('node:http');
+          const contractVersion = 'inside.bot-sign-in.v1';
+          const requests = new Map();
+          const prefix = '/integrations/identity/v1/sign-in';
+          createServer(async (request, response) => {
+            if (request.method !== 'POST' || !request.url.startsWith(prefix)) {
+              return response.writeHead(404).end();
+            }
+            const path = request.url.slice(prefix.length);
+            const [, requestRef, action] = path.split('/');
+            let result;
+            if (path === '') {
+              const chunks = [];
+              for await (const chunk of request) chunks.push(chunk);
+              const body = JSON.parse(Buffer.concat(chunks));
+              if (typeof body?.requestRef !== 'string' || typeof body?.expiresAt !== 'string') {
+                return response.writeHead(400).end();
+              }
+              // The first browser switches to email. The second completes Telegram registration.
+              requests.set(body.requestRef, requests.size === 1 ? 'approved' : 'pending');
+              result = { status: 'registered', confirmationCode: '123456', expiresAt: body.expiresAt };
+            } else if (action === 'status' && requests.has(requestRef)) {
+              result = { status: requests.get(requestRef) };
+            } else if (action === 'consume' && requests.get(requestRef) === 'approved') {
+              requests.set(requestRef, 'consumed');
+              result = { status: 'verified', subjectRef: process.env.PROOF_TELEGRAM_SUBJECT,
+                approvedAt: new Date().toISOString(), existingLink: null };
+            }
+            if (result === undefined) return response.writeHead(404).end();
+            response.setHeader('content-type', 'application/json');
+            response.end(JSON.stringify({ contractVersion, ...result }));
+          }).listen(3000, '0.0.0.0');
+        """
+        telegram_subject = str(uuid.uuid4())
+        runtime_image = json.loads((Path(__file__).resolve().parents[1] / "infra/identity/logto/versions.json").read_text())["runtimeNode"]
+        run(task + "-telegram", "--network-alias", "telegram", "-e", f"PROOF_TELEGRAM_SUBJECT={telegram_subject}",
+            runtime_image["image"] + "@" + runtime_image["digest"], "node", "-e", provider)
         run(task + "-idp", "-p", f"127.0.0.1:{endpoint_port}:3001", "-p", f"127.0.0.1:{admin_port}:3002",
             "-e", f"DB_URL=postgres://logto:proof@{db_name}:5432/logto", "-e", f"ENDPOINT={endpoint}",
             "-e", f"ADMIN_ENDPOINT={admin}", args.image, "sh", "-c",
@@ -110,7 +149,11 @@ def main():
             "host": "mailpit", "port": 1025, "auth": {"type": "login"}, "fromEmail": "proof@example.test", "secure": False, "ignoreTLS": True,
             "templates": [{"usageType": usage, "contentType": "text/plain", "subject": "Profile proof", "content": "Code: {{code}}"} for usage in ["BindNewIdentifier", "SignIn", "Register", "ForgotPassword", "Generic"]]
         }})
-        api("/sign-in-exp", {"signIn": {"methods": [{"identifier": "email", "password": False, "verificationCode": True, "isPasswordPrimary": False}]}, "signUp": {"identifiers": ["email"], "password": False, "verify": True}, "signInMode": "SignInAndRegister", "agreeToTermsPolicy": "Automatic"}, "PATCH")
+        api("/connectors", {"connectorId": "inside-telegram", "config": {
+            "enabled": True, "providerUrl": "http://telegram:3000", "integrationSecret": "synthetic-telegram-integration-secret",
+            "botUsername": "profile_fixture_bot", "platformUrl": "http://telegram:3000", "issuer": endpoint + "/oidc",
+        }})
+        api("/sign-in-exp", {"socialSignInConnectorTargets": ["inside-telegram"], "signIn": {"methods": [{"identifier": "email", "password": False, "verificationCode": True, "isPasswordPrimary": False}]}, "signUp": {"identifiers": [], "password": False, "verify": True}, "signInMode": "SignInAndRegister", "agreeToTermsPolicy": "Automatic"}, "PATCH")
         application = api("/applications", {"name": "Profile proof", "type": "Traditional", "customClientMetadata": {"allowTokenExchange": True}, "oidcClientMetadata": {"redirectUris": [callback_url], "postLogoutRedirectUris": [endpoint + "/"]}})
         app_id = application["id"]
         app_secret = api("/applications/" + app_id + "/secrets")[0]["value"]
@@ -181,13 +224,29 @@ def main():
         expired_code = code("expired@example.test")
         docker("exec", db_name, "psql", "-U", "logto", "-c", f"update verification_records set expires_at=now()-interval '1 second' where id='{expired}'")
         assert confirm(second, expired, expired_code)[0] >= 400
+        legacy_email = "legacy-profile@example.test"
+        legacy_user = api("/users", {"primaryEmail": legacy_email})
+        assert isinstance(legacy_user, dict) and isinstance(legacy_user.get("id"), str)
+        users_before_sign_in = api("/users")
+        assert isinstance(users_before_sign_in, list)
+        pass_token = api("/one-time-tokens", {"email": address, "expiresIn": 600})["token"]
         browser_process = subprocess.Popen(["node", str(Path(__file__).resolve().parent.parent / "apps/web/test/support/profile-email-sign-in.mjs")], start_new_session=True, env={
             **os.environ, "PROFILE_PROOF_ENDPOINT": endpoint, "PROFILE_PROOF_MAIL": mail, "PROFILE_PROOF_CALLBACK": callback_url,
-            "PROFILE_PROOF_EMAIL": address, "PROFILE_PROOF_APP_ID": app_id, "PROFILE_PROOF_APP_SECRET": app_secret, "PROFILE_PROOF_SUBJECT": first_id,
+            "PROFILE_PROOF_EMAIL": address, "PROFILE_PROOF_APP_ID": app_id, "PROFILE_PROOF_APP_SECRET": app_secret,
+            "PROFILE_PROOF_SUBJECT": first_id, "PROFILE_PROOF_ONE_TIME_TOKEN": pass_token,
+            "PROFILE_PROOF_LEGACY_EMAIL": legacy_email, "PROFILE_PROOF_LEGACY_SUBJECT": legacy_user["id"],
         })
         exit_code = browser_process.wait(timeout=90)
         if exit_code != 0:
             raise RuntimeError("Fresh email-code sign-in proof failed")
+        users_after_sign_in = api("/users")
+        assert isinstance(users_after_sign_in, list) and all(
+            isinstance(user, dict) and isinstance(user.get("identities"), dict) for user in users_after_sign_in
+        )
+        assert len(users_after_sign_in) == len(users_before_sign_in) + 1, "Only Telegram should create a new provider user"
+        telegram_identities = [user["identities"].get("inside-telegram") for user in users_after_sign_in]
+        assert any(isinstance(identity, dict) and identity.get("userId") == telegram_subject
+                   for identity in telegram_identities), "Telegram registration did not persist the provider identity"
         # Proof failures and recipient throttling use the same native controls as sign-in.
         guarded = start(second, "attempts@example.test")
         guarded_code = code("attempts@example.test")

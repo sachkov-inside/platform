@@ -64,6 +64,18 @@ test("cabinet presents private Telegram state and documents on one page", async 
   ).toBe(false);
 });
 
+test("cabinet reads sign-in email for a linked Telegram account", async ({
+  context,
+  page,
+}) => {
+  await signInFullStack(context, "NON_MEMBER");
+  await page.goto("/account");
+  const connections = page.getByRole("region", { name: "Контакты и вход" });
+  await expect(
+    connections.getByRole("region", { name: "Почта", exact: true }),
+  ).toContainText("fullstack-non-member@inside.test");
+});
+
 test("cabinet saves display name without a bio editor", async ({
   context,
   page,

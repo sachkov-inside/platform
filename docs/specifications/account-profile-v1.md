@@ -24,16 +24,12 @@ Author submission views use only the current active Account Profile display name
 author's current permission. Telegram display names do not fill a missing or disabled profile name;
 biography, avatar and the private profile projection are never returned to the author.
 
-## Current availability
+## Sign-in email
 
-Owner decision of 28 October 2026 (#1785): sign-in currently uses Telegram only.
-The cabinet does not render the sign-in email panel or request `/api/account/email`.
-Profile editing, Telegram contact data, purchases and accepted documents remain available.
-Billing Contact and Order Email are separate and keep their existing behaviour.
-The provider/BFF implementation below is retained for future re-enablement; it is not an
-available cabinet flow while email sign-in is disabled.
-
-## Sign-in email (retained implementation)
+The cabinet shows the email panel under «Контакты и вход» for an Account with linked Telegram.
+Once a first address has been confirmed, the owner can choose «Войти по почте» from the Telegram
+sign-in screen and get a fresh email code. The same Account opens with its existing access and
+purchases. Unknown addresses cannot register an Account through the email flow.
 
 The profile email is Logto's current primary email, read with a user-scoped opaque OIDC token.
 A new address is limited to 128 characters, matching the pinned provider field.
@@ -64,10 +60,9 @@ existing password/phone/email credential. Expired records and another user's rec
 
 ## Runtime preparation and verification
 
-Ship the `inside.11` Logto fork alongside Web. In Logto Account Center, enable the API and set the
-email field to `Edit`; keep other field permissions as configured. The local bootstrap configures
-this and the SMTP `BindNewIdentifier` template. Production must configure that template and field
-permission before exposing the new flow. Existing browser sessions can read and attach their first email without another sign-in.
+Follow the [Logto rollout](../../infra/identity/logto/README.md#production-sign-in-methods)
+before exposing this flow in Web. Existing browser sessions can read and attach their first email
+without another sign-in.
 The owner explicitly removed the additional sign-in requirement on 20 October 2026.
 Authentication, first-party client checks, Account Center field permissions and email-code proof
 still apply. Unauthenticated requests remain rejected.
@@ -76,9 +71,10 @@ Primary email changes become available to Platform receipt metadata on the next 
 refresh. They do not overwrite a separately verified Billing Contact or opt the user into messages.
 
 Build the fork with the pinned Dockerfile. `scripts/account-email-proof.py --image <built-image>`
-starts its own disposable Logto, PostgreSQL and Mailpit without touching the shared stand. It checks
-record ownership, wrong/expired codes, occupied addresses, same provider subject, retry and competing
-attachments, and removes its own containers/network on completion. Browser evidence and name edits
+starts disposable Logto, PostgreSQL, Mailpit and a synthetic Telegram provider without touching the
+shared stand. It checks registration through Telegram, the email fallback and access pass, record
+ownership, wrong/expired codes, occupied addresses, the same provider subject, retry and competing
+attachments. It removes its containers and network on completion. Browser evidence and name edits
 use the production modules and their Storybook states.
 
 The functional delivery is tracked in #1586 under specification #1585. The owner accepted the
@@ -91,7 +87,7 @@ accepted production modules. No new shared visual system is introduced.
 ## Cabinet presentation
 
 The profile editor is the primary task. Show it in a distinct personal-details section, followed
-by one contacts/access section containing Telegram (and email only when that flow is enabled). Learning continuation, purchases
+by one contacts/access section containing Telegram and, once linked, sign-in email. Learning continuation, purchases
 and documents are supporting sections after settings. Telegram uses the same neutral surfaces
 and shared buttons as email; a provider-specific colored panel must not dominate the page.
 Use spacing and bounded groups rather than repeated full-width horizontal rules. Preserve this
