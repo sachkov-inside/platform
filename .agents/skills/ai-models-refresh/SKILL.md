@@ -44,8 +44,7 @@ The file has two owners:
    `pnpm vitest run test/unit/ai-models-reference-current.test.ts` (the import's whole-file check,
    1 024-byte answers included) and `pnpm ai-models:widget:fit content/ai-models-reference.json`
    (every screen within 560 px at 320 and 390 px). Edit the file until both pass.
-5. **Change list.** Send the owner one message in plain Russian (the `plain-writing` skill, when
-   present):
+5. **Change list.** Send the owner one message in plain Russian:
    - each changed fact with a short source, such as «Gemini 4 Carbon: API вдвое дороже с 1.12, страница цен Google»;
    - questions with a recommendation for every proposal: models to add or drop, a new Лучший агент,
      and author items the new facts contradict, such as «Дорого» on a model that became cheap.
