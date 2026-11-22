@@ -149,9 +149,9 @@ describe("published editions", () => {
   it("puts cookies v5 in force with the theme choice and keeps v4, v3, v2 and v1 readable", () => {
     const cookies = currentLegalEdition("cookies");
     expect(cookies.version).toBe(5);
-    expect(cookies.effectiveFrom).toBe("2026-11-21");
+    expect(cookies.effectiveFrom).toBe("2026-11-22");
     expect(cookies.text).toContain(
-      "Версия 5. Действует с 21 ноября 2026 года.",
+      "Версия 5. Действует с 22 ноября 2026 года.",
     );
     // v5 adds exactly one row to v4 and changes only the version line (#2516).
     const previous = findLegalEdition("cookies", 4);
@@ -164,7 +164,7 @@ describe("published editions", () => {
       cookies.text
         .replace(themeRow, "")
         .replace(
-          "Версия 5. Действует с 21 ноября 2026 года.",
+          "Версия 5. Действует с 22 ноября 2026 года.",
           "Версия 4. Действует с 15 ноября 2026 года.",
         ),
     ).toBe(previous?.text);
