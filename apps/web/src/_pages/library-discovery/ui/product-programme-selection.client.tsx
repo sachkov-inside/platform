@@ -37,7 +37,12 @@ export function ProductProgrammeSelectionProvider({
   const [chapter, setChapter] = useState<ChapterWindowChoice | null>(null);
   // Next Activity keeps the route state when the reader opens. Discard the chapter
   // choice when the programme leaves the screen, after the link has navigated.
-  useLayoutEffect(() => () => setChapter(null), []);
+  useLayoutEffect(
+    () => () => {
+      setChapter(null);
+    },
+    [],
+  );
   return (
     <ProgrammeSelection value={selection}>
       <ChapterWindowSelection value={[chapter, setChapter]}>
