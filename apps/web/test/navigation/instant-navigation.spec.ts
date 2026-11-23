@@ -1083,18 +1083,20 @@ test("снимки перехода «программа → урок → про
     "[data-programme-part='header']",
     "[data-chapter-tile]",
   ];
-  await expect(
-    page
-      .locator("[data-application-content] [data-product-access-pending]")
-      .first(),
-  ).toBeVisible();
+  // Closed chapter tiles keep lesson rows out of the overview. The purchase row
+  // reserves its place in the shared header before the personal link arrives.
+  const purchaseRow = page.locator(
+    "[data-product-programme]:visible [data-programme-purchase-row]",
+  );
+  await expect(purchaseRow).toBeAttached();
+  await expect(purchaseRow.getByRole("link")).toHaveCount(0);
   const programmeSharedPart = await boxesOf(page, programmeAnchors);
   await page.screenshot({
     path: evidenceFile(`lesson-to-programme-loading-${project}.png`),
   });
   await expect(
-    page.locator("[data-application-content] [data-product-access-pending]"),
-  ).toHaveCount(0);
+    purchaseRow.getByRole("link", { name: "Приобрести доступ" }),
+  ).toBeVisible();
   expect(
     await boxesOf(page, programmeAnchors),
     "личная часть программы не двигает шапку и первую главу",
