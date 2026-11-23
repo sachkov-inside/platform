@@ -2536,26 +2536,19 @@
 /* Собственные агенты: агент в центре, вокруг то, чем он пользуется и что его ограничивает. */
 .aie-art-orbit {
   position: relative;
+  isolation: isolate;
   display: grid;
   grid-template-areas:
     ". n ."
     "w c e"
     ". s .";
-  grid-template-columns: 5.5rem auto 5.5rem;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   grid-template-rows: 2.4rem auto 2.4rem;
   align-items: center;
-  justify-items: center;
-  gap: 0.6rem 0.25rem;
+  gap: 0.6rem 0.85rem;
+  width: 100%;
   font-size: 0.76rem;
   font-weight: 600;
-}
-/* Орбита проходит через центры спутников: половина строки сверху и снизу, половина колонки по бокам. */
-.aie-art-orbit::before {
-  content: "";
-  position: absolute;
-  inset: 1.2rem 2.75rem;
-  border: 1.5px dashed color-mix(in srgb, currentColor 32%, transparent);
-  border-radius: 50%;
 }
 .aie-art-orbit-core {
   grid-area: c;
@@ -2571,12 +2564,30 @@
   font-weight: 700;
   box-shadow: 0 0 0 0.5rem color-mix(in srgb, var(--accent) 18%, transparent);
 }
+/*
+ * Орбита считается от агента и проходит через центры значков спутников: сверху и снизу через
+ * середину строки (промежуток 0.6rem + половина строки 1.2rem), по бокам через значок, который стоит
+ * у края колонки рядом с агентом (промежуток 0.85rem + отступ 0.2rem + половина значка 0.875rem).
+ */
+.aie-art-orbit-core::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -1.8rem -1.925rem;
+  border: 1.5px dashed color-mix(in srgb, var(--foreground) 32%, transparent);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.aie-bento > li[data-tone="ink"] .aie-art-orbit-core::before {
+  border-color: color-mix(in srgb, var(--primary-foreground) 32%, transparent);
+}
 .aie-art-orbit-core svg {
   width: 1.1rem;
   height: 1.1rem;
 }
 .aie-art-orbit [data-pos] {
   position: relative;
+  justify-self: center;
   display: flex;
   align-items: center;
   gap: 0.35rem;
@@ -2589,12 +2600,16 @@
 }
 .aie-art-orbit [data-pos="e"] {
   grid-area: e;
+  justify-self: start;
 }
 .aie-art-orbit [data-pos="s"] {
   grid-area: s;
 }
 .aie-art-orbit [data-pos="w"] {
   grid-area: w;
+  flex-direction: row-reverse;
+  justify-self: end;
+  padding: 0.2rem 0.2rem 0.2rem 0.5rem;
 }
 .aie-art-orbit [data-pos] i {
   display: grid;
