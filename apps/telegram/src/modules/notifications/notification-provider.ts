@@ -368,6 +368,9 @@ export class NotificationProvider {
       outcome = await this.transport.sendText({
         chatId: started.chatId,
         text: c.text,
+        ...(c.content.kind === "lesson_feedback_submitted"
+          ? { disableLinkPreview: true }
+          : {}),
       });
     } catch (error) {
       reportFailure("notifications.send", error, {

@@ -26,7 +26,10 @@ import {
   VisibleMaterialOpen,
 } from "@/features/reading-progress";
 import { SavedBookmarkAction } from "@/features/bookmarks";
-import { SavedLessonRating } from "@/features/lesson-rating";
+import {
+  SavedLessonFeedback,
+  SavedLessonRating,
+} from "@/features/lesson-rating";
 import { LessonTermDeck } from "@/features/lesson-term-deck";
 import {
   LessonExerciseAttempts,
@@ -521,6 +524,11 @@ async function ResolvedMaterialReader({
         termDeck={<LessonTermDeck terms={result.lessonTerms} />}
         lessonRating={
           <SavedLessonRating materialId={result.material.materialId} />
+        }
+        lessonFeedback={
+          result.material.productMemberships.length > 0 ? (
+            <SavedLessonFeedback materialId={result.material.materialId} />
+          ) : undefined
         }
         exerciseScope={(lesson) => (
           <LessonExerciseAttempts

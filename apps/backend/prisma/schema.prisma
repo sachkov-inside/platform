@@ -843,6 +843,19 @@ model LessonRating {
   @@schema("lesson_ratings")
 }
 
+model LessonFeedback {
+  id                   String    @unique @db.Uuid
+  accountId            String    @map("account_id") @db.Uuid
+  materialId           String    @map("material_id") @db.Uuid
+  text                 String
+  submittedAt          DateTime  @map("submitted_at") @db.Timestamptz
+  notificationQueuedAt DateTime? @map("notification_queued_at") @db.Timestamptz
+
+  @@id([accountId, materialId], map: "lesson_feedback_primary")
+  @@map("feedback")
+  @@schema("lesson_ratings")
+}
+
 model BookmarkedMaterial {
   accountId String @map("account_id") @db.Uuid
   materialId String @map("material_id") @db.Uuid

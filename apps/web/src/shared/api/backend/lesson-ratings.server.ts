@@ -64,3 +64,27 @@ export function requestLessonRatingCounts(
     { accessToken },
   );
 }
+
+export function requestLessonFeedback(materialId: string, accessToken: string) {
+  return executeGeneratedRequest(
+    (request) =>
+      new LessonRatingsService(request).readLessonFeedback({ materialId }),
+    200,
+    { accessToken },
+  );
+}
+
+export function requestSubmitLessonFeedback(
+  input: { readonly materialId: string; readonly text: string },
+  accessToken: string,
+) {
+  return executeGeneratedRequest(
+    (request) =>
+      new LessonRatingsService(request).submitLessonFeedback({
+        materialId: input.materialId,
+        requestBody: { text: input.text },
+      }),
+    200,
+    { accessToken },
+  );
+}

@@ -1,3 +1,5 @@
+import { z } from "zod";
+import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { ProductsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { TransactionHandle } from "../../../../infrastructure/prisma/transaction-handle.js";
 import { productsTransaction } from "../../infrastructure/transaction.js";
@@ -10,6 +12,33 @@ export interface MaterialProductAccessFacts {
 /** Product ownership and archive facts contain no Material content or publication authority. */
 export class ProductCatalogue {
   constructor(private readonly prisma: ProductsPrismaClient) {}
+
+  /** A catalogue attachment alone never makes a Material a Lesson. */
+  async hasActiveLessonPlacement(materialId: string) {
+    try {
+      // These same-owner tables have no Prisma relation.
+      const rows = await this.prisma.$queryRaw`
+        SELECT EXISTS (
+          SELECT 1
+          FROM products.product_programme_placements AS placement
+          JOIN products.products AS product ON product.id = placement.product_id
+          WHERE placement.material_id = ${materialId}::uuid
+            AND product.archived_at IS NULL
+        ) AS placed
+      `;
+      const row = z.tuple([z.object({ placed: z.boolean() })]).parse(rows)[0];
+      return { ok: true as const, value: row.placed };
+    } catch (error) {
+      return dependencyFailure(
+        { module: "products", operation: "hasActiveLessonPlacement" },
+        error,
+        {
+          ok: false as const,
+          error: { code: "dependency_unavailable" as const },
+        },
+      );
+    }
+  }
 
   async materialAccessFacts(
     materialIds: readonly string[],

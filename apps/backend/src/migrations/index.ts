@@ -1,4 +1,8 @@
 import {
+  name as lessonFeedbackName,
+  statement as lessonFeedbackStatement,
+} from "../modules/lesson-ratings/infrastructure/postgres/migrations/0129-lesson-feedback.js";
+import {
   name as saleNoticesName,
   statement as saleNoticesStatement,
 } from "../modules/billing/infrastructure/postgres/migrations/0119-sale-notices.js";
@@ -824,6 +828,7 @@ export const platformMigrations = [
     statement: dropReaderPreferencesStatement,
   },
   { name: dropModeVariantsName, statement: dropModeVariantsStatement },
+  { name: lessonFeedbackName, statement: lessonFeedbackStatement },
 ] as const;
 
 export function migrateToLatest(
