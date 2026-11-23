@@ -31,7 +31,7 @@
     "@tiptap/extension-table": "3.33.1",
     "@tiptap/extension-unique-id": "3.33.1",
     "@tiptap/pm": "3.33.1",
-    "@tiptap/starter-kit": "3.33.1",
+    "@tiptap/starter-kit": "3.34.0",
     "zod": "4.6.7"
   },
   "devDependencies": {
