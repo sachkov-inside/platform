@@ -58,22 +58,17 @@ const artwork: Readonly<Record<ChapterArt, ReactNode>> = {
       <rect {...accent} x="254" y="130" width="24" height="18" rx="5" />
     </>
   ),
-  // Разработка настоящего продукта: ветка с коммитами ведёт в окно приложения, где часть экрана
-  // уже готова (чат помощника, карточка с проверкой), а следующий блок ещё строится.
+  // Разработка настоящего продукта: коммиты ведут в окно приложения, где часть экрана уже готова
+  // (чат помощника, карточка с проверкой), а следующий блок ещё строится.
   practice: (
     <>
       {/* Room in the top-left corner for the status badge of a tile. */}
       <g transform="translate(0 14)">
-        <path {...line} d="M44 34 V 150" />
-        <path
-          {...line}
-          d="M44 66 C 44 82, 70 80, 70 96 V 112 C 70 128, 44 124, 44 138"
-        />
-        <circle {...paper} cx="44" cy="38" r="7" />
-        <circle {...paper} cx="44" cy="66" r="7" />
-        <circle {...paper} cx="70" cy="100" r="7" />
-        <circle {...accent} cx="44" cy="140" r="9" />
-        <path {...line} d="M53 140 H 100" strokeDasharray="1 6" />
+        <path {...line} d="M44 46 V 132" />
+        <circle {...paper} cx="44" cy="46" r="7" />
+        <circle {...paper} cx="44" cy="89" r="7" />
+        <circle {...accent} cx="44" cy="132" r="9" />
+        <path {...line} d="M53 132 H 100" strokeDasharray="1 6" />
       </g>
       <g transform="translate(14 12) scale(0.92)">
         <rect {...paper} x="96" y="22" width="198" height="136" rx="12" />
@@ -82,35 +77,25 @@ const artwork: Readonly<Record<ChapterArt, ReactNode>> = {
         <circle cx="121" cy="33" r="3" fill="var(--art-ink)" />
         <circle cx="132" cy="33" r="3" fill="var(--art-ink)" />
         <rect {...soft} x="146" y="28" width="104" height="10" rx="5" />
-        <path
-          {...soft}
-          d="M108 58 H 136 M108 72 H 130 M108 86 H 136 M108 100 H 126"
-        />
-        <path {...soft} d="M146 52 V 150" />
-        <rect {...accent} x="156" y="54" width="96" height="24" rx="9" />
+        <rect {...accent} x="112" y="56" width="120" height="24" rx="9" />
         <path
           {...line}
           stroke="var(--accent-foreground)"
-          d="M166 66 H 222 M230 66 H 240"
+          d="M124 68 H 196 M206 68 H 218"
         />
-        <rect {...paper} x="156" y="86" width="128" height="24" rx="7" />
-        <path {...line} d="M164 98 l5 5 l9 -10" />
-        <path {...soft} d="M186 98 H 270" />
+        <rect {...paper} x="112" y="88" width="166" height="24" rx="7" />
+        <path {...line} d="M121 100 l5 5 l9 -10" />
+        <path {...soft} d="M144 100 H 262" />
         <rect
           {...line}
-          x="156"
-          y="118"
-          width="128"
-          height="30"
+          x="112"
+          y="120"
+          width="166"
+          height="28"
           rx="7"
           strokeDasharray="5 5"
         />
-        <path {...line} d="M214 133 H 226 M220 127 V 139" />
-        <path
-          {...line}
-          fill="var(--art-ink)"
-          d="M262 128 V 148 L 267 143 L 271 151 L 275 149 L 271 141 L 278 141 Z"
-        />
+        <path {...line} d="M189 134 H 201 M195 128 V 140" />
       </g>
     </>
   ),
