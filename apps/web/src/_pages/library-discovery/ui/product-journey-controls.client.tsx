@@ -31,7 +31,10 @@ import { readShellScroll, resetShellScroll } from "@/shared/lib/shell-scroll";
 import { cn } from "@/shared/lib/utils";
 import { readProductPage } from "@/shared/routing/material-reader";
 
-import { useProductProgrammeSelection } from "./product-programme-selection.client";
+import {
+  useProductChapterWindowChoice,
+  useProductProgrammeSelection,
+} from "./product-programme-selection.client";
 import { PRODUCT_BATCH_SIZE } from "./product-batch";
 import { observeProgrammeReveal } from "./product-journey-reveal.browser";
 import {
@@ -290,11 +293,9 @@ export function ProductJourneyControls({
     tiledChapters?.find((chapter) =>
       chapter.runs.some((run) => run.rows.some(requestedRow)),
     )?.id ?? null;
-  // A choice in this window holds until the address changes.
-  const [windowChoice, setWindowChoice] = useState<{
-    readonly source: string;
-    readonly id: string | null;
-  } | null>(null);
+  // A choice in this window holds until the address changes. The route keeps it above the
+  // shared/personal replacement, so a tile chosen while personal data loads stays open (#1896).
+  const [windowChoice, setWindowChoice] = useProductChapterWindowChoice();
   const openChapterId =
     windowChoice?.source === source ? windowChoice.id : returnChapter;
   const openedChapter = tiledChapters?.find(

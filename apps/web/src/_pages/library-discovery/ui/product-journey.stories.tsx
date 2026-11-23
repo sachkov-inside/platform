@@ -2773,19 +2773,23 @@ export const SplitChapterMobile: Story = {
 };
 
 /** The fixture changes only the delivery boundary; both branches render the production programme. */
-function SharedProgrammeSelectionFixture() {
+function SharedProgrammeSelectionFixture({
+  base = result,
+}: {
+  readonly base?: typeof result | typeof chapteredResult;
+}) {
   const [delivered, setDelivered] = useState(false);
   const [otherProduct, setOtherProduct] = useState(false);
   const current = otherProduct
     ? {
-        ...result,
+        ...base,
         reference: {
-          ...result.reference,
+          ...base.reference,
           slug: "another-course",
           name: "Другой курс",
         },
       }
-    : result;
+    : base;
   return (
     <>
       <div className="flex gap-2">
@@ -2853,6 +2857,31 @@ export const SharedProgrammeKeepsSelection: Story = {
 export const SharedProgrammeKeepsSelectionMobile: Story = {
   ...SharedProgrammeKeepsSelection,
   globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+/** A chapter opened while personal data loads stays open when the personal programme replaces it. */
+export const SharedProgrammeKeepsChapterWindow: Story = {
+  render: () => <SharedProgrammeSelectionFixture base={chapteredResult} />,
+  play: async ({ canvasElement }) => {
+    await openPart(canvasElement, /^Программа/u);
+    await openChapter(canvasElement, "Данные и доступ");
+    // The open modal makes the page inert to the pointer; the fixture control is pressed directly.
+    const deliver = [...canvasElement.querySelectorAll("button")].find(
+      (button) => button.textContent === "Догрузить личные данные",
+    );
+    if (deliver === undefined) throw new Error("Missing delivery control");
+    deliver.click();
+    await waitFor(async () => {
+      await expect(
+        canvasElement.querySelector("[data-product-access-pending]"),
+      ).toBeNull();
+    });
+    const dialog = canvasElement.ownerDocument.querySelector<HTMLDialogElement>(
+      "dialog[data-chapter-window]",
+    );
+    await expect(dialog?.open).toBe(true);
+    await expect(dialog).toHaveAttribute("data-chapter-window", "chapter-2");
+  },
 };
 
 export const AnnouncedPartCounts: Story = {
