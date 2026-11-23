@@ -1,0 +1,690 @@
+/* Throwaway prototype styles (owner request 2026-11-23): chapter tiles on the programme page. */
+
+.page {
+  margin-inline: auto;
+  width: 100%;
+  min-width: 0;
+  container: programme / inline-size;
+}
+
+.wide {
+  max-width: 64rem;
+}
+
+/* ---------- Header ---------- */
+
+.header {
+  margin-top: 0.5rem;
+  border-radius: 1rem;
+  background: color-mix(in oklch, var(--muted) 60%, transparent);
+  padding: 1.25rem;
+}
+
+.headerTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.headerTitle h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+}
+
+.meta {
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
+.progressRow {
+  margin-top: 1rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.875rem;
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+}
+
+.bar {
+  margin-top: 0.5rem;
+  height: 0.375rem;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--foreground) 9%, transparent);
+  overflow: hidden;
+}
+
+.bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.sectionTitle {
+  margin-top: 2rem;
+  margin-bottom: 0.875rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* ---------- Art tones ---------- */
+
+.art {
+  --art-ink: var(--foreground);
+  --art-paper: var(--card);
+  --art-soft: color-mix(in oklch, var(--foreground) 35%, transparent);
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--art-bg);
+  color: var(--art-ink);
+}
+
+.art svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.art[data-tone="sand"] {
+  --art-bg: #f3e9d6;
+}
+.art[data-tone="ink"] {
+  --art-bg: #232426;
+  --art-ink: #f3efe6;
+  --art-paper: #34353a;
+  --art-soft: color-mix(in oklch, #f3efe6 40%, transparent);
+}
+.art[data-tone="lavender"] {
+  --art-bg: color-mix(in oklch, var(--callout-definition) 14%, var(--card));
+}
+.art[data-tone="blue"] {
+  --art-bg: color-mix(in oklch, var(--callout-example) 13%, var(--card));
+}
+.art[data-tone="good"] {
+  --art-bg: color-mix(in oklch, var(--callout-good) 14%, var(--card));
+}
+.art[data-tone="coral"] {
+  --art-bg: color-mix(in oklch, var(--accent) 14%, var(--card));
+}
+.art[data-tone="stone"] {
+  --art-bg: color-mix(in oklch, var(--foreground) 7%, var(--card));
+}
+
+.art[data-planned] svg {
+  filter: grayscale(1);
+  opacity: 0.45;
+}
+
+/* ---------- Tile ---------- */
+
+.grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@container programme (min-width: 40rem) {
+  .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@container programme (max-width: 26rem) {
+  .grid {
+    gap: 0.75rem;
+  }
+}
+
+.tile {
+  all: unset;
+  box-sizing: border-box;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  cursor: pointer;
+  overflow: hidden;
+  border-radius: 1.1rem;
+  border: 1px solid var(--border);
+  background: var(--card);
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease;
+}
+
+.tile:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px -14px
+    color-mix(in oklch, var(--foreground) 45%, transparent);
+}
+
+.tile:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.tile[data-selected] {
+  border-color: var(--foreground);
+  box-shadow: 0 0 0 1px var(--foreground);
+}
+
+.tile .art {
+  aspect-ratio: 16 / 10;
+}
+
+.tileBody {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 0.875rem 0.875rem;
+}
+
+.eyebrow {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+
+.tileTitle {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.015em;
+  overflow-wrap: anywhere;
+}
+
+.tileFoot {
+  margin-top: auto;
+  padding-top: 0.625rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.miniBar {
+  flex: 1;
+  height: 0.25rem;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--foreground) 9%, transparent);
+  overflow: hidden;
+}
+
+.miniBar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 999px;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge[data-kind="writing"] {
+  color: var(--accent-hover);
+  background: color-mix(in oklch, var(--accent) 13%, transparent);
+}
+
+.badge[data-kind="writing"]::before {
+  content: "";
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.badge[data-kind="planned"] {
+  color: var(--muted-foreground);
+  background: color-mix(in oklch, var(--foreground) 8%, transparent);
+}
+
+.badge[data-kind="done"] {
+  color: var(--callout-good);
+  background: color-mix(in oklch, var(--callout-good) 13%, transparent);
+}
+
+.badge[data-kind="current"] {
+  color: var(--accent-foreground);
+  background: var(--accent);
+}
+
+/* Badge over the art, top-left */
+.artBadge {
+  position: absolute;
+  top: 0.625rem;
+  left: 0.625rem;
+}
+
+/* ---------- Lesson list ---------- */
+
+.lessons {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.375rem;
+}
+
+.lesson {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  border-radius: 0.875rem;
+  padding: 0.625rem 0.875rem;
+  background: color-mix(in oklch, var(--muted) 55%, transparent);
+  transition: background 120ms ease;
+}
+
+.lesson:hover {
+  background: var(--muted);
+}
+
+.lesson:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+
+.lesson[data-current] {
+  background: color-mix(in oklch, var(--accent) 11%, var(--card));
+  box-shadow: inset 0 0 0 1px
+    color-mix(in oklch, var(--accent) 45%, transparent);
+}
+
+.lessonNumber {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: var(--muted-foreground);
+}
+
+.lesson[data-done] .lessonNumber {
+  color: var(--callout-good);
+}
+
+.lessonTitle {
+  font-size: 0.9375rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.lessonMeta {
+  margin-top: 0.125rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.lessonState {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+.lesson[data-current] .lessonState {
+  color: var(--accent-hover);
+  font-weight: 600;
+}
+
+.compactLessons {
+  grid-template-columns: 1fr;
+}
+
+@container programme (min-width: 40rem) {
+  .compactLessons {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ---------- Primary action ---------- */
+
+.primary {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  border-radius: 0.875rem;
+  padding: 0 1.125rem;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  max-width: 100%;
+}
+
+.primary:hover {
+  background: color-mix(in oklch, var(--primary) 85%, white);
+}
+
+.primary:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.primary span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ghost {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 2.25rem;
+  border-radius: 0.75rem;
+  padding: 0 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.ghost:hover {
+  background: var(--muted);
+}
+
+.ghost:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.ghost:focus-visible {
+  outline: 2px solid var(--ring);
+}
+
+/* ---------- Variant A: dialog ---------- */
+
+.dialog {
+  margin: auto;
+  padding: 0;
+  border: 0;
+  width: min(40rem, calc(100vw - 2rem));
+  /* One height for every chapter: paging with the arrows does not resize the window. */
+  height: min(46rem, calc(100dvh - 4rem));
+  border-radius: 1.5rem;
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: 0 30px 80px -20px rgb(0 0 0 / 0.45);
+  overflow: hidden;
+}
+
+.dialog[open] {
+  display: flex;
+  flex-direction: column;
+  animation: dialog-in 180ms ease-out;
+}
+
+.dialog::backdrop {
+  background: rgb(20 20 18 / 0.55);
+  backdrop-filter: blur(2px);
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@media (max-width: 639px) {
+  .dialog {
+    /* One height for every chapter: the sheet takes the screen and leaves a strip of the page. */
+    margin: auto 0 0;
+    width: 100%;
+    max-width: 100%;
+    height: calc(100dvh - 4.5rem);
+    max-height: none;
+    border-radius: 1.5rem 1.5rem 0 0;
+  }
+
+  .dialog[open] {
+    animation: sheet-in 220ms ease-out;
+  }
+}
+
+.dialogArt {
+  height: 9.5rem;
+  flex-shrink: 0;
+}
+
+.dialogArt svg {
+  height: 100%;
+  width: auto;
+}
+
+.dialogClose {
+  all: unset;
+  cursor: pointer;
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--card) 85%, transparent);
+  color: var(--foreground);
+  z-index: 1;
+}
+
+.dialogClose:focus-visible {
+  outline: 2px solid var(--ring);
+}
+
+.dialogScroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  align-content: start;
+  overflow-y: auto;
+  padding: 1.25rem 1.5rem 1.5rem;
+  display: grid;
+  gap: 1rem;
+}
+
+@media (max-width: 639px) {
+  .dialogScroll {
+    padding: 1rem 1rem 1.25rem;
+  }
+}
+
+.dialogTitle {
+  font-size: 1.375rem;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.025em;
+}
+
+.description {
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--body-muted);
+}
+
+.dialogFooter {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid var(--border);
+  padding: 0.5rem 0.75rem;
+}
+
+/* ---------- Variant B: inline expansion ---------- */
+
+.expansion {
+  grid-column: 1 / -1;
+  min-width: 0;
+  position: relative;
+  border-radius: 1.25rem;
+  background: var(--card);
+  border: 1px solid var(--foreground);
+  padding: 1.25rem;
+  display: grid;
+  gap: 1rem;
+  animation: expand-in 200ms ease-out;
+}
+
+@keyframes expand-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+.expansion::before {
+  content: "";
+  position: absolute;
+  top: -0.5rem;
+  left: var(--caret, 50%);
+  width: 0.875rem;
+  height: 0.875rem;
+  background: var(--card);
+  border-left: 1px solid var(--foreground);
+  border-top: 1px solid var(--foreground);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.expansionHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+}
+
+/* ---------- Variant C: featured chapter ---------- */
+
+.feature {
+  margin-top: 1.25rem;
+  border-radius: 1.5rem;
+  border: 1px solid var(--border);
+  background: var(--card);
+  overflow: hidden;
+  scroll-margin-top: 5rem;
+}
+
+.featureTop {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@container programme (min-width: 40rem) {
+  .featureTop {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  }
+}
+
+.featureTop .art {
+  min-height: 11rem;
+}
+
+.featureInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding: 1.25rem 1.5rem;
+}
+
+.featureLessons {
+  border-top: 1px solid var(--border);
+  padding: 1rem 1.25rem 1.25rem;
+}
+
+.smallGrid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@container programme (min-width: 40rem) {
+  .smallGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.smallGrid .tile .art {
+  aspect-ratio: 4 / 3;
+}
+
+.smallGrid .tileBody {
+  padding: 0.625rem 0.75rem 0.75rem;
+}
+
+.smallGrid .tileTitle {
+  font-size: 0.875rem;
+}
+
+/* ---------- Toast ---------- */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.25rem;
+  transform: translateX(-50%);
+  z-index: 100;
+  max-width: calc(100vw - 2rem);
+  border-radius: 999px;
+  padding: 0.625rem 1rem;
+  background: var(--foreground);
+  color: var(--background);
+  font-size: 0.875rem;
+  box-shadow: 0 12px 30px -12px rgb(0 0 0 / 0.5);
+  animation: dialog-in 160ms ease-out;
+}
+
+.expansion > *,
+.featureInfo > *,
+.dialogScroll > * {
+  min-width: 0;
+}
+
+@container programme (max-width: 30rem) {
+  .expansion {
+    padding: 1rem;
+  }
+}
+
+/* Above the phone's section bar. */
+@media (max-width: 47.999rem) {
+  .toast {
+    bottom: 5.5rem;
+  }
+}
