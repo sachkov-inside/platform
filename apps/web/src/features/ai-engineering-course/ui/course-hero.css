@@ -59,6 +59,10 @@
   right: -2.4em;
   bottom: calc(100% - 0.3em);
 }
+/* Наклейка выступает за конец названия: длинное название переносится раньше и оставляет ей место. */
+.aie-hero-title[data-badge="true"] .aie-hero-mark {
+  max-width: calc(100% - 2.4em);
+}
 /* Широкая колонка: наклейка стоит справа от названия, приподнятая над строкой. */
 @container aie-hero-copy (min-width: 36rem) {
   .aie-hero-title[data-badge="true"] {

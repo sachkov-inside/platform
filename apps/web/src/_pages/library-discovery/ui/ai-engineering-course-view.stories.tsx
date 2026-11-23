@@ -1432,11 +1432,32 @@ export const LongCourseName: Story = {
     const film =
       canvasElement.querySelector<HTMLElement>(".aie-hero-film") ??
       fail("Анимация первого экрана");
-    const name =
+    // Наклейка «+ менторинг» выступает за конец названия: ни она, ни название не заходят на анимацию.
+    const badge =
+      title.querySelector<HTMLElement>(".aie-hero-badge") ??
+      fail("Наклейка у названия курса");
+    for (const part of [
       title.querySelector<HTMLElement>(".aie-hero-name") ??
-      fail("Название курса");
-    await expect(name.getBoundingClientRect().right).toBeLessThanOrEqual(
-      film.getBoundingClientRect().left,
+        fail("Название курса"),
+      badge,
+    ])
+      await expect(part.getBoundingClientRect().right).toBeLessThanOrEqual(
+        film.getBoundingClientRect().left,
+      );
+  },
+};
+export const LongCourseNameMobile: Story = {
+  args: { result: longNameResult },
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const badge =
+      canvasElement.querySelector<HTMLElement>(".aie-hero-badge") ??
+      fail("Наклейка у названия курса");
+    await expect(badge.getBoundingClientRect().right).toBeLessThanOrEqual(
+      document.documentElement.clientWidth,
+    );
+    await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
+      document.documentElement.clientWidth,
     );
   },
 };
