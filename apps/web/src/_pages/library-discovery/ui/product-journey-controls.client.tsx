@@ -414,7 +414,7 @@ export function ProductJourneyControls({
         }
         className={cn("grid gap-2", run.chapter === null ? "" : "mt-3")}
         data-product-order
-        start={run.offset + 1}
+        start={run.chapter === null ? run.offset + 1 : (rows[0]?.ordinal ?? 1)}
       >
         {rows.map((row, index) => (
           <li
@@ -577,7 +577,9 @@ export function ProductJourneyControls({
                             {runList(
                               run,
                               run.rows,
-                              index === 0 ? openedChapter.upcoming : [],
+                              index === openedChapter.runs.length - 1
+                                ? openedChapter.upcoming
+                                : [],
                             )}
                             {run.supplementary ?? null}
                           </Fragment>
