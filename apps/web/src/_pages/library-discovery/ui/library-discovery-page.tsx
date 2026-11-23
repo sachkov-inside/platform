@@ -2,6 +2,7 @@ import { readProductReaderState } from "@/widgets/product-reader-state/index.ser
 import { WaitlistProvider } from "./waitlist-provider.client";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
+import { CourseLearningLink } from "@/features/ai-engineering-course";
 import { Suspense } from "react";
 
 import { preorderPrice } from "@/entities/subscription";
@@ -134,7 +135,14 @@ function ProductLanding({
         </Suspense>
       }
       heroBadge={
-        <Suspense fallback={null}>
+        <Suspense
+          fallback={
+            <CourseLearningLink
+              intent="programme"
+              slug={result.reference.slug}
+            />
+          }
+        >
           <PersonalCourseFilmOverlay result={result} />
         </Suspense>
       }
