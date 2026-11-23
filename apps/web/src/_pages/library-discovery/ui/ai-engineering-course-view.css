@@ -2485,7 +2485,8 @@
 }
 .aie-art-review-bots b {
   flex-basis: 100%;
-  color: var(--tile-ink);
+  /* Мелкая подпись темнее тона плитки: на песочном фоне чистый тон не держит контраст 4.5:1. */
+  color: color-mix(in srgb, var(--tile-ink) 65%, var(--foreground));
   font-size: 0.72rem;
   font-weight: 600;
   text-align: center;
