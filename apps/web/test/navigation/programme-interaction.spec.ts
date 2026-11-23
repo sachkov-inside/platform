@@ -153,18 +153,8 @@ test("allocated same-source programme retains both lesson nodes through Reader r
       expect(membership.product.id).toBe(scope);
       expect(membership.product.slug).toBe(fixture.productSlug);
     });
-    const placement = programme.chapters.map(({ materialIds }) =>
-      materialIds.map((id) => {
-        const index = programme.items.findIndex(
-          (item) => item.materialId === id,
-        );
-        expect(index).toBeGreaterThanOrEqual(0);
-        return index + 1;
-      }),
-    );
-    expect(placement.flat()).toEqual(
-      Array.from({ length: 120 }, (_, index) => index + 1),
-    );
+    // Only a programme without chapters reveals its lessons in batches; chapters open in windows.
+    expect(programme.chapters).toEqual([]);
     const firstSlug = fixture.materialSlugs[0];
     const firstItem = programme.items[0];
     if (firstSlug === undefined || firstItem === undefined)

@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+import { z } from "zod";
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 import { assertPayloadBudget } from "../support/payload-budgets";
 
@@ -28,8 +29,11 @@ test("the 120-Material programme sends one card tree and the catalogue searches 
   // Feed markup belongs to the closed catalogue, so it must be absent from the initial Flight.
   expect(flight).not.toContain('"data-material-variant":"feed"');
   await page.goto(programme);
+  // A chaptered programme shows its chapters as tiles; their lessons open in a chapter window.
   await expect(
-    page.locator("[data-product-order]:visible").first(),
+    page
+      .locator('[data-product-programme="performance-course"]:visible')
+      .getByRole("list", { name: "Главы", exact: true }),
   ).toBeVisible();
   // The personal projection replaces the shared fallback; switch parts once its access state has landed.
   await expect(
@@ -119,7 +123,28 @@ test("the 120-Material programme sends one card tree and the catalogue searches 
 
 test("programme reveals the next batch before the last loaded lesson reaches the scroll edge", async ({
   page,
+  request,
 }) => {
+  // Only a programme without chapters reveals its lessons in batches.
+  const backend = `http://127.0.0.1:${process.env["FAKE_BACKEND_PORT"] ?? ""}`;
+  const allocated = await request.post(
+    `${backend}/__reader-title-fixtures?layout=programme-reveal`,
+  );
+  expect(allocated.status()).toBe(201);
+  const fixture = z
+    .object({ scope: z.uuid(), productSlug: z.string() })
+    .parse(await allocated.json());
+  try {
+    await revealProgrammeBatches(page, fixture.productSlug);
+  } finally {
+    const deleted = await request.delete(
+      `${backend}/__reader-title-fixtures/${fixture.scope}`,
+    );
+    expect(deleted.status()).toBe(200);
+  }
+});
+
+async function revealProgrammeBatches(page: Page, productSlug: string) {
   // Hold the shell's real media-query event until the new scroll owner has moved.
   // This pins the browser ordering that otherwise makes the resize failure intermittent.
   await page.addInitScript(() => {
@@ -161,20 +186,20 @@ test("programme reveals the next batch before the last loaded lesson reaches the
       return media;
     };
   });
-  await page.goto(programme);
+  await page.goto(`/products/${productSlug}/programme`);
   const surface = page.locator(
-    '[data-product-programme="performance-course"]:visible',
+    `[data-product-programme="${productSlug}"]:visible`,
   );
   await expect(surface.locator('[data-programme-part="header"]')).toContainText(
     "всё открыто",
   );
   const rows = surface.locator("[data-product-ordinal]");
-  await expect(rows).toHaveCount(24);
+  await expect(rows).toHaveCount(12);
   const first = rows.first();
   await first.evaluate((node) => {
     node.setAttribute("data-retained-lesson", "true");
   });
-  for (const loaded of [24, 36, 48]) {
+  for (const loaded of [12, 24, 36, 48]) {
     await rows.nth(loaded - 1).evaluate((node) => {
       const main = node.closest("main");
       node.scrollIntoView({ block: "end" });
@@ -207,7 +232,7 @@ test("programme reveals the next batch before the last loaded lesson reaches the
       nodes.map((node) => Number(node.getAttribute("data-product-ordinal"))),
     ),
   ).toEqual(Array.from({ length: 60 }, (_, index) => index + 1));
-});
+}
 
 for (const version of ["v1", "v2", "v3"] as const) {
   test(`course film ${version} draws its selected reduced-motion frame without hydration errors`, async ({

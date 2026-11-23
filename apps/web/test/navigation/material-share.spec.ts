@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { openProgrammeChapter } from "../support/programme-chapter";
 
 test("читатель делится постоянным адресом без личного контекста", async ({
   page,
@@ -122,8 +123,11 @@ test("в программе и закрытом материале нет дей
   page,
 }) => {
   await page.goto("/products/navigation-proof/programme");
+  // Lesson cards of a chaptered programme live in the chapter window.
   await expect(
-    page.locator('[data-material-variant="product"]').first(),
+    (await openProgrammeChapter(page, 1))
+      .locator('[data-material-variant="product"]')
+      .first(),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: /^Поделиться материалом/ }),

@@ -1,6 +1,10 @@
 import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { learningInterceptionFile } from "../support/learning-interception";
+import {
+  openProgrammeChapter,
+  programmeChapterWindow,
+} from "../support/programme-chapter";
 
 test("the shared populated Product keeps main lessons and practice separate from extra material", async ({
   page,
@@ -12,13 +16,23 @@ test("the shared populated Product keeps main lessons and practice separate from
       exact: true,
     }),
   ).toBeVisible();
+  // Main lessons and their practice live in chapter windows: two lessons and the task in the
+  // first chapter, one lesson in the second.
+  const chapter = await openProgrammeChapter(page, 1);
   await expect(
-    page.getByRole("link", { name: /Учебный пример: работа над проектом/ }),
+    chapter.getByRole("link", { name: /Учебный пример: работа над проектом/ }),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: /Учебный пример: покажи результат/ }),
+    chapter.getByRole("link", { name: /Учебный пример: покажи результат/ }),
   ).toBeVisible();
-  await expect(page.locator("[data-product-ordinal]")).toHaveCount(3);
+  await expect(chapter.locator("[data-product-ordinal]")).toHaveCount(2);
+  await chapter.getByRole("button", { name: /^Следующая/u }).click();
+  await expect(
+    chapter.getByRole("link", { name: /Учебный пример: проверка выпуска/ }),
+  ).toBeVisible();
+  await expect(chapter.locator("[data-product-ordinal]")).toHaveCount(1);
+  await chapter.getByRole("button", { name: "Закрыть главу" }).click();
+  await expect(programmeChapterWindow(page)).toHaveCount(0);
   await page
     .getByRole("navigation", { name: "Разделы продукта" })
     .getByRole("button", { name: /Материалы/ })

@@ -280,7 +280,7 @@ function ProgrammePurchase({
     </Button>
   );
   // Пока поток набирается, рядом с ценой — компактная оранжевая кнопка предзаказа справа: она не
-  // спорит с тёмной «Начать обучение» в строке урока (решение владельца 09.10.2026).
+  // спорит с тёмным действием «Начать обучение» (решение владельца 09.10.2026).
   if (preorder === null) return button;
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-border pt-4">

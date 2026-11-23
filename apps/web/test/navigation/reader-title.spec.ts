@@ -16,6 +16,10 @@ import { expectLinearProgrammeReturn } from "../support/linear-programme";
 import { expectReaderReadyForAudit } from "../support/reader-audit-readiness";
 import { expectOpenProgrammeReady } from "../support/open-programme-readiness";
 import { observeAppShellPrefetch } from "../support/app-shell-prefetch";
+import {
+  openProgrammeChapter,
+  programmeChapterWindow,
+} from "../support/programme-chapter";
 
 /** The fake backend port is assigned by the navigation config before workers start. */
 function fakeBackendUrl() {
@@ -100,15 +104,21 @@ test("programme readiness admits navigation after the signed-in read settles", a
     const sharedProgramme = page.locator(
       `[data-product-programme="${readerTitleFixture.productSlug}"]:visible`,
     );
+    // While the signed-in read waits, the shared programme already shows its chapter tiles.
     await expect(
-      sharedProgramme.getByRole("link", { name: "Первый заголовок читателя" }),
+      sharedProgramme.getByRole("list", { name: "Главы", exact: true }),
     ).toBeVisible();
-    const [programme] = await Promise.all([
+    await Promise.all([
       expectOpenProgrammeReady(page, readerTitleFixture.productSlug),
       holdPersonalRead(false),
     ]);
+    // The return address reopens the window of the lesson's chapter.
+    const lesson = programmeChapterWindow(page)
+      .locator(`a[href*='/materials/${slug}']`)
+      .first();
+    await expect(lesson).toBeVisible();
     await materialShell.ready();
-    await programme.locator(`a[href*='/materials/${slug}']`).first().click();
+    await lesson.click();
     await expect(
       page.locator('[data-material-reader-state="available"]:visible'),
     ).toBeVisible();
@@ -205,8 +215,10 @@ test("Reader audit uses the identity of the existing programme after session set
     page,
     readerTitleFixture.productSlug,
   );
+  // The first lesson lives in the window of the first chapter.
+  const chapter = await openProgrammeChapter(page, 1);
   await materialShell.ready();
-  await programme
+  await chapter
     .getByRole("link", { name: "Первый заголовок читателя", exact: true })
     .click();
   await expect(
@@ -235,8 +247,9 @@ test("Reader audit uses the identity of the existing programme after session set
     .getByRole("link", { name: "Назад", exact: true })
     .click();
   await expect(programme).toHaveCount(1);
+  // The return reopens the window of the lesson's chapter with the lesson in view.
   await expect(
-    programme.getByRole("link", {
+    programmeChapterWindow(page).getByRole("link", {
       name: "Первый заголовок читателя",
       exact: true,
     }),

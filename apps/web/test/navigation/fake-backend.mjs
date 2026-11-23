@@ -240,7 +240,9 @@ const readerTitleFixtures = new Map();
 
 /**
  * Every allocation owns its data and a fresh shared-cache namespace. A linear Product has no
- * chapters, so its Reader keeps the return actions without the course frame.
+ * chapters, so its Reader keeps the return actions without the course frame. The programme-reveal
+ * Product has no chapters either: only a programme without chapters reveals its lessons in batches;
+ * a chaptered one shows them in chapter windows.
  * @param {boolean} linear
  * @param {boolean} programmeReveal
  */
@@ -779,7 +781,9 @@ function route(method, url, entitled) {
         ? chapterItems.length
         : Math.ceil(chapterItems.length / 2);
     const linear = [...readerTitleFixtures.values()].some(
-      (fixture) => fixture.linear && fixture.product === product,
+      (fixture) =>
+        (fixture.linear || fixture.programmeReveal) &&
+        fixture.product === product,
     );
     return json({
       chapters: [

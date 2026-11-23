@@ -135,6 +135,9 @@ const chapteredResult = {
   ...result,
   chapters,
 } satisfies PublishedProductResult;
+/** A long lesson title keeps a batch boundary beyond the automatic reveal margin. */
+const revealTitle =
+  "Практический разбор: подготовь проект к разработке, проверь требования и настрой рабочий процесс команды. Разбираем частые ошибки и способы их исправить без лишней спешки, с проверкой каждого шага.";
 const resume = {
   materialSlug: "series-material-13",
   label: "Продолжить с 12:40",
@@ -164,6 +167,27 @@ function partButton(canvasElement: HTMLElement, name: RegExp): HTMLElement {
   return within(
     within(canvasElement).getByRole("navigation", { name: "Разделы продукта" }),
   ).getByRole("button", { name });
+}
+
+/** Плитка главы на вкладке «Программа». */
+function chapterTile(canvasElement: HTMLElement, name: string): HTMLElement {
+  return within(
+    within(canvasElement).getByRole("list", { name: "Главы" }),
+  ).getByRole("button", { name: new RegExp(`Глава \\d+ ${name}`, "u") });
+}
+
+/** Открывает окно главы по её плитке и возвращает окно. */
+async function openChapter(
+  canvasElement: HTMLElement,
+  name: string,
+): Promise<HTMLDialogElement> {
+  await userEvent.click(chapterTile(canvasElement, name));
+  const dialog = canvasElement.ownerDocument.querySelector<HTMLDialogElement>(
+    "dialog[data-chapter-window]",
+  );
+  if (dialog === null || !dialog.open)
+    throw new Error(`Окно главы «${name}» не открылось`);
+  return dialog;
 }
 
 const meta = {
@@ -599,31 +623,65 @@ export const Chapters: Story = {
     await expect(sections).toBeVisible();
     await expect(within(sections).getAllByRole("button")).toHaveLength(2);
     await expect(
-      canvas.getByRole("heading", { level: 3, name: "Основа продукта" }),
+      canvasElement.querySelectorAll("[data-chapter-tile]"),
+    ).toHaveLength(5);
+    const first = await openChapter(canvasElement, "Основа продукта");
+    await expect(
+      within(first).getByRole("heading", { level: 2, name: "Основа продукта" }),
     ).toBeVisible();
     await expect(
-      canvas
+      within(first)
         .getByRole("list", { name: "Материалы главы «Основа продукта»" })
         .querySelectorAll("li"),
     ).toHaveLength(6);
-    await expect(
-      canvas.getByRole("list", { name: "Материалы главы «Основа продукта»" }),
-    ).toBeVisible();
-    await expect(
-      canvas.getByRole("list", { name: "Материалы главы «Данные и доступ»" }),
-    ).toBeVisible();
-    await expect(
-      canvas.getByRole("heading", { level: 3, name: "Что дальше" }),
-    ).toBeVisible();
-    // A chapter without lessons is planned (#2141): a badge and its outcome line, nothing to open.
-    const future = canvasElement.querySelector<HTMLElement>(
-      '[data-roadmap-chapter="planned"]',
+    await userEvent.click(
+      within(first).getByRole("button", { name: /^Следующая/u }),
     );
-    if (future === null) throw new Error("Missing future chapter");
-    await expect(within(future).getByText("В планах")).toBeVisible();
     await expect(
-      within(future).getByText(/Что разбираем в главе «Что дальше»/u),
+      within(first).getByRole("list", {
+        name: "Материалы главы «Данные и доступ»",
+      }),
     ).toBeVisible();
+    await userEvent.keyboard("{Escape}");
+    // A chapter without lessons is planned (#2141): a badge, and its outcome in the window.
+    const future = chapterTile(canvasElement, "Что дальше");
+    await expect(within(future).getByText("В планах")).toBeVisible();
+    const planned = await openChapter(canvasElement, "Что дальше");
+    await expect(
+      within(planned).getByText(/Что разбираем в главе «Что дальше»/u),
+    ).toBeVisible();
+  },
+};
+/** A chapter link from the reader (`#chapter-<id>`) opens that chapter's window. */
+export const ChapterLinkOpensWindow: Story = {
+  args: { result: chapteredResult },
+  beforeEach: () => {
+    const cleanup = environment.beforeEach();
+    const previous = window.location.hash;
+    window.location.hash = "chapter-chapter-2";
+    return () => {
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `${window.location.pathname}${window.location.search}${previous}`,
+      );
+      cleanup?.();
+    };
+  },
+  play: async ({ canvasElement }) => {
+    await waitFor(async () => {
+      const dialog =
+        canvasElement.ownerDocument.querySelector<HTMLDialogElement>(
+          "dialog[data-chapter-window]",
+        );
+      await expect(dialog?.open).toBe(true);
+      await expect(dialog).toHaveAttribute("data-chapter-window", "chapter-2");
+    });
+    // Without scripts the same link still lands on the chapter tile.
+    await expect(chapterTile(canvasElement, "Данные и доступ")).toHaveAttribute(
+      "id",
+      "chapter-chapter-2",
+    );
   },
 };
 export const ChaptersMobile: Story = {
@@ -685,15 +743,16 @@ const taskedChapters = chapters.map((chapter, index) =>
 export const ChapterTasks: Story = {
   args: { result: { ...result, chapters: taskedChapters } },
   play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
+    const dialog = await openChapter(canvasElement, "Основа продукта");
+    const window_ = within(dialog);
     await expect(
-      canvasElement.querySelectorAll("[data-product-ordinal]"),
-    ).toHaveLength(24);
-    const opening = canvas.getByRole("list", {
+      dialog.querySelectorAll("[data-product-ordinal]"),
+    ).toHaveLength(6);
+    const opening = window_.getByRole("list", {
       name: "Задания главы «Основа продукта»",
     });
     await expect(within(opening).getByText("Сдано 3 октября")).toBeVisible();
-    const afterThird = canvas.getByRole("list", {
+    const afterThird = window_.getByRole("list", {
       name: "Задания после урока «Сценарии пользователя»",
     });
     await expect(
@@ -701,18 +760,14 @@ export const ChapterTasks: Story = {
         name: "Первый вертикальный срез",
       }),
     ).toHaveAttribute("href", "/products/platform-inside/tasks/vertical-slice");
+    await expect(window_.queryByText("8 шагов")).toBeNull();
+    await expect(dialog.querySelector("[data-chapter-progress]")).toBeVisible();
+    await expectTaskRowsFit(dialog);
+    await userEvent.click(window_.getByRole("button", { name: /^Следующая/u }));
     await expect(
-      canvasElement.querySelector('[data-programme-task="access-model"]'),
+      dialog.querySelector('[data-programme-task="access-model"]'),
     ).toHaveAttribute("data-task-availability", "locked");
-    const chapterHeader = canvas
-      .getByRole("heading", { level: 3, name: "Основа продукта" })
-      .closest("header");
-    if (chapterHeader === null) throw new Error("Нет заголовка первой главы");
-    await expect(within(chapterHeader).queryByText("8 шагов")).toBeNull();
-    await expect(
-      chapterHeader.querySelector(".programme-chapter-progress"),
-    ).toBeVisible();
-    const unavailable = canvasElement.querySelector(
+    const unavailable = dialog.querySelector(
       '[data-programme-task="access-unavailable"]',
     );
     await expect(unavailable).toHaveAttribute(
@@ -720,27 +775,32 @@ export const ChapterTasks: Story = {
       "unavailable",
     );
     await expect(unavailable).toHaveTextContent("Доступ временно не определён");
-    await expectTaskRowsFit(canvasElement);
+    await expectTaskRowsFit(dialog);
   },
 };
 export const ChapterTasksMobile: Story = {
   args: { result: { ...result, chapters: taskedChapters } },
   globals: { viewport: { value: "mobile390", isRotated: false } },
   play: async ({ canvasElement }) => {
+    const dialog = await openChapter(canvasElement, "Основа продукта");
     await expect(
-      canvasElement.querySelector('[data-programme-task="platform-spec"]'),
+      dialog.querySelector('[data-programme-task="platform-spec"]'),
     ).toHaveTextContent("Сдано 3 октября");
-    await expectTaskRowsFit(canvasElement);
+    await expectTaskRowsFit(dialog);
   },
 };
 export const ChapterTasksPending: Story = {
   args: { result: { ...result, chapters: taskedChapters }, pending: true },
   play: async ({ canvasElement }) => {
+    const dialog = await openChapter(canvasElement, "Основа продукта");
     await expect(
-      canvasElement.querySelector('[data-programme-task="platform-spec"]'),
+      dialog.querySelector('[data-programme-task="platform-spec"]'),
     ).toHaveAttribute("data-task-availability", "available");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: /^Следующая/u }),
+    );
     await expect(
-      canvasElement.querySelector('[data-programme-task="access-model"]'),
+      dialog.querySelector('[data-programme-task="access-model"]'),
     ).toHaveAttribute("data-task-availability", "pending");
     await expect(
       within(canvasElement).queryByText("Нужен доступ"),
@@ -795,7 +855,7 @@ export const PartiallyGrouped: Story = {
       canvas.getByRole("region", { name: "Материалы курса" }),
     ).toBeVisible();
     await expect(
-      canvas.queryByRole("heading", { level: 3, name: "Основа продукта" }),
+      canvasElement.querySelector('[data-chapter-tile="chapter-1"]'),
     ).not.toBeInTheDocument();
   },
 };
@@ -1144,13 +1204,8 @@ export const PartSwitchStartsAtBeginning: Story = {
       // Keep the manual reveal outside the existing 600px automatic reveal margin.
       items: materials.map((material) => ({
         ...material,
-        title: `${material.title}. Практический разбор: подготовь проект к разработке, проверь требования и настрой рабочий процесс команды.`,
+        title: `${material.title}. ${revealTitle}`,
       })),
-      chapters: chapters.map((chapter, index) =>
-        index === 0
-          ? { ...chapter, materialIds: chapter.materialIds.slice(0, 5) }
-          : chapter,
-      ),
     },
   },
   play: async ({ canvasElement }) => {
@@ -1199,11 +1254,9 @@ export const OnlyPlannedChapters: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvasElement.querySelectorAll('[data-roadmap-chapter="planned"]'),
+      canvasElement.querySelectorAll('[data-chapter-status="planned"]'),
     ).toHaveLength(5);
-    await expect(
-      canvas.getByRole("heading", { level: 3, name: "Основа продукта" }),
-    ).toBeVisible();
+    await expect(chapterTile(canvasElement, "Основа продукта")).toBeVisible();
     const sections = canvas.getByRole("navigation", {
       name: "Разделы продукта",
     });
@@ -1760,9 +1813,7 @@ export const ProductPage: Story = {
       canvas.getByRole("region", { name: "Материалы курса" }),
     ).toBeVisible();
     await openPart(canvasElement, /^Программа/u);
-    await expect(
-      canvas.getByRole("heading", { level: 3, name: "Основа продукта" }),
-    ).toBeVisible();
+    await expect(chapterTile(canvasElement, "Основа продукта")).toBeVisible();
     await expect(
       canvas.queryByRole("navigation", { name: "Страницы маршрута" }),
     ).not.toBeInTheDocument();
@@ -1793,9 +1844,7 @@ export const LegacyArtifactsQueryOpensProgramme: Story = {
       "aria-current",
       "true",
     );
-    await expect(
-      canvas.getByRole("heading", { level: 3, name: "Основа продукта" }),
-    ).toBeVisible();
+    await expect(chapterTile(canvasElement, "Основа продукта")).toBeVisible();
     await expect(
       canvas.queryByRole("button", { name: /Артефакты/u }),
     ).not.toBeInTheDocument();
@@ -1810,9 +1859,7 @@ export const ProgrammeIgnoresUnavailableArtifacts: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(
-      canvas.getByRole("heading", { level: 3, name: "Основа продукта" }),
-    ).toBeVisible();
+    await expect(chapterTile(canvasElement, "Основа продукта")).toBeVisible();
     await expect(
       canvas.queryByRole("button", { name: /Артефакты/u }),
     ).not.toBeInTheDocument();
@@ -1884,8 +1931,9 @@ export const ProgrammeProgress: Story = {
   },
 };
 
+/** Порционный показ остался у программы без глав: главы открывают уроки в своём окне. */
 export const InfiniteScroll: Story = {
-  args: { result: chapteredResult, learning: { kind: "guest" } },
+  args: { result, learning: { kind: "guest" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     const first = canvasElement.querySelector(
@@ -1908,16 +1956,10 @@ export const InfiniteScroll: Story = {
     await expect(
       canvas.queryByRole("button", { name: "Показать ещё уроки" }),
     ).not.toBeInTheDocument();
-    await expect(
-      canvas.getAllByRole("heading", { name: "Основа продукта" }),
-    ).toHaveLength(1);
-    await expect(
-      canvas.getByRole("heading", { name: "Что дальше" }),
-    ).toBeVisible();
   },
 };
 
-/** The continuation must follow loaded lessons, even with future chapters below them. */
+/** The continuation must follow loaded lessons of a product without chapters. */
 export const EarlyLessonReveal: Story = {
   parameters: {
     viewport: {
@@ -1937,37 +1979,8 @@ export const EarlyLessonReveal: Story = {
       // Keep the first page beyond the reveal margin after removing card actions.
       items: materials.map((material) => ({
         ...material,
-        title: `${material.title}. Практический разбор: подготовь проект к разработке, проверь требования и настрой рабочий процесс команды.`,
+        title: `${material.title}. ${revealTitle}`,
       })),
-      chapters: [
-        {
-          id: "early-first",
-          name: "Первая глава",
-          summary: "",
-          materialIds: materials
-            .slice(0, 8)
-            .flatMap((item) =>
-              item.materialId === undefined ? [] : [item.materialId],
-            ),
-        },
-        {
-          id: "early-second",
-          name: "Вторая глава",
-          summary: "",
-          materialIds: materials
-            .slice(8)
-            .flatMap((item) =>
-              item.materialId === undefined ? [] : [item.materialId],
-            ),
-        },
-        ...Array.from({ length: 16 }, (_, index) => ({
-          id: `future-${String(index)}`,
-          name: `Будущая глава ${String(index + 3)}`,
-          summary:
-            "Материалы этой главы готовятся. Здесь появятся следующие темы и практика курса.",
-          materialIds: [],
-        })),
-      ],
     },
     learning: { kind: "guest" },
   },
@@ -1994,11 +2007,6 @@ export const EarlyLessonReveal: Story = {
     await waitFor(async () => {
       await expect(rows()).toHaveLength(24);
     });
-    await expect(
-      canvasElement.querySelectorAll(
-        'details[data-roadmap-chapter="planned"][open]',
-      ),
-    ).toHaveLength(0);
   },
 };
 
@@ -2363,6 +2371,13 @@ export const ArtificialLateProgrammeDeliveryAfterDisconnect: Story = {
 
 export const FastLessonReveal: Story = {
   ...EarlyLessonReveal,
+  // Content below the programme lets a fast scroll pass the batch boundary before it reveals.
+  render: ({ learning, ...args }) => (
+    <ProductLearningProvider learning={learning ?? { kind: "guest" }}>
+      <ProductProgrammeView {...args} />
+      <div aria-hidden="true" style={{ height: "300vh" }} />
+    </ProductLearningProvider>
+  ),
   play: async ({ canvasElement }) => {
     await expect(
       canvasElement.querySelectorAll("[data-product-ordinal]"),
@@ -2399,7 +2414,7 @@ export const FastLessonRevealMobile: Story = {
 
 export const PartSwitchClearsContinuationPosition: Story = {
   args: {
-    result: chapteredResult,
+    result,
     learning: { kind: "ready", read: 8, total: 24, continuation: resume },
   },
   play: async ({ canvasElement }) => {
@@ -2705,84 +2720,65 @@ export const SplitChapter: Story = {
   },
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    const sections = [
-      ...canvasElement.querySelectorAll<HTMLElement>(
-        "section.programme-chapter",
-      ),
-    ];
-    await expect(sections).toHaveLength(6);
-    await expect(new Set(sections.map((section) => section.id)).size).toBe(6);
-    await expect(sections.every((section) => section.id !== "")).toBe(true);
-    await expect(
-      sections.map((section) => section.getAttribute("aria-labelledby")),
-    ).toEqual([
-      "chapter-split-a",
-      "chapter-split-empty",
-      "chapter-split-b",
-      "chapter-split-a",
-      "chapter-split-empty-reference",
-      "chapter-split-last-empty",
-    ]);
-    for (const section of sections) {
-      const id = section.getAttribute("aria-labelledby");
-      await expect(id).not.toBeNull();
-      await expect(
-        canvasElement.querySelectorAll(`[id="${id ?? ""}"]`),
-      ).toHaveLength(1);
-    }
-    await expect(
-      canvas.getAllByRole("heading", { name: "Первая глава", level: 3 }),
-    ).toHaveLength(1);
-    await expect(
-      canvas.getAllByRole("list", { name: "Задания главы «Первая глава»" }),
-    ).toHaveLength(1);
-    await expect(
-      canvas.getAllByRole("navigation", {
-        name: /^Дополнительные материалы главы/u,
-      }),
-    ).toHaveLength(3);
-    await expect(
-      sections[0]?.querySelector(
-        'nav[aria-label="Дополнительные материалы главы «Первая глава»"]',
-      ),
-    ).not.toBeNull();
-    await expect(
-      sections[3]?.querySelector("header, nav, [data-programme-tasks]"),
-    ).toBeNull();
-    await expect(
-      [...canvasElement.querySelectorAll("[data-route-material]")].map((row) =>
+    const rows = (element: Element) =>
+      [...element.querySelectorAll("[data-route-material]")].map((row) =>
         row.getAttribute("data-route-material"),
-      ),
-    ).toEqual(["series-material-1", "series-material-2", "series-material-3"]);
+      );
+    const tiles = [
+      ...canvasElement.querySelectorAll<HTMLElement>("[data-chapter-tile]"),
+    ].map((tile) => tile.dataset["chapterTile"]);
+    // A chapter split by the placements is still one tile.
+    await expect(tiles).toEqual([
+      "split-a",
+      "split-empty",
+      "split-b",
+      "split-empty-reference",
+      "split-last-empty",
+    ]);
+    const dialog = await openChapter(canvasElement, "Первая глава");
+    const window_ = within(dialog);
+    // The window joins both runs of the chapter; its opening tasks and attachments appear once.
+    await expect(rows(dialog)).toEqual([
+      "series-material-1",
+      "series-material-3",
+    ]);
     await expect(
-      canvas.getAllByRole("region", { name: "Первая глава" }),
+      window_.getAllByRole("list", { name: "Задания главы «Первая глава»" }),
     ).toHaveLength(1);
-    await expect(canvas.getByRole("group", { name: "Первая глава" })).toBe(
-      sections[3],
-    );
-    const continuation = sections[3];
-    if (continuation === undefined)
-      throw new Error("Missing chapter continuation");
-    await expect(getComputedStyle(continuation, "::before").content).toBe(
-      "none",
-    );
-    const references = canvas.getByRole("navigation", {
+    const references = window_.getByRole("navigation", {
       name: "Дополнительные материалы главы «Первая глава»",
     });
     await expect(
       within(references).getByRole("heading", {
         name: "Дополнительные материалы",
-        level: 4,
+        level: 3,
       }),
     ).toBeInTheDocument();
-    const ids = [...canvasElement.querySelectorAll("[id]")].map(
+    const next = () =>
+      userEvent.click(window_.getByRole("button", { name: /^Следующая/u }));
+    await next();
+    await expect(rows(dialog)).toEqual([]);
+    await next();
+    await expect(rows(dialog)).toEqual(["series-material-2"]);
+    await expect(
+      window_.getAllByRole("navigation", {
+        name: /^Дополнительные материалы главы/u,
+      }),
+    ).toHaveLength(1);
+    await next();
+    await expect(
+      window_.getByRole("navigation", {
+        name: "Дополнительные материалы главы «Глава с памяткой»",
+      }),
+    ).toBeVisible();
+    const ids = [...canvasElement.ownerDocument.querySelectorAll("[id]")].map(
       (element) => element.id,
     );
     await expect(new Set(ids).size).toBe(ids.length);
     const root = canvasElement.ownerDocument.documentElement;
     await expect(root.scrollWidth).toBe(root.clientWidth);
-    // Switching back mounts the actual section list again, exposing duplicate React keys.
+    await userEvent.keyboard("{Escape}");
+    // Switching back mounts the tiles again, exposing duplicate React keys.
     const errors = spyOn(console, "error");
     try {
       await openPart(canvasElement, /^Материалы/u);
@@ -2795,14 +2791,8 @@ export const SplitChapter: Story = {
         ),
       ).toEqual([]);
       await expect(
-        [...canvasElement.querySelectorAll("[data-route-material]")].map(
-          (row) => row.getAttribute("data-route-material"),
-        ),
-      ).toEqual([
-        "series-material-1",
-        "series-material-2",
-        "series-material-3",
-      ]);
+        rows(await openChapter(canvasElement, "Первая глава")),
+      ).toEqual(["series-material-1", "series-material-3"]);
     } finally {
       errors.mockRestore();
     }
@@ -2815,19 +2805,23 @@ export const SplitChapterMobile: Story = {
 };
 
 /** The fixture changes only the delivery boundary; both branches render the production programme. */
-function SharedProgrammeSelectionFixture() {
+function SharedProgrammeSelectionFixture({
+  base = result,
+}: {
+  readonly base?: typeof result | typeof chapteredResult;
+}) {
   const [delivered, setDelivered] = useState(false);
   const [otherProduct, setOtherProduct] = useState(false);
   const current = otherProduct
     ? {
-        ...result,
+        ...base,
         reference: {
-          ...result.reference,
+          ...base.reference,
           slug: "another-course",
           name: "Другой курс",
         },
       }
-    : result;
+    : base;
   return (
     <>
       <div className="flex gap-2">
@@ -2897,6 +2891,31 @@ export const SharedProgrammeKeepsSelectionMobile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 
+/** A chapter opened while personal data loads stays open when the personal programme replaces it. */
+export const SharedProgrammeKeepsChapterWindow: Story = {
+  render: () => <SharedProgrammeSelectionFixture base={chapteredResult} />,
+  play: async ({ canvasElement }) => {
+    await openPart(canvasElement, /^Программа/u);
+    await openChapter(canvasElement, "Данные и доступ");
+    // The open modal makes the page inert to the pointer; the fixture control is pressed directly.
+    const deliver = [...canvasElement.querySelectorAll("button")].find(
+      (button) => button.textContent === "Догрузить личные данные",
+    );
+    if (deliver === undefined) throw new Error("Missing delivery control");
+    deliver.click();
+    await waitFor(async () => {
+      await expect(
+        canvasElement.querySelector("[data-product-access-pending]"),
+      ).toBeNull();
+    });
+    const dialog = canvasElement.ownerDocument.querySelector<HTMLDialogElement>(
+      "dialog[data-chapter-window]",
+    );
+    await expect(dialog?.open).toBe(true);
+    await expect(dialog).toHaveAttribute("data-chapter-window", "chapter-2");
+  },
+};
+
 export const AnnouncedPartCounts: Story = {
   args: {
     learning: { kind: "guest" },
@@ -2923,8 +2942,8 @@ export const AnnouncedPartCounts: Story = {
       canvasElement.querySelector('p[aria-live="polite"]');
     await expect(announcement()).toHaveTextContent("Программа: 3 материала");
     await expect(
-      canvasElement.querySelectorAll("[data-route-material]"),
-    ).toHaveLength(3);
+      chapterTile(canvasElement, "Три урока программы"),
+    ).toHaveTextContent("3 урока");
     await openPart(canvasElement, /^Материалы/u);
     const catalog = canvas.getByRole("region", { name: "Материалы курса" });
     await expect(within(catalog).getAllByRole("listitem")).toHaveLength(4);

@@ -722,14 +722,16 @@ canonical Task titles, Material ordinals, current selection and progress remain 
 «Программа» содержит главы, отдельная часть содержит материалы вне глав, — и части остаются
 расширяемым списком, куда добавляются артефакты и дополнительные материалы. Нумерация материалов
 сплошная внутри выбранной части. Руководство без глав показывает неразделённый список внутри вкладки «Программа»;
-остальные вкладки сохраняют свои пустые состояния. Решением владельца 15.09.2026 выбранная часть показывается непрерывным списком: следующие
+остальные вкладки сохраняют свои пустые состояния. Решением владельца 15.09.2026 программа без глав показывается непрерывным списком: следующие
 уроки добавляются при приближении к концу, без замены уже показанных. Доступна кнопка
 «Показать ещё уроки» для клавиатуры и браузера без IntersectionObserver. Переключение части
 начинает список с начала. Возврат из Reader восстанавливает урок по `at`; старые ссылки `page`
 сохраняют совместимость. Состав уже получен целиком; это постепенное отображение на клиенте,
-серверный cursor API этим изменением не вводится.
+серверный cursor API этим изменением не вводится. Программа с главами показывает главы плитками,
+а уроки главы в её окне ([главы плитками](#главы-плитками)); у неё возврат по `at` открывает окно
+главы урока, а ссылка `page` ничего не восстанавливает.
 
-Глава в маршруте представлена своим названием и количеством материалов, без служебного номера. Глава без
+Глава в маршруте представлена плиткой с номером главы и названием ([главы плитками](#главы-плитками)). Глава без
 опубликованных материалов остаётся видимой и отмечена как готовящаяся, в том числе когда в
 руководстве ещё нет ни одного опубликованного материала. Решением владельца 10.09.2026 авторское
 описание главы читателю не выводится и не входит в публичный каталог: объяснение главы становится
@@ -920,18 +922,16 @@ The course landing links to the dedicated programme without repeating its chapte
 The shared programme remains interactive while its personal data loads. A section explicitly chosen
 in that interval survives personal delivery and takes precedence over arriving onboarding. The choice
 belongs to the current Product; opening another Product uses its own URL or default section (#1896).
-The programme uses actual Product chapters; fixtures never supply production copy. Published
-chapters show their lesson list and a native «Темы и практика» disclosure; the reading counter
-sits at the right of that disclosure row. Future chapters start collapsed. Their preparation
-notice appears only inside the expanded chapter, followed by its description and topics.
+The programme uses actual Product chapters; fixtures never supply production copy. Chapters are
+tiles and their lessons open in a chapter window ([главы плитками](#главы-плитками)). A chapter
+window with lessons shows the outcome under its title and keeps the remaining topics in a native
+«Темы и практика» disclosure; a planned chapter shows its topics as chips.
 Chapter summaries start with a short outcome paragraph, followed by spaced topic entries with
 optional leading `**bold labels**`. Labels are rendered as escaped text, without general Markdown
-or HTML support. Published chapters show the outcome inside their topics disclosure. A
-single-paragraph summary does not create an empty disclosure. No lesson list, release action or
-delivery date is invented for a planned chapter. Chapter headings remain visible while lesson
-rows are progressively revealed. If a chapter occurs in several runs, the programme preserves
-placement order and shows its heading, opening Tasks and attachments only in its first run.
-Later runs retain the same chapter name for assistive technology. Ordinal lesson numbers are smaller than chapter headings.
+or HTML support. A single-paragraph summary does not create an empty disclosure. No lesson list,
+release action or delivery date is invented for a planned chapter. If a chapter occurs in several
+runs, it is still one tile; its window keeps placement order and shows its opening Tasks and
+attachments once. Ordinal lesson numbers are smaller than chapter headings.
 A muted format line sits under each lesson title (owner decision 02.11.2026). A lesson with video
 shows a play icon and «Видео · 9:23» at every width, the duration taken from the primary video; a
 video lesson without a primary-video duration shows «Видео» alone. Every other lesson shows a page
@@ -941,8 +941,9 @@ right end of the row holds only the continuation button and one status mark: a l
 lesson or a thin accent check without a filled circle on a studied one. The mark keeps a slot one
 icon wide, so the row does not shift when the reader's access and reading state arrive; no wider
 slot is reserved.
-The continuation lesson row is highlighted and carries a compact «Продолжить» or «Начать
-обучение» button, not a full-width button below the title. The title starts at 112 px; when the
+In a programme without chapters the continuation lesson row is highlighted and carries a compact
+«Продолжить» or «Начать обучение» button, not a full-width button below the title; a chapter
+window carries that action in its header instead. The title starts at 112 px; when the
 right-hand group does not fit beside that width, the group wraps to its own line.
 
 
@@ -1042,15 +1043,35 @@ complete part budget to its allowed scalar fields plus its single file.
 
 Шапка программы содержит обложку 3:2, название, приглашение к оплате и прогресс вошедшего
 читателя. Приглашение стоит в одном ряду с названием, а на узком экране — отдельной строкой во
-всю ширину; заготовка на время проверки доступа занимает то же место. Главы показаны без
-порядкового номера. Программа показывает дорожную карту курса (#2141, прототип принят владельцем
+всю ширину; заготовка на время проверки доступа занимает то же место. Программа показывает дорожную карту курса (#2141, прототип принят владельцем
 14.11.2026): когда у вошедшего читателя загружен прогресс и в программе есть материалы, шапка показывает число изученных материалов и процент прохождения с полосой прогресса. У гостя эта строка скрыта.
-Каждая глава сворачивается, глава в работе открыта сразу. Статус берётся из дорожной карты, а без
-неё глава с уроками считается готовой, без уроков запланированной. Готовая глава показывает
-«Изучено X из N». Глава в работе несёт метку «Пишется», свои опубликованные уроки и следом
-неопубликованные пунктирными строками без ссылки с пометкой «пишется» или «скоро».
-Запланированная глава несёт метку «В планах», в заголовке строку итога, а внутри темы главы:
-первый абзац описания главы и её список `- `.
+Статус главы берётся из дорожной карты, а без неё глава с уроками считается готовой, без уроков
+запланированной. Глава в работе несёт метку «Пишется», в её окне идут опубликованные уроки и
+следом неопубликованные пунктирными строками без ссылки с пометкой «пишется» или «скоро».
+Запланированная глава несёт метку «В планах», её окно показывает итог и темы главы: первый абзац
+описания и её список `- `.
+
+#### Главы плитками
+
+Решением владельца 23.11.2026 (прототип A на ветке `prototype/course-chapter-tiles`, запись
+`docs/evidence/prototype-chapter-tiles/`) программа с главами показывает главы плитками: две
+колонки на телефоне, три на широкой программе. Плитка несёт рисунок главы, «Глава N», название
+и низ: «X из N» с полосой, «Изучено» или число уроков, пока читатель не начинал. Метка «Сейчас»
+стоит у главы урока, с которого читателю продолжать или начинать, в том числе у гостя; метки
+«Пишется» и «В планах» берутся из статуса, рисунок запланированной главы приглушён. Рисунок
+выбирается по точному названию главы; глава, чьего названия нет в списке рисунков, получает
+нейтральный рисунок уроков, поэтому переименование главы меняет рисунок.
+
+Плитка открывает окно главы: на широком экране посередине, на телефоне шторкой снизу. Окно одной
+высоты для любой главы, чтобы листание стрелками «Предыдущая» и «Следующая» не меняло его размер:
+на широком экране `min(46rem, 100dvh - 4rem)`, на телефоне весь экран, кроме полосы 4.5rem сверху.
+В окне рисунок, «Глава N · X уроков», название с меткой статуса, итог главы, «Изучено X из N»
+с полосой, действие «Продолжить» или «Начать обучение» с названием урока, когда этот урок в
+главе, темы, задания, уроки, объявленные уроки и дополнительные материалы главы. Строки уроков в
+окне не повторяют кнопку продолжения. Фокус открытого окна стоит на его заголовке, после
+закрытия возвращается на плитку последней показанной главы. Глава, открытая, пока догружается
+личная часть программы, остаётся открытой после неё (#1896). Все уроки главы видны сразу, без
+постепенного показа. Колонка разделов и нижняя панель «Программа / Материалы» остаются.
 Вертикальных линий между главами нет (решение владельца 14.10.2026), поэтому оформление
 не зависит от постепенной загрузки списка. Номер урока стоит в квадратной плитке превью:
 без обложки он и есть её рисунок, с обложкой — метка в углу (решение владельца 30.09.2026,

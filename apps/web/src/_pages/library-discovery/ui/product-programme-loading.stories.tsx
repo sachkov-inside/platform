@@ -164,14 +164,13 @@ interface ProgrammeGeometry {
 }
 
 function measure(canvasElement: HTMLElement): ProgrammeGeometry {
-  const firstRow = canvasElement.querySelector("[data-product-ordinal='1']");
+  // The programme opens with chapter tiles; their lessons wait for the chapter window.
+  const firstTile = canvasElement.querySelector("[data-chapter-tile]");
   return {
     back: boxOf(canvasElement, "[data-programme-part='back']"),
     header: boxOf(canvasElement, "[data-programme-part='header']"),
     firstRow:
-      firstRow === null
-        ? null
-        : boxOf(canvasElement, "[data-product-ordinal='1']"),
+      firstTile === null ? null : boxOf(canvasElement, "[data-chapter-tile]"),
   };
 }
 
@@ -243,8 +242,8 @@ function loadsInPlace(
         name: "Создание Platform Inside",
       });
       await expect(
-        canvasElement.querySelectorAll("[data-product-access-pending]").length,
-      ).toBe(materials.length);
+        canvasElement.querySelectorAll("[data-chapter-tile]").length,
+      ).toBe(chapters.length);
       const sharedPart = measure(canvasElement);
 
       sequence.deliverPersonalPart();

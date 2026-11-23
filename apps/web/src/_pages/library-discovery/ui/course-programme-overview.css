@@ -69,13 +69,6 @@
 .course-chapter-content li + li {
   margin-top: 1rem;
 }
-.course-chapter-outcome {
-  max-width: 64ch;
-  color: var(--foreground);
-}
-.course-chapter-details[open] > .course-chapter-outcome {
-  margin-top: 0.75rem;
-}
 
 .programme-chapter-progress {
   display: inline-block;
@@ -91,17 +84,4 @@
     min-width: 2.5rem;
     font-size: 0.6875rem;
   }
-}
-
-.course-chapter-summary:has(> .course-chapter-disclosure) {
-  max-width: none;
-}
-.course-chapter-disclosure {
-  position: relative;
-}
-.course-chapter-disclosure > .programme-chapter-progress {
-  position: absolute;
-  top: 0.75rem;
-  right: 0;
-  text-align: right;
 }

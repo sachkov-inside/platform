@@ -1,0 +1,441 @@
+/* Главы программы плитками и окно главы (решение владельца 23.11.2026). */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@container programme (min-width: 40rem) {
+  .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+  }
+}
+
+.cell {
+  display: flex;
+  min-width: 0;
+}
+
+/* ---------- Рисунок ---------- */
+
+.tileArt,
+.windowArt {
+  --art-ink: var(--foreground);
+  --art-paper: var(--card);
+  --art-soft: color-mix(in oklch, var(--foreground) 35%, transparent);
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--art-bg);
+  color: var(--art-ink);
+}
+
+.tileArt svg,
+.windowArt svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.tileArt[data-tone="sand"],
+.windowArt[data-tone="sand"] {
+  --art-bg: var(--cover-sand);
+}
+.tileArt[data-tone="lavender"],
+.windowArt[data-tone="lavender"] {
+  --art-bg: var(--cover-lavender);
+}
+.tileArt[data-tone="blue"],
+.windowArt[data-tone="blue"] {
+  --art-bg: var(--cover-blue);
+}
+.tileArt[data-tone="good"],
+.windowArt[data-tone="good"] {
+  --art-bg: var(--cover-mint);
+}
+.tileArt[data-tone="coral"],
+.windowArt[data-tone="coral"] {
+  --art-bg: var(--cover-coral);
+}
+.tileArt[data-tone="stone"],
+.windowArt[data-tone="stone"] {
+  --art-bg: color-mix(in oklch, var(--foreground) 7%, var(--card));
+}
+/* Тона плиток: пастельные обложки (`cover-*`), они темнеют в тёмной теме. */
+.tileArt[data-tone="ink"],
+.windowArt[data-tone="ink"] {
+  --art-bg: var(--cover-ink);
+  --art-ink: var(--cover-ink-foreground);
+  --art-paper: color-mix(
+    in oklch,
+    var(--cover-ink-foreground) 12%,
+    var(--cover-ink)
+  );
+  --art-soft: color-mix(in oklch, var(--cover-ink-foreground) 40%, transparent);
+}
+
+.tileArt[data-muted] svg,
+.windowArt[data-muted] svg {
+  filter: grayscale(1);
+  opacity: 0.45;
+}
+
+/* ---------- Плитка ---------- */
+
+.tile {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--card);
+  color: var(--foreground);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+}
+
+@media (hover: hover) {
+  .tile:hover {
+    border-color: color-mix(in oklch, var(--foreground) 30%, var(--border));
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tile {
+    transition: border-color 160ms ease;
+  }
+}
+
+.tile:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.tileArt {
+  aspect-ratio: 16 / 10;
+  width: 100%;
+}
+
+.tileArt .badge {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+}
+
+.tileBody {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 0.75rem 0.875rem;
+}
+
+@container programme (min-width: 40rem) {
+  .tileBody {
+    padding-inline: 0.875rem;
+  }
+}
+
+.eyebrow {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1rem;
+}
+
+.tileTitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.015em;
+  overflow-wrap: anywhere;
+}
+
+@container programme (min-width: 40rem) {
+  .tileTitle {
+    font-size: 0.9375rem;
+  }
+}
+
+.tileFoot {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 0.5rem;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.meter {
+  display: block;
+  flex: 1;
+  height: 0.25rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--foreground) 10%, transparent);
+}
+
+.meter > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.studied {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 999px;
+  padding: 0.125rem 0.5rem;
+  background: var(--secondary);
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.studied svg {
+  width: 0.75rem;
+  height: 0.75rem;
+  color: var(--accent);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 999px;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1rem;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.badge[data-chapter-badge="writing"] {
+  background: color-mix(in oklch, var(--accent) 14%, var(--background));
+  color: var(--action);
+}
+
+.badge[data-chapter-badge="writing"]::before {
+  content: "";
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.badge[data-chapter-badge="planned"] {
+  background: var(--secondary);
+  color: var(--muted-foreground);
+}
+
+.badge[data-chapter-badge="current"] {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+/* ---------- Окно главы ---------- */
+
+.dialog {
+  /* Одна высота для любой главы: листание стрелками не меняет размер окна. */
+  width: min(40rem, calc(100% - 2rem));
+  max-width: none;
+  height: min(46rem, calc(100dvh - 4rem));
+  max-height: none;
+  margin: auto;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-2xl);
+  padding: 0;
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: var(--elevation-cover);
+}
+
+.dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.dialog::backdrop {
+  background: color-mix(in srgb, var(--foreground) 45%, transparent);
+}
+
+@media (max-width: 39.999rem) {
+  /* Телефон: шторка снизу на весь экран, кроме полосы сверху, через которую видна страница. */
+  .dialog {
+    width: 100%;
+    height: calc(100dvh - 4.5rem);
+    margin: auto 0 0;
+    border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dialog[open] {
+    animation: window-in 180ms ease-out;
+  }
+
+  @media (max-width: 39.999rem) {
+    .dialog[open] {
+      animation-name: sheet-in;
+      animation-duration: 220ms;
+    }
+  }
+}
+
+@keyframes window-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem) scale(0.98);
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+.windowArt {
+  flex-shrink: 0;
+  height: 8.5rem;
+}
+
+@media (min-width: 40rem) {
+  .windowArt {
+    height: 9.5rem;
+  }
+}
+
+.windowArt svg {
+  width: auto;
+}
+
+.close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--card) 85%, transparent);
+  color: var(--foreground);
+  cursor: pointer;
+}
+
+.close svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.close:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.windowBody {
+  display: grid;
+  flex: 1 1 auto;
+  align-content: start;
+  gap: 1rem;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1rem 1rem 1.25rem;
+}
+
+@media (min-width: 40rem) {
+  .windowBody {
+    padding: 1.25rem 1.5rem 1.5rem;
+  }
+}
+
+.windowBody > * {
+  min-width: 0;
+}
+
+.windowTitle {
+  outline: none;
+  margin-top: 0.125rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.025em;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 40rem) {
+  .windowTitle {
+    font-size: 1.375rem;
+  }
+}
+
+.outcome {
+  margin-top: 0.375rem;
+  color: var(--body-muted);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.progress {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.progressLine {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.progress .meter {
+  height: 0.375rem;
+}
+
+.continue {
+  justify-self: start;
+  min-width: 0;
+}
+
+.continue span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.content {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.pager {
+  display: flex;
+  flex-shrink: 0;
+  justify-content: space-between;
+  border-top: 1px solid var(--border);
+  padding: 0.5rem 0.75rem;
+}

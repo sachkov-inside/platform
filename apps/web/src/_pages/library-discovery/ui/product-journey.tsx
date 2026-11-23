@@ -1,5 +1,4 @@
 import type { Route } from "next";
-import type { ReactNode } from "react";
 
 import {
   ProductTaskRow,
@@ -18,21 +17,16 @@ import { productChapterRuns } from "@/shared/lib/product-chapter-runs";
 import { materialReaderHref } from "@/shared/routing/material-reader";
 import { productReaderReturnHref } from "@/shared/routing/material-reader";
 import { productTaskHref } from "@/shared/routing/subscription-route";
+import { chapterTileArt } from "../model/chapter-tile-art";
 import { ChapterSummary } from "./course-programme-overview";
 import {
   courseRoadmap,
   parseChapterSummary,
   type RoadmapChapterProgress,
 } from "./course-roadmap";
-import {
-  PlannedChapterTopics,
-  RoadmapChapterHeading,
-  UpcomingLessonRow,
-} from "./course-roadmap-view";
+import { PlannedChapterTopics, UpcomingLessonRow } from "./course-roadmap-view";
 
-import { ChapterReadingProgress } from "./chapter-reading-progress.client";
 import { PRODUCT_BATCH_SIZE } from "./product-batch";
-import { formatOfLessons } from "./product-counts";
 import {
   ProductJourneyControls,
   type JourneyPart,
@@ -95,8 +89,8 @@ export function ProductJourney({
         });
   // A split chapter shows its heading, opening tasks and attachments in its first run only.
   const ledChapters = new Set<string>();
-  // With a stored roadmap every chapter folds (#2141); without one only a planned chapter does.
-  const roadmapMode = result.reference.roadmapUpdatedOn !== undefined;
+  // Every chapter is a tile with its roadmap status (#2141): without a stored roadmap a chapter with
+  // lessons is ready and one without them is planned.
   const roadmapOf = new Map(
     courseRoadmap({ ...result, items }).map(
       (entry) => [entry.id, entry] as const,
@@ -147,14 +141,12 @@ export function ProductJourney({
             ledChapters,
             productOpen,
             result,
-            roadmap:
+            chapterNumber:
               run.chapter === null
-                ? undefined
-                : roadmapPresentation(
-                    run.chapter,
-                    roadmapOf.get(run.chapter.id),
-                    roadmapMode,
-                  ),
+                ? 0
+                : result.chapters.indexOf(run.chapter) + 1,
+            progress:
+              run.chapter === null ? undefined : roadmapOf.get(run.chapter.id),
           }),
         ),
       }),
@@ -213,19 +205,22 @@ function journeyRun(
   },
   {
     accessPending,
+    chapterNumber,
     currentHref,
     ledChapters,
     productOpen,
+    progress,
     result,
-    roadmap,
   }: {
     readonly accessPending: boolean;
+    /** Номер главы в программе, с единицы. */
+    readonly chapterNumber: number;
     readonly currentHref: Route;
     readonly ledChapters: Set<string>;
     readonly productOpen: boolean;
+    /** Статус и уроки главы на дорожной карте курса. */
+    readonly progress: RoadmapChapterProgress | undefined;
     readonly result: ProductResult;
-    /** The chapter as the course roadmap shows it; `undefined` keeps the open chapter of today. */
-    readonly roadmap: RoadmapPresentation | undefined;
   },
 ): JourneyRun {
   const tasks = (run.chapter?.tasks ?? []).filter(
@@ -244,6 +239,7 @@ function journeyRun(
           <li className="@container/series-entry min-w-0" key={task.code}>
             <ProductTaskRow
               accessPending={accessPending}
+              headingLevel="h3"
               href={productTaskHref(result.reference.slug, task.code)}
               task={task}
             />
@@ -262,62 +258,22 @@ function journeyRun(
       run.chapter === null
         ? null
         : {
-            header:
-              firstRun && roadmap === undefined ? (
-                <header
-                  className="programme-chapter-head"
-                  key={`head-${run.chapter.id}`}
-                >
-                  <div className="min-w-0">
-                    <h3
-                      className="inline text-base font-semibold leading-snug tracking-[-0.02em] [overflow-wrap:anywhere] sm:text-xl"
-                      id={`chapter-${run.chapter.id}`}
-                    >
-                      {run.chapter.name}
-                    </h3>
-                  </div>
-                  <ChapterSummary
-                    progress={
-                      <ChapterReadingProgress
-                        materialIds={run.chapter.materialIds}
-                        name={run.chapter.name}
-                      />
-                    }
-                    name={run.chapter.name}
-                    summary={run.chapter.summary}
-                    showOutcome={run.chapter.materialIds.length === 0}
-                  />
-                </header>
-              ) : null,
-            ...(firstRun && roadmap !== undefined
-              ? {
-                  roadmap: {
-                    status: roadmap.status,
-                    heading: roadmap.heading,
-                    ...(roadmap.body === undefined
-                      ? {}
-                      : { body: roadmap.body }),
-                    upcoming: (run.chapter.upcomingLessons ?? []).map(
-                      (lesson, index) => (
-                        <UpcomingLessonRow
-                          key={`upcoming-${String(index)}`}
-                          lesson={lesson}
-                          ordinal={run.offset + run.items.length + index + 1}
-                        />
-                      ),
-                    ),
-                  },
-                }
-              : {}),
             id: run.chapter.id,
             name: run.chapter.name,
+            ...(firstRun
+              ? chapterWindow(run.chapter, {
+                  number: chapterNumber,
+                  offset: run.offset + run.items.length,
+                  progress,
+                })
+              : {}),
           },
     ...(leading === undefined ? {} : { leading }),
     supplementary:
       run.chapter === null || !firstRun ? null : (
         <CourseReferenceNavigation
           courseHref={currentHref}
-          headingLevel={4}
+          headingLevel={3}
           navigationLabel={`Дополнительные материалы главы «${run.chapter.name}»`}
           key={`supplementary-${run.chapter.id}`}
           references={(run.chapter.supplementaryMaterialIds ?? []).flatMap(
@@ -391,89 +347,79 @@ function journeyRun(
                 ordinal={ordinal}
               />
             }
-            headingLevel={run.chapter === null ? "h3" : "h4"}
+            // Chapter rows sit under the h2 of their chapter window.
+            headingLevel="h3"
             material={material}
             returnHref={returnHref}
             variant="product"
           />
         ),
         ordinal,
+        readerHref: materialReaderHref(material.slug, returnHref, {
+          placementId,
+        }),
         returnHref,
         slug: material.slug,
+        title: material.title,
       };
     }),
   };
 }
 
-interface RoadmapPresentation {
-  readonly status: RoadmapChapterProgress["status"];
-  readonly heading: ReactNode;
-  readonly body?: ReactNode;
-}
-
 /**
- * How the course roadmap shows a chapter (#2141): its heading line and what opens below it. A
- * finished chapter counts what the reader studied, a chapter in work counts its ready lessons, a
- * planned one names its outcome and keeps its topics inside. Without a stored roadmap only a
- * chapter with nothing published yet is shown this way.
+ * Плитка главы и шапка её окна: номер, статус дорожной карты, рисунок, итог главы, темы и
+ * неопубликованные уроки главы в работе (#2141). Рисует только первый отрезок главы.
  */
-function roadmapPresentation(
+function chapterWindow(
   chapter: ProductChapter,
-  progress: RoadmapChapterProgress | undefined,
-  roadmapMode: boolean,
-): RoadmapPresentation | undefined {
-  if (progress === undefined) return undefined;
-  if (!roadmapMode && progress.status !== "planned") return undefined;
+  {
+    number,
+    offset,
+    progress,
+  }: {
+    readonly number: number;
+    /** Номер последнего опубликованного урока перед объявленными. */
+    readonly offset: number;
+    readonly progress: RoadmapChapterProgress | undefined;
+  },
+): Pick<NonNullable<JourneyRun["chapter"]>, "intro" | "tile" | "upcoming"> {
+  const status = progress?.status ?? "done";
   const { outcome, sections } = parseChapterSummary(chapter.summary);
-  const heading = (line: ReactNode) => (
-    <RoadmapChapterHeading
-      key={`heading-${chapter.id}`}
-      id={chapter.id}
-      line={line}
-      name={chapter.name}
-      status={progress.status}
-    />
-  );
-  if (progress.status === "planned")
-    return {
-      status: "planned",
-      heading: heading(outcome === "" ? null : outcome),
-      ...(sections.length === 0
-        ? {}
-        : {
-            body: (
-              <PlannedChapterTopics
-                key={`topics-${chapter.id}`}
-                name={chapter.name}
-                sections={sections}
-              />
-            ),
-          }),
-    };
-  // The authored topics of a chapter with lessons stay one folded line above its lessons.
-  const body =
-    sections.length === 0 ? undefined : (
+  const intro =
+    sections.length === 0 ? undefined : status === "planned" ? (
+      <PlannedChapterTopics
+        key={`topics-${chapter.id}`}
+        name={chapter.name}
+        sections={sections}
+      />
+    ) : (
       <ChapterSummary
         key={`summary-${chapter.id}`}
         name={chapter.name}
-        showOutcome={false}
         summary={chapter.summary}
       />
     );
+  const upcoming =
+    status === "writing"
+      ? (chapter.upcomingLessons ?? []).map((lesson, index) => (
+          <UpcomingLessonRow
+            key={`upcoming-${String(index)}`}
+            lesson={lesson}
+            ordinal={offset + index + 1}
+          />
+        ))
+      : [];
   return {
-    status: progress.status,
-    heading: heading(
-      progress.status === "done" ? (
-        <ChapterReadingProgress
-          materialIds={chapter.materialIds}
-          name={chapter.name}
-          sentence
-        />
-      ) : (
-        `Готово ${String(progress.ready)} ${formatOfLessons(progress.ready + progress.upcoming)}`
-      ),
-    ),
-    ...(body === undefined ? {} : { body }),
+    tile: {
+      number,
+      status,
+      ...chapterTileArt(chapter.name, number - 1),
+      outcome,
+      materialIds: progress?.materialIds ?? [],
+      upcomingCount: upcoming.length,
+    },
+    ...(intro === undefined ? {} : { intro }),
+    upcoming,
   };
 }
 

@@ -38,6 +38,15 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+function chapterWindow(): HTMLDialogElement {
+  const dialog = document.querySelector<HTMLDialogElement>(
+    "dialog[data-chapter-window]",
+  );
+  if (dialog === null) throw new Error("Missing chapter window");
+  return dialog;
+}
+
+/** Курс ещё не опубликован: все главы в планах, окно главы показывает её темы. */
 export const Desktop: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -47,27 +56,22 @@ export const Desktop: Story = {
       }),
     ).not.toBeInTheDocument();
     await expect(
-      canvasElement.querySelectorAll(
-        'details[data-roadmap-chapter="planned"]:not([open])',
-      ),
+      canvasElement.querySelectorAll('[data-chapter-status="planned"]'),
     ).toHaveLength(8);
+    const last = canvas.getByRole("button", {
+      name: /Качество работы агентов:/u,
+    });
+    await expect(last).toBeVisible();
+    await userEvent.click(last);
+    const dialog = chapterWindow();
+    await expect(dialog.open).toBe(true);
     await expect(
-      canvas.getByRole("heading", { name: /^Качество работы агентов:/u }),
+      within(dialog).getByRole("list", { name: /^Темы главы/u }),
     ).toBeVisible();
-    const details = canvasElement.querySelector<HTMLDetailsElement>(
-      'details[data-roadmap-chapter="planned"]',
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Закрыть главу" }),
     );
-    const summary = details?.querySelector("summary");
-    if (details === null || summary === null || summary === undefined)
-      throw new Error("Missing chapter disclosure");
-    await expect(details).not.toHaveAttribute("open");
-    await userEvent.click(summary);
-    await expect(details).toHaveAttribute("open");
-    await expect(
-      within(details).getByRole("list", { name: /^Темы главы/u }),
-    ).toBeVisible();
-    await userEvent.click(summary);
-    await expect(details).not.toHaveAttribute("open");
+    await expect(dialog.open).toBe(false);
   },
 };
 
@@ -115,33 +119,25 @@ export const WithPublishedLessons: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.queryByText(/Показано .* материалов/u)).toBeNull();
     await expect(
-      canvasElement.querySelectorAll(
-        'details[data-roadmap-chapter="planned"]:not([open])',
-      ),
+      canvasElement.querySelectorAll('[data-chapter-status="planned"]'),
     ).toHaveLength(6);
     await expect(
-      canvas.getByRole("heading", { name: /^Качество работы агентов:/u }),
-    ).toBeVisible();
-    await expect(
-      canvasElement.querySelectorAll(".programme-chapter"),
+      canvasElement.querySelectorAll("[data-chapter-tile]"),
     ).toHaveLength(8);
-    const chapters = canvasElement.querySelectorAll(".programme-chapter");
+    // A chapter with lessons names its outcome in the window and keeps its topics folded.
+    await userEvent.click(canvas.getByRole("button", { name: /Глава 1 /u }));
+    const dialog = chapterWindow();
+    const window_ = within(dialog);
     await expect(
-      chapters[0]?.querySelector(".course-chapter-outcome"),
-    ).not.toBeVisible();
-    await expect(
-      chapters[1]?.querySelector(".course-chapter-outcome"),
-    ).not.toBeVisible();
-    // A planned chapter names its outcome in its heading and keeps its topics folded (#2141).
-    const topics = chapters[2]?.querySelector("ul");
-    if (topics == null) throw new Error("Missing future chapter topics");
+      window_.getByText(/^Подготовишь проект к разработке с агентом/u),
+    ).toBeVisible();
+    const topics = dialog.querySelector(".course-chapter-content");
+    if (topics === null) throw new Error("Missing chapter topics");
     await expect(topics).not.toBeVisible();
-    const future = chapters[2]?.querySelector("summary");
-    if (future == null) throw new Error("Missing future chapter disclosure");
-    await userEvent.click(future);
+    await userEvent.click(window_.getByText("Темы и практика"));
     await expect(topics).toBeVisible();
     await expect(
-      chapters[0]?.querySelector(".course-chapter-details > summary"),
+      window_.getByRole("list", { name: /^Материалы главы/u }),
     ).toBeVisible();
   },
 };

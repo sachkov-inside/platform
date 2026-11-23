@@ -2,6 +2,7 @@ import { expect, test, type Page, type Request } from "@playwright/test";
 import { z } from "zod";
 import { installAppShellPrefetchClassifier } from "../support/app-shell-prefetch";
 import { expectCourseReadingHost } from "../support/course-reading-host";
+import { openProgrammeChapter } from "../support/programme-chapter";
 import {
   protectedTaskMarker,
   taskNavigationSlug,
@@ -116,7 +117,8 @@ test("task intent retains the public course frame while personal requirements wa
   await context.addCookies([await memberCookie(baseURL)]);
   await installShellProbe(page);
   await page.goto(programme);
-  const taskLink = page.getByRole("link", {
+  // Tasks of a chaptered programme live in the chapter window.
+  const taskLink = (await openProgrammeChapter(page, 1)).getByRole("link", {
     name: "Закрытое задание",
     exact: true,
   });
@@ -209,7 +211,7 @@ test("task intent retains the public course frame while personal requirements wa
           .first();
   await returnLink.click();
   await expect(page).toHaveURL(new RegExp(`${programme}$`, "u"));
-  const reopened = page.getByRole("link", {
+  const reopened = (await openProgrammeChapter(page, 1)).getByRole("link", {
     name: "Закрытое задание",
     exact: true,
   });

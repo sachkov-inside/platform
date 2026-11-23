@@ -13,6 +13,10 @@ import {
 import { evidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 import { z } from "zod";
 import { installAppShellPrefetchClassifier } from "../support/app-shell-prefetch";
+import {
+  openProgrammeChapter,
+  programmeChapterWindow,
+} from "../support/programme-chapter";
 
 /** Оболочка нужного маршрута получена целиком; другие запросы страницы не задают барьер. */
 const test = base.extend<{
@@ -486,6 +490,7 @@ const lessonReady = (page: Page, slug: string) => async () => {
   ).toBeVisible();
 };
 // Посещённую страницу Next.js держит в документе скрытой, поэтому готовность ищется среди видимого.
+// Программа с главами показывает их плитками, а уроки главы — в её окне.
 const programmeReady =
   (page: Page, path = programme) =>
   async () => {
@@ -493,11 +498,28 @@ const programmeReady =
     await expect(
       page
         .locator(
-          "[data-application-content] [data-product-programme]:visible a[href*='/materials/']",
+          "[data-application-content] [data-product-programme]:visible [data-chapter-tile]",
         )
         .first(),
     ).toBeVisible();
   };
+/**
+ * Ссылка урока в открытом окне главы. В проверочном продукте глава 1 «Начало» держит бесплатные
+ * уроки 1–2, глава 2 «Продолжение» — платные 3–4.
+ */
+const programmeLesson = (page: Page, slug: string) =>
+  programmeChapterWindow(page).locator(`a[href*='/materials/${slug}']`).first();
+/** Листает окно главы к соседней главе. */
+async function pageChapter(page: Page, direction: "Предыдущая" | "Следующая") {
+  await programmeChapterWindow(page)
+    .getByRole("button", { name: new RegExp(`^${direction}`, "u") })
+    .click();
+}
+/** Возврат из урока открывает окно его главы, и урок снова под рукой. */
+const programmeReturned = (page: Page, slug: string) => async () => {
+  await programmeReady(page)();
+  await expect(programmeLesson(page, slug)).toBeVisible();
+};
 
 /**
  * Замеры и снимки — свидетельства задачи #670. Обычный прогон кладёт их в артефакты;
@@ -583,6 +605,7 @@ test("оболочка урока предзагружена даже при н�
   try {
     await page.goto(programme);
     await programmeReady(page)();
+    await openProgrammeChapter(page, 1);
     const unrelated = page.waitForRequest("**/__unrelated_navigation_request");
     await page.evaluate(() => {
       void fetch("/__unrelated_navigation_request").catch(() => undefined);
@@ -611,6 +634,7 @@ test("оболочка другого урока завершает барьер
   try {
     await page.goto(programme);
     await programmeReady(page)();
+    await openProgrammeChapter(page, 1);
     await firstRequested.promise;
     await shellPrefetched(materialShell);
   } finally {
@@ -625,35 +649,29 @@ test("программа ↔ урок: свой скелет на первом �
 }, testInfo) => {
   await page.goto(programme);
   await programmeReady(page)();
+  await openProgrammeChapter(page, 1);
   await shellPrefetched(materialShell);
   await setBackendDelay(700);
 
-  const lessonLink = page
-    .locator(`[data-product-programme] a[href*='/materials/${freeLesson}']`)
-    .first();
   const toLesson = await transition(
     page,
-    () => lessonLink.click(),
+    () => programmeLesson(page, freeLesson).click(),
     lessonReady(page, freeLesson),
   );
   const backToProgramme = await transition(
     page,
     async () => (await readerProgrammeLink(page)).click(),
-    programmeReady(page),
+    programmeReturned(page, freeLesson),
   );
   const repeatLesson = await transition(
     page,
-    () =>
-      page
-        .locator(`[data-product-programme] a[href*='/materials/${freeLesson}']`)
-        .first()
-        .click(),
+    () => programmeLesson(page, freeLesson).click(),
     lessonReady(page, freeLesson),
   );
   const repeatProgramme = await transition(
     page,
     async () => (await readerProgrammeLink(page)).click(),
-    programmeReady(page),
+    programmeReturned(page, freeLesson),
   );
   const historyBack = await transition(
     page,
@@ -742,13 +760,10 @@ test("продукт → программа → платный урок: у ка
     () => page.locator(`a[href='${programme}']`).first().click(),
     programmeReady(page),
   );
+  await openProgrammeChapter(page, 2);
   const toPaidLesson = await transition(
     page,
-    () =>
-      page
-        .locator(`[data-product-programme] a[href*='/materials/${paidLesson}']`)
-        .first()
-        .click(),
+    () => programmeLesson(page, paidLesson).click(),
     lessonReady(page, paidLesson),
   );
   record("product-programme-paid-lesson", testInfo.project.name, {
@@ -777,13 +792,10 @@ test("намерение предзагружает общую часть уро
 }, testInfo) => {
   await page.goto(programme);
   await programmeReady(page)();
+  await openProgrammeChapter(page, 1);
   await shellPrefetched(materialShell);
 
-  const lessonLink = page
-    .locator(
-      `[data-product-programme] a[href*='/materials/navigation-lesson-2']`,
-    )
-    .first();
+  const lessonLink = programmeLesson(page, "navigation-lesson-2");
   const prefetched = pagePrefetchSettled(page, "navigation-lesson-2");
   if (testInfo.project.name.startsWith("mobile"))
     await lessonLink.dispatchEvent("touchstart");
@@ -817,31 +829,28 @@ test("повторный переход не ходит в backend, а гост�
   await fetch(`${backend}/__requests`, { method: "DELETE" });
   await page.goto(programme);
   await programmeReady(page)();
+  await openProgrammeChapter(page, 1);
   await shellPrefetched(materialShell);
   const neighboringLesson = "navigation-lesson-2";
-  const lessonLink = (slug = freeLesson) =>
-    page
-      .locator(`[data-product-programme] a[href*='/materials/${slug}']`)
-      .first();
+  const lessonLink = (slug = freeLesson) => programmeLesson(page, slug);
   // Оба бесплатных урока уже посещены: фокус на соседе при возврате к программе может
   // предзагрузить его, и это тоже должно быть повторное чтение из памяти.
   for (const slug of [freeLesson, neighboringLesson]) {
     await lessonLink(slug).click();
     await lessonReady(page, slug)();
     await (await readerProgrammeLink(page)).click();
-    await programmeReady(page)();
+    await programmeReturned(page, slug)();
     await personalPartLanded(page);
   }
   // Закрытый урок гостю не кешируется целиком: его личная часть читает backend при любом кеше,
-  // поэтому чтения без токена в этом круге есть всегда.
-  await page
-    .locator(`[data-product-programme] a[href*='/materials/${paidLesson}']`)
-    .first()
-    .click();
+  // поэтому чтения без токена в этом круге есть всегда. Он во второй главе.
+  await pageChapter(page, "Следующая");
+  await lessonLink(paidLesson).click();
   await lessonReady(page, paidLesson)();
   await (await readerProgrammeLink(page)).click();
-  await programmeReady(page)();
+  await programmeReturned(page, paidLesson)();
   await personalPartLanded(page);
+  await pageChapter(page, "Предыдущая");
 
   const firstRound = await backendRequests();
   expect(
@@ -957,9 +966,8 @@ test("закрытое тело не попадает ни в предзагру
 
   await page.goto(programme);
   await programmeReady(page)();
-  const lessonLink = page
-    .locator(`[data-product-programme] a[href*='/materials/${paidLesson}']`)
-    .first();
+  await openProgrammeChapter(page, 2);
+  const lessonLink = programmeLesson(page, paidLesson);
   // Вошедшему платный урок открыт: личная часть программы пришла с его доступностью.
   await expect(
     page.locator(
@@ -1037,14 +1045,12 @@ test("снимки перехода «программа → урок → про
   const loading = page.locator("main [aria-busy='true']").first();
   await page.goto(programme);
   await programmeReady(page)();
+  await openProgrammeChapter(page, 2);
   await shellPrefetched(materialShell);
   await setBackendDelay(1_500);
 
   const lessonAnchors = ["[data-reader-top-actions]", "[data-reader-header]"];
-  await page
-    .locator(`[data-product-programme] a[href*='/materials/${paidLesson}']`)
-    .first()
-    .click();
+  await programmeLesson(page, paidLesson).click();
   await expect(loading).toBeVisible();
   await expect(
     page.locator(
@@ -1062,9 +1068,10 @@ test("снимки перехода «программа → урок → про
   ).toEqual(lessonSharedPart);
   await page.screenshot({ path: evidenceFile(`lesson-ready-${project}.png`) });
 
-  // Возврат в программу за пределами окна кеша снимается на свежей странице урока.
+  // Возврат в программу за пределами окна кеша снимается на свежей странице урока. Урок открыт из
+  // программы, поэтому возврат несёт его адрес и открывает окно его главы.
   await page.goto(
-    `/materials/${paidLesson}?from=${encodeURIComponent(programme)}`,
+    `/materials/${paidLesson}?from=${encodeURIComponent(`${programme}?page=1&at=${paidLesson}`)}`,
   );
   await lessonReady(page, paidLesson)();
   const returnLink = await readerProgrammeLink(page);
@@ -1075,7 +1082,7 @@ test("снимки перехода «программа → урок → про
   const programmeAnchors = [
     "[data-programme-part='back']",
     "[data-programme-part='header']",
-    "[data-product-ordinal='1']",
+    "[data-chapter-tile]",
   ];
   await expect(
     page
@@ -1091,7 +1098,7 @@ test("снимки перехода «программа → урок → про
   ).toHaveCount(0);
   expect(
     await boxesOf(page, programmeAnchors),
-    "личная часть программы не двигает шапку и первый урок",
+    "личная часть программы не двигает шапку и первую главу",
   ).toEqual(programmeSharedPart);
   await page.screenshot({
     path: evidenceFile(`programme-ready-${project}.png`),

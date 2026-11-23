@@ -1,5 +1,4 @@
 import { ChevronDown } from "lucide-react";
-import type { ReactNode } from "react";
 
 import type { ProductChapter } from "@/features/library-discovery";
 
@@ -7,57 +6,41 @@ import { parseChapterSummary } from "./course-roadmap";
 import { ChapterTopic } from "./course-roadmap-view";
 import "./course-programme-overview.css";
 
-/** Chapter copy remains authored in ProductChapter.summary on the programme page. */
+/**
+ * Темы и абзацы описания главы после её итога, свёрнутые в «Темы и практика». Итог главы окно главы
+ * показывает в своей шапке, поэтому здесь его нет. Описание без тем ничего не рисует.
+ */
 export function ChapterSummary({
   name,
   summary,
-  showOutcome = true,
-  progress,
-}: Pick<ProductChapter, "name" | "summary"> & {
-  readonly showOutcome?: boolean;
-  readonly progress?: ReactNode;
-}) {
-  const { outcome, sections } = parseChapterSummary(summary);
-  if (outcome === "") return progress ?? null;
-  const content = (
-    <div className="course-chapter-content">
-      {sections.map((section, index) =>
-        section.kind === "topics" ? (
-          <ul key={index}>
-            {section.topics.map((topic, itemIndex) => (
-              <li key={itemIndex}>
-                <ChapterTopic text={topic} />
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p key={index}>{section.text}</p>
-        ),
-      )}
-    </div>
-  );
+}: Pick<ProductChapter, "name" | "summary">) {
+  const { sections } = parseChapterSummary(summary);
+  if (sections.length === 0) return null;
   return (
     <div className="course-chapter-summary">
-      {showOutcome ? <p className="course-chapter-outcome">{outcome}</p> : null}
-      {sections.length === 0 ? (
-        progress
-      ) : (
-        <div className="course-chapter-disclosure">
-          {progress}
-          <details className="course-chapter-details">
-            <summary>
-              <span className="course-chapter-details-label">
-                Темы и практика<span className="sr-only"> главы «{name}»</span>
-              </span>
-              <ChevronDown aria-hidden="true" />
-            </summary>
-            {!showOutcome ? (
-              <p className="course-chapter-outcome">{outcome}</p>
-            ) : null}
-            {content}
-          </details>
+      <details className="course-chapter-details">
+        <summary>
+          <span className="course-chapter-details-label">
+            Темы и практика<span className="sr-only"> главы «{name}»</span>
+          </span>
+          <ChevronDown aria-hidden="true" />
+        </summary>
+        <div className="course-chapter-content">
+          {sections.map((section, index) =>
+            section.kind === "topics" ? (
+              <ul key={index}>
+                {section.topics.map((topic, itemIndex) => (
+                  <li key={itemIndex}>
+                    <ChapterTopic text={topic} />
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p key={index}>{section.text}</p>
+            ),
+          )}
         </div>
-      )}
+      </details>
     </div>
   );
 }
