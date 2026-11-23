@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import type { ReactNode } from "react";
-import { expect, userEvent, within } from "storybook/test";
+import { expect, userEvent, waitFor, within } from "storybook/test";
 
 import {
   MaterialReadingScope,
@@ -427,9 +427,12 @@ export const ChapterWindow: Story = {
     ).toBeVisible();
     await userEvent.keyboard("{Escape}");
     await expect(dialog.open).toBe(false);
-    await expect(
-      tile(canvasElement, "Тестирование, проверки, фидбэк и evals"),
-    ).toHaveFocus();
+    // Focus returns on the dialog's close event, which the browser dispatches as a later task.
+    await waitFor(async () => {
+      await expect(
+        tile(canvasElement, "Тестирование, проверки, фидбэк и evals"),
+      ).toHaveFocus();
+    });
   },
 };
 export const ChapterWindowMobile: Story = { ...ChapterWindow, globals: mobile };
