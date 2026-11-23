@@ -351,12 +351,15 @@
   background: var(--cover-sand);
 }
 
-/* Общие детали иллюстраций: белые плашки с тенью, значки lucide, ничто не касается. */
-.aie-bento-art svg {
+/*
+ * Общие детали прежних иллюстраций: белые плашки с тенью, значки lucide, ничто не касается.
+ * Рисунок с `data-art` строит свои формы сам и плашек не наследует.
+ */
+.aie-bento-art svg:where(:not([data-art] svg)) {
   width: 0.95rem;
   height: 0.95rem;
 }
-.aie-bento-art span {
+.aie-bento-art span:where(:not([data-art] span)) {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -407,44 +410,6 @@
 }
 .aie-art-pipeline span svg {
   color: var(--callout-good);
-}
-
-.aie-art-agent {
-  display: grid;
-  grid-template-columns: auto auto auto auto auto;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem 0.5rem;
-}
-.aie-art-agent .aie-art-agent-core {
-  padding: 0.75rem 1.1rem;
-  background: var(--accent);
-  color: var(--accent-foreground);
-  font-size: 1rem;
-}
-.aie-art-agent .aie-art-agent-core svg {
-  width: 1.1rem;
-  height: 1.1rem;
-}
-.aie-art-agent .aie-art-agent-arrow {
-  width: 1.1rem;
-  height: 1.1rem;
-  color: var(--cover-coral-foreground);
-}
-.aie-art-agent-end svg {
-  color: var(--accent);
-}
-.aie-art-agent-tools {
-  grid-column: 1 / -1;
-  display: flex;
-  justify-content: center;
-  gap: 0.6rem;
-  padding-top: 0.9rem;
-  border-top: 1.5px dashed
-    color-mix(in srgb, var(--cover-coral-foreground) 35%, transparent);
-}
-.aie-art-agent-tools span svg {
-  color: var(--accent);
 }
 
 .aie-art-guard {
@@ -1337,29 +1302,10 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
-/* Три шага агента перестают помещаться в узкой карточке планшетной сетки. */
-@media (max-width: 55.999rem) {
-  .aie-art-agent {
-    grid-template-columns: auto;
-    justify-items: center;
-  }
-  .aie-art-agent .aie-art-agent-arrow {
-    transform: rotate(90deg);
-  }
-  .aie-art-agent-tools {
-    flex-wrap: wrap;
-  }
-}
 @media (max-width: 47.999rem) {
   /* Телефон — основной экран: всё в одну колонку, без висящих связок и пустых плашек. */
-  .aie-bento-art span {
+  .aie-bento-art span:where(:not([data-art] span)) {
     font-size: 0.78rem;
-  }
-  .aie-art-agent-tools {
-    gap: 0.4rem;
-  }
-  .aie-art-agent-tools span {
-    padding: 0.45rem 0.55rem;
   }
   .aie-format-art {
     aspect-ratio: 2 / 1;
@@ -1991,91 +1937,6 @@
   color: var(--muted-foreground);
 }
 
-.aie-art-modules {
-  display: grid;
-  gap: 0.4rem;
-  width: min(100%, 12rem);
-}
-.aie-art-modules > div {
-  display: grid;
-  gap: 0.15rem;
-  padding: 0.45rem 0.65rem;
-  border-radius: 0.6rem;
-  background: var(--background);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 6%);
-}
-.aie-art-modules b,
-.aie-art-modules i {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-family: var(--font-utility);
-  font-size: 0.76rem;
-  font-style: normal;
-  line-height: 1.3;
-}
-.aie-art-modules i {
-  font-size: 0.68rem;
-  color: var(--muted-foreground);
-}
-.aie-art-story {
-  display: grid;
-  gap: 0.45rem;
-  width: min(100%, 13rem);
-}
-.ai-product-page .aie-art-story p {
-  margin: 0;
-  padding: 0.6rem 0.75rem;
-  border-radius: 0.6rem;
-  background: var(--background);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 6%);
-  font-size: 0.8rem;
-  font-weight: 550;
-  line-height: 1.4;
-}
-.aie-art-story > span:last-child svg {
-  color: var(--callout-good);
-}
-
-.aie-art-checks {
-  display: grid;
-  gap: 0.4rem;
-}
-.aie-art-checks svg {
-  color: var(--callout-good);
-}
-
-.aie-art-sdd {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-}
-.aie-bento-art .aie-art-sdd > span {
-  gap: 0.4rem;
-  padding: 0;
-  background: transparent;
-  box-shadow: none;
-}
-.aie-art-sdd b {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.6rem;
-  background: var(--background);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 6%);
-  font-weight: 600;
-}
-.aie-art-sdd > span:first-child b {
-  background: var(--accent);
-  color: var(--accent-foreground);
-}
-.aie-bento-art .aie-art-sdd-arrow {
-  color: var(--muted-foreground);
-}
-
 .aie-art-security {
   display: grid;
   justify-items: center;
@@ -2101,6 +1962,812 @@
 }
 .aie-art-security [data-denied="true"] svg {
   color: var(--callout-bad);
+}
+
+/*
+ * ---------- Что изучим: рисунки по форме темы ----------
+ * У каждой темы своя форма: слои, шкала, переписка, документ, схема, терминал, запись, аватары,
+ * орбита, лог и доска. Цвет рисунка берётся из тона плитки (`--tile-ink`, `--tile-bg`), поэтому
+ * рисунок читается на любом тоне и в тёмной теме.
+ */
+.aie-bento > li {
+  --tile-ink: var(--foreground);
+  --tile-bg: var(--secondary);
+}
+.aie-bento > li[data-tone="ink"] {
+  --tile-ink: var(--accent-bright);
+  --tile-bg: var(--primary);
+}
+.aie-bento > li[data-tone="example"] {
+  --tile-ink: var(--callout-example);
+  --tile-bg: color-mix(in srgb, var(--callout-example) 11%, var(--background));
+}
+.aie-bento > li[data-tone="good"] {
+  --tile-ink: var(--callout-good);
+  --tile-bg: color-mix(in srgb, var(--callout-good) 11%, var(--background));
+}
+.aie-bento > li[data-tone="coral"] {
+  --tile-ink: var(--cover-coral-foreground);
+  --tile-bg: var(--cover-coral);
+}
+.aie-bento > li[data-tone="blue"] {
+  --tile-ink: var(--cover-blue-foreground);
+  --tile-bg: var(--cover-blue);
+}
+.aie-bento > li[data-tone="lavender"] {
+  --tile-ink: var(--cover-lavender-foreground);
+  --tile-bg: var(--cover-lavender);
+}
+.aie-bento > li[data-tone="sand"] {
+  --tile-ink: var(--cover-sand-foreground);
+  --tile-bg: var(--cover-sand);
+}
+[data-art] svg {
+  flex: none;
+  width: 0.95rem;
+  height: 0.95rem;
+}
+[data-art] code {
+  font-family: var(--font-utility);
+  font-size: 0.7rem;
+}
+[data-art] ol,
+[data-art] ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Свой harness: агент внутри слоёв, которые настраиваешь ты. */
+.aie-art-harness {
+  width: min(100%, 22rem);
+  font-size: 0.82rem;
+}
+.aie-art-harness div {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.5rem 0.7rem 0.7rem;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  border-radius: 1.1rem;
+  background: color-mix(in srgb, currentColor 5%, transparent);
+}
+.aie-art-harness div div {
+  border-radius: 0.85rem;
+}
+.aie-art-harness div div div {
+  border-radius: 0.65rem;
+}
+.aie-art-harness code {
+  justify-self: start;
+  color: color-mix(in srgb, currentColor 72%, transparent);
+}
+.aie-art-harness-core {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  font-weight: 650;
+}
+
+/* Пайплайн: шкала этапов, задача сейчас на реализации. */
+.aie-art-steps {
+  display: grid;
+  gap: 0.55rem;
+  width: min(100%, 11rem);
+}
+.aie-art-steps li {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 1.25rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+}
+.aie-art-steps i {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 1.5px solid var(--tile-ink);
+  border-radius: 50%;
+  background: var(--background);
+}
+.aie-art-steps li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 1.25rem;
+  left: calc(0.625rem - 0.75px);
+  height: 0.55rem;
+  border-left: 1.5px solid var(--tile-ink);
+}
+.aie-art-steps li[data-state="done"] i {
+  background: var(--tile-ink);
+  color: var(--background);
+}
+.aie-art-steps li[data-state="done"] svg {
+  width: 0.75rem;
+  height: 0.75rem;
+  stroke-width: 3;
+}
+.aie-art-steps li[data-state="current"] i {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+.aie-art-steps li[data-state="current"] i::after {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.aie-art-steps li[data-state="current"]::after,
+.aie-art-steps li[data-state="next"]::after {
+  border-left-style: dashed;
+  border-color: var(--muted-foreground);
+}
+.aie-art-steps li[data-state="next"] {
+  color: var(--muted-foreground);
+}
+.aie-art-steps li[data-state="next"] i {
+  border-color: color-mix(in srgb, var(--muted-foreground) 60%, transparent);
+}
+
+/* Проектирование: переписка, в которой спорный случай становится решением. */
+.aie-art-chat {
+  display: grid;
+  gap: 0.6rem;
+  width: min(100%, 15rem);
+  font-size: 0.8rem;
+  font-weight: 550;
+  line-height: 1.4;
+}
+.aie-art-chat [data-from] {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.45rem;
+}
+.aie-art-chat [data-from] > span {
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.9rem;
+}
+.aie-art-chat [data-from="agent"] > span {
+  border-bottom-left-radius: 0.25rem;
+  background: var(--background);
+  color: var(--foreground);
+}
+.aie-art-chat [data-from="agent"] i {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  background: var(--tile-ink);
+  color: var(--background);
+}
+.aie-art-chat [data-from="you"] {
+  justify-content: flex-end;
+  padding-left: 1.6rem;
+}
+.aie-art-chat [data-from="you"] > span {
+  border-bottom-right-radius: 0.25rem;
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+/* Spec-Driven Development: спецификация с критериями делится на задачи. */
+.aie-art-spec {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  width: min(100%, 27rem);
+}
+.aie-art-spec-doc {
+  display: grid;
+  flex: 1 1 14rem;
+  gap: 0.3rem;
+  min-width: 0;
+  padding: 0.8rem 1rem 0.95rem;
+  border-radius: 0.75rem;
+  background: var(--background);
+  color: var(--foreground);
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 6%),
+    0 10px 20px -14px color-mix(in srgb, var(--tile-ink) 60%, transparent);
+}
+.aie-art-spec-doc code {
+  color: var(--muted-foreground);
+}
+.aie-art-spec-doc b {
+  margin-bottom: 0.3rem;
+  font-size: 0.9rem;
+  line-height: 1.3;
+}
+.aie-art-spec-doc > span {
+  color: var(--tile-ink);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+.aie-art-spec-doc ul {
+  display: grid;
+  gap: 0.3rem;
+}
+.aie-art-spec-doc li {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.76rem;
+  line-height: 1.3;
+}
+.aie-art-spec-doc li svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  padding: 0.1rem;
+  border-radius: 0.2rem;
+  background: var(--tile-ink);
+  color: var(--background);
+  stroke-width: 3.5;
+}
+.aie-art-spec-tasks {
+  display: grid;
+  flex: none;
+  gap: 0.45rem;
+  padding-left: 1rem;
+  border-left: 1.5px solid color-mix(in srgb, var(--tile-ink) 45%, transparent);
+}
+.aie-art-spec-tasks li {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--background) 72%, transparent);
+  color: var(--foreground);
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.aie-art-spec-tasks li::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: -1rem;
+  width: 1rem;
+  border-top: 1.5px solid color-mix(in srgb, var(--tile-ink) 45%, transparent);
+}
+.aie-art-spec-tasks code {
+  color: var(--tile-ink);
+  font-weight: 700;
+}
+@container (width < 26rem) {
+  .aie-art-spec {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .aie-art-spec-doc {
+    flex-basis: auto;
+  }
+  .aie-art-spec-tasks {
+    margin-left: 1rem;
+  }
+}
+
+/* Модули: обращаться можно только через разрешённую границу. */
+.aie-art-graph {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 0.6rem;
+  width: min(100%, 13rem);
+}
+.aie-art-graph code {
+  padding: 0.55rem 0.4rem;
+  border: 1px solid color-mix(in srgb, var(--tile-ink) 30%, transparent);
+  border-radius: 0.55rem;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-align: center;
+}
+.aie-art-graph .aie-art-graph-top {
+  grid-column: 1 / -1;
+}
+.aie-art-graph [data-allowed] {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 3rem;
+}
+.aie-art-graph [data-allowed]::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(50% - 0.75px);
+  border-left: 1.5px solid var(--tile-ink);
+}
+.aie-art-graph [data-allowed="false"]::before {
+  border-left-style: dashed;
+  border-color: var(--callout-bad);
+}
+.aie-art-graph [data-allowed] svg {
+  position: relative;
+  width: 1.15rem;
+  height: 1.15rem;
+  padding: 0.15rem;
+  border-radius: 50%;
+  background: var(--tile-ink);
+  color: var(--background);
+  stroke-width: 3;
+}
+.aie-art-graph [data-allowed="false"] svg {
+  background: var(--callout-bad);
+}
+
+/* Автоматические проверки: вывод проверок в терминале, одна ловит ошибку агента. */
+.aie-art-term {
+  display: grid;
+  gap: 0.3rem;
+  width: min(100%, 14rem);
+  padding: 0.6rem 0.85rem 0.85rem;
+  border-radius: 0.75rem;
+  background: var(--ink-surface);
+  color: var(--ink-surface-foreground);
+  font-family: var(--font-utility);
+  font-size: 0.72rem;
+  line-height: 1.5;
+  box-shadow: 0 10px 22px -14px rgb(0 0 0 / 45%);
+}
+.aie-art-term-bar {
+  display: flex;
+  gap: 0.3rem;
+  margin-bottom: 0.3rem;
+}
+.aie-art-term-bar i {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: color-mix(
+    in srgb,
+    var(--ink-surface-foreground) 25%,
+    transparent
+  );
+}
+.aie-art-term code {
+  color: color-mix(in srgb, var(--ink-surface-foreground) 62%, transparent);
+}
+.aie-art-term [data-ok] {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  white-space: nowrap;
+}
+.aie-art-term svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  stroke-width: 3;
+}
+.aie-art-term [data-ok="true"] svg {
+  color: color-mix(
+    in srgb,
+    var(--callout-good) 55%,
+    var(--ink-surface-foreground)
+  );
+}
+.aie-art-term [data-ok="false"] {
+  color: color-mix(
+    in srgb,
+    var(--callout-bad) 45%,
+    var(--ink-surface-foreground)
+  );
+}
+
+/* Proof of work: pull request с записью сценария и пройденными проверками. */
+.aie-art-proof {
+  display: grid;
+  grid-template-areas:
+    "head head"
+    "video list";
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem 1rem;
+  width: min(100%, 27rem);
+  padding: 0.9rem;
+  border-radius: 0.9rem;
+  background: var(--background);
+  color: var(--foreground);
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 6%),
+    0 12px 24px -16px color-mix(in srgb, var(--tile-ink) 60%, transparent);
+}
+.aie-art-proof-head {
+  grid-area: head;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.aie-art-proof-head svg {
+  color: var(--tile-ink);
+}
+.aie-art-proof-video {
+  grid-area: video;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 7.5rem;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border-radius: 0.55rem;
+  background: var(--ink-surface);
+}
+.aie-art-proof-video::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 62%;
+  height: 3px;
+  background: var(--accent);
+}
+.aie-art-proof-video i {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+.aie-art-proof-video i svg {
+  width: 0.8rem;
+  height: 0.8rem;
+  margin-left: 0.1rem;
+  fill: currentColor;
+}
+.aie-art-proof-video code {
+  position: absolute;
+  right: 0.35rem;
+  bottom: 0.4rem;
+  color: var(--ink-surface-foreground);
+  font-size: 0.62rem;
+}
+.aie-art-proof ul {
+  grid-area: list;
+  display: grid;
+  gap: 0.4rem;
+}
+.aie-art-proof li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  font-size: 0.76rem;
+  line-height: 1.3;
+}
+.aie-art-proof li svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  margin-top: 0.05rem;
+  color: var(--callout-good);
+  stroke-width: 3;
+}
+/* На узкой плитке запись становится миниатюрой, сценарии остаются рядом с ней. */
+@container (width < 26rem) {
+  .aie-art-proof {
+    gap: 0.75rem;
+  }
+  .aie-art-proof-video {
+    width: 5.5rem;
+  }
+}
+
+/* Ревью и Human in the loop: агенты проверяют, решение за тобой. */
+.aie-art-review {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  width: min(100%, 14rem);
+}
+.aie-art-review-bots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  row-gap: 0.35rem;
+}
+.aie-art-review-bots i {
+  display: grid;
+  place-items: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border: 2px solid var(--tile-bg);
+  border-radius: 50%;
+  background: var(--background);
+  color: var(--tile-ink);
+}
+.aie-art-review-bots i + i {
+  margin-left: -0.55rem;
+}
+.aie-art-review-bots b {
+  flex-basis: 100%;
+  color: var(--tile-ink);
+  font-family: var(--font-utility);
+  font-size: 0.68rem;
+  font-weight: 500;
+  text-align: center;
+}
+.aie-art-review-you {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.95rem;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 0.82rem;
+  font-weight: 650;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+.aie-art-review-you svg {
+  color: var(--accent-bright);
+}
+.aie-art-review-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+.aie-art-review-actions b {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--foreground) 18%, transparent);
+  border-radius: 0.5rem;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 0.74rem;
+  font-weight: 650;
+}
+.aie-art-review-actions b[data-primary="true"] {
+  border-color: transparent;
+  background: var(--callout-good);
+  color: var(--background);
+}
+.aie-art-review-actions svg {
+  width: 0.8rem;
+  height: 0.8rem;
+  stroke-width: 3;
+}
+
+/* Собственные агенты: агент в центре, вокруг то, чем он пользуется и что его ограничивает. */
+.aie-art-orbit {
+  position: relative;
+  display: grid;
+  grid-template-areas:
+    ". n ."
+    "w c e"
+    ". s .";
+  grid-template-columns: 5.5rem auto 5.5rem;
+  grid-template-rows: 2.4rem auto 2.4rem;
+  align-items: center;
+  justify-items: center;
+  gap: 0.6rem 0.25rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+/* Орбита проходит через центры спутников: половина строки сверху и снизу, половина колонки по бокам. */
+.aie-art-orbit::before {
+  content: "";
+  position: absolute;
+  inset: 1.2rem 2.75rem;
+  border: 1.5px dashed color-mix(in srgb, currentColor 32%, transparent);
+  border-radius: 50%;
+}
+.aie-art-orbit-core {
+  grid-area: c;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.85rem 1.2rem;
+  border-radius: 1rem;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  font-size: 0.95rem;
+  font-weight: 700;
+  box-shadow: 0 0 0 0.5rem color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.aie-art-orbit-core svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+.aie-art-orbit [data-pos] {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.5rem 0.2rem 0.2rem;
+  border-radius: 999px;
+  background: var(--tile-bg);
+}
+.aie-art-orbit [data-pos="n"] {
+  grid-area: n;
+}
+.aie-art-orbit [data-pos="e"] {
+  grid-area: e;
+}
+.aie-art-orbit [data-pos="s"] {
+  grid-area: s;
+}
+.aie-art-orbit [data-pos="w"] {
+  grid-area: w;
+}
+.aie-art-orbit [data-pos] i {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+  border-radius: 50%;
+}
+.aie-art-orbit [data-pos] svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  color: var(--tile-ink);
+}
+
+/* Агенты в продакшене: всплеск ошибок, алерт и задача, которую завёл агент. */
+.aie-art-ops {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  align-items: center;
+  gap: 1rem;
+  width: min(100%, 28rem);
+}
+.aie-art-ops-chart {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.65rem 0.75rem 0.6rem;
+  border-radius: 0.75rem;
+  background: var(--background);
+  color: var(--foreground);
+}
+.aie-art-ops-chart > span {
+  color: var(--muted-foreground);
+  font-family: var(--font-utility);
+  font-size: 0.64rem;
+}
+.aie-art-ops-chart > div {
+  position: relative;
+}
+.aie-art-ops-chart svg {
+  display: block;
+  width: 100%;
+  height: 3.5rem;
+  overflow: visible;
+}
+/* Точка всплеска стоит над вершиной линии (82, 12 из 120 × 48) при любой ширине графика. */
+.aie-art-ops-chart i {
+  position: absolute;
+  top: 25%;
+  left: calc(82 / 120 * 100%);
+  width: 0.55rem;
+  height: 0.55rem;
+  border: 1.5px solid var(--background);
+  border-radius: 50%;
+  background: var(--accent);
+  translate: -50% -50%;
+}
+.aie-art-ops-chart polyline {
+  fill: none;
+  stroke: var(--tile-ink);
+  stroke-linejoin: round;
+  stroke-width: 1.75;
+  vector-effect: non-scaling-stroke;
+}
+.aie-art-ops ol {
+  display: grid;
+  gap: 0.45rem;
+}
+.aie-art-ops li {
+  display: grid;
+  grid-template-columns: 2.4rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+.aie-art-ops li code {
+  color: var(--tile-ink);
+}
+.aie-art-ops li > span {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  padding: 0.4rem 0.6rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--background) 75%, transparent);
+  color: var(--foreground);
+}
+.aie-art-ops li[data-agent="true"] > span {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.aie-art-ops li[data-agent="true"] svg {
+  color: var(--accent-bright);
+}
+@container (width < 24rem) {
+  .aie-art-ops {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Software factory: доска, по которой задачи идут от очереди до merge. */
+.aie-art-board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 0.45rem;
+  width: min(100%, 28rem);
+}
+.aie-art-board > div {
+  display: grid;
+  align-content: start;
+  gap: 0.35rem;
+  min-height: 7rem;
+  padding: 0.45rem;
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--tile-ink) 9%, transparent);
+}
+.aie-art-board b {
+  padding: 0.1rem 0.2rem 0.15rem;
+  color: var(--tile-ink);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+.aie-art-board [data-state] {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+  padding: 0.45rem 0.5rem;
+  border-radius: 0.45rem;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 0.72rem;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 6%);
+  overflow-wrap: anywhere;
+}
+.aie-art-board [data-state] svg {
+  width: 0.8rem;
+  height: 0.8rem;
+  color: var(--tile-ink);
+}
+.aie-art-board [data-state="done"] svg {
+  color: var(--callout-good);
+  stroke-width: 3;
+}
+@container (width < 26rem) {
+  .aie-art-board {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .aie-art-board > div {
+    min-height: 0;
+  }
 }
 
 /* ---------- Планшет и телефон ---------- */
