@@ -1,5 +1,6 @@
 import {
   formatCohortDate,
+  saleDiscount,
   type ProductSalesState,
   type PriceSnapshot,
 } from "@/entities/subscription";
@@ -58,6 +59,15 @@ export function cohortCall({
   const programmeAction = freeStart ? null : openProgramme;
 
   const payable = offer !== null;
+  // Действующая скидка стоит в метке рядом с набором: метка ведёт к цене (решение владельца
+  // 23.11.2026). Без скидки метка остаётся короткой.
+  const discount = saleDiscount(offer);
+  const discountDetail =
+    discount === null
+      ? ""
+      : discount.until === null
+        ? discount.percent
+        : `${discount.percent} ${discount.until}`;
 
   switch (cohort.stage) {
     case "announcement":
@@ -72,9 +82,8 @@ export function cohortCall({
         banner: {
           kind: "live",
           text: "Идёт набор на первый поток",
-          // Сколько дней до старта, говорит наклейка на анимации; метка остаётся короткой и на
-          // узком телефоне помещается в одну строку.
-          detail: "",
+          // Сколько дней до старта, говорит наклейка на анимации; метка называет только скидку.
+          detail: discountDetail,
           href: `#${cohortEnrollAnchor}`,
         },
         action: null,
@@ -90,7 +99,7 @@ export function cohortCall({
             banner: {
               kind: "live",
               text: "Можно начать уже сейчас",
-              detail: "",
+              detail: discountDetail,
               href: `#${cohortEnrollAnchor}`,
             },
             action: null,

@@ -102,6 +102,7 @@ export class BillingService {
           priceRevision: number;
         };
         promotion: {
+          endsAt?: string;
           id: string;
           name: string;
           percent: number;
@@ -192,6 +193,7 @@ export class BillingService {
         priceRevision: number;
       };
       promotion: {
+        endsAt?: string;
         id: string;
         name: string;
         percent: number;
@@ -285,6 +287,7 @@ export class BillingService {
         priceRevision: number;
       };
       promotion: {
+        endsAt?: string;
         id: string;
         name: string;
         percent: number;
@@ -367,6 +370,7 @@ export class BillingService {
         priceRevision: number;
       };
       promotion: {
+        endsAt?: string;
         id: string;
         name: string;
         percent: number;
@@ -451,6 +455,7 @@ export class BillingService {
         priceRevision: number;
       };
       promotion: {
+        endsAt?: string;
         id: string;
         name: string;
         percent: number;
@@ -697,6 +702,7 @@ export class BillingService {
             priceRevision: number;
           };
           promotion: {
+            endsAt?: string;
             id: string;
             name: string;
             percent: number;
@@ -756,6 +762,7 @@ export class BillingService {
             priceRevision: number;
           };
           promotion: {
+            endsAt?: string;
             id: string;
             name: string;
             percent: number;
@@ -874,6 +881,7 @@ export class BillingService {
           priceRevision: number;
         };
         promotion: {
+          endsAt?: string;
           id: string;
           name: string;
           percent: number;
@@ -961,6 +969,7 @@ export class BillingService {
             priceRevision: number;
           };
           promotion: {
+            endsAt?: string;
             id: string;
             name: string;
             percent: number;
@@ -1075,6 +1084,7 @@ export class BillingService {
             priceRevision: number;
           };
           promotion: {
+            endsAt?: string;
             id: string;
             name: string;
             percent: number;
@@ -1148,6 +1158,7 @@ export class BillingService {
             priceRevision: number;
           };
           promotion: {
+            endsAt?: string;
             id: string;
             name: string;
             percent: number;
@@ -1310,6 +1321,7 @@ export class BillingService {
         priceRevision: number;
       };
       promotion: {
+        endsAt?: string;
         id: string;
         name: string;
         percent: number;
@@ -1393,6 +1405,7 @@ export class BillingService {
         priceRevision: number;
       };
       promotion: {
+        endsAt?: string;
         id: string;
         name: string;
         percent: number;

@@ -16,6 +16,7 @@ import type { ReactNode } from "react";
 
 import { mountApplicationShell } from "./application-shell.browser";
 import { cn } from "@/shared/lib/utils";
+import { ApplicationAnnouncementSlot } from "@/shared/ui/application-announcement.client";
 import { InsideBrand } from "./inside-brand";
 import { PublicFooter } from "./public-footer";
 
@@ -71,6 +72,7 @@ export function ApplicationShell({
       >
         Перейти к содержанию
       </a>
+      <ApplicationAnnouncementSlot />
       <header
         className="public-header sticky top-0 z-40 hidden shrink-0 border-b border-border bg-background lg:block"
         data-public-header

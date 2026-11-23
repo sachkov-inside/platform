@@ -544,8 +544,12 @@
   grid-area: call;
   align-self: start;
 }
-.home-course-film {
+/* Рамка держит наклейку скидки на углу анимации; наклейка выходит за её верхний край. */
+.home-course-film-frame {
   grid-area: film;
+  position: relative;
+}
+.home-course-film {
   display: block;
   border-radius: 1.25rem;
 }
@@ -570,16 +574,23 @@
     display: block;
     margin-bottom: 0.75rem;
   }
+  /* Окно анимации скруглено само; блок не обрезает края, чтобы наклейка скидки выходила за верх. */
   .home-course-visual {
     display: block;
-    overflow: hidden;
     border-radius: 1.25rem;
     background: var(--primary);
+  }
+  .home-course-visual:has(.sale-discount-badge) {
+    margin-top: 1.25rem;
   }
   .home-course-call {
     display: flex;
     justify-content: flex-end;
     padding: 0 1rem 1rem;
+  }
+  /* Кнопки «Открыть курс» на телефоне нет: курс открывают окно анимации и название. */
+  .home-course-call:has(> .home-course-open-course) {
+    display: none;
   }
   .home-course-call .aie-hero-action,
   .home-course-call .home-course-open {

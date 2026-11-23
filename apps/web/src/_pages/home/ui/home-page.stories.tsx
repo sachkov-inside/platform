@@ -10,6 +10,8 @@ import {
 import { getQueryClient } from "@/shared/api/query-client";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 import { HomePage } from "./home-page";
+import { saleDiscount, SaleDiscountBadge } from "@/entities/subscription";
+import { productWithSupportOffer } from "@/storybook/billing.fixtures";
 import {
   CohortCallView,
   courseLearningAction,
@@ -308,13 +310,68 @@ export const AiEngineeringCourse: Story = {
         name: /^AI Engineering/u,
       }),
     ).toBeVisible();
+    // Тот, кто курс ещё не проходит, открывает страницу курса (решение владельца 23.11.2026).
     await expect(
-      within(card).getByRole("link", { name: "Посмотреть программу" }),
-    ).toHaveAttribute("href", "/products/ai-engineering/programme");
+      within(card).getByRole("link", { name: "Открыть курс" }),
+    ).toHaveAttribute("href", "/products/ai-engineering?from=%2F");
   },
 };
 export const AiEngineeringCourseMobile: Story = {
   ...AiEngineeringCourse,
+  globals: mobile.globals,
+  play: async ({ canvasElement }) => {
+    const card = canvasElement.querySelector<HTMLElement>(
+      '[data-product-presentation="ai-engineering-course"]',
+    );
+    if (card === null) throw new Error("Карточка курса не отрисована");
+    // На телефоне кнопки на анимации нет: курс открывают окно анимации и название.
+    await expect(
+      within(card).queryByRole("link", { name: "Открыть курс" }),
+    ).toBeNull();
+    await expect(
+      within(card).getByRole("link", { name: "Открыть курс AI Engineering" }),
+    ).toBeVisible();
+  },
+};
+
+const blackFriday = saleDiscount({
+  ...productWithSupportOffer,
+  promotion: {
+    id: "00000000-0000-4000-8000-000000000901",
+    revision: 1,
+    name: "Чёрная пятница",
+    percent: 25,
+    endsAt: "2026-11-30T21:00:00.000Z",
+  },
+});
+if (blackFriday === null) throw new Error("Скидка не прочитана");
+
+/** Идёт скидка: наклейка на углу анимации курса (решение владельца 23.11.2026). */
+export const AiEngineeringCourseDiscount: Story = {
+  args: {
+    ...AiEngineeringCourse.args,
+    filmBadge: <SaleDiscountBadge discount={blackFriday} />,
+  },
+  globals: desktop.globals,
+  play: async ({ canvasElement }) => {
+    const card = canvasElement.querySelector<HTMLElement>(
+      '[data-product-presentation="ai-engineering-course"]',
+    );
+    if (card === null) throw new Error("Карточка курса не отрисована");
+    const badge = within(card).getByText(/^Скидка 25\s%\sдо 30 ноября$/u);
+    await expect(badge).toBeVisible();
+    // Наклейка выходит за верхний край окна анимации и не перекрывает ссылку на курс.
+    const film = within(card).getByRole("link", {
+      name: "Открыть курс AI Engineering",
+    });
+    await expect(badge.getBoundingClientRect().top).toBeLessThan(
+      film.getBoundingClientRect().top,
+    );
+    await expect(getComputedStyle(badge).pointerEvents).toBe("none");
+  },
+};
+export const AiEngineeringCourseDiscountMobile: Story = {
+  ...AiEngineeringCourseDiscount,
   globals: mobile.globals,
 };
 

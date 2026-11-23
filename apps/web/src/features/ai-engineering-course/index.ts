@@ -6,6 +6,7 @@ export {
   type CohortBanner,
   type CohortCall,
 } from "./ui/cohort-call";
+export { CourseDiscountStrip } from "./ui/course-discount-strip.client";
 export { CourseHero } from "./ui/course-hero";
 export { CourseLearningLink } from "./ui/course-learning-link";
 export { CourseMark } from "./ui/course-mark";

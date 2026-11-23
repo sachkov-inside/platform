@@ -2,7 +2,11 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { learningScenario as facts } from "../../../../scenarios/learning.mjs";
 import { commerceScenario } from "../../../../scenarios/commerce.mjs";
 import { realBffSession } from "../support/real-bff-session";
-import { readHomeCourseAction } from "@/_pages/home/api/home-course-action.server";
+import {
+  readHomeCourseAction,
+  readHomeCourseDiscount,
+} from "@/_pages/home/api/home-course-action.server";
+import { productWithSupportOffer } from "@/storybook/billing.fixtures";
 
 const productId = facts.product.id;
 const slug = facts.product.slug;
@@ -12,6 +16,7 @@ let access: "open" | "closed" | "unknown";
 let continuationSlug: string | null;
 let continuationUnavailable: boolean;
 let offersUnavailable: boolean;
+let promotion: Record<string, unknown> | null;
 let waitlistAvailable: boolean;
 let unexpected: string[];
 
@@ -24,6 +29,7 @@ beforeEach(async () => {
   continuationSlug = null;
   continuationUnavailable = false;
   offersUnavailable = false;
+  promotion = null;
   waitlistAvailable = false;
   unexpected = [];
   backend.mockImplementation((request) => {
@@ -40,7 +46,24 @@ beforeEach(async () => {
       case "/billing/product-prices":
         response = offersUnavailable
           ? new Response(null, { status: 503 })
-          : Response.json(page);
+          : Response.json(
+              promotion === null
+                ? page
+                : {
+                    items: [
+                      {
+                        ...productWithSupportOffer,
+                        product: {
+                          id: productId,
+                          name: facts.product.name,
+                          priceRevision: 1,
+                        },
+                        promotion,
+                      },
+                    ],
+                    nextCursor: null,
+                  },
+            );
         break;
       case "/billing/product-sales-states":
         response = Response.json(page);
@@ -135,4 +158,38 @@ it("keeps public course entry for guest, closed, unknown and unavailable reader 
 it("opens the programme when personal learning continuation is unavailable", async () => {
   continuationUnavailable = true;
   expect(await read()).toMatchObject({ label: "Открыть программу" });
+});
+
+const blackFriday = {
+  id: "00000000-0000-4000-8000-000000000901",
+  revision: 1,
+  name: "Чёрная пятница",
+  percent: 25,
+  endsAt: "2026-11-30T21:00:00.000Z",
+};
+const readDiscount = () =>
+  session(() => readHomeCourseDiscount(productId, slug));
+
+it("names the running discount to a guest and to an account without the course", async () => {
+  promotion = blackFriday;
+  session = await realBffSession(null);
+  expect(await readDiscount()).toEqual({
+    percent: "−25\u00a0%",
+    amount: "25\u00a0%",
+    name: "Чёрная пятница",
+    until: "до 30 ноября",
+  });
+  session = await realBffSession();
+  access = "closed";
+  expect(await readDiscount()).toMatchObject({ percent: "−25\u00a0%" });
+});
+it("shows no discount to a participant, without a Promotion or without prices", async () => {
+  promotion = blackFriday;
+  expect(await readDiscount()).toBeNull();
+  access = "closed";
+  promotion = null;
+  expect(await readDiscount()).toBeNull();
+  promotion = blackFriday;
+  offersUnavailable = true;
+  expect(await readDiscount()).toBeNull();
 });

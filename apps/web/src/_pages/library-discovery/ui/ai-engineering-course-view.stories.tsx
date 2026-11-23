@@ -8,11 +8,13 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, within } from "storybook/test";
 
 import {
+  saleDiscount,
   StartCountdownBadge,
   type ProductSalesState,
 } from "@/entities/subscription";
 import {
   CohortCallView,
+  CourseDiscountStrip,
   CourseLearningLink,
   CohortStatusView,
 } from "@/features/ai-engineering-course";
@@ -1292,5 +1294,130 @@ export const WaitlistExistingWithLearning: Story = {
       canvasElement.querySelector<HTMLElement>(".aie-status") ??
         fail("Нижний блок"),
     ).not.toBeVisible();
+  },
+};
+
+/**
+ * Идёт скидка (решение владельца 23.11.2026): над страницей короткая полоса со скидкой и переходом
+ * к цене, метка набора называет скидку, на анимации кнопка программы.
+ */
+const discountedOffer = {
+  ...preorderOffer,
+  promotion: {
+    id: "00000000-0000-4000-8000-000000000901",
+    revision: 1,
+    name: "Чёрная пятница",
+    percent: 25,
+    endsAt: "2026-11-30T21:00:00.000Z",
+  },
+};
+const runningDiscountStatus =
+  cohortStatus({
+    cohort: runningCohort,
+    offer: discountedOffer,
+    productAccess: "closed",
+    slug: "ai-engineering",
+    today: "2026-11-23",
+  }) ?? fail("Идущий поток с продажей рисует билет");
+export const RunningDiscount: Story = {
+  args: {
+    heroCall: (
+      <CohortCallView
+        call={cohortCall({
+          cohort: runningCohort,
+          offer: discountedOffer,
+          productAccess: "closed",
+          signedIn: false,
+          slug: "ai-engineering",
+        })}
+      />
+    ),
+    heroBadge: <CourseLearningLink intent="programme" slug="ai-engineering" />,
+    statusCall: (
+      <>
+        <CourseDiscountStrip
+          discount={saleDiscount(discountedOffer) ?? fail("Скидка в цене")}
+          href="#enroll"
+        />
+        <CohortStatusView status={runningDiscountStatus} />
+      </>
+    ),
+  },
+  beforeEach: () => {
+    window.sessionStorage.removeItem("course-discount-strip-hidden");
+  },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    const strip = await page.findByRole("region", { name: "Скидка" });
+    // Полоса стоит над шапкой сайта, а не внутри страницы.
+    const header =
+      canvasElement.querySelector<HTMLElement>("[data-public-header]") ??
+      fail("Шапка сайта");
+    await expect(
+      strip.compareDocumentPosition(header) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    await expect(strip).toHaveTextContent(
+      /−25\s%\s*Чёрная пятница до 30 ноября/u,
+    );
+    await expect(
+      within(strip).getByRole("link", { name: /К цене/u }),
+    ).toHaveAttribute("href", "#enroll");
+    const hero =
+      canvasElement.querySelector<HTMLElement>(".aie-hero") ??
+      fail("Первый экран курса");
+    await expect(
+      within(hero).getByRole("link", {
+        name: /Можно начать уже сейчас\s*−25\s%\sдо 30 ноября/u,
+      }),
+    ).toHaveAttribute("href", "#enroll");
+    await expect(
+      within(hero).getByRole("link", { name: /Посмотреть программу/u }),
+    ).toHaveAttribute("href", "/products/ai-engineering/programme");
+    await userEvent.click(
+      within(strip).getByRole("button", { name: "Скрыть полосу со скидкой" }),
+    );
+    await expect(page.queryByRole("region", { name: "Скидка" })).toBeNull();
+  },
+};
+export const RunningDiscountMobile: Story = {
+  ...RunningDiscount,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const strip = await within(canvasElement).findByRole("region", {
+      name: "Скидка",
+    });
+    // На телефоне полоса короче: процент, последний день и переход к цене.
+    const name =
+      strip.querySelector<HTMLElement>(".course-discount-strip-name") ??
+      fail("Название скидки в полосе");
+    await expect(name).not.toBeVisible();
+    await expect(within(strip).getByText(/до 30 ноября/u)).toBeVisible();
+    await expectNoSidewaysScrollAtDoubleText();
+  },
+};
+
+/** Самая длинная метка набора со скидкой на узком телефоне остаётся в ширине экрана. */
+export const PreorderDiscountNarrowPhone: Story = {
+  args: {
+    heroCall: (
+      <CohortCallView
+        call={cohortCall({
+          cohort: preorderCohort,
+          offer: discountedOffer,
+          productAccess: "closed",
+          signedIn: false,
+          slug: "ai-engineering",
+        })}
+      />
+    ),
+  },
+  globals: { viewport: { value: "mobile360", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const label = within(canvasElement).getByRole("link", {
+      name: /Идёт набор на первый поток\s*−25\s%\sдо 30 ноября/u,
+    });
+    await expect(label.getBoundingClientRect().right).toBeLessThanOrEqual(
+      document.documentElement.clientWidth,
+    );
   },
 };

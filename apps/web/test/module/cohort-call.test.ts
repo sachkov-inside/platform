@@ -108,6 +108,34 @@ describe("first screen call of a product cohort", () => {
       });
   });
 
+  it("names a running discount beside the enrolment mark (owner decision 23.11.2026)", () => {
+    const discounted = {
+      ...productWithSupportOffer,
+      promotion: {
+        id: "00000000-0000-4000-8000-000000000901",
+        revision: 1,
+        name: "Чёрная пятница",
+        percent: 25,
+        endsAt: "2026-11-30T21:00:00.000Z",
+      },
+    };
+    expect(call({ offer: discounted }).banner).toEqual({
+      kind: "live",
+      text: "Идёт набор на первый поток",
+      detail: "−25 % до 30 ноября",
+      href: "#enroll",
+    });
+    for (const stage of ["running", "between"] as const)
+      expect(
+        call({ cohort: { ...cohort, stage }, offer: discounted }).banner,
+      ).toEqual({
+        kind: "live",
+        text: "Можно начать уже сейчас",
+        detail: "−25 % до 30 ноября",
+        href: "#enroll",
+      });
+  });
+
   it("leads to the programme without a sale and opens it to a person the product is open to", () => {
     for (const stage of ["running", "between"] as const) {
       expect(call({ cohort: { ...cohort, stage }, offer: null })).toEqual({

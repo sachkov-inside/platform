@@ -3,13 +3,18 @@ import { Suspense } from "react";
 import type { ProductSale } from "@/entities/subscription.sale.server";
 import { ProductWaitlistSlot } from "./waitlist-provider.client";
 
-import { cohortCountdown, StartCountdownBadge } from "@/entities/subscription";
+import {
+  cohortCountdown,
+  saleDiscount,
+  StartCountdownBadge,
+} from "@/entities/subscription";
 import { readProductReaderState } from "@/widgets/product-reader-state/index.server";
 import {
   CohortCallView,
   CourseLearningLink,
   courseLearningAction,
   CohortStatusView,
+  CourseDiscountStrip,
   programmeCallLabel,
   type CohortCall,
 } from "@/features/ai-engineering-course";
@@ -18,7 +23,7 @@ import type {
   PublishedProductResult,
 } from "@/features/library-discovery";
 
-import { cohortCall } from "../model/cohort-call";
+import { cohortCall, cohortEnrollAnchor } from "../model/cohort-call";
 import { cohortStatus } from "../model/cohort-status";
 import { courseTelegramHandle } from "../model/course-contact";
 import { countFreeLessons, firstFreeLessonHref } from "../model/free-lessons";
@@ -126,8 +131,20 @@ export async function PersonalCohortStatus({
   const handle = courseTelegramHandle(
     result.reference.productPage?.page ?? null,
   );
+  // Полоса со скидкой над страницей ведёт к цене в билете, поэтому стоит, только пока билет
+  // предлагает купить (решение владельца 23.11.2026).
+  const discount =
+    status?.purchaseHref == null || sale.kind !== "ready"
+      ? null
+      : saleDiscount(sale.offers[0] ?? null);
   return (
     <>
+      {discount === null ? null : (
+        <CourseDiscountStrip
+          discount={discount}
+          href={`#${cohortEnrollAnchor}`}
+        />
+      )}
       {status === null ? null : (
         <CohortStatusView
           // Консультация стоит под ценой; в билете анонса цены ещё нет.

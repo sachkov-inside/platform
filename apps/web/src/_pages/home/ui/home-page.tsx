@@ -15,10 +15,13 @@ export function HomePage({
   result,
   feed,
   courseCall,
+  filmBadge,
 }: {
   readonly result: HomeResult;
   readonly feed?: ReactNode;
   readonly courseCall?: ReactNode;
+  /** Наклейка на углу анимации курса: действующая скидка. */
+  readonly filmBadge?: ReactNode;
 }) {
   return (
     <HomeFrame>
@@ -26,6 +29,7 @@ export function HomePage({
         <FeaturedProduct
           product={result.value.pinnedProduct}
           courseCall={courseCall}
+          filmBadge={filmBadge}
         />
       ) : result.kind === "unavailable" ? (
         <div className="flex flex-wrap items-center gap-x-6 gap-y-3 py-8">

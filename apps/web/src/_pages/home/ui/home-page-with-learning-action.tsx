@@ -2,13 +2,17 @@ import "server-only";
 
 import { Suspense } from "react";
 
+import { SaleDiscountBadge } from "@/entities/subscription";
 import { CohortCallView } from "@/features/ai-engineering-course";
-import { productProgrammeHref } from "@/shared/routing/subscription-route";
+import { collectionDiscoveryHref } from "@/shared/routing/material-reader";
 import {
   fillPinnedOfferTerms,
   withoutPinnedOfferTerms,
 } from "../api/home-with-offer-terms.server";
-import { readHomeCourseAction } from "../api/home-course-action.server";
+import {
+  readHomeCourseAction,
+  readHomeCourseDiscount,
+} from "../api/home-course-action.server";
 import type { HomePinnedCollection, HomeResult } from "../model/home-view";
 import { HomePage } from "./home-page";
 
@@ -33,19 +37,39 @@ async function HomeWithOfferTerms({ result }: { readonly result: HomeResult }) {
 }
 function HomeWithLearningAction({ result }: { readonly result: HomeResult }) {
   const product = result.kind === "ready" ? result.value.pinnedProduct : null;
+  const course =
+    product?.presentation === "ai-engineering-course" && product.hero !== null
+      ? product
+      : null;
   return (
     <HomePage
       result={result}
       courseCall={
-        product?.presentation === "ai-engineering-course" &&
-        product.hero !== null ? (
-          <Suspense fallback={<GuestCourseCall product={product} />}>
-            <PersonalCourseCall product={product} />
+        course === null ? undefined : (
+          <Suspense fallback={<GuestCourseCall product={course} />}>
+            <PersonalCourseCall product={course} />
           </Suspense>
-        ) : undefined
+        )
+      }
+      filmBadge={
+        course === null ? undefined : (
+          <Suspense fallback={null}>
+            <CourseDiscountBadge product={course} />
+          </Suspense>
+        )
       }
     />
   );
+}
+
+/** Скидка приходит вместе с личным состоянием курса; без неё наклейки нет. */
+async function CourseDiscountBadge({
+  product,
+}: {
+  readonly product: HomePinnedCollection;
+}) {
+  const discount = await readHomeCourseDiscount(product.id, product.slug);
+  return discount === null ? null : <SaleDiscountBadge discount={discount} />;
 }
 
 function GuestCourseCall({
@@ -53,17 +77,21 @@ function GuestCourseCall({
 }: {
   readonly product: HomePinnedCollection;
 }) {
+  // Тот, кто курс ещё не проходит, сначала открывает страницу курса (решение владельца
+  // 23.11.2026). На телефоне кнопки нет: туда ведут окно анимации и название.
   return (
-    <CohortCallView
-      call={{
-        banner: null,
-        action: {
-          kind: "programme",
-          href: productProgrammeHref(product.slug),
-          label: "Посмотреть программу",
-        },
-      }}
-    />
+    <div className="home-course-open-course">
+      <CohortCallView
+        call={{
+          banner: null,
+          action: {
+            kind: "programme",
+            href: collectionDiscoveryHref("product", product.slug, "/"),
+            label: "Открыть курс",
+          },
+        }}
+      />
+    </div>
   );
 }
 

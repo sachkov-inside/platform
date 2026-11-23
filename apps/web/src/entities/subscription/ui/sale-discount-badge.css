@@ -1,0 +1,52 @@
+/* Наклейка повторяет «до старта N дней»: акцентная, слегка повёрнута и чуть парит. */
+.sale-discount-badge {
+  position: absolute;
+  top: -0.8rem;
+  right: 1.25rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.8rem 0.37rem 0.65rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  box-shadow: 0 0.4rem 1rem -0.4rem
+    color-mix(in srgb, var(--accent) 70%, transparent);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  rotate: 3deg;
+  pointer-events: none;
+}
+.sale-discount-badge-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: currentColor;
+}
+@media (max-width: 47.999rem) {
+  .sale-discount-badge {
+    right: 0.875rem;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .sale-discount-badge {
+    animation: sale-discount-float 5.2s ease-in-out infinite;
+  }
+  .sale-discount-badge-dot {
+    animation: sale-discount-blink 1.6s ease-in-out infinite;
+  }
+}
+@keyframes sale-discount-float {
+  50% {
+    translate: 0 -2px;
+    rotate: 1.5deg;
+  }
+}
+@keyframes sale-discount-blink {
+  50% {
+    opacity: 0.35;
+  }
+}

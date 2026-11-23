@@ -133,8 +133,10 @@ export {
   type PreorderPrice,
   type PreorderTerms,
 } from "./model/preorder";
+export { saleDiscount, type SaleDiscount } from "./model/sale-discount";
 export { PreorderPriceView } from "./ui/preorder-price";
 export { StartCountdownBadge } from "./ui/start-countdown-badge";
+export { SaleDiscountBadge } from "./ui/sale-discount-badge";
 
 export {
   paymentLinkSchema,
