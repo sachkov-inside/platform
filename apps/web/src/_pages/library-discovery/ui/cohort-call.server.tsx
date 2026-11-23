@@ -113,38 +113,13 @@ export async function PersonalCohortStatus({
         programmeLabel={programmeCallLabel(freeStart)}
       />
     );
-  const sale = state.sale;
-  const status =
-    state.kind === "checking" ||
-    state.kind === "unavailable" ||
-    sale.kind === "unavailable" ||
-    !sale.cohortKnown
-      ? null
-      : cohortStatus({
-          cohort: sale.cohort,
-          offer: sale.offers[0] ?? null,
-          productAccess: state.access,
-          slug,
-          freeStart,
-        });
+  const status = sellingStatus(state, result);
   // Ник автора из подписи частых вопросов: на него ведут консультация и оплата не из России.
   const handle = courseTelegramHandle(
     result.reference.productPage?.page ?? null,
   );
-  // Полоса со скидкой над страницей ведёт к цене в билете, поэтому стоит, только пока билет
-  // предлагает купить (решение владельца 23.11.2026).
-  const discount =
-    status?.purchaseHref == null || sale.kind !== "ready"
-      ? null
-      : saleDiscount(sale.offers[0] ?? null);
   return (
     <>
-      {discount === null ? null : (
-        <CourseDiscountStrip
-          discount={discount}
-          href={`#${cohortEnrollAnchor}`}
-        />
-      )}
       {status === null ? null : (
         <CohortStatusView
           // Консультация стоит под ценой; в билете анонса цены ещё нет.
@@ -161,6 +136,52 @@ export async function PersonalCohortStatus({
         <ProductWaitlistSlot existingOnly />
       ) : null}
     </>
+  );
+}
+
+/** Билет нижнего блока для того, кому курс не открыт; `null`, пока этап или цена неизвестны. */
+function sellingStatus(
+  state: Exclude<
+    Awaited<ReturnType<typeof readProductReaderState>>,
+    { readonly kind: "learning" | "waitlist" }
+  >,
+  result: ResolvedProduct,
+) {
+  const sale = state.sale;
+  if (
+    state.kind === "checking" ||
+    state.kind === "unavailable" ||
+    sale.kind === "unavailable" ||
+    !sale.cohortKnown
+  )
+    return null;
+  return cohortStatus({
+    cohort: sale.cohort,
+    offer: sale.offers[0] ?? null,
+    productAccess: state.access,
+    slug: result.reference.slug,
+    freeStart: hasFreeLessons(result),
+  });
+}
+
+/**
+ * Полоса действующей скидки в верхней строке страницы курса. Она ведёт к цене в билете, поэтому
+ * стоит, только пока билет предлагает купить (решение владельца 23.11.2026).
+ */
+export async function PersonalCourseDiscount({
+  result,
+}: {
+  readonly result: ResolvedProduct;
+}) {
+  const { id: productId, slug } = result.reference;
+  if (productId === undefined) return null;
+  const state = await readProductReaderState(productId, slug);
+  if (state.kind === "learning" || state.kind === "waitlist") return null;
+  const status = sellingStatus(state, result);
+  if (status?.purchaseHref == null || state.sale.kind !== "ready") return null;
+  const discount = saleDiscount(state.sale.offers[0] ?? null);
+  return discount === null ? null : (
+    <CourseDiscountStrip discount={discount} href={`#${cohortEnrollAnchor}`} />
   );
 }
 

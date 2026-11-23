@@ -6,7 +6,10 @@ import {
   cohortCall,
   formatCohortDate,
 } from "@/_pages/library-discovery/model/cohort-call";
-import { productWithSupportOffer } from "@/storybook/billing.fixtures";
+import {
+  blackFridayPromotion,
+  productWithSupportOffer,
+} from "@/storybook/billing.fixtures";
 
 const cohort: ProductSalesState = {
   productId: "00000000-0000-4000-8000-000000000814",
@@ -111,13 +114,7 @@ describe("first screen call of a product cohort", () => {
   it("names a running discount beside the enrolment mark (owner decision 23.11.2026)", () => {
     const discounted = {
       ...productWithSupportOffer,
-      promotion: {
-        id: "00000000-0000-4000-8000-000000000901",
-        revision: 1,
-        name: "Чёрная пятница",
-        percent: 25,
-        endsAt: "2026-11-30T21:00:00.000Z",
-      },
+      promotion: blackFridayPromotion,
     };
     expect(call({ offer: discounted }).banner).toEqual({
       kind: "live",

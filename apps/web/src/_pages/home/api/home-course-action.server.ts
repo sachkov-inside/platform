@@ -17,11 +17,13 @@ export async function readHomeCourseAction(productId: string, slug: string) {
 }
 
 /**
- * Скидка на курс для бейджа карточки: её видит тот, кому курс ещё не открыт. Цена читается вместе
- * с остальным состоянием читателя, а не из общего кеша Главной: кеш не держит цен и скидок.
+ * Скидка на курс для наклейки карточки: её видит тот, кому курс продаётся, как и полосу над
+ * страницей курса. Непроверенный доступ может быть доступом участника, поэтому скидки нет. Цена
+ * читается вместе с остальным состоянием читателя, а не из общего кеша Главной: кеш не держит
+ * цен и скидок.
  */
 export async function readHomeCourseDiscount(productId: string, slug: string) {
   const state = await readProductReaderState(productId, slug);
-  if (state.kind === "learning" || state.sale.kind !== "ready") return null;
+  if (state.kind !== "sale" || state.sale.kind !== "ready") return null;
   return saleDiscount(state.sale.offers[0] ?? null);
 }

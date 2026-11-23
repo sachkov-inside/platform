@@ -78,20 +78,18 @@ function GuestCourseCall({
   readonly product: HomePinnedCollection;
 }) {
   // Тот, кто курс ещё не проходит, сначала открывает страницу курса (решение владельца
-  // 23.11.2026). На телефоне кнопки нет: туда ведут окно анимации и название.
+  // 23.11.2026).
   return (
-    <div className="home-course-open-course">
-      <CohortCallView
-        call={{
-          banner: null,
-          action: {
-            kind: "programme",
-            href: collectionDiscoveryHref("product", product.slug, "/"),
-            label: "Открыть курс",
-          },
-        }}
-      />
-    </div>
+    <CohortCallView
+      call={{
+        banner: null,
+        action: {
+          kind: "programme",
+          href: collectionDiscoveryHref("product", product.slug, "/"),
+          label: "Открыть курс",
+        },
+      }}
+    />
   );
 }
 

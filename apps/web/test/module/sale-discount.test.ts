@@ -1,16 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { saleDiscount, type PriceSnapshot } from "@/entities/subscription";
-import { productWithSupportOffer } from "@/storybook/billing.fixtures";
+import {
+  blackFridayPromotion,
+  productWithSupportOffer,
+} from "@/storybook/billing.fixtures";
 
-const promotion = {
-  id: "00000000-0000-4000-8000-000000000901",
-  revision: 1,
-  name: "Чёрная пятница",
-  percent: 25,
-  // Период полуоткрыт: скидка действует до конца 30 ноября по Москве.
-  endsAt: "2026-11-30T21:00:00.000Z",
-};
+const promotion = blackFridayPromotion;
 const offer = (value: PriceSnapshot["promotion"]): PriceSnapshot => ({
   ...productWithSupportOffer,
   promotion: value,

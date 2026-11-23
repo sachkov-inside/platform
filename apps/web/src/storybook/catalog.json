@@ -1,6 +1,5 @@
 {
   "sharedModuleExceptions": {
-    "shared/ui/application-announcement.client.tsx": "Empty slot above the public header and its portal; rendered by the course discount strip story inside the application shell.",
     "shared/ui/body-fragment-navigation.client.tsx": "Invisible fragment navigation helper; verified by route navigation tests.",
     "shared/ui/full-load-link.client.tsx": "Unstyled document navigation adapter; rendered in the application shell stories.",
     "shared/ui/sidebar.tsx": "Legacy module outside the current production import graph; current shells have their own stories."

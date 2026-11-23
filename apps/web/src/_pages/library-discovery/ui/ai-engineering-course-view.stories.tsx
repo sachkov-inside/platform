@@ -19,7 +19,10 @@ import {
   CohortStatusView,
 } from "@/features/ai-engineering-course";
 import { homeMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
-import { productWithSupportOffer } from "@/storybook/billing.fixtures";
+import {
+  blackFridayPromotion,
+  productWithSupportOffer,
+} from "@/storybook/billing.fixtures";
 import {
   aiEngineeringPublishedTopics,
   aiEngineeringCourseChapters,
@@ -1303,13 +1306,7 @@ export const WaitlistExistingWithLearning: Story = {
  */
 const discountedOffer = {
   ...preorderOffer,
-  promotion: {
-    id: "00000000-0000-4000-8000-000000000901",
-    revision: 1,
-    name: "Чёрная пятница",
-    percent: 25,
-    endsAt: "2026-11-30T21:00:00.000Z",
-  },
+  promotion: blackFridayPromotion,
 };
 const runningDiscountStatus =
   cohortStatus({
@@ -1333,14 +1330,12 @@ export const RunningDiscount: Story = {
       />
     ),
     heroBadge: <CourseLearningLink intent="programme" slug="ai-engineering" />,
-    statusCall: (
-      <>
-        <CourseDiscountStrip
-          discount={saleDiscount(discountedOffer) ?? fail("Скидка в цене")}
-          href="#enroll"
-        />
-        <CohortStatusView status={runningDiscountStatus} />
-      </>
+    statusCall: <CohortStatusView status={runningDiscountStatus} />,
+    announcement: (
+      <CourseDiscountStrip
+        discount={saleDiscount(discountedOffer) ?? fail("Скидка в цене")}
+        href="#enroll"
+      />
     ),
   },
   beforeEach: () => {
@@ -1349,13 +1344,13 @@ export const RunningDiscount: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
     const strip = await page.findByRole("region", { name: "Скидка" });
-    // Полоса стоит над шапкой сайта, а не внутри страницы.
-    const header =
-      canvasElement.querySelector<HTMLElement>("[data-public-header]") ??
-      fail("Шапка сайта");
-    await expect(
-      strip.compareDocumentPosition(header) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    // Полоса стоит в верхней строке рядом с «← Главная», и строка не выше, чем без неё: полоса
+    // приходит позже страницы и ничего не сдвигает.
+    const topline =
+      canvasElement.querySelector<HTMLElement>('[data-product-part="back"]') ??
+      fail("Верхняя строка страницы курса");
+    await expect(topline).toContainElement(strip);
+    await expect(topline.getBoundingClientRect().height).toBe(44);
     await expect(strip).toHaveTextContent(
       /−25\s%\s*Чёрная пятница до 30 ноября/u,
     );
@@ -1377,6 +1372,7 @@ export const RunningDiscount: Story = {
       within(strip).getByRole("button", { name: "Скрыть полосу со скидкой" }),
     );
     await expect(page.queryByRole("region", { name: "Скидка" })).toBeNull();
+    await expect(topline.getBoundingClientRect().height).toBe(44);
   },
 };
 export const RunningDiscountMobile: Story = {

@@ -28,6 +28,7 @@ import {
 import {
   PendingCohortCall,
   PersonalCohortCall,
+  PersonalCourseDiscount,
   PersonalCourseFilmOverlay,
   PersonalCohortStatus,
 } from "./cohort-call.server";
@@ -146,6 +147,11 @@ function ProductLanding({
           <PersonalCourseFilmOverlay result={result} />
         </Suspense>
       }
+      announcement={
+        <Suspense fallback={null}>
+          <PersonalCourseDiscount result={result} />
+        </Suspense>
+      }
       offerTerms={offerTerms}
       result={result}
       returnTarget={returnTarget}
@@ -221,6 +227,7 @@ async function PersonalProduct({
       heroCall={<PersonalCohortCall result={result} />}
       statusCall={<PersonalCohortStatus result={result} />}
       heroBadge={<PersonalCourseFilmOverlay result={result} />}
+      announcement={<PersonalCourseDiscount result={result} />}
       returnTarget={returnTarget}
     />
   );

@@ -3,6 +3,21 @@
  * (`ai-first-product-view.css`): метка у названия, обложка, менторинг, тона иллюстраций, статус.
  */
 
+/*
+ * Верхняя строка: «← Главная» и справа полоса действующей скидки. Высота строки одна и та же с
+ * полосой и без неё: полоса приходит с личной частью страницы и ничего не сдвигает.
+ */
+.aie-course-topline {
+  display: flex;
+  height: 2.75rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.aie-course-topline > a {
+  flex-shrink: 0;
+}
+
 .aie-course-hero {
   margin-top: 1.75rem;
 }

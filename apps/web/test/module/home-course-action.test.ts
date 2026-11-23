@@ -6,7 +6,10 @@ import {
   readHomeCourseAction,
   readHomeCourseDiscount,
 } from "@/_pages/home/api/home-course-action.server";
-import { productWithSupportOffer } from "@/storybook/billing.fixtures";
+import {
+  blackFridayPromotion,
+  productWithSupportOffer,
+} from "@/storybook/billing.fixtures";
 
 const productId = facts.product.id;
 const slug = facts.product.slug;
@@ -17,6 +20,7 @@ let continuationSlug: string | null;
 let continuationUnavailable: boolean;
 let offersUnavailable: boolean;
 let promotion: Record<string, unknown> | null;
+let noOffers: boolean;
 let waitlistAvailable: boolean;
 let unexpected: string[];
 
@@ -30,6 +34,7 @@ beforeEach(async () => {
   continuationUnavailable = false;
   offersUnavailable = false;
   promotion = null;
+  noOffers = false;
   waitlistAvailable = false;
   unexpected = [];
   backend.mockImplementation((request) => {
@@ -47,7 +52,7 @@ beforeEach(async () => {
         response = offersUnavailable
           ? new Response(null, { status: 503 })
           : Response.json(
-              promotion === null
+              promotion === null || noOffers
                 ? page
                 : {
                     items: [
@@ -160,13 +165,7 @@ it("opens the programme when personal learning continuation is unavailable", asy
   expect(await read()).toMatchObject({ label: "Открыть программу" });
 });
 
-const blackFriday = {
-  id: "00000000-0000-4000-8000-000000000901",
-  revision: 1,
-  name: "Чёрная пятница",
-  percent: 25,
-  endsAt: "2026-11-30T21:00:00.000Z",
-};
+const blackFriday = blackFridayPromotion;
 const readDiscount = () =>
   session(() => readHomeCourseDiscount(productId, slug));
 
@@ -191,5 +190,16 @@ it("shows no discount to a participant, without a Promotion or without prices", 
   expect(await readDiscount()).toBeNull();
   promotion = blackFriday;
   offersUnavailable = true;
+  expect(await readDiscount()).toBeNull();
+});
+it("shows no discount while access is unchecked or the course is not sold", async () => {
+  promotion = blackFriday;
+  // Непроверенный доступ может принадлежать участнику: скидку ему не обещают.
+  access = "unknown";
+  expect(await readDiscount()).toBeNull();
+  // Набор идёт через список ожидания, курс не продаётся: скидка не на что.
+  access = "closed";
+  waitlistAvailable = true;
+  noOffers = true;
   expect(await readDiscount()).toBeNull();
 });

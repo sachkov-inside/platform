@@ -11,7 +11,10 @@ import { getQueryClient } from "@/shared/api/query-client";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 import { HomePage } from "./home-page";
 import { saleDiscount, SaleDiscountBadge } from "@/entities/subscription";
-import { productWithSupportOffer } from "@/storybook/billing.fixtures";
+import {
+  blackFridayPromotion,
+  productWithSupportOffer,
+} from "@/storybook/billing.fixtures";
 import {
   CohortCallView,
   courseLearningAction,
@@ -336,13 +339,7 @@ export const AiEngineeringCourseMobile: Story = {
 
 const blackFriday = saleDiscount({
   ...productWithSupportOffer,
-  promotion: {
-    id: "00000000-0000-4000-8000-000000000901",
-    revision: 1,
-    name: "Чёрная пятница",
-    percent: 25,
-    endsAt: "2026-11-30T21:00:00.000Z",
-  },
+  promotion: blackFridayPromotion,
 });
 if (blackFriday === null) throw new Error("Скидка не прочитана");
 
@@ -413,6 +410,16 @@ export const CourseParticipantContinuing: Story = {
 export const CourseParticipantContinuingMobile: Story = {
   ...CourseParticipantContinuing,
   globals: mobile.globals,
+  // На телефоне у карточки курса кнопки нет ни у кого (решение владельца 23.11.2026): участник
+  // открывает курс окном анимации и продолжает обучение со страницы курса.
+  play: async ({ canvas }) => {
+    await expect(
+      canvas.queryByRole("link", { name: "Продолжить обучение" }),
+    ).toBeNull();
+    await expect(
+      canvas.getByRole("link", { name: "Открыть курс AI Engineering" }),
+    ).toBeVisible();
+  },
 };
 
 /**
