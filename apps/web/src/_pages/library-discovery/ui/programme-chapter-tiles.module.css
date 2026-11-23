@@ -45,39 +45,39 @@
 
 .tileArt[data-tone="sand"],
 .windowArt[data-tone="sand"] {
-  --art-bg: color-mix(in oklch, var(--callout-warning) 16%, var(--card));
+  --art-bg: var(--cover-sand);
 }
 .tileArt[data-tone="lavender"],
 .windowArt[data-tone="lavender"] {
-  --art-bg: color-mix(in oklch, var(--callout-definition) 14%, var(--card));
+  --art-bg: var(--cover-lavender);
 }
 .tileArt[data-tone="blue"],
 .windowArt[data-tone="blue"] {
-  --art-bg: color-mix(in oklch, var(--callout-example) 13%, var(--card));
+  --art-bg: var(--cover-blue);
 }
 .tileArt[data-tone="good"],
 .windowArt[data-tone="good"] {
-  --art-bg: color-mix(in oklch, var(--callout-good) 14%, var(--card));
+  --art-bg: var(--cover-mint);
 }
 .tileArt[data-tone="coral"],
 .windowArt[data-tone="coral"] {
-  --art-bg: color-mix(in oklch, var(--accent) 14%, var(--card));
+  --art-bg: var(--cover-coral);
 }
 .tileArt[data-tone="stone"],
 .windowArt[data-tone="stone"] {
   --art-bg: color-mix(in oklch, var(--foreground) 7%, var(--card));
 }
-/* Тёмная плитка одинакова в обеих темах. */
+/* Тона плиток: пастельные обложки (`cover-*`), они темнеют в тёмной теме. */
 .tileArt[data-tone="ink"],
 .windowArt[data-tone="ink"] {
-  --art-bg: var(--lesson-dark);
-  --art-ink: var(--lesson-dark-foreground);
-  --art-paper: var(--lesson-dark-raised);
-  --art-soft: color-mix(
+  --art-bg: var(--cover-ink);
+  --art-ink: var(--cover-ink-foreground);
+  --art-paper: color-mix(
     in oklch,
-    var(--lesson-dark-foreground) 40%,
-    transparent
+    var(--cover-ink-foreground) 12%,
+    var(--cover-ink)
   );
+  --art-soft: color-mix(in oklch, var(--cover-ink-foreground) 40%, transparent);
 }
 
 .tileArt[data-muted] svg,
@@ -202,14 +202,15 @@
   gap: 0.25rem;
   border-radius: 999px;
   padding: 0.125rem 0.5rem;
-  background: color-mix(in oklch, var(--callout-good) 13%, transparent);
-  color: var(--callout-good);
+  background: var(--secondary);
+  color: var(--foreground);
   font-weight: 600;
 }
 
 .studied svg {
   width: 0.75rem;
   height: 0.75rem;
+  color: var(--accent);
 }
 
 .badge {
@@ -263,7 +264,7 @@
   padding: 0;
   background: var(--card);
   color: var(--foreground);
-  box-shadow: 0 30px 80px -20px rgb(0 0 0 / 0.45);
+  box-shadow: var(--elevation-cover);
 }
 
 .dialog[open] {

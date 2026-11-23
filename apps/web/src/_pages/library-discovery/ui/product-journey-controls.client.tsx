@@ -269,7 +269,8 @@ export function ProductJourneyControls({
   const next = parts
     .flatMap(partRows)
     .find((row) => row.slug === continuation?.materialSlug && row.available);
-  // Кнопка в строке урока (решение владельца 09.10.2026): урок продолжения — «Продолжить»;
+  // Действие продолжения (решение владельца 09.10.2026): в строке урока программы без глав и в
+  // шапке окна главы. Урок продолжения — «Продолжить»;
   // кто ещё не начинал — гость или читатель без прочитанных уроков — видит «Начать обучение» у
   // первого открытого урока программы.
   const notStarted =
@@ -290,9 +291,7 @@ export function ProductJourneyControls({
 
   // The chapter window: a return from a lesson reopens the chapter of that lesson.
   const returnChapter =
-    tiledChapters?.find((chapter) =>
-      chapter.runs.some((run) => run.rows.some(requestedRow)),
-    )?.id ?? null;
+    tiledChapters === null ? null : chapterOfRow(tiledChapters, requestedRow);
   // A choice in this window holds until the address changes. The route keeps it above the
   // shared/personal replacement, so a tile chosen while personal data loads stays open (#1896).
   const [windowChoice, setWindowChoice] = useProductChapterWindowChoice();
@@ -525,12 +524,16 @@ export function ProductJourneyControls({
                             title: continuationRow.title,
                           }
                     }
+                    // The chapter to start or continue in: a new reader sees it too.
                     currentId={
-                      tiledChapters.find((chapter) =>
-                        chapter.runs.some((run) =>
-                          run.rows.some((row) => row.slug === next?.slug),
-                        ),
-                      )?.id ?? null
+                      inlineContinuation === null
+                        ? null
+                        : chapterOfRow(
+                            tiledChapters,
+                            (row) =>
+                              row.slug === inlineContinuation.materialSlug &&
+                              row.available,
+                          )
                     }
                     onOpenChange={(id) => {
                       setWindowChoice({ source, id });
@@ -740,5 +743,20 @@ function chapterGroups(runs: readonly JourneyRun[]): readonly (TiledChapter & {
             upcoming: chapter.upcoming ?? [],
           },
         ],
+  );
+}
+
+/** The chapter whose rows hold the first row that matches. */
+function chapterOfRow(
+  chapters: readonly {
+    readonly id: string;
+    readonly runs: readonly JourneyRun[];
+  }[],
+  matches: (row: JourneyRow) => boolean,
+): string | null {
+  return (
+    chapters.find((chapter) =>
+      chapter.runs.some((run) => run.rows.some(matches)),
+    )?.id ?? null
   );
 }

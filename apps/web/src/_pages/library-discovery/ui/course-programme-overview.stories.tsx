@@ -125,7 +125,7 @@ export const WithPublishedLessons: Story = {
       canvasElement.querySelectorAll("[data-chapter-tile]"),
     ).toHaveLength(8);
     // A chapter with lessons names its outcome in the window and keeps its topics folded.
-    await userEvent.click(canvas.getByRole("button", { name: /^Глава 1/u }));
+    await userEvent.click(canvas.getByRole("button", { name: /Глава 1 /u }));
     const dialog = chapterWindow();
     const window_ = within(dialog);
     await expect(

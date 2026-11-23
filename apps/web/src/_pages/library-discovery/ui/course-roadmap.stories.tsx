@@ -495,5 +495,16 @@ export const Guest: Story = {
     );
     if (!header) throw new Error("Ожидалась шапка программы");
     await expect(within(header).queryByRole("progressbar")).toBeNull();
+    // A reader who has not started sees where to begin: the first chapter and its first lesson.
+    const first = tile(canvasElement, doneNames[0]);
+    await expect(
+      first.querySelector('[data-chapter-badge="current"]'),
+    ).not.toBeNull();
+    await userEvent.click(first);
+    await expect(
+      within(chapterWindow()).getByRole("link", {
+        name: /^Начать обучение: Как устроен курс/u,
+      }),
+    ).toBeVisible();
   },
 };

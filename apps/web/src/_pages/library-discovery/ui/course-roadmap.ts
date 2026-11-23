@@ -21,6 +21,8 @@ export interface RoadmapChapterProgress {
   readonly status: ProductChapterRoadmapStatus;
   /** Опубликованные уроки главы. */
   readonly ready: number;
+  /** Опубликованные уроки главы без повторов: по их отметкам считается прогресс главы. */
+  readonly materialIds: readonly string[];
   /** Объявленные, но ещё не опубликованные уроки главы в работе. */
   readonly upcoming: number;
 }
@@ -51,7 +53,8 @@ export function courseRoadmap({
         : programmePlacements
             .filter((placement) => placement.chapterId === chapter.id)
             .map((placement) => placement.materialId);
-    const ready = materialIds.filter((id) => published.has(id)).length;
+    const publishedIds = materialIds.filter((id) => published.has(id));
+    const ready = publishedIds.length;
     const tasks = (chapter.tasks ?? []).filter(
       (task) => task.programmeVisibility !== "embedded",
     ).length;
@@ -62,6 +65,7 @@ export function courseRoadmap({
       id: chapter.id,
       status,
       ready,
+      materialIds: [...new Set(publishedIds)],
       upcoming,
     };
   });

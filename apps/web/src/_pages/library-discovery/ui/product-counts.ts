@@ -34,6 +34,10 @@ export function formatStepCount(count: number): string {
   return plural(count, "шаг", "шага", "шагов");
 }
 
+export function formatLessonCount(count: number): string {
+  return plural(count, "урок", "урока", "уроков");
+}
+
 /** Родительный падеж после «из»: «из 1 урока», «из 7 уроков», «из 21 урока». */
 export function formatOfLessons(count: number): string {
   return `из ${plural(count, "урока", "уроков", "уроков")}`;

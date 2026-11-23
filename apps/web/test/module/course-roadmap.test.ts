@@ -66,9 +66,27 @@ describe("Course roadmap of a Product", () => {
       ],
     });
     expect(roadmap).toEqual([
-      { id: "first", status: "done", ready: 2, upcoming: 0 },
-      { id: "second", status: "writing", ready: 2, upcoming: 2 },
-      { id: "third", status: "planned", ready: 0, upcoming: 0 },
+      {
+        id: "first",
+        status: "done",
+        ready: 2,
+        materialIds: ["a", "b"],
+        upcoming: 0,
+      },
+      {
+        id: "second",
+        status: "writing",
+        ready: 2,
+        materialIds: ["c", "d"],
+        upcoming: 2,
+      },
+      {
+        id: "third",
+        status: "planned",
+        ready: 0,
+        materialIds: [],
+        upcoming: 0,
+      },
     ]);
   });
 
@@ -78,9 +96,15 @@ describe("Course roadmap of a Product", () => {
       chapters: [chapter("first", ["a", "b"]), chapter("second", ["c"])],
       programmePlacements: [{ materialId: "a", chapterId: "second" }],
     });
-    expect(roadmap.map(({ status, ready }) => [status, ready])).toEqual([
-      ["planned", 0],
-      ["done", 1],
+    expect(
+      roadmap.map(({ status, ready, materialIds }) => [
+        status,
+        ready,
+        materialIds,
+      ]),
+    ).toEqual([
+      ["planned", 0, []],
+      ["done", 1, ["a"]],
     ]);
   });
 

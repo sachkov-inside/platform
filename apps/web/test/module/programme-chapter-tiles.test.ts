@@ -44,6 +44,7 @@ const roadmapChapters: readonly ProductChapter[] = [
 function render(
   chapters: readonly ProductChapter[],
   search = "",
+  roadmap = true,
 ): { readonly html: string; readonly slugs: readonly string[] } {
   const corpus = productJourneyCorpus();
   const items = corpus.items.slice(0, 15);
@@ -55,7 +56,10 @@ function render(
           ...corpus,
           items,
           chapters,
-          reference: { ...corpus.reference, roadmapUpdatedOn: "2026-11-13" },
+          reference: {
+            ...corpus.reference,
+            ...(roadmap ? { roadmapUpdatedOn: "2026-11-13" } : {}),
+          },
         },
       }),
       search,
@@ -101,6 +105,23 @@ describe("Programme chapter tiles", () => {
     expect(upcoming[0]?.[2]).toContain("16");
   });
 
+  it("derives the status of each chapter without a stored roadmap", () => {
+    const { html } = render(
+      roadmapChapters.map(
+        ({ roadmapStatus: _status, upcomingLessons: _upcoming, ...chapter }) =>
+          chapter,
+      ),
+      "",
+      false,
+    );
+    expect(
+      [...html.matchAll(/data-chapter-status="([a-z]+)"/gu)].map(
+        (match) => match[1],
+      ),
+    ).toEqual(["done", "done", "planned"]);
+    expect(html).not.toContain('data-chapter-badge="writing"');
+  });
+
   it("keeps the batched list of a product without chapters", () => {
     const { html } = render([]);
     expect(tiles(html)).toEqual([]);
@@ -120,9 +141,13 @@ describe("Chapter tile art", () => {
   });
 
   it("gives an unknown chapter a neutral illustration that does not depend on the name", () => {
-    expect(chapterTileArt("Новая глава", 0).art).toBe("lessons");
-    expect(chapterTileArt("Другая глава", 0)).toEqual(
-      chapterTileArt("Новая глава", 0),
-    );
+    expect(chapterTileArt("Новая глава", 0)).toEqual({
+      art: "lessons",
+      tone: "sand",
+    });
+    expect(chapterTileArt("Другая глава", 0)).toEqual({
+      art: "lessons",
+      tone: "sand",
+    });
   });
 });

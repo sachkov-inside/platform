@@ -265,7 +265,6 @@ function journeyRun(
                   number: chapterNumber,
                   offset: run.offset + run.items.length,
                   progress,
-                  materialIds: chapterLessons(result, run.chapter),
                 })
               : {}),
           },
@@ -374,7 +373,6 @@ function journeyRun(
 function chapterWindow(
   chapter: ProductChapter,
   {
-    materialIds,
     number,
     offset,
     progress,
@@ -383,8 +381,6 @@ function chapterWindow(
     /** Номер последнего опубликованного урока перед объявленными. */
     readonly offset: number;
     readonly progress: RoadmapChapterProgress | undefined;
-    /** Опубликованные уроки главы: по ним считается прогресс. */
-    readonly materialIds: readonly string[];
   },
 ): Pick<NonNullable<JourneyRun["chapter"]>, "intro" | "tile" | "upcoming"> {
   const status = progress?.status ?? "done";
@@ -419,31 +415,12 @@ function chapterWindow(
       status,
       ...chapterTileArt(chapter.name, number - 1),
       outcome,
-      materialIds,
+      materialIds: progress?.materialIds ?? [],
       upcomingCount: upcoming.length,
     },
     ...(intro === undefined ? {} : { intro }),
     upcoming,
   };
-}
-
-/** Опубликованные уроки главы так же, как их считает дорожная карта: по размещениям, если они есть. */
-function chapterLessons(
-  result: ProductResult,
-  chapter: ProductChapter,
-): readonly string[] {
-  const published = new Set(
-    (result.kind === "ready" ? result.items : []).map(
-      (item) => item.materialId,
-    ),
-  );
-  const ids =
-    result.programmePlacements === undefined
-      ? chapter.materialIds
-      : result.programmePlacements
-          .filter((placement) => placement.chapterId === chapter.id)
-          .map((placement) => placement.materialId);
-  return [...new Set(ids.filter((id) => published.has(id)))];
 }
 
 /** The chapter and lesson number of each Material's first programme placement, for catalogue cards. */

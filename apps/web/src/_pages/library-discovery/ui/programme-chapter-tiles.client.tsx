@@ -2,7 +2,7 @@
 
 import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
 import type { Route } from "next";
-import { useEffect, useId, useRef, type ReactNode } from "react";
+import { useId, useRef, type ReactNode } from "react";
 
 import type { ProductChapterRoadmapStatus } from "@/features/library-discovery";
 import {
@@ -18,7 +18,7 @@ import {
   ChapterReadingProgress,
   useChapterReading,
 } from "./chapter-reading-progress.client";
-import { formatOfLessons } from "./product-counts";
+import { formatLessonCount, formatOfLessons } from "./product-counts";
 import styles from "./programme-chapter-tiles.module.css";
 
 /** Плитка главы: всё, что о главе известно на сервере. */
@@ -75,23 +75,13 @@ export function ProgrammeChapterTiles({
   const titleId = useId();
   const index = chapters.findIndex((chapter) => chapter.id === openId);
   const opened = index === -1 ? undefined : chapters[index];
+  // Focus returns to the tile of the chapter the window showed last, not to the tile that opened
+  // it: the arrows may have paged to another chapter.
+  const closedChapter = useRef<string | null>(null);
   const close = () => {
+    closedChapter.current = openId;
     onOpenChange(null);
   };
-  // After the window closes, focus returns to the tile of the chapter it showed last, not to the
-  // tile that opened it: the arrows may have paged to another chapter.
-  const shown = useRef<string | null>(null);
-  const shownId = opened?.id ?? null;
-  useEffect(() => {
-    const last = shown.current;
-    shown.current = shownId;
-    if (shownId !== null || last === null) return;
-    gridRef.current
-      ?.querySelector<HTMLButtonElement>(
-        `[data-chapter-tile="${CSS.escape(last)}"]`,
-      )
-      ?.focus();
-  }, [shownId]);
   const { ref, ...dialogEvents } = useNativeDialog({
     open: opened !== undefined,
     onOpenChange: (open) => {
@@ -122,6 +112,18 @@ export function ProgrammeChapterTiles({
         data-chapter-window={opened?.id}
         ref={ref}
         {...dialogEvents}
+        onClose={(event) => {
+          dialogEvents.onClose(event);
+          // The close event follows the browser's own focus restoration, so this focus wins.
+          const last = closedChapter.current;
+          closedChapter.current = null;
+          if (last === null) return;
+          gridRef.current
+            ?.querySelector<HTMLButtonElement>(
+              `[data-chapter-tile="${CSS.escape(last)}"]`,
+            )
+            ?.focus();
+        }}
         onClick={(event) => {
           // A click on the backdrop lands on the dialog element outside its box.
           if (event.target !== event.currentTarget) return;
@@ -233,19 +235,13 @@ function lessonCount(tile: JourneyChapterTile): string {
   return ` · ${formatLessonCount(total)}`;
 }
 
-function formatLessonCount(count: number): string {
-  const tail = count % 100;
-  const last = count % 10;
-  const word =
-    tail > 10 && tail < 20
-      ? "уроков"
-      : last === 1
-        ? "урок"
-        : last > 1 && last < 5
-          ? "урока"
-          : "уроков";
-  return `${String(count)} ${word}`;
-}
+/** Подпись статуса главы; у готовой главы метки нет. */
+const statusLabels: Readonly<
+  Record<Exclude<ProductChapterRoadmapStatus, "done">, string>
+> = {
+  planned: "В планах",
+  writing: "Пишется",
+};
 
 function StatusBadge({
   status,
@@ -257,7 +253,7 @@ function StatusBadge({
     <>
       {" "}
       <span className={styles["badge"]} data-chapter-badge={status}>
-        {status === "writing" ? "Пишется" : "В планах"}
+        {statusLabels[status]}
       </span>
     </>
   );
@@ -294,7 +290,7 @@ function ChapterTile({
           </span>
         ) : tile.status === "done" ? null : (
           <span className={styles["badge"]} data-chapter-badge={tile.status}>
-            {tile.status === "writing" ? "Пишется" : "В планах"}
+            {statusLabels[tile.status]}
           </span>
         )}
       </ChapterArtwork>
