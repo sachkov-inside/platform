@@ -4,6 +4,7 @@ import { ArrowDown, X } from "lucide-react";
 import { useSyncExternalStore } from "react";
 
 import type { SaleDiscount } from "@/entities/subscription";
+import { ApplicationAnnouncement } from "@/shared/ui/application-announcement.client";
 
 import "./course-discount-strip.css";
 
@@ -37,10 +38,9 @@ function hide(mark: string) {
 }
 
 /**
- * Полоса со скидкой в верхней строке страницы курса, рядом с «← Главная»: идёт скидка, до какого
- * дня, и переход к цене внизу (решение владельца 23.11.2026). Строка всегда одной высоты, поэтому
- * полоса, пришедшая вместе с личной частью страницы, ничего не сдвигает. Крестик скрывает её до
- * конца сеанса браузера, пока не сменится сама скидка.
+ * Полоса со скидкой над шапкой страницы курса: идёт скидка, до какого дня, и переход к цене внизу
+ * (решение владельца 23.11.2026). Крестик скрывает её до конца сеанса браузера, пока не сменится
+ * сама скидка.
  */
 export function CourseDiscountStrip({
   discount,
@@ -52,7 +52,11 @@ export function CourseDiscountStrip({
 }) {
   // Другая скидка — новая полоса: крестик, нажатый на прежней, её не скрывает.
   const mark = `${discount.name}|${discount.percent}|${discount.until ?? ""}`;
-  return <Strip key={mark} discount={discount} href={href} mark={mark} />;
+  return (
+    <ApplicationAnnouncement>
+      <Strip key={mark} discount={discount} href={href} mark={mark} />
+    </ApplicationAnnouncement>
+  );
 }
 
 function Strip({
@@ -65,8 +69,7 @@ function Strip({
   /** Отпечаток скидки, под которым запомнен крестик. */
   readonly mark: string;
 }) {
-  // Сервер не знает, скрыл ли человек полосу: до гидратации она видна, затем крестик помнится.
-  // Строка «← Главная» одной высоты с полосой и без неё, поэтому её уход ничего не сдвигает.
+  // Полоса рисуется только в браузере, в месте над шапкой; там же читается, скрыта ли она.
   const hidden = useSyncExternalStore(
     subscribe,
     () => readHidden(mark),
@@ -75,23 +78,19 @@ function Strip({
   if (hidden) return null;
   return (
     <div className="course-discount-strip" role="region" aria-label="Скидка">
+      <span className="course-discount-strip-percent">{discount.percent}</span>
+      <p className="course-discount-strip-text">
+        {discount.until === null ? (
+          discount.name
+        ) : (
+          <>
+            <span className="course-discount-strip-name">{discount.name} </span>
+            {discount.until}
+          </>
+        )}
+      </p>
       <a className="course-discount-strip-link" href={href}>
-        <span className="course-discount-strip-percent">
-          {discount.percent}
-        </span>
-        <span className="course-discount-strip-text">
-          {discount.until === null ? (
-            discount.name
-          ) : (
-            <>
-              <span className="course-discount-strip-name">
-                {discount.name}{" "}
-              </span>
-              {discount.until}
-            </>
-          )}
-        </span>
-        <span className="course-discount-strip-go">К цене</span>
+        К цене
         <ArrowDown aria-hidden="true" />
       </a>
       <button

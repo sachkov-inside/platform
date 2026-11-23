@@ -89,7 +89,7 @@ export function AiEngineeringCourseView({
   statusCall,
   heroBadge,
 }: {
-  /** Полоса действующей скидки справа от «← Главная»; строка одной высоты с ней и без неё. */
+  /** Полоса действующей скидки; она стоит над шапкой сайта, пока страница на экране. */
   readonly announcement?: ReactNode;
   /** Плашка потока и кнопка по этапу продаж; без неё первый экран ведёт в программу. */
   readonly heroCall?: ReactNode;
@@ -115,9 +115,10 @@ export function AiEngineeringCourseView({
       data-product-landing={reference.slug}
     >
       <HideMobileNavigation />
-      <div className="aie-course-topline" data-product-part="back">
+      {/* Полоса скидки сама встаёт над шапкой сайта; здесь она только часть страницы. */}
+      {announcement}
+      <div data-product-part="back">
         <CatalogBackLink href={returnTarget.href} label={returnTarget.label} />
-        {announcement}
       </div>
 
       <header className="aie-course-hero" data-product-part="hero">

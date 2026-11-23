@@ -1344,13 +1344,13 @@ export const RunningDiscount: Story = {
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
     const strip = await page.findByRole("region", { name: "Скидка" });
-    // Полоса стоит в верхней строке рядом с «← Главная», и строка не выше, чем без неё: полоса
-    // приходит позже страницы и ничего не сдвигает.
-    const topline =
-      canvasElement.querySelector<HTMLElement>('[data-product-part="back"]') ??
-      fail("Верхняя строка страницы курса");
-    await expect(topline).toContainElement(strip);
-    await expect(topline.getBoundingClientRect().height).toBe(44);
+    // Полоса стоит над шапкой сайта, а не внутри страницы (решение владельца 23.11.2026).
+    const header =
+      canvasElement.querySelector<HTMLElement>("[data-public-header]") ??
+      fail("Шапка сайта");
+    await expect(
+      strip.compareDocumentPosition(header) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     await expect(strip).toHaveTextContent(
       /−25\s%\s*Чёрная пятница до 30 ноября/u,
     );
@@ -1372,7 +1372,6 @@ export const RunningDiscount: Story = {
       within(strip).getByRole("button", { name: "Скрыть полосу со скидкой" }),
     );
     await expect(page.queryByRole("region", { name: "Скидка" })).toBeNull();
-    await expect(topline.getBoundingClientRect().height).toBe(44);
   },
 };
 export const RunningDiscountMobile: Story = {
@@ -1414,6 +1413,30 @@ export const PreorderDiscountNarrowPhone: Story = {
     });
     await expect(label.getBoundingClientRect().right).toBeLessThanOrEqual(
       document.documentElement.clientWidth,
+    );
+  },
+};
+
+/** Длинное название курса переносится по словам и не заходит под анимацию первого экрана. */
+const longNameResult = {
+  ...meta.args.result,
+  reference: {
+    ...meta.args.result.reference,
+    name: "Учебный курс: от идеи к выпуску",
+  },
+};
+export const LongCourseName: Story = {
+  args: { result: longNameResult },
+  play: async ({ canvasElement }) => {
+    const title = within(canvasElement).getByRole("heading", { level: 1 });
+    const film =
+      canvasElement.querySelector<HTMLElement>(".aie-hero-film") ??
+      fail("Анимация первого экрана");
+    const name =
+      title.querySelector<HTMLElement>(".aie-hero-name") ??
+      fail("Название курса");
+    await expect(name.getBoundingClientRect().right).toBeLessThanOrEqual(
+      film.getBoundingClientRect().left,
     );
   },
 };

@@ -20,14 +20,19 @@
 .aie-hero-copy {
   container: aie-hero-copy / inline-size;
 }
-/* Название не рвётся посередине. Метка-наклейка крепится к его правому верхнему углу. */
+/*
+ * Название не рвётся посреди слова, но длинное переносится по словам и не уходит под анимацию.
+ * Метка-наклейка крепится к его правому верхнему углу.
+ */
 .aie-hero-mark {
   position: relative;
   display: inline-block;
+  max-width: 100%;
 }
 .aie-hero-name {
   display: inline-block;
-  white-space: nowrap;
+  overflow-wrap: normal;
+  text-wrap: balance;
 }
 .aie-hero-badge {
   position: absolute;
@@ -58,6 +63,10 @@
 @container aie-hero-copy (min-width: 36rem) {
   .aie-hero-title[data-badge="true"] {
     padding-top: 0;
+  }
+  /* Справа от названия остаётся место под наклейку: длинное название переносится раньше. */
+  .aie-hero-title[data-badge="true"] .aie-hero-mark {
+    max-width: calc(100% - 4.2em);
   }
   .aie-hero-badge {
     right: auto;
@@ -287,7 +296,7 @@
 
 /* Телефон: шрифты первого экрана на ступень мельче (решение владельца 09.10.2026). */
 @media (max-width: 47.999rem) {
-  /* Название курса не переносится: при крупном системном шрифте оно не шире экрана. */
+  /* Короткое название курса умещается в строку; при крупном системном шрифте оно не шире экрана. */
   .aie-hero-title {
     font-size: min(2rem, 10vw);
   }

@@ -120,7 +120,7 @@ export function ProductLandingView({
   readonly statusCall?: ReactNode;
   /** Наклейка «до старта N дней» на анимации; её рисует оформление курса. */
   readonly heroBadge?: ReactNode;
-  /** Полоса действующей скидки в верхней строке; её рисует оформление курса. */
+  /** Полоса действующей скидки над шапкой сайта; её рисует оформление курса. */
   readonly announcement?: ReactNode;
   /** Сроки предложения этого продукта для подстановок в описании; `null` — продажи нет. */
   readonly offerTerms?: OneTimeOfferTerms | null;
