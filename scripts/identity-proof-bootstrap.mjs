@@ -483,6 +483,8 @@ export const signInAgreementPhrases = {
     auto_agreement:
       "Обработка данных описана в <link></link>. Условия использования вы примете после входа.",
     privacy_policy: "политике персональных данных",
+    sign_in_id_does_not_exist_alert:
+      "Почта {{value}} не привязана к аккаунту. Войдите через Telegram и добавьте почту в личном кабинете.",
   },
 };
 

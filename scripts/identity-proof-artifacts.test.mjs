@@ -304,6 +304,10 @@ test("sign-in screen links the policy and defers terms to the Platform first sig
   const agreement = textAt(phrases.body, "description", "auto_agreement");
   assert.equal(phrases.path, "/custom-phrases/ru");
   assert.equal(phrases.method, "PUT");
+  assert.equal(
+    textAt(phrases.body, "description", "sign_in_id_does_not_exist_alert"),
+    "Почта {{value}} не привязана к аккаунту. Войдите через Telegram и добавьте почту в личном кабинете.",
+  );
   assert.match(agreement, /<link><\/link>/u);
   assert.match(agreement, /Условия использования вы примете после входа\./u);
   assert.doesNotMatch(agreement, /соглаша/u);
