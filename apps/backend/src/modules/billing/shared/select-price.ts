@@ -135,6 +135,7 @@ export async function selectPricesForOptions(
               revision: best.revision,
               name: best.name,
               percent: best.percent,
+              endsAt: best.endsAt,
             }
           : null,
         communityPolicy: "explicit",

@@ -25,6 +25,7 @@ const featuredCards: Record<
   (props: {
     readonly product: HomePinnedCollection;
     readonly courseCall?: ReactNode;
+    readonly filmBadge?: ReactNode;
   }) => ReactNode
 > = {
   default: DefaultFeaturedProduct,
@@ -35,21 +36,28 @@ const featuredCards: Record<
 export function FeaturedProduct({
   product,
   courseCall,
+  filmBadge,
 }: {
   readonly product: HomePinnedCollection;
   readonly courseCall?: ReactNode;
+  /** Наклейка на углу анимации курса: действующая скидка. */
+  readonly filmBadge?: ReactNode;
 }) {
   const Card = featuredCards[product.presentation];
-  return <Card product={product} courseCall={courseCall} />;
+  return (
+    <Card product={product} courseCall={courseCall} filmBadge={filmBadge} />
+  );
 }
 
 /** Compact course introduction leaves the library feed visible on the first screen. */
 function AiEngineeringFeaturedProduct({
   product,
   courseCall,
+  filmBadge,
 }: {
   readonly product: HomePinnedCollection;
   readonly courseCall?: ReactNode;
+  readonly filmBadge?: ReactNode;
 }) {
   if (product.hero === null)
     return <DefaultFeaturedProduct product={product} />;
@@ -67,20 +75,22 @@ function AiEngineeringFeaturedProduct({
         <p className="home-course-description">{product.hero.lead}</p>
       </div>
       <div className="home-course-visual">
-        <IntentPrefetchLink
-          href={href}
-          className="home-course-film"
-          aria-label={`Открыть курс ${product.name}`}
-        >
-          <CourseFilm />
-        </IntentPrefetchLink>
+        {/* Наклейка стоит рядом со ссылкой, а не в ней: у ссылки своё имя, и текст скидки
+            иначе не прочитался бы. */}
+        <div className="home-course-film-frame">
+          <IntentPrefetchLink
+            href={href}
+            className="home-course-film"
+            aria-label={`Открыть курс ${product.name}`}
+          >
+            <CourseFilm />
+          </IntentPrefetchLink>
+          {filmBadge}
+        </div>
         <div className="home-course-call">
           {courseCall ?? (
-            <IntentPrefetchLink
-              href={productProgrammeHref(product.slug)}
-              className="home-course-open"
-            >
-              Посмотреть программу <ArrowRight aria-hidden="true" />
+            <IntentPrefetchLink href={href} className="home-course-open">
+              Открыть курс <ArrowRight aria-hidden="true" />
             </IntentPrefetchLink>
           )}
         </div>

@@ -85,6 +85,11 @@ export const priceSnapshotSchema = z.strictObject({
       revision: revisionSchema,
       name: z.string(),
       percent: z.int().min(1).max(100),
+      /**
+       * Конец действия скидки, не включительно, как у Promotion. Сайт называет по нему последний
+       * день скидки. В снимках, сохранённых до этого поля, его нет.
+       */
+      endsAt: z.iso.datetime({ offset: true }).optional(),
     })
     .nullable(),
   currency: z.literal("RUB"),

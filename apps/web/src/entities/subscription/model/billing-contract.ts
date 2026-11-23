@@ -64,6 +64,8 @@ export const promotionSnapshotSchema = z.object({
   revision: z.number().int().positive(),
   name: z.string(),
   percent: z.number().int().min(1).max(100),
+  /** Конец скидки, не включительно; в ценах, сохранённых раньше, его нет. */
+  endsAt: z.iso.datetime({ offset: true }).optional(),
 });
 export const priceSnapshotSchema = z.object({
   product: z

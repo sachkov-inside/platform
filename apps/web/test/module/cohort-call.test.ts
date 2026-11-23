@@ -6,7 +6,10 @@ import {
   cohortCall,
   formatCohortDate,
 } from "@/_pages/library-discovery/model/cohort-call";
-import { productWithSupportOffer } from "@/storybook/billing.fixtures";
+import {
+  blackFridayPromotion,
+  productWithSupportOffer,
+} from "@/storybook/billing.fixtures";
 
 const cohort: ProductSalesState = {
   productId: "00000000-0000-4000-8000-000000000814",
@@ -105,6 +108,28 @@ describe("first screen call of a product cohort", () => {
           href: "#enroll",
         },
         action: null,
+      });
+  });
+
+  it("names a running discount beside the enrolment mark (owner decision 23.11.2026)", () => {
+    const discounted = {
+      ...productWithSupportOffer,
+      promotion: blackFridayPromotion,
+    };
+    expect(call({ offer: discounted }).banner).toEqual({
+      kind: "live",
+      text: "Идёт набор на первый поток",
+      detail: "−25 % до 30 ноября",
+      href: "#enroll",
+    });
+    for (const stage of ["running", "between"] as const)
+      expect(
+        call({ cohort: { ...cohort, stage }, offer: discounted }).banner,
+      ).toEqual({
+        kind: "live",
+        text: "Можно начать уже сейчас",
+        detail: "−25 % до 30 ноября",
+        href: "#enroll",
       });
   });
 

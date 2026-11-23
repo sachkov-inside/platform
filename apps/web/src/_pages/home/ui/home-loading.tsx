@@ -18,8 +18,10 @@ export function HomeLoading() {
           </div>
         </div>
         <div className="home-course-visual">
-          <div className="home-course-film">
-            <div className="aspect-[3/2] rounded-[1.25rem] bg-muted" />
+          <div className="home-course-film-frame">
+            <div className="home-course-film">
+              <div className="aspect-[3/2] rounded-[1.25rem] bg-muted" />
+            </div>
           </div>
           <div className="home-course-call">
             <div className="h-11 w-36 shrink-0 rounded-xl bg-muted" />

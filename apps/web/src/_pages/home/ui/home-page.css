@@ -544,8 +544,12 @@
   grid-area: call;
   align-self: start;
 }
-.home-course-film {
+/* Рамка держит наклейку скидки на углу анимации; наклейка выходит за её верхний край. */
+.home-course-film-frame {
   grid-area: film;
+  position: relative;
+}
+.home-course-film {
   display: block;
   border-radius: 1.25rem;
 }
@@ -570,55 +574,25 @@
     display: block;
     margin-bottom: 0.75rem;
   }
+  /*
+   * Окно анимации скруглено само; блок не обрезает края, чтобы наклейка скидки выходила за верх.
+   * Место под наклейку оставлено всегда: она приходит позже карточки и не сдвигает её.
+   */
   .home-course-visual {
     display: block;
-    overflow: hidden;
+    margin-top: 1.25rem;
     border-radius: 1.25rem;
     background: var(--primary);
   }
+  /*
+   * На телефоне у карточки курса кнопки нет: курс открывают окно анимации и название (решение
+   * владельца 23.11.2026). Участник продолжает обучение со страницы курса.
+   */
   .home-course-call {
-    display: flex;
-    justify-content: flex-end;
-    padding: 0 1rem 1rem;
-  }
-  .home-course-call .aie-hero-action,
-  .home-course-call .home-course-open {
-    gap: 0.5rem;
-    position: relative;
-    min-height: 2.25rem;
-    font-size: 0.75rem;
-    padding: 0.375rem 0.75rem;
-    border-radius: 999px;
-    background: color-mix(
-      in srgb,
-      var(--primary-foreground) 16%,
-      var(--primary)
-    );
-    color: var(--primary-foreground);
-    white-space: nowrap;
-  }
-  .home-course-call .aie-hero-action:hover,
-  .home-course-call .home-course-open:hover {
-    background: color-mix(
-      in srgb,
-      var(--primary-foreground) 24%,
-      var(--primary)
-    );
-  }
-  .home-course-call .aie-hero-action svg {
-    width: 1rem;
-    height: 1rem;
+    display: none;
   }
   .home-product-course + .home-feed {
     margin-top: 1.5rem;
-  }
-}
-
-@media (max-width: 47.999rem) {
-  .home-course-call :is(.aie-hero-action, .home-course-open)::after {
-    content: "";
-    position: absolute;
-    inset: -4px 0;
   }
 }
 

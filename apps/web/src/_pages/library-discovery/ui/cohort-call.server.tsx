@@ -3,13 +3,18 @@ import { Suspense } from "react";
 import type { ProductSale } from "@/entities/subscription.sale.server";
 import { ProductWaitlistSlot } from "./waitlist-provider.client";
 
-import { cohortCountdown, StartCountdownBadge } from "@/entities/subscription";
+import {
+  cohortCountdown,
+  saleDiscount,
+  StartCountdownBadge,
+} from "@/entities/subscription";
 import { readProductReaderState } from "@/widgets/product-reader-state/index.server";
 import {
   CohortCallView,
   CourseLearningLink,
   courseLearningAction,
   CohortStatusView,
+  CourseDiscountStrip,
   programmeCallLabel,
   type CohortCall,
 } from "@/features/ai-engineering-course";
@@ -18,7 +23,7 @@ import type {
   PublishedProductResult,
 } from "@/features/library-discovery";
 
-import { cohortCall } from "../model/cohort-call";
+import { cohortCall, cohortEnrollAnchor } from "../model/cohort-call";
 import { cohortStatus } from "../model/cohort-status";
 import { courseTelegramHandle } from "../model/course-contact";
 import { countFreeLessons, firstFreeLessonHref } from "../model/free-lessons";
@@ -108,20 +113,7 @@ export async function PersonalCohortStatus({
         programmeLabel={programmeCallLabel(freeStart)}
       />
     );
-  const sale = state.sale;
-  const status =
-    state.kind === "checking" ||
-    state.kind === "unavailable" ||
-    sale.kind === "unavailable" ||
-    !sale.cohortKnown
-      ? null
-      : cohortStatus({
-          cohort: sale.cohort,
-          offer: sale.offers[0] ?? null,
-          productAccess: state.access,
-          slug,
-          freeStart,
-        });
+  const status = sellingStatus(state, result);
   // Ник автора из подписи частых вопросов: на него ведут консультация и оплата не из России.
   const handle = courseTelegramHandle(
     result.reference.productPage?.page ?? null,
@@ -144,6 +136,52 @@ export async function PersonalCohortStatus({
         <ProductWaitlistSlot existingOnly />
       ) : null}
     </>
+  );
+}
+
+/** Билет нижнего блока для того, кому курс не открыт; `null`, пока этап или цена неизвестны. */
+function sellingStatus(
+  state: Exclude<
+    Awaited<ReturnType<typeof readProductReaderState>>,
+    { readonly kind: "learning" | "waitlist" }
+  >,
+  result: ResolvedProduct,
+) {
+  const sale = state.sale;
+  if (
+    state.kind === "checking" ||
+    state.kind === "unavailable" ||
+    sale.kind === "unavailable" ||
+    !sale.cohortKnown
+  )
+    return null;
+  return cohortStatus({
+    cohort: sale.cohort,
+    offer: sale.offers[0] ?? null,
+    productAccess: state.access,
+    slug: result.reference.slug,
+    freeStart: hasFreeLessons(result),
+  });
+}
+
+/**
+ * Полоса действующей скидки над шапкой страницы курса. Она ведёт к цене в билете, поэтому
+ * стоит, только пока билет предлагает купить (решение владельца 23.11.2026).
+ */
+export async function PersonalCourseDiscount({
+  result,
+}: {
+  readonly result: ResolvedProduct;
+}) {
+  const { id: productId, slug } = result.reference;
+  if (productId === undefined) return null;
+  const state = await readProductReaderState(productId, slug);
+  if (state.kind === "learning" || state.kind === "waitlist") return null;
+  const status = sellingStatus(state, result);
+  if (status?.purchaseHref == null || state.sale.kind !== "ready") return null;
+  const discount = saleDiscount(state.sale.offers[0] ?? null);
+  return discount === null ? null : (
+    <CourseDiscountStrip discount={discount} href={`#${cohortEnrollAnchor}`} />
   );
 }
 

@@ -241,6 +241,44 @@ test("promotions.list keeps questionnaire Promotions apart and flags a migrated 
   ).not.toContain(legacy);
 });
 
+test("the public price names the applied Promotion with its end, and a coded Promotion stays out", async () => {
+  // A visitor's price shows the automatic Promotion and when it ends; a larger Promotion behind a
+  // code is not offered to someone who has not entered that code.
+  const s = await world.scenario({ discount: 25 });
+  const automatic = await world.db.prisma.billingPromotion.findFirstOrThrow({
+    where: { productIds: { has: s.productId } },
+  });
+  value(
+    await s.pricing.manage(world.owner, {
+      operation: "promotions.save",
+      operationId: randomUUID(),
+      value: {
+        id: randomUUID(),
+        name: "По коду",
+        percent: 50,
+        code: "SECRET50",
+        startsAt: "2020-01-01T00:00:00.000Z",
+        endsAt: "2041-01-01T00:00:00.000Z",
+        productIds: [s.productId],
+        usageLimit: null,
+      },
+    }),
+  );
+  const offers = value(await s.pricing.offers({ productId: s.productId }));
+  expect(offers.items).toHaveLength(1);
+  expect(offers.items[0]).toMatchObject({
+    promotion: {
+      id: automatic.id,
+      revision: 1,
+      name: "Скидка",
+      percent: 25,
+      endsAt: "2040-01-01T00:00:00.000Z",
+    },
+    firstPriceKopecks: 150000,
+    renewalPriceKopecks: 200000,
+  });
+});
+
 test("promotions.list refuses an account without billing:manage instead of answering empty", async () => {
   const s = await world.scenario();
   const owner = ownerOperations(s);

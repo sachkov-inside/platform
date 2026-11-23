@@ -8,16 +8,21 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, within } from "storybook/test";
 
 import {
+  saleDiscount,
   StartCountdownBadge,
   type ProductSalesState,
 } from "@/entities/subscription";
 import {
   CohortCallView,
+  CourseDiscountStrip,
   CourseLearningLink,
   CohortStatusView,
 } from "@/features/ai-engineering-course";
 import { homeMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
-import { productWithSupportOffer } from "@/storybook/billing.fixtures";
+import {
+  blackFridayPromotion,
+  productWithSupportOffer,
+} from "@/storybook/billing.fixtures";
 import {
   aiEngineeringPublishedTopics,
   aiEngineeringCourseChapters,
@@ -1292,5 +1297,192 @@ export const WaitlistExistingWithLearning: Story = {
       canvasElement.querySelector<HTMLElement>(".aie-status") ??
         fail("Нижний блок"),
     ).not.toBeVisible();
+  },
+};
+
+/**
+ * Идёт скидка (решение владельца 23.11.2026): над страницей короткая полоса со скидкой и переходом
+ * к цене, метка набора называет скидку, на анимации кнопка программы.
+ */
+const discountedOffer = {
+  ...preorderOffer,
+  promotion: blackFridayPromotion,
+};
+const runningDiscountStatus =
+  cohortStatus({
+    cohort: runningCohort,
+    offer: discountedOffer,
+    productAccess: "closed",
+    slug: "ai-engineering",
+    today: "2026-11-23",
+  }) ?? fail("Идущий поток с продажей рисует билет");
+export const RunningDiscount: Story = {
+  args: {
+    heroCall: (
+      <CohortCallView
+        call={cohortCall({
+          cohort: runningCohort,
+          offer: discountedOffer,
+          productAccess: "closed",
+          signedIn: false,
+          slug: "ai-engineering",
+        })}
+      />
+    ),
+    heroBadge: <CourseLearningLink intent="programme" slug="ai-engineering" />,
+    statusCall: <CohortStatusView status={runningDiscountStatus} />,
+    announcement: (
+      <CourseDiscountStrip
+        discount={saleDiscount(discountedOffer) ?? fail("Скидка в цене")}
+        href="#enroll"
+      />
+    ),
+  },
+  beforeEach: () => {
+    window.sessionStorage.removeItem("course-discount-strip-hidden");
+  },
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    const strip = await page.findByRole("region", { name: "Скидка" });
+    // Полоса стоит над шапкой сайта, а не внутри страницы (решение владельца 23.11.2026).
+    const header =
+      canvasElement.querySelector<HTMLElement>("[data-public-header]") ??
+      fail("Шапка сайта");
+    await expect(
+      strip.compareDocumentPosition(header) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    await expect(strip).toHaveTextContent(
+      /−25\s%\s*Чёрная пятница до 30 ноября/u,
+    );
+    await expect(
+      within(strip).getByRole("link", { name: /К цене/u }),
+    ).toHaveAttribute("href", "#enroll");
+    const hero =
+      canvasElement.querySelector<HTMLElement>(".aie-hero") ??
+      fail("Первый экран курса");
+    await expect(
+      within(hero).getByRole("link", {
+        name: /Можно начать уже сейчас\s*−25\s%\sдо 30 ноября/u,
+      }),
+    ).toHaveAttribute("href", "#enroll");
+    await expect(
+      within(hero).getByRole("link", { name: /Посмотреть программу/u }),
+    ).toHaveAttribute("href", "/products/ai-engineering/programme");
+    await userEvent.click(
+      within(strip).getByRole("button", { name: "Скрыть полосу со скидкой" }),
+    );
+    await expect(page.queryByRole("region", { name: "Скидка" })).toBeNull();
+  },
+};
+export const RunningDiscountMobile: Story = {
+  ...RunningDiscount,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const strip = await within(canvasElement).findByRole("region", {
+      name: "Скидка",
+    });
+    // На телефоне полоса короче: процент, последний день и переход к цене.
+    const name =
+      strip.querySelector<HTMLElement>(".course-discount-strip-name") ??
+      fail("Название скидки в полосе");
+    await expect(name).not.toBeVisible();
+    await expect(within(strip).getByText(/до 30 ноября/u)).toBeVisible();
+    await expectNoSidewaysScrollAtDoubleText();
+  },
+};
+
+/** Самая длинная метка набора со скидкой на узком телефоне остаётся в ширине экрана. */
+export const PreorderDiscountNarrowPhone: Story = {
+  args: {
+    heroCall: (
+      <CohortCallView
+        call={cohortCall({
+          cohort: preorderCohort,
+          offer: discountedOffer,
+          productAccess: "closed",
+          signedIn: false,
+          slug: "ai-engineering",
+        })}
+      />
+    ),
+  },
+  globals: { viewport: { value: "mobile360", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const label = within(canvasElement).getByRole("link", {
+      name: /Идёт набор на первый поток\s*−25\s%\sдо 30 ноября/u,
+    });
+    await expect(label.getBoundingClientRect().right).toBeLessThanOrEqual(
+      document.documentElement.clientWidth,
+    );
+  },
+};
+
+/** Длинное название курса переносится по словам и не заходит под анимацию первого экрана. */
+const longNameResult = {
+  ...meta.args.result,
+  reference: {
+    ...meta.args.result.reference,
+    name: "Учебный курс: от идеи к выпуску",
+  },
+};
+export const LongCourseName: Story = {
+  args: { result: longNameResult },
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const title = within(canvasElement).getByRole("heading", { level: 1 });
+    const film =
+      canvasElement.querySelector<HTMLElement>(".aie-hero-film") ??
+      fail("Анимация первого экрана");
+    // Наклейка «+ менторинг» выступает за конец названия: ни она, ни название не заходят на анимацию.
+    const badge =
+      title.querySelector<HTMLElement>(".aie-hero-badge") ??
+      fail("Наклейка у названия курса");
+    for (const part of [
+      title.querySelector<HTMLElement>(".aie-hero-name") ??
+        fail("Название курса"),
+      badge,
+    ])
+      await expect(part.getBoundingClientRect().right).toBeLessThanOrEqual(
+        film.getBoundingClientRect().left,
+      );
+  },
+};
+export const LongCourseNameMobile: Story = {
+  args: { result: longNameResult },
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const badge =
+      canvasElement.querySelector<HTMLElement>(".aie-hero-badge") ??
+      fail("Наклейка у названия курса");
+    await expect(badge.getBoundingClientRect().right).toBeLessThanOrEqual(
+      document.documentElement.clientWidth,
+    );
+    await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
+      document.documentElement.clientWidth,
+    );
+  },
+};
+
+/** «AI Engineering» с меткой на широком экране стоит одной строкой, метка не заходит на анимацию. */
+export const ShortCourseNameWide: Story = {
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const title = within(canvasElement).getByRole("heading", { level: 1 });
+    const name =
+      title.querySelector<HTMLElement>(".aie-hero-name") ??
+      fail("Название курса");
+    const badge =
+      title.querySelector<HTMLElement>(".aie-hero-badge") ??
+      fail("Наклейка у названия курса");
+    const film =
+      canvasElement.querySelector<HTMLElement>(".aie-hero-film") ??
+      fail("Анимация первого экрана");
+    const lineHeight = Number.parseFloat(getComputedStyle(title).lineHeight);
+    await expect(name.getBoundingClientRect().height).toBeLessThan(
+      lineHeight * 1.5,
+    );
+    await expect(badge.getBoundingClientRect().right).toBeLessThanOrEqual(
+      film.getBoundingClientRect().left,
+    );
   },
 };

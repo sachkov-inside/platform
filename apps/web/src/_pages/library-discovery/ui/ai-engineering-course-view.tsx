@@ -81,6 +81,7 @@ type ResolvedProductResult = Extract<
  * маленькая кнопка в самом верху.
  */
 export function AiEngineeringCourseView({
+  announcement,
   heroCall,
   result,
   page,
@@ -88,6 +89,8 @@ export function AiEngineeringCourseView({
   statusCall,
   heroBadge,
 }: {
+  /** Полоса действующей скидки; она стоит над шапкой сайта, пока страница на экране. */
+  readonly announcement?: ReactNode;
   /** Плашка потока и кнопка по этапу продаж; без неё первый экран ведёт в программу. */
   readonly heroCall?: ReactNode;
   readonly result: ResolvedProductResult;
@@ -112,6 +115,8 @@ export function AiEngineeringCourseView({
       data-product-landing={reference.slug}
     >
       <HideMobileNavigation />
+      {/* Полоса скидки сама встаёт над шапкой сайта; здесь она только часть страницы. */}
+      {announcement}
       <div data-product-part="back">
         <CatalogBackLink href={returnTarget.href} label={returnTarget.label} />
       </div>

@@ -81,14 +81,23 @@
 .aie-cohort-live + * .aie-hero-action {
   margin-top: 1rem;
 }
-/* На телефоне метка остаётся одной строкой: короче отступы и мельче шрифт. */
+/*
+ * На телефоне короче отступы и мельче шрифт. Части метки не ломаются внутри себя: если скидке
+ * рядом с набором не хватает места, она уходит второй строкой целиком.
+ */
 @media (max-width: 47.999rem) {
   .aie-cohort-live {
-    flex-wrap: nowrap;
-    gap: 0.45rem;
+    gap: 0.2rem 0.45rem;
+    border-radius: 1.25rem;
     margin-top: 1.25rem;
     padding: 0.55rem 0.8rem 0.55rem 0.7rem;
     font-size: 0.82rem;
+  }
+  /* Не сжиматься рядом с соседом, но и не выходить за строку при крупном шрифте. */
+  .aie-cohort-live-text,
+  .aie-cohort-live-detail {
+    flex-shrink: 0;
+    max-width: 100%;
   }
   .aie-cohort-live-dot {
     width: 0.5rem;

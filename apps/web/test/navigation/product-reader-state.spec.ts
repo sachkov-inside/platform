@@ -423,8 +423,18 @@ test("Home displays the same Product learning state while its shared pin stays p
     const page = await owner.newPage();
     const response = await page.goto(baseURL, { waitUntil: "commit" });
     await response?.finished();
+    // На телефоне у карточки курса кнопки нет (решение владельца 23.11.2026): состояние обучения
+    // приходит в разметку и остаётся скрытым.
+    // Пока потоковая вставка не завершена, скрытая копия границы Suspense тоже в документе: у
+    // обеих ссылок один адрес, поэтому достаточно первой.
     await expect(
-      page.getByRole("link", { name: "Продолжить обучение", exact: true }),
+      page
+        .getByRole("link", {
+          name: "Продолжить обучение",
+          exact: true,
+          includeHidden: info.project.name === "mobile-chromium",
+        })
+        .first(),
     ).toHaveAttribute("href", `/products/${slug}/programme`);
     const reads = journal.parse(
       await (await request.get(`${backend}/__product-reader-state`)).json(),
@@ -539,8 +549,14 @@ for (const optional of ["all", "community"] as const) {
           ).toBeVisible();
           await expect(page.locator(".aie-status")).toBeHidden();
         } else if (surface === "Home") {
+          // На телефоне кнопка карточки курса скрыта (решение владельца 23.11.2026).
           await expect(
-            page.getByRole("link", { name: "Продолжить обучение" }),
+            page
+              .getByRole("link", {
+                name: "Продолжить обучение",
+                includeHidden: info.project.name === "mobile-chromium",
+              })
+              .first(),
           ).toHaveAttribute("href", `/products/${slug}/programme`);
         } else {
           // The continue action leads the window of the chapter the next lesson belongs to.
