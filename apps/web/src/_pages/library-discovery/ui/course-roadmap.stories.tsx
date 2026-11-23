@@ -447,8 +447,8 @@ export const NoRoadmap: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvasElement.querySelector("[data-roadmap-progress]"),
-    ).toBeNull();
+      canvas.getByRole("progressbar", { name: "Прогресс продукта" }),
+    ).toHaveAttribute("value", "9");
     await expect(
       canvas.getByRole("list", { name: `Материалы главы «${doneNames[0]}»` }),
     ).toBeVisible();
@@ -469,7 +469,9 @@ export const Guest: Story = {
     </ProductLearningProvider>
   ),
   play: async ({ canvasElement }) => {
-    const header = canvasElement.querySelector("header");
+    const header = canvasElement.querySelector<HTMLElement>(
+      '[data-programme-part="header"]',
+    );
     if (!header) throw new Error("Ожидалась шапка программы");
     await expect(within(header).queryByRole("progressbar")).toBeNull();
     await expect(
