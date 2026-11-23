@@ -10,6 +10,7 @@ import {
   type TestInfo,
 } from "@playwright/test";
 import { z } from "zod";
+import { openProgrammeChapter } from "../support/programme-chapter";
 
 const backend = `http://127.0.0.1:${process.env["FAKE_BACKEND_PORT"] ?? ""}`;
 const journal = z.object({
@@ -506,8 +507,11 @@ for (const optional of ["all", "community"] as const) {
             page.getByRole("link", { name: "Продолжить обучение" }),
           ).toHaveAttribute("href", `/products/${slug}/programme`);
         } else {
+          // The continue action leads the window of the chapter the next lesson belongs to.
           await expect(
-            page.getByRole("link", { name: "Продолжить", exact: true }),
+            (await openProgrammeChapter(page, "current")).getByRole("link", {
+              name: /^Продолжить: /u,
+            }),
           ).toBeVisible();
         }
         const gate = z

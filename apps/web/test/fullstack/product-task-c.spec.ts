@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { signInFullStack } from "../support/full-stack-session";
+import { openProgrammeChapter } from "../support/programme-chapter";
 
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
@@ -136,16 +137,18 @@ test("a guest reads an imported c Task with its page, link, image and keyboard a
     page.getByRole("link", { name: "Открой задание", exact: true }),
   ).toHaveAttribute("href", `/products/${productSlug}/tasks/${code}`);
   await page.goto(`/products/${productSlug}/programme`);
-  await expect(page.locator("[data-programme-task]")).toHaveCount(4);
+  // Tasks of a chaptered programme live in the chapter window.
+  const chapter = await openProgrammeChapter(page, 1);
+  await expect(chapter.locator("[data-programme-task]")).toHaveCount(4);
   expect(
-    await page
+    await chapter
       .locator("[data-programme-task]")
       .evaluateAll((elements) =>
         elements.map((element) => element.getAttribute("data-programme-task")),
       ),
   ).toEqual(["c-leading", "c-first", "c-second", "c-closed"]);
   for (const task of ["c-leading", "c-first", "c-second", "c-closed"])
-    await expect(page.locator(`[data-programme-task="${task}"]`)).toHaveCount(
-      1,
-    );
+    await expect(
+      chapter.locator(`[data-programme-task="${task}"]`),
+    ).toHaveCount(1);
 });

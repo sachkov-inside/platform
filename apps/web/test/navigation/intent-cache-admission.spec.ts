@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import { expect, test, type Request } from "@playwright/test";
 import { installAppShellPrefetchClassifier } from "../support/app-shell-prefetch";
+import { openProgrammeChapter } from "../support/programme-chapter";
 
 declare global {
   interface Window {
@@ -143,8 +144,9 @@ test("completed intent response renders the guest Reader before navigation respo
   const heldNavigationRequests: string[] = [];
   try {
     await page.goto(programme);
-    const lessonLink = page
-      .locator(`[data-product-programme]:visible a[href*='${lesson}']`)
+    // The lesson lives in the window of the first chapter.
+    const lessonLink = (await openProgrammeChapter(page, 1))
+      .locator(`a[href*='${lesson}']`)
       .first();
     await expect(lessonLink).toBeVisible();
     await page.waitForFunction(() =>

@@ -10,6 +10,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { evidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 import { installAppShellPrefetchClassifier } from "../support/app-shell-prefetch";
+import { openProgrammeChapter } from "../support/programme-chapter";
 
 const backendPort = process.env["FAKE_BACKEND_PORT"];
 if (backendPort === undefined) throw new Error("FAKE_BACKEND_PORT required");
@@ -739,7 +740,10 @@ for (const role of ["guest", "non-owner", "active-owner"] as const) {
             ),
           ).toBeVisible();
           await page.clock.runFor(250);
-          await page
+          // The first lesson lives in the window of the first chapter.
+          await (
+            await openProgrammeChapter(page, 1)
+          )
             .locator('a[href^="/materials/performance-lesson-1?"]')
             .filter({ visible: true })
             .first()

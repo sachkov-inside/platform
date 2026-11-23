@@ -5,6 +5,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 import { signInFullStack } from "../support/full-stack-session";
+import { openProgrammeChapter } from "../support/programme-chapter";
 
 function taskFixture(): {
   readonly productSlug: string;
@@ -34,6 +35,8 @@ test("a learner without Membership reads a free task from the programme, submits
   await signInFullStack(context, "NON_MEMBER");
   await page.goto(`/products/${productSlug}/programme`);
   await dismissNotices(page);
+  // Tasks of a chaptered programme live in the chapter window.
+  await openProgrammeChapter(page, 1);
   const afterLesson = page.getByRole("list", {
     name: "Задания после урока «Synthetic task lesson»",
   });
@@ -97,6 +100,7 @@ test("a learner without Membership reads a free task from the programme, submits
   });
 
   await page.goto(`/products/${productSlug}/programme`);
+  await openProgrammeChapter(page, 1);
   const currentTask = afterLesson.locator(
     `[data-programme-task="${code}"]:visible`,
   );

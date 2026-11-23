@@ -58,10 +58,9 @@ test("retained programme markers release chrome when returning to the landing (#
   await expect(
     programmeView.locator('[data-programme-part="header"]:visible'),
   ).toContainText("всё открыто");
+  // The chaptered programme shows its chapters as tiles.
   await expect(
-    programmeView
-      .getByRole("link", { name: "Материал 1", exact: true })
-      .first(),
+    programmeView.getByRole("list", { name: "Главы", exact: true }),
   ).toBeVisible();
   if (mobile(info))
     await expect(page.locator(".mobile-navigation")).toBeVisible();
