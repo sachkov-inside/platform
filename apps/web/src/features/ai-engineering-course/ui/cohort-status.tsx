@@ -106,12 +106,14 @@ export function CohortStatusView({
             telegramHandle === undefined ? null : (
               <ForeignPaymentNote telegramHandle={telegramHandle} />
             )}
-            <IntentPrefetchLink
-              className="aie-cohort-ticket-programme"
-              href={status.programmeHref}
-            >
-              {programmeCallLabel(status.freeStart)}
-            </IntentPrefetchLink>
+            {status.purchaseHref === null || status.freeStart ? (
+              <IntentPrefetchLink
+                className="aie-cohort-ticket-programme"
+                href={status.programmeHref}
+              >
+                {programmeCallLabel(status.freeStart)}
+              </IntentPrefetchLink>
+            ) : null}
           </div>
           {/* Условия покупки стоят рядом с ценой, только пока курс можно купить (23.11.2026). */}
           {status.purchaseHref === null ? null : (

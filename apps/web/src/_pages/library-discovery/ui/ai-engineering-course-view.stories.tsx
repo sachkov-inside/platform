@@ -772,8 +772,8 @@ export const CohortBetween: Story = {
       ticket.getByRole("link", { name: /Приобрести доступ/u }),
     ).toHaveAttribute("href", "/products/ai-engineering/buy");
     await expect(
-      ticket.getByRole("link", { name: "Открыть программу" }),
-    ).toBeVisible();
+      ticket.queryByRole("link", { name: "Открыть программу" }),
+    ).toBeNull();
   },
 };
 
