@@ -1427,6 +1427,7 @@ const longNameResult = {
 };
 export const LongCourseName: Story = {
   args: { result: longNameResult },
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
   play: async ({ canvasElement }) => {
     const title = within(canvasElement).getByRole("heading", { level: 1 });
     const film =
@@ -1458,6 +1459,30 @@ export const LongCourseNameMobile: Story = {
     );
     await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
       document.documentElement.clientWidth,
+    );
+  },
+};
+
+/** «AI Engineering» с меткой на широком экране стоит одной строкой, метка не заходит на анимацию. */
+export const ShortCourseNameWide: Story = {
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const title = within(canvasElement).getByRole("heading", { level: 1 });
+    const name =
+      title.querySelector<HTMLElement>(".aie-hero-name") ??
+      fail("Название курса");
+    const badge =
+      title.querySelector<HTMLElement>(".aie-hero-badge") ??
+      fail("Наклейка у названия курса");
+    const film =
+      canvasElement.querySelector<HTMLElement>(".aie-hero-film") ??
+      fail("Анимация первого экрана");
+    const lineHeight = Number.parseFloat(getComputedStyle(title).lineHeight);
+    await expect(name.getBoundingClientRect().height).toBeLessThan(
+      lineHeight * 1.5,
+    );
+    await expect(badge.getBoundingClientRect().right).toBeLessThanOrEqual(
+      film.getBoundingClientRect().left,
     );
   },
 };
