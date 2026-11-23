@@ -1,6 +1,4 @@
 import "server-only";
-import { materialReaderHref } from "@/shared/routing/material-reader";
-import { productProgrammeHref } from "@/shared/routing/subscription-route";
 import { Suspense } from "react";
 import type { ProductSale } from "@/entities/subscription.sale.server";
 import { ProductWaitlistSlot } from "./waitlist-provider.client";
@@ -23,7 +21,7 @@ import type {
 import { cohortCall } from "../model/cohort-call";
 import { cohortStatus } from "../model/cohort-status";
 import { courseTelegramHandle } from "../model/course-contact";
-import { countFreeLessons } from "../model/free-lessons";
+import { countFreeLessons, firstFreeLessonHref } from "../model/free-lessons";
 import { LearnerCourseStatus } from "./ai-engineering-course-view";
 import { TicketContact } from "./telegram-contact";
 
@@ -172,7 +170,15 @@ export async function PersonalCourseFilmOverlay({
             <CourseLearningLink
               intent="try-free"
               slug={slug}
-              firstLessonHref={firstFreeLessonHref(result)}
+              firstLessonHref={
+                result.kind === "ready"
+                  ? firstFreeLessonHref({
+                      slug,
+                      items: result.items,
+                      programmePlacements: result.programmePlacements,
+                    })
+                  : undefined
+              }
             />
           ) : null}
           <SaleCountdown sale={state.sale} />
@@ -216,8 +222,9 @@ function hasFreeLessons(result: ResolvedProduct): boolean {
 }
 
 /**
- * Зовёт ли курс этого человека попробовать бесплатно: тогда «Попробовать бесплатно» стоит на
- * анимации, а первый экран не повторяет кнопку в программу (#1647). Неизвестный доступ может
+ * Зовёт ли курс этого человека попробовать бесплатно: тогда на анимации стоит «Начать бесплатно»
+ * в первый урок или «Попробовать бесплатно» в программу, а первый экран не повторяет кнопку в
+ * программу (#1647). Неизвестный доступ может
  * принадлежать ученику, поэтому приглашения нет.
  */
 function offersFreeStart(
@@ -225,22 +232,4 @@ function offersFreeStart(
   result: ResolvedProduct,
 ): boolean {
   return access === "closed" && hasFreeLessons(result);
-}
-
-function firstFreeLessonHref(result: ResolvedProduct) {
-  if (result.kind !== "ready") return undefined;
-  const placement = result.programmePlacements?.[0];
-  if (!placement) return undefined;
-  const lesson = result.items.find(
-    (item) => item.materialId === placement.materialId,
-  );
-  if (lesson?.access !== "free" || lesson.availability === "unavailable")
-    return undefined;
-  return materialReaderHref(
-    lesson.slug,
-    productProgrammeHref(result.reference.slug),
-    {
-      placementId: placement.id,
-    },
-  );
 }

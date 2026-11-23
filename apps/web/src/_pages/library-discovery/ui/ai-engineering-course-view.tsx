@@ -28,8 +28,7 @@ import {
   Wrench,
 } from "lucide-react";
 import type { Route } from "next";
-import Image from "next/image";
-import { type CSSProperties, type ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import type {
   ProductPage,
@@ -191,18 +190,17 @@ function AuthorMessage({
 }) {
   if (handle === undefined || handle === "") return null;
   return (
-    <aside
-      className="aie-author-message"
-      id={id}
-      aria-label="Сообщение от Кирилла Сачкова"
-    >
-      <Image
-        className="aie-author-avatar"
-        src="/images/sachkov-dev-avatar.webp"
+    // Обычный блок текста страницы: два сообщения подряд не должны становиться одинаковыми ориентирами.
+    <div className="aie-author-message" id={id}>
+      {/* Pre-sized WebP covers this 40px avatar up to DPR 3. */}
+      {/* oxlint-disable-next-line next/no-img-element */}
+      <img
         alt=""
-        width={40}
+        className="aie-author-avatar"
+        decoding="async"
         height={40}
-        unoptimized
+        src="/images/sachkov-dev-avatar.webp"
+        width={40}
       />
       <div className="aie-author-bubble">
         <strong>Кирилл Сачков</strong>
@@ -215,7 +213,7 @@ function AuthorMessage({
           Написать мне в Telegram <ArrowRight aria-hidden="true" />
         </a>
       </div>
-    </aside>
+    </div>
   );
 }
 

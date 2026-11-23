@@ -22,6 +22,7 @@ import {
   aiEngineeringPublishedTopics,
   aiEngineeringCourseChapters,
   aiEngineeringCoursePage,
+  aiEngineeringProgrammeLandingPage,
 } from "@/storybook/ai-engineering-course.fixtures";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 
@@ -155,6 +156,68 @@ export const PositionTopicsAndProcess: Story = {
     await expect(
       within(files).getByRole("tab", { name: /Инструкции/u }),
     ).toHaveFocus();
+  },
+};
+
+/**
+ * Лендинг по новой программе (решение владельца 23.11.2026): сообщения автора со ссылкой в Telegram
+ * стоят справа, блок «Курс развивается» ведёт в программу без счётчика глав, шаги обучения
+ * занимают всю ширину.
+ */
+export const ProgrammeLanding: Story = {
+  args: {
+    result: {
+      ...meta.args.result,
+      reference: {
+        ...meta.args.result.reference,
+        productPage: {
+          presentation: "ai-engineering-course",
+          page: aiEngineeringProgrammeLandingPage,
+        },
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const messages = [
+      ...canvasElement.querySelectorAll<HTMLElement>(".aie-author-message"),
+    ];
+    await expect(messages).toHaveLength(2);
+    for (const message of messages) {
+      await expect(within(message).getByText("Кирилл Сачков")).toBeVisible();
+      await expect(
+        within(message).getByRole("link", { name: /Написать мне в Telegram/u }),
+      ).toHaveAttribute("href", "https://t.me/sachkova_mng");
+      // Реплика автора прижата к правому краю, как в переписке.
+      const parent = message.parentElement ?? fail("Missing message parent");
+      await expect(
+        Math.round(parent.getBoundingClientRect().right) -
+          Math.round(message.getBoundingClientRect().right),
+      ).toBeLessThanOrEqual(1);
+    }
+    await expect(canvas.queryByText("@sachkova_mng")).toBeNull();
+
+    const publication =
+      canvasElement.querySelector<HTMLElement>("#publication") ??
+      fail("Missing publication block");
+    await expect(
+      within(publication).getByRole("heading", { name: "Курс развивается" }),
+    ).toBeVisible();
+    await expect(
+      within(publication).getByRole("link", { name: /Открыть программу/u }),
+    ).toHaveAttribute("href", "/products/ai-engineering/programme");
+    await expect(
+      canvasElement.querySelector("[data-roadmap-progress]"),
+    ).toBeNull();
+
+    const steps = canvasElement.querySelectorAll(".aie-format ol > li");
+    const list =
+      canvasElement.querySelector<HTMLElement>(".aie-format ol") ??
+      fail("Missing format steps");
+    const last = steps.item(steps.length - 1).getBoundingClientRect();
+    await expect(
+      Math.round(list.getBoundingClientRect().right - last.right),
+    ).toBeLessThanOrEqual(1);
   },
 };
 

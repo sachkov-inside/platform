@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import { courseTopicTile } from "@/_pages/library-discovery/model/course-topic-tiles";
 import {
   aiEngineeringCoursePage,
+  aiEngineeringProgrammeLandingPage,
   aiEngineeringPublishedTopics,
 } from "@/storybook/ai-engineering-course.fixtures";
 
@@ -22,6 +23,12 @@ function spans(titles: readonly string[]): number[] {
 describe("Course topic tiles", () => {
   test("gives every topic of the accepted landing description its own illustration", () => {
     for (const title of topicsOf(aiEngineeringCoursePage)) {
+      expect(courseTopicTile(title), title).toBeDefined();
+    }
+  });
+
+  test("gives every topic of the landing by the new programme its own illustration", () => {
+    for (const title of topicsOf(aiEngineeringProgrammeLandingPage)) {
       expect(courseTopicTile(title), title).toBeDefined();
     }
   });
@@ -60,6 +67,7 @@ describe("Course topic tiles", () => {
   test("fills whole rows of the four-column grid", () => {
     for (const titles of [
       topicsOf(aiEngineeringCoursePage),
+      topicsOf(aiEngineeringProgrammeLandingPage),
       aiEngineeringPublishedTopics,
     ]) {
       let row = 0;
