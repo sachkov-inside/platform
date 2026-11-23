@@ -88,7 +88,7 @@ export function ProductJourney({
               ];
         });
   // A split chapter shows its heading, opening tasks and attachments in its first run only.
-  const ledChapters = new Set<string>();
+  const chapterLessonCounts = new Map<string, number>();
   // Every chapter is a tile with its roadmap status (#2141): without a stored roadmap a chapter with
   // lessons is ready and one without them is planned.
   const roadmapOf = new Map(
@@ -138,7 +138,7 @@ export function ProductJourney({
           journeyRun(run, {
             accessPending,
             currentHref,
-            ledChapters,
+            chapterLessonCounts,
             productOpen,
             result,
             chapterNumber:
@@ -207,7 +207,7 @@ function journeyRun(
     accessPending,
     chapterNumber,
     currentHref,
-    ledChapters,
+    chapterLessonCounts,
     productOpen,
     progress,
     result,
@@ -216,7 +216,7 @@ function journeyRun(
     /** Номер главы в программе, с единицы. */
     readonly chapterNumber: number;
     readonly currentHref: Route;
-    readonly ledChapters: Set<string>;
+    readonly chapterLessonCounts: Map<string, number>;
     readonly productOpen: boolean;
     /** Статус и уроки главы на дорожной карте курса. */
     readonly progress: RoadmapChapterProgress | undefined;
@@ -247,11 +247,17 @@ function journeyRun(
         ))}
       </ul>
     );
-  const firstRun = run.chapter !== null && !ledChapters.has(run.chapter.id);
+  const firstRun =
+    run.chapter !== null && !chapterLessonCounts.has(run.chapter.id);
   const leading = firstRun
     ? taskList(placed.leading, `Задания главы «${run.chapter.name}»`)
     : undefined;
-  if (run.chapter !== null) ledChapters.add(run.chapter.id);
+  const lessonOffset =
+    run.chapter === null
+      ? run.offset
+      : (chapterLessonCounts.get(run.chapter.id) ?? 0);
+  if (run.chapter !== null)
+    chapterLessonCounts.set(run.chapter.id, lessonOffset + run.items.length);
   const visitedMaterials = new Set<string>();
   return {
     chapter:
@@ -263,7 +269,6 @@ function journeyRun(
             ...(firstRun
               ? chapterWindow(run.chapter, {
                   number: chapterNumber,
-                  offset: run.offset + run.items.length,
                   progress,
                 })
               : {}),
@@ -305,10 +310,9 @@ function journeyRun(
         typeof material.programmePlacementId === "string"
           ? material.programmePlacementId
           : undefined;
-      // Splitting the route into parts renumbers each part; a flat Product keeps its stored order.
       const ordinal =
         result.chapters.length > 0 || result.programmePlacements !== undefined
-          ? run.offset + index + 1
+          ? lessonOffset + index + 1
           : (material.productMemberships.find(
               ({ slug }) => slug === result.reference.slug,
             )?.ordinal ?? run.offset + index + 1);
@@ -374,12 +378,9 @@ function chapterWindow(
   chapter: ProductChapter,
   {
     number,
-    offset,
     progress,
   }: {
     readonly number: number;
-    /** Номер последнего опубликованного урока перед объявленными. */
-    readonly offset: number;
     readonly progress: RoadmapChapterProgress | undefined;
   },
 ): Pick<NonNullable<JourneyRun["chapter"]>, "intro" | "tile" | "upcoming"> {
@@ -405,7 +406,7 @@ function chapterWindow(
           <UpcomingLessonRow
             key={`upcoming-${String(index)}`}
             lesson={lesson}
-            ordinal={offset + index + 1}
+            ordinal={(progress?.ready ?? 0) + index + 1}
           />
         ))
       : [];

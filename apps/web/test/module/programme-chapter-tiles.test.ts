@@ -95,6 +95,9 @@ describe("Programme chapter tiles", () => {
       (match) => match[1],
     );
     expect(rows).toEqual([corpus.slugs[13], corpus.slugs[14]]);
+    expect(
+      [...html.matchAll(/data-product-ordinal="(\d+)"/gu)].map((row) => row[1]),
+    ).toEqual(["1", "2"]);
     expect(html).toContain("Пишем первые уроки.");
     const upcoming = [
       ...html.matchAll(
@@ -102,7 +105,7 @@ describe("Programme chapter tiles", () => {
       ),
     ];
     expect(upcoming.map((match) => match[1])).toEqual(["writing", "soon"]);
-    expect(upcoming[0]?.[2]).toContain("16");
+    expect(upcoming[0]?.[2]).toContain(">3<");
   });
 
   it("derives the status of each chapter without a stored roadmap", () => {
