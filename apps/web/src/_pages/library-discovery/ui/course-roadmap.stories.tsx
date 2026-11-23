@@ -337,11 +337,13 @@ const mobile = { viewport: { value: "mobile390", isRotated: false } };
 export const Default: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Готовы 2 главы")).toBeVisible();
-    await expect(canvas.getByText(/^13 ноября/u)).toBeVisible();
-    await expect(
-      canvasElement.querySelectorAll("[data-roadmap-segment]"),
-    ).toHaveLength(7);
+    await expect(canvas.queryByText("Готовы 2 главы")).toBeNull();
+    await expect(canvas.queryByText(/^Обновлено/u)).toBeNull();
+    const progress = canvas.getByRole("progressbar", {
+      name: "Прогресс продукта",
+    });
+    await expect(progress).toBeVisible();
+    await expect(progress).toHaveAttribute("value", "9");
     const open = canvasElement.querySelectorAll(
       "details[data-roadmap-chapter][open]",
     );
@@ -411,9 +413,7 @@ export const AllCollapsedMobile: Story = { ...AllCollapsed, globals: mobile };
 export const AllDone: Story = {
   args: { result: programme({ allDone: true }) },
   play: async ({ canvasElement }) => {
-    await expect(
-      within(canvasElement).getByText("Готово 7 глав"),
-    ).toBeVisible();
+    await expect(within(canvasElement).queryByText("Готово 7 глав")).toBeNull();
     await expect(
       canvasElement.querySelectorAll("[data-roadmap-badge]"),
     ).toHaveLength(0);
@@ -428,8 +428,10 @@ export const NoPlanned: Story = {
   args: { result: programme({ planned: false }) },
   play: async ({ canvasElement }) => {
     await expect(
-      canvasElement.querySelectorAll("[data-roadmap-segment]"),
-    ).toHaveLength(3);
+      within(canvasElement).getByRole("progressbar", {
+        name: "Прогресс продукта",
+      }),
+    ).toBeVisible();
     await expect(
       canvasElement.querySelectorAll('[data-roadmap-chapter="planned"]'),
     ).toHaveLength(0);
@@ -437,7 +439,7 @@ export const NoPlanned: Story = {
 };
 
 /**
- * Дорожной карты нет: главы с уроками открыты, как раньше, шапка без полоски. Глава без уроков
+ * Дорожной карты нет: главы с уроками открыты, как раньше. Глава без уроков
  * показана запланированной.
  */
 export const NoRoadmap: Story = {
@@ -445,8 +447,8 @@ export const NoRoadmap: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvasElement.querySelector("[data-roadmap-progress]"),
-    ).toBeNull();
+      canvas.getByRole("progressbar", { name: "Прогресс продукта" }),
+    ).toHaveAttribute("value", "9");
     await expect(
       canvas.getByRole("list", { name: `Материалы главы «${doneNames[0]}»` }),
     ).toBeVisible();
@@ -459,3 +461,21 @@ export const NoRoadmap: Story = {
   },
 };
 export const NoRoadmapMobile: Story = { ...NoRoadmap, globals: mobile };
+
+export const Guest: Story = {
+  render: (args) => (
+    <ProductLearningProvider learning={{ kind: "guest" }}>
+      <ProductProgrammeView {...args} />
+    </ProductLearningProvider>
+  ),
+  play: async ({ canvasElement }) => {
+    const header = canvasElement.querySelector<HTMLElement>(
+      '[data-programme-part="header"]',
+    );
+    if (!header) throw new Error("Ожидалась шапка программы");
+    await expect(within(header).queryByRole("progressbar")).toBeNull();
+    await expect(
+      within(canvasElement).queryByText("Готовы 2 главы"),
+    ).toBeNull();
+  },
+};

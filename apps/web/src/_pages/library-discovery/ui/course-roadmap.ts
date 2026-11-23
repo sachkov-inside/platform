@@ -23,17 +23,10 @@ export interface RoadmapChapterProgress {
   readonly ready: number;
   /** Объявленные, но ещё не опубликованные уроки главы в работе. */
   readonly upcoming: number;
-  /** Закрашенная доля сегмента главы в полоске шапки, от 0 до 1. */
-  readonly share: number;
-}
-
-export interface CourseRoadmapProgress {
-  readonly chapters: readonly RoadmapChapterProgress[];
-  readonly doneCount: number;
 }
 
 /**
- * Статусы и доли глав для шапки и списка программы. Урок главы — опубликованный Material, который
+ * Статусы и число уроков для глав программы. Урок главы — опубликованный Material, который
  * программа ставит в эту главу: размещением, если программа их знает, иначе составом главы.
  */
 export function courseRoadmap({
@@ -49,9 +42,9 @@ export function courseRoadmap({
         readonly chapterId: string | null;
       }[]
     | undefined;
-}): CourseRoadmapProgress {
+}): readonly RoadmapChapterProgress[] {
   const published = new Set(items.map((item) => item.materialId));
-  const progress = chapters.map((chapter): RoadmapChapterProgress => {
+  return chapters.map((chapter): RoadmapChapterProgress => {
     const materialIds =
       programmePlacements === undefined
         ? chapter.materialIds
@@ -70,47 +63,8 @@ export function courseRoadmap({
       status,
       ready,
       upcoming,
-      share:
-        status === "done"
-          ? 1
-          : status === "writing" && ready + upcoming > 0
-            ? ready / (ready + upcoming)
-            : 0,
     };
   });
-  return {
-    chapters: progress,
-    doneCount: progress.filter(({ status }) => status === "done").length,
-  };
-}
-
-const genitiveMonths = [
-  "января",
-  "февраля",
-  "марта",
-  "апреля",
-  "мая",
-  "июня",
-  "июля",
-  "августа",
-  "сентября",
-  "октября",
-  "ноября",
-  "декабря",
-] as const;
-
-/**
- * «13 ноября» для даты текущего года, иначе «13 ноября 2025». Пока текущий год неизвестен
- * (`null`: сервер не читает часы при отрисовке), год остаётся в строке.
- */
-export function formatRoadmapUpdatedOn(
-  date: string,
-  currentYear: number | null,
-): string {
-  const [year = "", month = "", day = ""] = date.split("-");
-  const name = genitiveMonths[Number(month) - 1] ?? "";
-  const dayMonth = `${String(Number(day))} ${name}`;
-  return Number(year) === currentYear ? dayMonth : `${dayMonth} ${year}`;
 }
 
 export type ChapterSummarySection =
