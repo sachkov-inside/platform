@@ -26,8 +26,6 @@ import {
 import "./product-programme-view.css";
 
 import { formatChapterCount } from "./product-counts";
-import { courseRoadmap } from "./course-roadmap";
-import { CourseRoadmapHeader } from "./course-roadmap-view";
 import {
   programmePreorderRowClass,
   programmePurchaseRowClass,
@@ -178,12 +176,6 @@ export function ProductProgrammeView({
             <Send aria-hidden="true" className="size-4 shrink-0 text-accent" />
             Бесплатные уроки открываются после входа через Telegram.
           </p>
-        )}
-        {result.reference.roadmapUpdatedOn === undefined ? null : (
-          <CourseRoadmapHeader
-            roadmap={courseRoadmap({ ...result, items })}
-            updatedOn={result.reference.roadmapUpdatedOn}
-          />
         )}
         <ProgrammeProgress />
       </header>

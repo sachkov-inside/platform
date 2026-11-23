@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   chapterRoadmapStatus,
   courseRoadmap,
-  formatRoadmapUpdatedOn,
   parseChapterSummary,
 } from "@/_pages/library-discovery/ui/course-roadmap";
 import type { MaterialPreview } from "@/entities/material";
@@ -51,7 +50,7 @@ describe("Course roadmap status", () => {
 describe("Course roadmap of a Product", () => {
   const items = ["a", "b", "c", "d"].map(lesson);
 
-  it("counts done chapters and shares each segment by its ready lessons", () => {
+  it("counts published and upcoming lessons for each chapter", () => {
     const roadmap = courseRoadmap({
       items,
       chapters: [
@@ -66,11 +65,10 @@ describe("Course roadmap of a Product", () => {
         chapter("third", []),
       ],
     });
-    expect(roadmap.doneCount).toBe(1);
-    expect(roadmap.chapters).toEqual([
-      { id: "first", status: "done", ready: 2, upcoming: 0, share: 1 },
-      { id: "second", status: "writing", ready: 2, upcoming: 2, share: 0.5 },
-      { id: "third", status: "planned", ready: 0, upcoming: 0, share: 0 },
+    expect(roadmap).toEqual([
+      { id: "first", status: "done", ready: 2, upcoming: 0 },
+      { id: "second", status: "writing", ready: 2, upcoming: 2 },
+      { id: "third", status: "planned", ready: 0, upcoming: 0 },
     ]);
   });
 
@@ -80,9 +78,7 @@ describe("Course roadmap of a Product", () => {
       chapters: [chapter("first", ["a", "b"]), chapter("second", ["c"])],
       programmePlacements: [{ materialId: "a", chapterId: "second" }],
     });
-    expect(
-      roadmap.chapters.map(({ status, ready }) => [status, ready]),
-    ).toEqual([
+    expect(roadmap.map(({ status, ready }) => [status, ready])).toEqual([
       ["planned", 0],
       ["done", 1],
     ]);
@@ -106,28 +102,7 @@ describe("Course roadmap of a Product", () => {
         }),
       ],
     });
-    expect(roadmap.chapters[0]?.status).toBe("done");
-  });
-
-  it("gives a writing chapter without lessons an empty segment", () => {
-    const roadmap = courseRoadmap({
-      items: [],
-      chapters: [chapter("w", [], { roadmapStatus: "writing" })],
-    });
-    expect(roadmap.chapters[0]?.share).toBe(0);
-  });
-});
-
-describe("Roadmap update date", () => {
-  it("names the day and the month in the genitive without the current year", () => {
-    expect(formatRoadmapUpdatedOn("2026-11-13", 2026)).toBe("13 ноября");
-    expect(formatRoadmapUpdatedOn("2026-01-01", 2026)).toBe("1 января");
-    expect(formatRoadmapUpdatedOn("2026-05-31", 2026)).toBe("31 мая");
-  });
-
-  it("adds the year of another year or before the current year is known", () => {
-    expect(formatRoadmapUpdatedOn("2025-12-30", 2026)).toBe("30 декабря 2025");
-    expect(formatRoadmapUpdatedOn("2026-03-08", null)).toBe("8 марта 2026");
+    expect(roadmap[0]?.status).toBe("done");
   });
 });
 
@@ -152,13 +127,9 @@ describe("Chapter summary parts", () => {
 });
 
 describe("roadmap counts", () => {
-  it("agrees the verb with the number of done chapters", async () => {
-    const { formatDoneChapters, formatOfLessons } =
+  it("declines lessons after the total count", async () => {
+    const { formatOfLessons } =
       await import("@/_pages/library-discovery/ui/product-counts");
-    expect(formatDoneChapters(1)).toBe("Готова 1 глава");
-    expect(formatDoneChapters(2)).toBe("Готовы 2 главы");
-    expect(formatDoneChapters(7)).toBe("Готово 7 глав");
-    expect(formatDoneChapters(11)).toBe("Готово 11 глав");
     expect(formatOfLessons(1)).toBe("из 1 урока");
     expect(formatOfLessons(7)).toBe("из 7 уроков");
     expect(formatOfLessons(21)).toBe("из 21 урока");

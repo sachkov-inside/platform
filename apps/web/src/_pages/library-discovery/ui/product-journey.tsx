@@ -98,7 +98,7 @@ export function ProductJourney({
   // With a stored roadmap every chapter folds (#2141); without one only a planned chapter does.
   const roadmapMode = result.reference.roadmapUpdatedOn !== undefined;
   const roadmapOf = new Map(
-    courseRoadmap({ ...result, items }).chapters.map(
+    courseRoadmap({ ...result, items }).map(
       (entry) => [entry.id, entry] as const,
     ),
   );

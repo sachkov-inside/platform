@@ -7,55 +7,7 @@ import type {
 } from "@/features/library-discovery";
 import { cn } from "@/shared/lib/utils";
 
-import type {
-  ChapterSummarySection,
-  CourseRoadmapProgress,
-} from "./course-roadmap";
-import { RoadmapUpdatedOn } from "./course-roadmap-updated-on.client";
-import { formatDoneChapters } from "./product-counts";
-
-/**
- * Дорожная карта курса на вкладке «Программа» (#2141, прототип `Prototypes/Course Roadmap` принят
- * владельцем 13.11.2026): шапка с готовыми главами, датой и полоской по главам, сворачиваемые
- * главы со статусами и неопубликованные уроки главы в работе.
- */
-export function CourseRoadmapHeader({
-  roadmap,
-  updatedOn,
-}: {
-  readonly roadmap: CourseRoadmapProgress;
-  readonly updatedOn: string;
-}) {
-  return (
-    <div className="mt-4 border-t border-border/70 pt-4" data-roadmap-progress>
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-sm">
-        <p className="font-medium">{formatDoneChapters(roadmap.doneCount)}</p>
-        <RoadmapUpdatedOn date={updatedOn} />
-      </div>
-      <div
-        aria-hidden="true"
-        className="mt-3 flex gap-[3px]"
-        data-roadmap-segments
-      >
-        {roadmap.chapters.map((chapter) => (
-          <span
-            className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-border"
-            data-roadmap-segment={chapter.status}
-            key={chapter.id}
-          >
-            <span
-              className={cn(
-                "absolute inset-y-0 left-0 rounded-full",
-                chapter.status === "writing" ? "bg-accent" : "bg-primary",
-              )}
-              style={{ width: `${String(chapter.share * 100)}%` }}
-            />
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
+import type { ChapterSummarySection } from "./course-roadmap";
 
 const badgeTone = {
   writing:
