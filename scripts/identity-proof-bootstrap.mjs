@@ -477,12 +477,14 @@ export async function ensureSignInExperience(
   });
 }
 
-/** Текст строки под формой входа. Ссылку `<link></link>` Logto подставляет сам из `privacyPolicyUrl`. */
-export const signInAgreementPhrases = {
+/** Русские тексты экрана входа. Ссылку `<link></link>` Logto подставляет сам из `privacyPolicyUrl`. */
+export const signInPhrases = {
   description: {
     auto_agreement:
       "Обработка данных описана в <link></link>. Условия использования вы примете после входа.",
     privacy_policy: "политике персональных данных",
+    sign_in_id_does_not_exist_alert:
+      "Почта {{value}} не привязана к аккаунту. Войдите через Telegram и добавьте почту в личном кабинете.",
   },
 };
 
@@ -490,7 +492,7 @@ export const signInAgreementPhrases = {
 export async function ensureSignInPhrases(api) {
   await api("/custom-phrases/ru", {
     method: "PUT",
-    body: signInAgreementPhrases,
+    body: signInPhrases,
   });
 }
 

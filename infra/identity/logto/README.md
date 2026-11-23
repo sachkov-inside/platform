@@ -85,7 +85,11 @@ Provisioning lives in the production Logto database. To enable the method for #2
 
 3. Deploy Web with the restored panel. With a synthetic Account, verify Telegram registration,
    first email attachment, return to the same Account by email code, and the existing access pass.
-   An unknown email cannot complete registration.
+   An unknown email cannot complete registration. After verifying an unknown address, the
+   Russian alert directs the user to sign in through Telegram and add the address in their
+   personal account. Apply the `description.sign_in_id_does_not_exist_alert` phrase from
+   `scripts/identity-proof-bootstrap.mjs` to the production Russian custom phrases, preserving
+   the existing translations.
 
 To revert, restore the previous Web release and set `signIn.methods` back to `[]`. Keep
 `signUp.identifiers` empty and keep `signInMode` as `SignInAndRegister`. Confirm Telegram and the
