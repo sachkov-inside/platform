@@ -22,7 +22,7 @@ export function CourseReferenceNavigation({
   headingLevel,
   navigationLabel,
 }: {
-  readonly headingLevel?: 2 | 4 | undefined;
+  readonly headingLevel?: 2 | 3 | 4 | undefined;
   readonly navigationLabel?: string | undefined;
   readonly stateKey?: string | undefined;
   readonly references: readonly CourseReferenceMaterial[];
@@ -58,7 +58,7 @@ function ReferenceList({
     `references:${stateKey ?? "standalone"}:${JSON.stringify(references.map((item) => item.id))}`,
   );
   const listId = useId();
-  const Heading = headingLevel === 4 ? "h4" : "h2";
+  const Heading = headingLevel === 4 ? "h4" : headingLevel === 3 ? "h3" : "h2";
   const visibleReferences = expanded ? references : references.slice(0, 3);
   return (
     <nav aria-label={navigationLabel} className={styles["references"]}>

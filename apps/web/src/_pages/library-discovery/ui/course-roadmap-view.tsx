@@ -22,9 +22,9 @@ export function UpcomingLessonRow({
         {ordinal}
       </span>
       <div className="min-w-0 flex-1">
-        <h4 className="text-sm font-medium leading-5 [overflow-wrap:anywhere] sm:text-base sm:leading-6">
+        <h3 className="text-sm font-medium leading-5 [overflow-wrap:anywhere] sm:text-base sm:leading-6">
           {lesson.title}
-        </h4>
+        </h3>
         <span className="mt-1 flex items-center gap-1.5 text-xs leading-4">
           {lesson.state === "writing" ? (
             <>

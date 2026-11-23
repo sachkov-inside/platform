@@ -239,6 +239,7 @@ function journeyRun(
           <li className="@container/series-entry min-w-0" key={task.code}>
             <ProductTaskRow
               accessPending={accessPending}
+              headingLevel="h3"
               href={productTaskHref(result.reference.slug, task.code)}
               task={task}
             />
@@ -273,7 +274,7 @@ function journeyRun(
       run.chapter === null || !firstRun ? null : (
         <CourseReferenceNavigation
           courseHref={currentHref}
-          headingLevel={4}
+          headingLevel={3}
           navigationLabel={`Дополнительные материалы главы «${run.chapter.name}»`}
           key={`supplementary-${run.chapter.id}`}
           references={(run.chapter.supplementaryMaterialIds ?? []).flatMap(
@@ -347,7 +348,8 @@ function journeyRun(
                 ordinal={ordinal}
               />
             }
-            headingLevel={run.chapter === null ? "h3" : "h4"}
+            // Chapter rows sit under the h2 of their chapter window.
+            headingLevel="h3"
             material={material}
             returnHref={returnHref}
             variant="product"

@@ -313,7 +313,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Дорожная карта курса на вкладке «Программа» (#2141): готовые главы, глава в работе с будущими уроками и главы в планах. Каждая глава сворачивается, открыта только глава в работе.",
+          "Дорожная карта курса на вкладке «Программа» (#2141): готовые главы, глава в работе с будущими уроками и главы в планах. Главы стоят плитками, уроки главы открываются в её окне.",
       },
     },
   },
@@ -333,34 +333,50 @@ type Story = StoryObj<typeof meta>;
 
 const mobile = { viewport: { value: "mobile390", isRotated: false } };
 
-/** Две главы готовы, третья пишется, четыре в планах. */
+function tile(canvasElement: HTMLElement, name: string): HTMLElement {
+  const match = [
+    ...canvasElement.querySelectorAll<HTMLElement>("[data-chapter-tile]"),
+  ].find((candidate) => candidate.textContent.includes(name));
+  if (match === undefined) throw new Error(`Missing tile «${name}»`);
+  return match;
+}
+
+function chapterWindow(): HTMLDialogElement {
+  const dialog = document.querySelector<HTMLDialogElement>(
+    "dialog[data-chapter-window]",
+  );
+  if (dialog === null) throw new Error("Missing chapter window");
+  return dialog;
+}
+
+/** Две главы готовы, третья пишется, четыре в планах: семь плиток с метками статуса. */
 export const Default: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.queryByText("Готовы 2 главы")).toBeNull();
-    await expect(canvas.queryByText(/^Обновлено/u)).toBeNull();
     const progress = canvas.getByRole("progressbar", {
       name: "Прогресс продукта",
     });
     await expect(progress).toBeVisible();
     await expect(progress).toHaveAttribute("value", "9");
-    const open = canvasElement.querySelectorAll(
-      "details[data-roadmap-chapter][open]",
-    );
-    await expect(open).toHaveLength(1);
-    await expect(open[0]).toHaveAttribute("data-roadmap-chapter", "writing");
-    await expect(canvas.getByText("Изучено 9 из 13")).toBeVisible();
-    await expect(canvas.getByText("Готово 2 из 7 уроков")).toBeVisible();
     await expect(
-      canvasElement.querySelectorAll("[data-roadmap-upcoming]"),
-    ).toHaveLength(5);
+      canvasElement.querySelectorAll("[data-chapter-tile]"),
+    ).toHaveLength(7);
     await expect(
-      canvas.getByRole("heading", {
-        level: 4,
-        name: /^Бизнес-требования и сценарии/u,
-      }),
+      canvasElement.querySelectorAll('[data-chapter-badge="writing"]'),
+    ).toHaveLength(1);
+    await expect(
+      canvasElement.querySelectorAll('[data-chapter-badge="planned"]'),
+    ).toHaveLength(4);
+    // A tile counts what the reader studied in its chapter.
+    await expect(
+      canvas.getByLabelText(
+        `Изучено 9 из 13 материалов главы «${doneNames[0]}»`,
+      ),
     ).toBeVisible();
-    await expect(canvas.getAllByText("В планах")).toHaveLength(4);
+    // Lessons wait for the chapter window.
+    await expect(
+      canvasElement.querySelectorAll("[data-route-material]"),
+    ).toHaveLength(0);
     // Long titles wrap: nothing in the programme scrolls sideways.
     await expect(document.documentElement.scrollWidth).toBe(
       document.documentElement.clientWidth,
@@ -369,56 +385,66 @@ export const Default: Story = {
 };
 export const DefaultMobile: Story = { ...Default, globals: mobile };
 
-/** Раскрыты вторая готовая глава и темы первой главы в планах. */
-export const Expanded: Story = {
+/**
+ * Окно главы в работе: готовые уроки, затем объявленные. Стрелка ведёт к следующей главе, Esc
+ * закрывает окно и возвращает фокус на плитку.
+ */
+export const ChapterWindow: Story = {
   play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole("heading", { name: doneNames[1] }));
+    const writing = tile(canvasElement, writingName);
+    await userEvent.click(writing);
+    const dialog = chapterWindow();
+    await expect(dialog.open).toBe(true);
+    const window_ = within(dialog);
     await expect(
-      canvas.getByRole("list", {
-        name: `Материалы главы «${doneNames[1]}»`,
+      window_.getByRole("heading", {
+        level: 2,
+        name: /^Проектирование до кода/u,
+      }),
+    ).toHaveFocus();
+    await expect(window_.getByText(/готово 2 из 7 уроков/u)).toBeVisible();
+    await expect(
+      window_.getByRole("list", { name: `Материалы главы «${writingName}»` }),
+    ).toBeVisible();
+    await expect(
+      dialog.querySelectorAll("[data-roadmap-upcoming]"),
+    ).toHaveLength(5);
+    await expect(
+      window_.getByRole("heading", {
+        level: 3,
+        name: /^Бизнес-требования и сценарии/u,
       }),
     ).toBeVisible();
-    const planned = canvasElement.querySelector<HTMLElement>(
-      '[data-roadmap-chapter="planned"] summary',
-    );
-    if (planned === null) throw new Error("Missing planned chapter");
-    await userEvent.click(planned);
+    await userEvent.click(window_.getByRole("button", { name: /^Следующая/u }));
     await expect(
-      canvas.getByText("Proof of work: свидетельства работы в PR"),
+      window_.getByRole("heading", {
+        level: 2,
+        name: /^Тестирование, проверки/u,
+      }),
     ).toBeVisible();
-  },
-};
-export const ExpandedMobile: Story = { ...Expanded, globals: mobile };
-
-/** Глава в работе тоже сворачивается: вся программа помещается на один экран. */
-export const AllCollapsed: Story = {
-  play: async ({ canvasElement }) => {
-    const writing = canvasElement.querySelector<HTMLDetailsElement>(
-      '[data-roadmap-chapter="writing"]',
-    );
-    const summary = writing?.querySelector("summary");
-    if (writing == null || summary == null)
-      throw new Error("Missing chapter in work");
-    await userEvent.click(summary);
-    await expect(writing.open).toBe(false);
     await expect(
-      canvasElement.querySelectorAll("details[data-roadmap-chapter][open]"),
-    ).toHaveLength(0);
+      window_.getByText("Proof of work: свидетельства работы в PR"),
+    ).toBeVisible();
+    await userEvent.keyboard("{Escape}");
+    await expect(dialog.open).toBe(false);
+    await expect(
+      tile(canvasElement, "Тестирование, проверки, фидбэк и evals"),
+    ).toHaveFocus();
   },
 };
-export const AllCollapsedMobile: Story = { ...AllCollapsed, globals: mobile };
+export const ChapterWindowMobile: Story = { ...ChapterWindow, globals: mobile };
 
-/** Курс дописан: все главы готовы и свёрнуты, меток «Пишется» и «В планах» нет. */
+/** Курс дописан: все главы готовы, меток «Пишется» и «В планах» нет. */
 export const AllDone: Story = {
   args: { result: programme({ allDone: true }) },
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).queryByText("Готово 7 глав")).toBeNull();
     await expect(
-      canvasElement.querySelectorAll("[data-roadmap-badge]"),
-    ).toHaveLength(0);
+      canvasElement.querySelectorAll("[data-chapter-tile]"),
+    ).toHaveLength(7);
     await expect(
-      canvasElement.querySelectorAll("details[data-roadmap-chapter][open]"),
+      canvasElement.querySelectorAll(
+        '[data-chapter-badge="writing"], [data-chapter-badge="planned"]',
+      ),
     ).toHaveLength(0);
   },
 };
@@ -433,30 +459,25 @@ export const NoPlanned: Story = {
       }),
     ).toBeVisible();
     await expect(
-      canvasElement.querySelectorAll('[data-roadmap-chapter="planned"]'),
+      canvasElement.querySelectorAll('[data-chapter-status="planned"]'),
     ).toHaveLength(0);
   },
 };
 
-/**
- * Дорожной карты нет: главы с уроками открыты, как раньше. Глава без уроков
- * показана запланированной.
- */
+/** Дорожной карты нет: глава с уроками готова, глава без уроков показана запланированной. */
 export const NoRoadmap: Story = {
   args: { result: programme({ roadmap: false }) },
   play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("progressbar", { name: "Прогресс продукта" }),
+      within(canvasElement).getByRole("progressbar", {
+        name: "Прогресс продукта",
+      }),
     ).toHaveAttribute("value", "9");
     await expect(
-      canvas.getByRole("list", { name: `Материалы главы «${doneNames[0]}»` }),
-    ).toBeVisible();
+      canvasElement.querySelectorAll('[data-chapter-status="done"]'),
+    ).toHaveLength(3);
     await expect(
-      canvasElement.querySelectorAll('[data-roadmap-chapter="planned"]'),
-    ).toHaveLength(4);
-    await expect(
-      canvasElement.querySelectorAll("[data-roadmap-badge]"),
+      canvasElement.querySelectorAll('[data-chapter-badge="planned"]'),
     ).toHaveLength(4);
   },
 };
@@ -474,8 +495,5 @@ export const Guest: Story = {
     );
     if (!header) throw new Error("Ожидалась шапка программы");
     await expect(within(header).queryByRole("progressbar")).toBeNull();
-    await expect(
-      within(canvasElement).queryByText("Готовы 2 главы"),
-    ).toBeNull();
   },
 };

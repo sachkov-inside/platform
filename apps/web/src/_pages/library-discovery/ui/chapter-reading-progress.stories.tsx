@@ -172,77 +172,29 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** The chapter counts saved marks for lessons whose rows have not been revealed yet. */
+/** The chapter tile counts saved marks for every lesson, though its rows wait for the chapter window. */
 export const IncludesUnrevealedLessons: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     try {
       await waitFor(() => expect(requested.flat().sort()).toEqual(chapterIds));
-      const rows = canvasElement.querySelectorAll("[data-product-ordinal]");
-      await expect(rows).toHaveLength(12);
-      await expect(
-        canvasElement.querySelector(
-          '[data-route-material="chapter-progress-lesson-24"]',
-        ),
-      ).not.toBeInTheDocument();
-      const boundary = canvasElement.querySelector(
-        '[data-product-ordinal="12"]',
-      );
-      if (!(boundary instanceof HTMLElement))
-        throw new Error("Missing twelfth lesson boundary");
-      await expect(window.innerWidth).toBe(390);
-      await expect(boundary.getBoundingClientRect().top).toBeGreaterThan(
-        window.innerHeight + 600,
-      );
-      const counter = canvas.getByLabelText(
-        "Прогресс главы «Учебный проект» загружается",
-      );
-      await expect(counter).toBeVisible();
-      await expect(counter).toHaveTextContent("… из 24");
-      console.info(
-        "Chapter progress baseline",
-        JSON.stringify({
-          phase: "response-held",
-          rowCount: rows.length,
-          unrevealed24Mounted: false,
-          boundaryTop: boundary.getBoundingClientRect().top,
-          rootBottom: window.innerHeight,
-          documentScroll: document.scrollingElement?.scrollTop,
-          requested,
-          counter: counter.textContent,
-          accessibleName: counter.getAttribute("aria-label"),
-        }),
-      );
-
-      releaseStates?.();
-      await waitFor(() =>
-        expect(counter).toHaveAttribute(
-          "aria-label",
-          "Изучено 3 из 24 материалов главы «Учебный проект»",
-        ),
-      );
-      await expect(counter).toHaveTextContent("3 из 24");
       await expect(
         canvasElement.querySelectorAll("[data-product-ordinal]"),
-      ).toHaveLength(12);
-      await expect(
-        canvasElement.querySelector(
-          '[data-route-material="chapter-progress-lesson-24"]',
-        ),
-      ).not.toBeInTheDocument();
-      await expect(requested.flat().sort()).toEqual(chapterIds);
-      console.info(
-        "Chapter progress baseline",
-        JSON.stringify({
-          phase: "response-committed",
-          rowCount: canvasElement.querySelectorAll("[data-product-ordinal]")
-            .length,
-          unrevealed24Mounted: false,
-          counter: counter.textContent,
-          accessibleName: counter.getAttribute("aria-label"),
-        }),
+      ).toHaveLength(0);
+      const tile = canvasElement.querySelector<HTMLElement>(
+        "[data-chapter-tile]",
       );
+      if (tile === null) throw new Error("Missing chapter tile");
+      // While the marks load, the tile names the size of the chapter.
+      await expect(tile).toHaveTextContent("24 урока");
+      releaseStates?.();
+      const counter = await canvas.findByLabelText(
+        "Изучено 3 из 24 материалов главы «Учебный проект»",
+      );
+      await expect(counter).toBeVisible();
+      await expect(counter).toHaveTextContent("3 из 24");
+      await expect(requested.flat().sort()).toEqual(chapterIds);
     } finally {
       releaseStates?.();
     }

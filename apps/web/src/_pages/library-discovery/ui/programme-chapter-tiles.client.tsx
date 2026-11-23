@@ -2,7 +2,7 @@
 
 import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
 import type { Route } from "next";
-import { useId, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 
 import type { ProductChapterRoadmapStatus } from "@/features/library-discovery";
 import {
@@ -76,15 +76,22 @@ export function ProgrammeChapterTiles({
   const index = chapters.findIndex((chapter) => chapter.id === openId);
   const opened = index === -1 ? undefined : chapters[index];
   const close = () => {
-    const id = openId;
     onOpenChange(null);
-    if (id === null) return;
+  };
+  // After the window closes, focus returns to the tile of the chapter it showed last, not to the
+  // tile that opened it: the arrows may have paged to another chapter.
+  const shown = useRef<string | null>(null);
+  const shownId = opened?.id ?? null;
+  useEffect(() => {
+    const last = shown.current;
+    shown.current = shownId;
+    if (shownId !== null || last === null) return;
     gridRef.current
       ?.querySelector<HTMLButtonElement>(
-        `[data-chapter-tile="${CSS.escape(id)}"]`,
+        `[data-chapter-tile="${CSS.escape(last)}"]`,
       )
       ?.focus();
-  };
+  }, [shownId]);
   const { ref, ...dialogEvents } = useNativeDialog({
     open: opened !== undefined,
     onOpenChange: (open) => {

@@ -1,7 +1,7 @@
 import { learningScenario as facts } from "../../../../../../scenarios/learning.mjs";
 import { scenarioRoles } from "../../../../../../scenarios/roles.mjs";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, within } from "storybook/test";
+import { expect, userEvent, within } from "storybook/test";
 import { MaterialReadingScope } from "@/entities/material";
 import {
   learningArtifacts,
@@ -64,14 +64,28 @@ export const Started: Story = {
     await expect(
       canvas.getByRole("heading", { name: "Учебный курс: от идеи к выпуску" }),
     ).toBeVisible();
+    // The chapter of the continuation is marked on its tile and opens with the continue action.
+    const current = canvasElement.querySelector<HTMLElement>(
+      '[data-chapter-tile]:has([data-chapter-badge="current"])',
+    );
+    if (current === null) throw new Error("Missing the current chapter tile");
+    await userEvent.click(current);
+    const dialog = canvasElement.ownerDocument.querySelector<HTMLElement>(
+      "dialog[data-chapter-window]",
+    );
+    if (dialog === null) throw new Error("Missing chapter window");
+    const window_ = within(dialog);
+    // The row of the continuation lesson and the continue action of the window.
     await expect(
-      canvas.getByRole("link", { name: /Учебный пример: работа над проектом/ }),
+      window_.getAllByRole("link", {
+        name: /Учебный пример: работа над проектом/,
+      }),
+    ).toHaveLength(2);
+    await expect(
+      window_.getByRole("link", { name: /Учебный пример: покажи результат/ }),
     ).toBeVisible();
     await expect(
-      canvas.getByRole("link", { name: /Учебный пример: покажи результат/ }),
-    ).toBeVisible();
-    await expect(
-      canvas.getByRole("link", { name: /Продолжить/ }),
+      window_.getByRole("link", { name: /^Продолжить/ }),
     ).toHaveAttribute("href", expect.stringContaining("synthetic-project"));
   },
 };
