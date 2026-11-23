@@ -963,7 +963,8 @@
 }
 .aie-format ol {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* Колонок столько, сколько шагов в описании: три карточки занимают всю ширину. */
+  grid-template-columns: repeat(var(--aie-format-count, 4), minmax(0, 1fr));
   gap: 1rem;
   margin: 2rem 0 0;
   padding: 0;
@@ -2265,11 +2266,14 @@
 .aie-course .aie-hero-lead {
   white-space: pre-line;
 }
+/* Сообщение автора стоит справа, как его реплика в переписке. */
 .aie-author-message {
   display: flex;
+  flex-direction: row-reverse;
   align-items: flex-start;
   gap: 0.75rem;
   margin-top: 1.5rem;
+  margin-left: auto;
   max-width: 39rem;
   scroll-margin-top: 6rem;
 }
@@ -2278,7 +2282,7 @@
   border-radius: 50%;
 }
 .aie-author-bubble {
-  border-radius: 0.25rem 1.125rem 1.125rem;
+  border-radius: 1.125rem 0.25rem 1.125rem 1.125rem;
   background: var(--secondary);
   padding: 0.9rem 1.15rem;
 }

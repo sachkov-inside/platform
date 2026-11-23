@@ -906,7 +906,7 @@ function FormatCards({
           </IntentPrefetchLink>
         )}
       </div>
-      <ol>
+      <ol style={cssVariables({ "--aie-format-count": block.items.length })}>
         {block.items.map((step, index) => (
           <li key={`${String(index)}-${step.title}`}>
             <div aria-hidden="true" className="aie-format-art">

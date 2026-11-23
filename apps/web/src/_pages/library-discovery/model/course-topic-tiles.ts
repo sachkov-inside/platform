@@ -46,7 +46,7 @@ const tile = (
 const tiles: Readonly<Record<string, CourseTopicTile>> = {
   // Темы лендинга по программе с 23.11.2026: путь курса от harness до software factory,
   // ряды по четыре колонки (широкая плитка занимает две).
-  "Harness и Agent Kit": tile("harness", "wide", "ink"),
+  "Свой harness": tile("harness", "wide", "ink"),
   "Пайплайн разработки": tile("flow", "narrow", "example"),
   "Проектирование с агентом": tile("story", "narrow", "sand"),
   "Domain-Driven Design": tile("domain", "narrow", "lavender"),
