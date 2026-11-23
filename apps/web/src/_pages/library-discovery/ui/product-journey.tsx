@@ -310,7 +310,6 @@ function journeyRun(
         typeof material.programmePlacementId === "string"
           ? material.programmePlacementId
           : undefined;
-      // A flat product keeps its stored order.
       const ordinal =
         result.chapters.length > 0 || result.programmePlacements !== undefined
           ? lessonOffset + index + 1
