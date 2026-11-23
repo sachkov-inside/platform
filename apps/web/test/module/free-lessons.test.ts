@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { MaterialPreview } from "@/entities/material";
 import {
   countFreeLessons,
-  firstFreeLessonHref,
+  hasFreeFirstLesson,
 } from "@/_pages/library-discovery/model/free-lessons";
 
 function lesson(
@@ -54,48 +54,34 @@ describe("первый бесплатный урок программы", () => 
     stepGroup: null,
   });
 
-  it("ведёт гостя прямо в первый урок программы и возвращает в программу к нему", () => {
+  it("распознаёт бесплатный первый урок по порядку программы", () => {
     expect(
-      firstFreeLessonHref({
-        slug: "ai-engineering",
-        items: [
-          lesson("choose-agent", "free", "locked"),
+      hasFreeFirstLesson(
+        [
+          lesson("choose-agent", "closed", "locked"),
           lesson("intro", "free", "locked"),
         ],
-        programmePlacements: [
-          placement("intro", "p-1"),
-          placement("choose-agent", "p-2"),
-        ],
-      }),
-    ).toBe(
-      "/materials/intro?from=%2Fproducts%2Fai-engineering%2Fprogramme%3Fpage%3D1%26at%3Dintro&placement=p-1",
-    );
+        [placement("intro", "p-1"), placement("choose-agent", "p-2")],
+      ),
+    ).toBe(true);
   });
 
-  it("не ведёт в урок, если первый урок программы закрыт или его доступ не проверен", () => {
+  it("не предлагает бесплатный старт с первого урока, если первый урок программы закрыт или его доступ не проверен", () => {
     for (const first of [
       lesson("intro", "closed", "locked"),
       lesson("intro", "free", "unavailable"),
     ])
       expect(
-        firstFreeLessonHref({
-          slug: "ai-engineering",
-          items: [first, lesson("next", "free", "locked")],
-          programmePlacements: [
-            placement("intro", "p-1"),
-            placement("next", "p-2"),
-          ],
-        }),
-      ).toBeUndefined();
+        hasFreeFirstLesson(
+          [first, lesson("next", "free", "locked")],
+          [placement("intro", "p-1"), placement("next", "p-2")],
+        ),
+      ).toBe(false);
   });
 
   it("не выбирает урок, когда порядок программы неизвестен", () => {
     expect(
-      firstFreeLessonHref({
-        slug: "ai-engineering",
-        items: [lesson("intro", "free", "locked")],
-        programmePlacements: undefined,
-      }),
-    ).toBeUndefined();
+      hasFreeFirstLesson([lesson("intro", "free", "locked")], undefined),
+    ).toBe(false);
   });
 });

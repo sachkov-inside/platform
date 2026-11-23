@@ -509,16 +509,13 @@ const programmeReady =
  */
 const programmeLesson = (page: Page, slug: string) =>
   programmeChapterWindow(page).locator(`a[href*='/materials/${slug}']`).first();
-/** Листает окно главы к соседней главе. */
-async function pageChapter(page: Page, direction: "Предыдущая" | "Следующая") {
-  await programmeChapterWindow(page)
-    .getByRole("button", { name: new RegExp(`^${direction}`, "u") })
-    .click();
-}
-/** Возврат из урока открывает окно его главы, и урок снова под рукой. */
-const programmeReturned = (page: Page, slug: string) => async () => {
+/** Возврат из урока показывает плитки глав. */
+const programmeReturned = (page: Page) => async () => {
   await programmeReady(page)();
-  await expect(programmeLesson(page, slug)).toBeVisible();
+  await expect(
+    page.getByRole("list", { name: "Главы", exact: true }),
+  ).toBeVisible();
+  await expect(programmeChapterWindow(page)).toHaveCount(0);
 };
 
 /**
@@ -661,8 +658,9 @@ test("программа ↔ урок: свой скелет на первом �
   const backToProgramme = await transition(
     page,
     async () => (await readerProgrammeLink(page)).click(),
-    programmeReturned(page, freeLesson),
+    programmeReturned(page),
   );
+  await openProgrammeChapter(page, 1);
   const repeatLesson = await transition(
     page,
     () => programmeLesson(page, freeLesson).click(),
@@ -671,7 +669,7 @@ test("программа ↔ урок: свой скелет на первом �
   const repeatProgramme = await transition(
     page,
     async () => (await readerProgrammeLink(page)).click(),
-    programmeReturned(page, freeLesson),
+    programmeReturned(page),
   );
   const historyBack = await transition(
     page,
@@ -836,21 +834,22 @@ test("повторный переход не ходит в backend, а гост�
   // Оба бесплатных урока уже посещены: фокус на соседе при возврате к программе может
   // предзагрузить его, и это тоже должно быть повторное чтение из памяти.
   for (const slug of [freeLesson, neighboringLesson]) {
+    if (slug === neighboringLesson) await openProgrammeChapter(page, 1);
     await lessonLink(slug).click();
     await lessonReady(page, slug)();
     await (await readerProgrammeLink(page)).click();
-    await programmeReturned(page, slug)();
+    await programmeReturned(page)();
     await personalPartLanded(page);
   }
   // Закрытый урок гостю не кешируется целиком: его личная часть читает backend при любом кеше,
   // поэтому чтения без токена в этом круге есть всегда. Он во второй главе.
-  await pageChapter(page, "Следующая");
+  await openProgrammeChapter(page, 2);
   await lessonLink(paidLesson).click();
   await lessonReady(page, paidLesson)();
   await (await readerProgrammeLink(page)).click();
-  await programmeReturned(page, paidLesson)();
+  await programmeReturned(page)();
   await personalPartLanded(page);
-  await pageChapter(page, "Предыдущая");
+  await openProgrammeChapter(page, 1);
 
   const firstRound = await backendRequests();
   expect(
@@ -1069,7 +1068,7 @@ test("снимки перехода «программа → урок → про
   await page.screenshot({ path: evidenceFile(`lesson-ready-${project}.png`) });
 
   // Возврат в программу за пределами окна кеша снимается на свежей странице урока. Урок открыт из
-  // программы, поэтому возврат несёт его адрес и открывает окно его главы.
+  // программы, поэтому возврат несёт его адрес и показывает плитки глав.
   await page.goto(
     `/materials/${paidLesson}?from=${encodeURIComponent(`${programme}?page=1&at=${paidLesson}`)}`,
   );
@@ -1084,18 +1083,20 @@ test("снимки перехода «программа → урок → про
     "[data-programme-part='header']",
     "[data-chapter-tile]",
   ];
-  await expect(
-    page
-      .locator("[data-application-content] [data-product-access-pending]")
-      .first(),
-  ).toBeVisible();
+  // Closed chapter tiles keep lesson rows out of the overview. The purchase row
+  // reserves its place in the shared header before the personal link arrives.
+  const purchaseRow = page.locator(
+    "[data-product-programme]:visible [data-programme-purchase-row]",
+  );
+  await expect(purchaseRow).toBeAttached();
+  await expect(purchaseRow.getByRole("link")).toHaveCount(0);
   const programmeSharedPart = await boxesOf(page, programmeAnchors);
   await page.screenshot({
     path: evidenceFile(`lesson-to-programme-loading-${project}.png`),
   });
   await expect(
-    page.locator("[data-application-content] [data-product-access-pending]"),
-  ).toHaveCount(0);
+    purchaseRow.getByRole("link", { name: "Приобрести доступ" }),
+  ).toBeVisible();
   expect(
     await boxesOf(page, programmeAnchors),
     "личная часть программы не двигает шапку и первую главу",

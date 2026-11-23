@@ -2,12 +2,7 @@
 
 import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
 import type { Route } from "next";
-import {
-  useId,
-  useRef,
-  type MouseEvent as ReactMouseEvent,
-  type ReactNode,
-} from "react";
+import { useId, useRef, type ReactNode } from "react";
 
 import type { ProductChapterRoadmapStatus } from "@/features/library-discovery";
 import {
@@ -51,8 +46,6 @@ export interface ChapterContinuation {
   readonly href: Route;
   readonly label: string;
   readonly title: string;
-  /** Records the lesson in the programme address, so Back from the reader returns to it. */
-  readonly onFollow: (event: ReactMouseEvent) => void;
 }
 
 /**
@@ -189,10 +182,7 @@ export function ProgrammeChapterTiles({
                   data-chapter-continue
                   size="lg"
                 >
-                  <IntentPrefetchLink
-                    href={continuation.href}
-                    onClick={continuation.onFollow}
-                  >
+                  <IntentPrefetchLink href={continuation.href}>
                     <span>
                       {continuation.label}: {continuation.title}
                     </span>

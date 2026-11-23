@@ -112,7 +112,8 @@ test("programme readiness admits navigation after the signed-in read settles", a
       expectOpenProgrammeReady(page, readerTitleFixture.productSlug),
       holdPersonalRead(false),
     ]);
-    // The return address reopens the window of the lesson's chapter.
+    await expect(programmeChapterWindow(page)).toHaveCount(0);
+    await openProgrammeChapter(page, 1);
     const lesson = programmeChapterWindow(page)
       .locator(`a[href*='/materials/${slug}']`)
       .first();
@@ -247,13 +248,10 @@ test("Reader audit uses the identity of the existing programme after session set
     .getByRole("link", { name: "Назад", exact: true })
     .click();
   await expect(programme).toHaveCount(1);
-  // The return reopens the window of the lesson's chapter with the lesson in view.
   await expect(
-    programmeChapterWindow(page).getByRole("link", {
-      name: "Первый заголовок читателя",
-      exact: true,
-    }),
-  ).toBeInViewport();
+    programme.getByRole("list", { name: "Главы", exact: true }),
+  ).toBeVisible();
+  await expect(programmeChapterWindow(page)).toHaveCount(0);
 });
 
 const linearReturnHref = "/products/linear/programme?page=1&at=lesson";
@@ -513,6 +511,7 @@ test("late saved open survives Activity hide and return for the same Reader", as
       page,
       readerTitleFixture.productSlug,
     );
+    await openProgrammeChapter(page, 1);
     await materialShell.ready();
     await programme.locator(`a[href*='/materials/${slug}']`).first().click();
     await openHeld.promise;
@@ -528,6 +527,7 @@ test("late saved open survives Activity hide and return for the same Reader", as
     const response = page.waitForResponse("**/api/reading-progress/open");
     releaseOpen.resolve(undefined);
     await (await response).finished();
+    await openProgrammeChapter(page, 1);
     await programme.locator(`a[href*='/materials/${slug}']`).first().click();
     await expect(page).toHaveURL(readerUrl);
     const current = page.locator("[data-material-open-state]").filter({

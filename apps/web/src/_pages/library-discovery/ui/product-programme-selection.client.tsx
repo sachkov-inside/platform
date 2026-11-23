@@ -1,6 +1,12 @@
 "use client";
 
-import { createContext, use, useState, type ReactNode } from "react";
+import {
+  createContext,
+  use,
+  useLayoutEffect,
+  useState,
+  type ReactNode,
+} from "react";
 
 type ProgrammePart = "onboarding" | "programme" | "supplementary";
 type Selection = readonly [ProgrammePart | null, (part: ProgrammePart) => void];
@@ -28,10 +34,18 @@ export function ProductProgrammeSelectionProvider({
   readonly children: ReactNode;
 }) {
   const selection = useState<ProgrammePart | null>(null);
-  const chapter = useState<ChapterWindowChoice | null>(null);
+  const [chapter, setChapter] = useState<ChapterWindowChoice | null>(null);
+  // Next Activity keeps the route state when the reader opens. Discard the chapter
+  // choice when the programme leaves the screen, after the link has navigated.
+  useLayoutEffect(
+    () => () => {
+      setChapter(null);
+    },
+    [],
+  );
   return (
     <ProgrammeSelection value={selection}>
-      <ChapterWindowSelection value={chapter}>
+      <ChapterWindowSelection value={[chapter, setChapter]}>
         {children}
       </ChapterWindowSelection>
     </ProgrammeSelection>
