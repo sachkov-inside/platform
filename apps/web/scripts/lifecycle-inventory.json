@@ -267,6 +267,21 @@
       "authority": "Delivered on 6efdd3fc2. Removing the scroll command or returnSlug dependency left lesson 25 outside the viewport. Bypassing position preservation displaced restored positions and prevented early wheel reveal on both Chromium profiles. Rechecked after #2499 on d2244b7e1: the native deep-address and History assertions, direct entry and restored-position cases are preserved in test blob 58d6c44b97730b791085252645499445352236db."
     },
     {
+      "id": "programme-chapter-window",
+      "status": "verified-adapter",
+      "path": "apps/web/src/_pages/library-discovery/ui/product-programme-selection.client.tsx",
+      "owner": "ProductProgrammeSelectionProvider",
+      "kind": "useLayoutEffect",
+      "fingerprint": "85726cbf097d2609d150d7fbffa3e3142419e58fa78829fef4de12218a08ca68",
+      "reason": "Clear the chapter choice when Next Activity hides the programme route. The selection survives the shared/personal replacement while visible, and returning from the reader shows the tiles.",
+      "test": "apps/web/test/navigation/product-reader-state.spec.ts",
+      "additionalTests": [
+        "apps/web/test/navigation/reader-title.spec.ts",
+        "apps/web/test/navigation/instant-navigation.spec.ts"
+      ],
+      "authority": "Owner request in #2545. Browser Back, reader Back, repeated navigation and saved reader state verified on desktop and mobile."
+    },
+    {
       "id": "D16",
       "status": "verified-adapter",
       "path": "apps/web/src/_pages/library-discovery/ui/product-learning.client.tsx",
