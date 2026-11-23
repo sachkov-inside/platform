@@ -283,7 +283,7 @@ test("Telegram experience enables email-code sign-in and social registration wit
   ]);
 });
 
-test("sign-in screen links the policy and defers terms to the Platform first sign-in", async () => {
+test("sign-in screen links the policy, defers terms and guides an unknown email to Telegram", async () => {
   /** @type {ManagementRequest[]} */
   const experiences = [];
   await ensureSignInExperience(recordingApi(experiences));
