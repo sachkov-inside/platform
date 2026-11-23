@@ -113,6 +113,12 @@ export function CohortStatusView({
               {programmeCallLabel(status.freeStart)}
             </IntentPrefetchLink>
           </div>
+          {/* Условия покупки стоят рядом с ценой, только пока курс можно купить (23.11.2026). */}
+          {status.purchaseHref === null ? null : (
+            <Link href="/legal/purchase" className="aie-cohort-ticket-payment">
+              Условия покупки и возврата
+            </Link>
+          )}
           {contact}
         </div>
       </div>
@@ -131,15 +137,15 @@ function ForeignPaymentNote({
 }) {
   return (
     <p className="aie-cohort-ticket-payment">
-      Не из России?{" "}
+      Для оплаты из-за пределов РФ{" "}
       <a
         href={`https://t.me/${telegramHandle}`}
         rel="noopener noreferrer"
         target="_blank"
       >
-        Напиши мне в Telegram
+        напиши мне в Telegram @{telegramHandle}
       </a>
-      , помогу с оплатой.
+      .
     </p>
   );
 }

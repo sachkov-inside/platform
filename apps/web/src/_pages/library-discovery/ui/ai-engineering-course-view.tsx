@@ -142,6 +142,66 @@ export function AiEngineeringCourseView({
   );
 }
 
+/**
+ * Сообщение автора между блоками страницы (решение владельца 23.11.2026): текст в заголовке блока,
+ * Telegram-ник в первом абзаце. Без ника звать некуда, поэтому блок не рисуется.
+ */
+function AuthorMessage({
+  block,
+}: {
+  readonly block: ProductPageBlockOf<"text">;
+}) {
+  const { handle } = splitTelegramNote(block.paragraphs[0] ?? "");
+  if (handle === undefined || handle === "") return null;
+  return (
+    // Обычный блок текста страницы: два сообщения подряд не должны становиться одинаковыми ориентирами.
+    <div className="aie-author-message" id={block.id}>
+      {/* Pre-sized WebP covers this 40px avatar up to DPR 3. */}
+      {/* oxlint-disable-next-line next/no-img-element */}
+      <img
+        alt=""
+        className="aie-author-avatar"
+        decoding="async"
+        height={40}
+        src="/images/sachkov-dev-avatar.webp"
+        width={40}
+      />
+      <div className="aie-author-bubble">
+        <strong>Кирилл Сачков</strong>
+        <p>{block.title}</p>
+        <a
+          href={`https://t.me/${handle}`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Написать мне в Telegram <ArrowRight aria-hidden="true" />
+        </a>
+      </div>
+    </div>
+  );
+}
+
+/** «Курс развивается»: без счётчика глав, состав курса виден в программе (решение владельца 23.11.2026). */
+function Publication({
+  block,
+  programme,
+}: {
+  readonly block: ProductPageBlockOf<"text">;
+  readonly programme: Route;
+}) {
+  return (
+    <section className="aie-publication" id={block.id}>
+      <h2>{block.title}</h2>
+      {block.paragraphs.map((line) => (
+        <p key={line}>{line}</p>
+      ))}
+      <IntentPrefetchLink href={programme} className="ai-product-text-link">
+        Открыть программу <ArrowRight aria-hidden="true" />
+      </IntentPrefetchLink>
+    </section>
+  );
+}
+
 function CourseBlock({
   block,
   hasFreeLessons,
@@ -168,6 +228,10 @@ function CourseBlock({
       return <ChecklistCards block={block} />;
     case "text":
       if (block.id === "practice") return <Practice block={block} />;
+      if (block.id === "contact-audience" || block.id === "contact-mentoring")
+        return <AuthorMessage block={block} />;
+      if (block.id === "publication")
+        return <Publication block={block} programme={programme} />;
       return <SplitText block={block} />;
     case "steps":
       return <FormatCards block={block} programme={programme} />;
@@ -225,7 +289,7 @@ const mentoringIcons: readonly CourseIconName[] = [
 /** Менторинг: вводный текст слева, пункты из описания курса лесенкой справа. */
 function Mentoring({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
   return (
-    <section className="ai-product-support aie-mentoring">
+    <section className="ai-product-support aie-mentoring" id="mentoring">
       <div className="ai-product-support-intro">
         <Eyebrow text={block.eyebrow} />
         <h2>{block.title}</h2>
@@ -669,7 +733,7 @@ function TopicGrid({
   readonly programme: Route;
 }) {
   return (
-    <section className="ai-product-outcomes aie-topics">
+    <section className="ai-product-outcomes aie-topics" id="topics">
       <Eyebrow text={block.eyebrow} />
       <h2>{block.title}</h2>
       {block.lead === "" ? null : (
@@ -829,7 +893,7 @@ function FormatCards({
           </IntentPrefetchLink>
         )}
       </div>
-      <ol>
+      <ol style={cssVariables({ "--aie-format-count": block.items.length })}>
         {block.items.map((step, index) => (
           <li key={`${String(index)}-${step.title}`}>
             <div aria-hidden="true" className="aie-format-art">
@@ -921,7 +985,7 @@ const audienceIcons: readonly CourseIconName[] = [
 /** Для кого: три равные карточки со значками, заметка отдельной строкой. */
 function Audience({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
   return (
-    <section className="aie-audience">
+    <section className="aie-audience" id="audience">
       <Eyebrow text={block.eyebrow} />
       <h2>{block.title}</h2>
       {block.lead === "" ? null : (
@@ -996,7 +1060,7 @@ function ValueGrid({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
 /** Частые вопросы: вопрос раскрывает ответ; нативный `details` работает с клавиатуры и без скриптов. */
 function Faq({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
   return (
-    <section className="aie-faq">
+    <section className="aie-faq" id="faq">
       <div className="aie-faq-head">
         <Eyebrow text={block.eyebrow} />
         <h2>{block.title}</h2>

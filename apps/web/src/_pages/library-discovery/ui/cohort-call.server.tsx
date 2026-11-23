@@ -21,7 +21,7 @@ import type {
 import { cohortCall } from "../model/cohort-call";
 import { cohortStatus } from "../model/cohort-status";
 import { courseTelegramHandle } from "../model/course-contact";
-import { countFreeLessons } from "../model/free-lessons";
+import { countFreeLessons, firstFreeLessonHref } from "../model/free-lessons";
 import { LearnerCourseStatus } from "./ai-engineering-course-view";
 import { TicketContact } from "./telegram-contact";
 
@@ -166,9 +166,8 @@ export async function PersonalCourseFilmOverlay({
         </>
       ) : (
         <>
-          {/* Тому, кто ещё не учится, анимация зовёт попробовать бесплатно (#1647). */}
           {offersFreeStart(state.access, result) ? (
-            <CourseLearningLink intent="try-free" slug={slug} />
+            <FreeStartLink slug={slug} result={result} />
           ) : null}
           <SaleCountdown sale={state.sale} />
         </>
@@ -210,9 +209,37 @@ function hasFreeLessons(result: ResolvedProduct): boolean {
   return result.kind === "ready" && countFreeLessons(result.items) > 0;
 }
 
+/** Бесплатный старт на анимации: прямо в первый урок программы, если он бесплатный. */
+function FreeStartLink({
+  slug,
+  result,
+}: {
+  readonly slug: string;
+  readonly result: ResolvedProduct;
+}) {
+  const lessonHref =
+    result.kind === "ready"
+      ? firstFreeLessonHref({
+          slug,
+          items: result.items,
+          programmePlacements: result.programmePlacements,
+        })
+      : undefined;
+  return lessonHref === undefined ? (
+    <CourseLearningLink intent="try-free" slug={slug} />
+  ) : (
+    <CourseLearningLink
+      intent="start-free"
+      slug={slug}
+      lessonHref={lessonHref}
+    />
+  );
+}
+
 /**
- * Зовёт ли курс этого человека попробовать бесплатно: тогда «Попробовать бесплатно» стоит на
- * анимации, а первый экран не повторяет кнопку в программу (#1647). Неизвестный доступ может
+ * Зовёт ли курс этого человека попробовать бесплатно: тогда на анимации стоит «Начать бесплатно»
+ * в первый урок или «Попробовать бесплатно» в программу, а первый экран не повторяет кнопку в
+ * программу (#1647). Неизвестный доступ может принадлежать ученику, поэтому приглашения нет. Неизвестный доступ может
  * принадлежать ученику, поэтому приглашения нет.
  */
 function offersFreeStart(

@@ -8,6 +8,7 @@ export type {
   ProductChapter,
   ProductChapterRoadmapStatus,
   ProductUpcomingLesson,
+  ProgrammePlacement,
   ProductIntroduction,
   RelatedPlaylist,
   PublishedProductResult,
