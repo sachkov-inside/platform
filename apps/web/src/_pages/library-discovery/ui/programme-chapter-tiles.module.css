@@ -43,26 +43,33 @@
   height: 100%;
 }
 
-[data-tone="sand"] {
+.tileArt[data-tone="sand"],
+.windowArt[data-tone="sand"] {
   --art-bg: color-mix(in oklch, var(--callout-warning) 16%, var(--card));
 }
-[data-tone="lavender"] {
+.tileArt[data-tone="lavender"],
+.windowArt[data-tone="lavender"] {
   --art-bg: color-mix(in oklch, var(--callout-definition) 14%, var(--card));
 }
-[data-tone="blue"] {
+.tileArt[data-tone="blue"],
+.windowArt[data-tone="blue"] {
   --art-bg: color-mix(in oklch, var(--callout-example) 13%, var(--card));
 }
-[data-tone="good"] {
+.tileArt[data-tone="good"],
+.windowArt[data-tone="good"] {
   --art-bg: color-mix(in oklch, var(--callout-good) 14%, var(--card));
 }
-[data-tone="coral"] {
+.tileArt[data-tone="coral"],
+.windowArt[data-tone="coral"] {
   --art-bg: color-mix(in oklch, var(--accent) 14%, var(--card));
 }
-[data-tone="stone"] {
+.tileArt[data-tone="stone"],
+.windowArt[data-tone="stone"] {
   --art-bg: color-mix(in oklch, var(--foreground) 7%, var(--card));
 }
 /* Тёмная плитка одинакова в обеих темах. */
-[data-tone="ink"] {
+.tileArt[data-tone="ink"],
+.windowArt[data-tone="ink"] {
   --art-bg: var(--lesson-dark);
   --art-ink: var(--lesson-dark-foreground);
   --art-paper: var(--lesson-dark-raised);
@@ -73,7 +80,8 @@
   );
 }
 
-[data-muted] svg {
+.tileArt[data-muted] svg,
+.windowArt[data-muted] svg {
   filter: grayscale(1);
   opacity: 0.45;
 }
