@@ -375,6 +375,7 @@ export function ProductJourneyControls({
    */
   function rememberReturn(event: ReactMouseEvent, returnHref: Route) {
     if (
+      tiledChapters !== null ||
       event.button !== 0 ||
       event.metaKey ||
       event.ctrlKey ||
@@ -384,8 +385,6 @@ export function ProductJourneyControls({
       event.target.closest("a") === null
     )
       return;
-    if (openChapterId !== null)
-      setWindowChoice({ source: windowSource, id: null });
     if (
       window.location.pathname ===
       new URL(currentHref, window.location.origin).pathname

@@ -511,6 +511,7 @@ test("late saved open survives Activity hide and return for the same Reader", as
       page,
       readerTitleFixture.productSlug,
     );
+    await openProgrammeChapter(page, 1);
     await materialShell.ready();
     await programme.locator(`a[href*='/materials/${slug}']`).first().click();
     await openHeld.promise;
@@ -526,6 +527,7 @@ test("late saved open survives Activity hide and return for the same Reader", as
     const response = page.waitForResponse("**/api/reading-progress/open");
     releaseOpen.resolve(undefined);
     await (await response).finished();
+    await openProgrammeChapter(page, 1);
     await programme.locator(`a[href*='/materials/${slug}']`).first().click();
     await expect(page).toHaveURL(readerUrl);
     const current = page.locator("[data-material-open-state]").filter({

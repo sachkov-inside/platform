@@ -500,9 +500,11 @@ test("continue from a chapter window returns to the overview after Back", async 
     const lesson = new URL(href, baseURL).pathname.split("/").at(-1) ?? "";
     await continueLink.click();
     await page.waitForURL(new RegExp(`/materials/${lesson}`, "u"));
-    // The continue action records its lesson like a row does, while Back displays the overview.
+    // Back restores the programme overview.
     await page.goBack();
-    await expect(page).toHaveURL(new RegExp(`[?&]at=${lesson}`, "u"));
+    await expect(page).toHaveURL(
+      new URL(`/products/${slug}/programme`, baseURL).href,
+    );
     await expect(
       page.getByRole("list", { name: "Главы", exact: true }),
     ).toBeVisible();

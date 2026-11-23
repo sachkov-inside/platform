@@ -58,7 +58,7 @@ describe("первый бесплатный урок программы", () => 
     expect(
       hasFreeFirstLesson(
         [
-          lesson("choose-agent", "free", "locked"),
+          lesson("choose-agent", "closed", "locked"),
           lesson("intro", "free", "locked"),
         ],
         [placement("intro", "p-1"), placement("choose-agent", "p-2")],
