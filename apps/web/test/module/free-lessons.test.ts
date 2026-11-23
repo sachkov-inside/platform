@@ -50,9 +50,11 @@ describe("первый бесплатный урок программы", () => 
   const placement = (materialSlug: string, id: string) => ({
     id,
     materialId: `material-${materialSlug}`,
+    chapterId: null,
+    stepGroup: null,
   });
 
-  it("ведёт гостя прямо в первый урок программы, если он бесплатный", () => {
+  it("ведёт гостя прямо в первый урок программы и возвращает в программу к нему", () => {
     expect(
       firstFreeLessonHref({
         slug: "ai-engineering",
@@ -66,7 +68,7 @@ describe("первый бесплатный урок программы", () => 
         ],
       }),
     ).toBe(
-      "/materials/intro?from=%2Fproducts%2Fai-engineering%2Fprogramme&placement=p-1",
+      "/materials/intro?from=%2Fproducts%2Fai-engineering%2Fprogramme%3Fpage%3D1%26at%3Dintro&placement=p-1",
     );
   });
 

@@ -9,30 +9,39 @@ import "./course-learning-link.css";
 const filmActionLabel = {
   continue: "Продолжить обучение",
   "try-free": "Попробовать бесплатно",
+  "start-free": "Начать бесплатно",
 } as const;
 
 /**
  * Действие на анимации первого экрана страницы курса: участнику «Продолжить обучение», тому, кто
- * ещё не учится, приглашение попробовать бесплатно (#1647). Если известен первый бесплатный урок, открываем его сразу.
+ * ещё не учится, приглашение попробовать бесплатно в программе (#1647) или «Начать бесплатно» прямо
+ * в первом уроке, когда он бесплатный.
  */
-export function CourseLearningLink({
-  slug,
-  intent = "continue",
-  firstLessonHref,
-}: {
-  readonly slug: string;
-  readonly firstLessonHref?: Route | undefined;
-  readonly intent?: keyof typeof filmActionLabel;
-}) {
+export function CourseLearningLink(
+  props:
+    | {
+        readonly slug: string;
+        readonly intent?: "continue" | "try-free";
+      }
+    | {
+        readonly slug: string;
+        readonly intent: "start-free";
+        /** Первый урок программы: «Начать бесплатно» ведёт прямо в него. */
+        readonly lessonHref: Route;
+      },
+) {
+  const intent = props.intent ?? "continue";
   return (
     <div className="aie-learning-film">
       <IntentPrefetchLink
         className="aie-learning-link"
-        href={firstLessonHref ?? productProgrammeHref(slug)}
+        href={
+          props.intent === "start-free"
+            ? props.lessonHref
+            : productProgrammeHref(props.slug)
+        }
       >
-        {firstLessonHref === undefined
-          ? filmActionLabel[intent]
-          : "Начать бесплатно"}
+        {filmActionLabel[intent]}
         <ArrowRight aria-hidden="true" />
       </IntentPrefetchLink>
     </div>

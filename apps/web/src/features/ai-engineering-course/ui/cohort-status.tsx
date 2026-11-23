@@ -113,9 +113,12 @@ export function CohortStatusView({
               {programmeCallLabel(status.freeStart)}
             </IntentPrefetchLink>
           </div>
-          <Link href="/legal/purchase" className="aie-cohort-ticket-payment">
-            Условия покупки и возврата
-          </Link>
+          {/* Условия покупки стоят рядом с ценой, только пока курс можно купить (23.11.2026). */}
+          {status.purchaseHref === null ? null : (
+            <Link href="/legal/purchase" className="aie-cohort-ticket-payment">
+              Условия покупки и возврата
+            </Link>
+          )}
           {contact}
         </div>
       </div>

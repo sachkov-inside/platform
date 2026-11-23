@@ -28,6 +28,7 @@ import { publicPageEnvironment } from "@/storybook/story-environment";
 
 import { cohortCall } from "../model/cohort-call";
 import { cohortStatus } from "../model/cohort-status";
+import { firstFreeLessonHref } from "../model/free-lessons";
 import { courseTelegramHandle } from "../model/course-contact";
 import { TicketContact } from "./telegram-contact";
 import { LearnerCourseStatus } from "./ai-engineering-course-view";
@@ -777,6 +778,33 @@ export const CohortBetween: Story = {
 };
 
 /** Анимация первого экрана зовёт того, кто ещё не учится, попробовать бесплатно (#1647). */
+const firstLessonHref =
+  firstFreeLessonHref({
+    slug: "ai-engineering",
+    items: [
+      {
+        materialId: "material-course-guide",
+        slug: "course-guide",
+        title: "Как устроен курс",
+        summary: "",
+        format: "Гайд",
+        topic: "Старт с агентом",
+        topicSlug: "start",
+        tags: [],
+        access: "free",
+        availability: "locked",
+        productMemberships: [],
+      },
+    ],
+    programmePlacements: [
+      {
+        id: "placement-course-guide",
+        materialId: "material-course-guide",
+        chapterId: null,
+        stepGroup: null,
+      },
+    ],
+  }) ?? fail("Первый урок программы бесплатный");
 const freeStartBadge = (countdown: string | null) => (
   <>
     <CourseLearningLink intent="try-free" slug="ai-engineering" />
@@ -865,6 +893,69 @@ export const FreeStartAnnouncement: Story = {
     await expect(links.map((link) => link.textContent)).toEqual([
       "Попробовать бесплатно",
     ]);
+  },
+};
+
+/**
+ * Первый урок программы бесплатный: анимация зовёт «Начать бесплатно» прямо в него, а не в
+ * программу (решение владельца 23.11.2026).
+ */
+export const FreeStartFirstLesson: Story = {
+  args: {
+    ...FreeStartAnnouncement.args,
+    heroBadge: (
+      <CourseLearningLink
+        intent="start-free"
+        slug="ai-engineering"
+        lessonHref={firstLessonHref}
+      />
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const film =
+      canvasElement.querySelector<HTMLElement>(".aie-hero-film") ??
+      fail("Анимация курса");
+    await expect(
+      within(film).getByRole("link", { name: "Начать бесплатно" }),
+    ).toHaveAttribute("href", firstLessonHref);
+    await expectFilmActionPlacement(film);
+    await expect(within(film).queryByText("Попробовать бесплатно")).toBeNull();
+  },
+};
+
+/** Анонс без цены: в билете нечего купить, поэтому условий покупки и возврата нет (23.11.2026). */
+export const TicketWithoutPurchase: Story = {
+  args: {
+    ...FreeStartAnnouncement.args,
+    statusCall: (
+      <CohortStatusView
+        status={
+          cohortStatus({
+            cohort: { ...preorderCohort, stage: "announcement" },
+            offer: null,
+            productAccess: "closed",
+            slug: "ai-engineering",
+            freeStart: true,
+            today: "2026-10-09",
+          }) ?? fail("Анонс рисует билет")
+        }
+        telegramHandle="sachkova_mng"
+      />
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const ticket =
+      canvasElement.querySelector<HTMLElement>(".aie-cohort-ticket") ??
+      fail("Билет нижнего блока");
+    await expect(within(ticket).getByText("Откроется скоро")).toBeVisible();
+    await expect(
+      within(ticket).queryByRole("link", {
+        name: "Условия покупки и возврата",
+      }),
+    ).toBeNull();
+    await expect(
+      within(ticket).queryByText(/Для оплаты из-за пределов РФ/u),
+    ).toBeNull();
   },
 };
 
@@ -986,6 +1077,13 @@ export const FreeStartSale: Story = {
     await expect(
       within(ticket).getByRole("link", { name: /напиши мне в Telegram/iu }),
     ).toHaveAttribute("href", "https://t.me/sachkova_mng");
+    await expect(
+      within(ticket).getByText(/Для оплаты из-за пределов РФ/u),
+    ).toBeVisible();
+    // Условия покупки и возврата стоят рядом с ценой, пока курс можно купить (23.11.2026).
+    await expect(
+      within(ticket).getByRole("link", { name: "Условия покупки и возврата" }),
+    ).toHaveAttribute("href", "/legal/purchase");
   },
 };
 export const FreeStartSaleMobile: Story = {

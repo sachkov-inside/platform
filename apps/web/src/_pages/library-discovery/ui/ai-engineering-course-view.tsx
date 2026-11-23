@@ -129,69 +129,33 @@ export function AiEngineeringCourseView({
 
       {page.blocks
         .filter((block) => block.id !== "programme-practice")
-        .map((block) => {
-          if (
-            block.kind === "text" &&
-            (block.id === "contact-audience" ||
-              block.id === "contact-mentoring")
-          ) {
-            const { handle } = splitTelegramNote(block.paragraphs[0] ?? "");
-            return (
-              <AuthorMessage
-                id={block.id}
-                key={block.id}
-                handle={handle}
-                text={block.title}
-              />
-            );
-          }
-          if (block.kind === "text" && block.id === "publication") {
-            return (
-              <section
-                key={block.id}
-                className="aie-publication"
-                id="publication"
-              >
-                <h2>{block.title}</h2>
-                {block.paragraphs.map((line) => (
-                  <p key={line}>{line}</p>
-                ))}
-                <IntentPrefetchLink
-                  href={programme}
-                  className="ai-product-text-link"
-                >
-                  Открыть программу <ArrowRight aria-hidden="true" />
-                </IntentPrefetchLink>
-              </section>
-            );
-          }
-          return (
-            <CourseBlock
-              key={block.id}
-              statusCall={statusCall}
-              block={block}
-              hasFreeLessons={hasFreeLessons}
-              programme={programme}
-            />
-          );
-        })}
+        .map((block) => (
+          <CourseBlock
+            key={block.id}
+            statusCall={statusCall}
+            block={block}
+            hasFreeLessons={hasFreeLessons}
+            programme={programme}
+          />
+        ))}
     </article>
   );
 }
 
+/**
+ * Сообщение автора между блоками страницы (решение владельца 23.11.2026): текст в заголовке блока,
+ * Telegram-ник в первом абзаце. Без ника звать некуда, поэтому блок не рисуется.
+ */
 function AuthorMessage({
-  id,
-  handle,
-  text,
+  block,
 }: {
-  readonly id: string;
-  readonly handle: string | undefined;
-  readonly text: string;
+  readonly block: ProductPageBlockOf<"text">;
 }) {
+  const { handle } = splitTelegramNote(block.paragraphs[0] ?? "");
   if (handle === undefined || handle === "") return null;
   return (
     // Обычный блок текста страницы: два сообщения подряд не должны становиться одинаковыми ориентирами.
-    <div className="aie-author-message" id={id}>
+    <div className="aie-author-message" id={block.id}>
       {/* Pre-sized WebP covers this 40px avatar up to DPR 3. */}
       {/* oxlint-disable-next-line next/no-img-element */}
       <img
@@ -204,7 +168,7 @@ function AuthorMessage({
       />
       <div className="aie-author-bubble">
         <strong>Кирилл Сачков</strong>
-        <p>{text}</p>
+        <p>{block.title}</p>
         <a
           href={`https://t.me/${handle}`}
           target="_blank"
@@ -214,6 +178,27 @@ function AuthorMessage({
         </a>
       </div>
     </div>
+  );
+}
+
+/** «Курс развивается»: без счётчика глав, состав курса виден в программе (решение владельца 23.11.2026). */
+function Publication({
+  block,
+  programme,
+}: {
+  readonly block: ProductPageBlockOf<"text">;
+  readonly programme: Route;
+}) {
+  return (
+    <section className="aie-publication" id={block.id}>
+      <h2>{block.title}</h2>
+      {block.paragraphs.map((line) => (
+        <p key={line}>{line}</p>
+      ))}
+      <IntentPrefetchLink href={programme} className="ai-product-text-link">
+        Открыть программу <ArrowRight aria-hidden="true" />
+      </IntentPrefetchLink>
+    </section>
   );
 }
 
@@ -243,6 +228,10 @@ function CourseBlock({
       return <ChecklistCards block={block} />;
     case "text":
       if (block.id === "practice") return <Practice block={block} />;
+      if (block.id === "contact-audience" || block.id === "contact-mentoring")
+        return <AuthorMessage block={block} />;
+      if (block.id === "publication")
+        return <Publication block={block} programme={programme} />;
       return <SplitText block={block} />;
     case "steps":
       return <FormatCards block={block} programme={programme} />;

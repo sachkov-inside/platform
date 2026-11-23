@@ -1,7 +1,11 @@
 import type { Route } from "next";
 
 import type { MaterialPreview } from "@/entities/material";
-import { materialReaderHref } from "@/shared/routing/material-reader";
+import type { ProgrammePlacement } from "@/features/library-discovery";
+import {
+  materialReaderHref,
+  productReaderReturnHref,
+} from "@/shared/routing/material-reader";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
 
 /**
@@ -29,14 +33,16 @@ export function firstFreeLessonHref({
 }: {
   readonly slug: string;
   readonly items: readonly MaterialPreview[];
-  readonly programmePlacements:
-    readonly { readonly id: string; readonly materialId: string }[] | undefined;
+  readonly programmePlacements: readonly ProgrammePlacement[] | undefined;
 }): Route | undefined {
   const placement = programmePlacements?.[0];
   if (placement === undefined) return undefined;
   const lesson = items.find((item) => item.materialId === placement.materialId);
   if (lesson === undefined || !isOpenFree(lesson)) return undefined;
-  return materialReaderHref(lesson.slug, productProgrammeHref(slug), {
-    placementId: placement.id,
-  });
+  // Возврат из урока ведёт в программу к этому уроку, как из онбординга (personal-product).
+  return materialReaderHref(
+    lesson.slug,
+    productReaderReturnHref(productProgrammeHref(slug), 1, lesson.slug),
+    { placementId: placement.id },
+  );
 }

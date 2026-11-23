@@ -167,19 +167,7 @@ export async function PersonalCourseFilmOverlay({
       ) : (
         <>
           {offersFreeStart(state.access, result) ? (
-            <CourseLearningLink
-              intent="try-free"
-              slug={slug}
-              firstLessonHref={
-                result.kind === "ready"
-                  ? firstFreeLessonHref({
-                      slug,
-                      items: result.items,
-                      programmePlacements: result.programmePlacements,
-                    })
-                  : undefined
-              }
-            />
+            <FreeStartLink slug={slug} result={result} />
           ) : null}
           <SaleCountdown sale={state.sale} />
         </>
@@ -221,10 +209,37 @@ function hasFreeLessons(result: ResolvedProduct): boolean {
   return result.kind === "ready" && countFreeLessons(result.items) > 0;
 }
 
+/** Бесплатный старт на анимации: прямо в первый урок программы, если он бесплатный. */
+function FreeStartLink({
+  slug,
+  result,
+}: {
+  readonly slug: string;
+  readonly result: ResolvedProduct;
+}) {
+  const lessonHref =
+    result.kind === "ready"
+      ? firstFreeLessonHref({
+          slug,
+          items: result.items,
+          programmePlacements: result.programmePlacements,
+        })
+      : undefined;
+  return lessonHref === undefined ? (
+    <CourseLearningLink intent="try-free" slug={slug} />
+  ) : (
+    <CourseLearningLink
+      intent="start-free"
+      slug={slug}
+      lessonHref={lessonHref}
+    />
+  );
+}
+
 /**
  * Зовёт ли курс этого человека попробовать бесплатно: тогда на анимации стоит «Начать бесплатно»
  * в первый урок или «Попробовать бесплатно» в программу, а первый экран не повторяет кнопку в
- * программу (#1647). Неизвестный доступ может
+ * программу (#1647). Неизвестный доступ может принадлежать ученику, поэтому приглашения нет. Неизвестный доступ может
  * принадлежать ученику, поэтому приглашения нет.
  */
 function offersFreeStart(
