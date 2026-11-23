@@ -309,11 +309,8 @@ export const AiEngineeringCourse: Story = {
       }),
     ).toBeVisible();
     await expect(
-      within(card).getAllByRole("link", { name: /Открыть курс/u })[0],
-    ).toHaveAttribute(
-      "href",
-      expect.stringContaining("/products/ai-engineering"),
-    );
+      within(card).getByRole("link", { name: "Посмотреть программу" }),
+    ).toHaveAttribute("href", "/products/ai-engineering/programme");
   },
 };
 export const AiEngineeringCourseMobile: Story = {

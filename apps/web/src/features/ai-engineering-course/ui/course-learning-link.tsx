@@ -7,6 +7,7 @@ import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import "./course-learning-link.css";
 
 const filmActionLabel = {
+  programme: "Посмотреть программу",
   continue: "Продолжить обучение",
   "try-free": "Попробовать бесплатно",
   "start-free": "Начать бесплатно",
@@ -21,7 +22,7 @@ export function CourseLearningLink(
   props:
     | {
         readonly slug: string;
-        readonly intent?: "continue" | "try-free";
+        readonly intent?: "continue" | "try-free" | "programme";
       }
     | {
         readonly slug: string;

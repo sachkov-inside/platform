@@ -153,7 +153,8 @@ export async function PersonalCourseFilmOverlay({
   readonly result: ResolvedProduct;
 }) {
   const { id: productId, slug } = result.reference;
-  if (productId === undefined) return null;
+  if (productId === undefined)
+    return <CourseLearningLink slug={slug} intent="programme" />;
   const state = await readProductReaderState(productId, slug);
   return (
     <>
@@ -168,7 +169,9 @@ export async function PersonalCourseFilmOverlay({
         <>
           {offersFreeStart(state.access, result) ? (
             <FreeStartLink slug={slug} result={result} />
-          ) : null}
+          ) : (
+            <CourseLearningLink slug={slug} intent="programme" />
+          )}
           <SaleCountdown sale={state.sale} />
         </>
       )}
@@ -239,8 +242,7 @@ function FreeStartLink({
 /**
  * Зовёт ли курс этого человека попробовать бесплатно: тогда на анимации стоит «Начать бесплатно»
  * в первый урок или «Попробовать бесплатно» в программу, а первый экран не повторяет кнопку в
- * программу (#1647). Неизвестный доступ может принадлежать ученику, поэтому приглашения нет. Неизвестный доступ может
- * принадлежать ученику, поэтому приглашения нет.
+ * программу (#1647). Без подтверждённого бесплатного старта на анимации остаётся ссылка в программу.
  */
 function offersFreeStart(
   access: ProductAccess,

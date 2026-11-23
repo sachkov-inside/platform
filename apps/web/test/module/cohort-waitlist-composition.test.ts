@@ -211,3 +211,14 @@ test("an inactive learner keeps learning without a new join CTA", async () => {
   expect(html).not.toContain("Отказаться от ожидания");
   expect(html).not.toContain("Вступить в список ожидания");
 });
+
+test("the film links to the programme when no free lesson is confirmed", async () => {
+  currentAccess = "closed";
+  const stream = await renderToReadableStream(
+    await scope(() => PersonalCourseFilmOverlay({ result })),
+  );
+  await stream.allReady;
+  const html = await new Response(stream).text();
+  expect(html).toContain("Посмотреть программу");
+  expect(html).toContain("/products/ai-engineering/programme");
+});
