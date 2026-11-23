@@ -44,6 +44,19 @@ const tile = (
 ): CourseTopicTile => ({ art, size, tone });
 
 const tiles: Readonly<Record<string, CourseTopicTile>> = {
+  // Темы лендинга по программе с 23.11.2026: путь курса от harness до software factory,
+  // ряды по четыре колонки (широкая плитка занимает две).
+  "Harness и Agent Kit": tile("harness", "wide", "ink"),
+  "Пайплайн разработки": tile("flow", "narrow", "example"),
+  "Проектирование с агентом": tile("story", "narrow", "sand"),
+  "Domain-Driven Design": tile("domain", "narrow", "lavender"),
+  "Модули и архитектура": tile("modules", "narrow", "good"),
+  "Proof of work": tile("team", "wide", "lavender"),
+  "Ревью и Human in the loop": tile("human", "narrow", "sand"),
+  "Улучшение harness": tile("evals", "wide", "coral"),
+  "Разработка собственных агентов": tile("agent", "wide", "ink"),
+  "Агенты в продакшене": tile("release", "wide", "example"),
+  "Software factory": tile("pipeline", "wide", "good"),
   // Темы лендинга с 31.10.2026: инженерные и AI-темы чередуются, ряды по четыре колонки.
   "Инженерная работа": tile("engineering", "wide", "ink"),
   "Harness и пайплайн разработки": tile("flow", "narrow", "example"),

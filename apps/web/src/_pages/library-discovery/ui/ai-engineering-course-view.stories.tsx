@@ -921,7 +921,7 @@ export const FreeStartSale: Story = {
       within(ticket).getByText(/Можно оплатить частями через «Долями»/u),
     ).toBeVisible();
     await expect(
-      within(ticket).getByRole("link", { name: /Напиши мне в Telegram/u }),
+      within(ticket).getByRole("link", { name: /напиши мне в Telegram/iu }),
     ).toHaveAttribute("href", "https://t.me/sachkova_mng");
   },
 };

@@ -1,4 +1,6 @@
 import "server-only";
+import { materialReaderHref } from "@/shared/routing/material-reader";
+import { productProgrammeHref } from "@/shared/routing/subscription-route";
 import { Suspense } from "react";
 import type { ProductSale } from "@/entities/subscription.sale.server";
 import { ProductWaitlistSlot } from "./waitlist-provider.client";
@@ -166,9 +168,12 @@ export async function PersonalCourseFilmOverlay({
         </>
       ) : (
         <>
-          {/* Тому, кто ещё не учится, анимация зовёт попробовать бесплатно (#1647). */}
           {offersFreeStart(state.access, result) ? (
-            <CourseLearningLink intent="try-free" slug={slug} />
+            <CourseLearningLink
+              intent="try-free"
+              slug={slug}
+              firstLessonHref={firstFreeLessonHref(result)}
+            />
           ) : null}
           <SaleCountdown sale={state.sale} />
         </>
@@ -220,4 +225,22 @@ function offersFreeStart(
   result: ResolvedProduct,
 ): boolean {
   return access === "closed" && hasFreeLessons(result);
+}
+
+function firstFreeLessonHref(result: ResolvedProduct) {
+  if (result.kind !== "ready") return undefined;
+  const placement = result.programmePlacements?.[0];
+  if (!placement) return undefined;
+  const lesson = result.items.find(
+    (item) => item.materialId === placement.materialId,
+  );
+  if (lesson?.access !== "free" || lesson.availability === "unavailable")
+    return undefined;
+  return materialReaderHref(
+    lesson.slug,
+    productProgrammeHref(result.reference.slug),
+    {
+      placementId: placement.id,
+    },
+  );
 }

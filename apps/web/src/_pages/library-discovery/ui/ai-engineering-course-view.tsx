@@ -28,7 +28,8 @@ import {
   Wrench,
 } from "lucide-react";
 import type { Route } from "next";
-import type { CSSProperties, ReactNode } from "react";
+import Image from "next/image";
+import { type CSSProperties, type ReactNode } from "react";
 
 import type {
   ProductPage,
@@ -129,16 +130,92 @@ export function AiEngineeringCourseView({
 
       {page.blocks
         .filter((block) => block.id !== "programme-practice")
-        .map((block) => (
-          <CourseBlock
-            key={block.id}
-            statusCall={statusCall}
-            block={block}
-            hasFreeLessons={hasFreeLessons}
-            programme={programme}
-          />
-        ))}
+        .map((block) => {
+          if (
+            block.kind === "text" &&
+            (block.id === "contact-audience" ||
+              block.id === "contact-mentoring")
+          ) {
+            const { handle } = splitTelegramNote(block.paragraphs[0] ?? "");
+            return (
+              <AuthorMessage
+                id={block.id}
+                key={block.id}
+                handle={handle}
+                text={block.title}
+              />
+            );
+          }
+          if (block.kind === "text" && block.id === "publication") {
+            return (
+              <section
+                key={block.id}
+                className="aie-publication"
+                id="publication"
+              >
+                <h2>{block.title}</h2>
+                {block.paragraphs.map((line) => (
+                  <p key={line}>{line}</p>
+                ))}
+                <IntentPrefetchLink
+                  href={programme}
+                  className="ai-product-text-link"
+                >
+                  Открыть программу <ArrowRight aria-hidden="true" />
+                </IntentPrefetchLink>
+              </section>
+            );
+          }
+          return (
+            <CourseBlock
+              key={block.id}
+              statusCall={statusCall}
+              block={block}
+              hasFreeLessons={hasFreeLessons}
+              programme={programme}
+            />
+          );
+        })}
     </article>
+  );
+}
+
+function AuthorMessage({
+  id,
+  handle,
+  text,
+}: {
+  readonly id: string;
+  readonly handle: string | undefined;
+  readonly text: string;
+}) {
+  if (handle === undefined || handle === "") return null;
+  return (
+    <aside
+      className="aie-author-message"
+      id={id}
+      aria-label="Сообщение от Кирилла Сачкова"
+    >
+      <Image
+        className="aie-author-avatar"
+        src="/images/sachkov-dev-avatar.webp"
+        alt=""
+        width={40}
+        height={40}
+        unoptimized
+      />
+      <div className="aie-author-bubble">
+        <strong>Кирилл Сачков</strong>
+        <p>{text}</p>
+        <a
+          href={`https://t.me/${handle}`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Написать мне в Telegram <ArrowRight aria-hidden="true" />
+        </a>
+      </div>
+    </aside>
   );
 }
 
@@ -225,7 +302,7 @@ const mentoringIcons: readonly CourseIconName[] = [
 /** Менторинг: вводный текст слева, пункты из описания курса лесенкой справа. */
 function Mentoring({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
   return (
-    <section className="ai-product-support aie-mentoring">
+    <section className="ai-product-support aie-mentoring" id="mentoring">
       <div className="ai-product-support-intro">
         <Eyebrow text={block.eyebrow} />
         <h2>{block.title}</h2>
@@ -669,7 +746,7 @@ function TopicGrid({
   readonly programme: Route;
 }) {
   return (
-    <section className="ai-product-outcomes aie-topics">
+    <section className="ai-product-outcomes aie-topics" id="topics">
       <Eyebrow text={block.eyebrow} />
       <h2>{block.title}</h2>
       {block.lead === "" ? null : (
@@ -921,7 +998,7 @@ const audienceIcons: readonly CourseIconName[] = [
 /** Для кого: три равные карточки со значками, заметка отдельной строкой. */
 function Audience({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
   return (
-    <section className="aie-audience">
+    <section className="aie-audience" id="audience">
       <Eyebrow text={block.eyebrow} />
       <h2>{block.title}</h2>
       {block.lead === "" ? null : (
@@ -996,7 +1073,7 @@ function ValueGrid({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
 /** Частые вопросы: вопрос раскрывает ответ; нативный `details` работает с клавиатуры и без скриптов. */
 function Faq({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
   return (
-    <section className="aie-faq">
+    <section className="aie-faq" id="faq">
       <div className="aie-faq-head">
         <Eyebrow text={block.eyebrow} />
         <h2>{block.title}</h2>
