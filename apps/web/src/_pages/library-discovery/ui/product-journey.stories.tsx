@@ -652,6 +652,38 @@ export const Chapters: Story = {
     ).toBeVisible();
   },
 };
+/** A chapter link from the reader (`#chapter-<id>`) opens that chapter's window. */
+export const ChapterLinkOpensWindow: Story = {
+  args: { result: chapteredResult },
+  beforeEach: () => {
+    const cleanup = environment.beforeEach();
+    const previous = window.location.hash;
+    window.location.hash = "chapter-chapter-2";
+    return () => {
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `${window.location.pathname}${window.location.search}${previous}`,
+      );
+      cleanup?.();
+    };
+  },
+  play: async ({ canvasElement }) => {
+    await waitFor(async () => {
+      const dialog =
+        canvasElement.ownerDocument.querySelector<HTMLDialogElement>(
+          "dialog[data-chapter-window]",
+        );
+      await expect(dialog?.open).toBe(true);
+      await expect(dialog).toHaveAttribute("data-chapter-window", "chapter-2");
+    });
+    // Without scripts the same link still lands on the chapter tile.
+    await expect(chapterTile(canvasElement, "Данные и доступ")).toHaveAttribute(
+      "id",
+      "chapter-chapter-2",
+    );
+  },
+};
 export const ChaptersMobile: Story = {
   args: { result: chapteredResult },
   globals: { viewport: { value: "mobile390", isRotated: false } },

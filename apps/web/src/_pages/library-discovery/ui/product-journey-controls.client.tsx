@@ -16,6 +16,7 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
 
@@ -95,6 +96,15 @@ function useProgrammeQuery(owner: Route): ProgrammeQuery {
 }
 
 const subscribeToHydration = () => () => undefined;
+/** The reader links a chapter as `#chapter-<id>` on the programme; the server has no hash. */
+const subscribeToHash = (change: () => void) => {
+  window.addEventListener("hashchange", change);
+  return () => {
+    window.removeEventListener("hashchange", change);
+  };
+};
+const readHash = () => window.location.hash;
+const readServerHash = () => "";
 const readClientHydration = () => true;
 const readServerHydration = () => false;
 
@@ -289,14 +299,24 @@ export function ProductJourneyControls({
         : { materialSlug: firstOpen.slug, label: "Начать обучение" }
       : { materialSlug: next.slug, label: "Продолжить" };
 
-  // The chapter window: a return from a lesson reopens the chapter of that lesson.
+  // The chapter window: a return from a lesson reopens the chapter of that lesson, and a chapter
+  // link from the reader (`#chapter-<id>`) opens that chapter.
+  const hash = useSyncExternalStore(subscribeToHash, readHash, readServerHash);
+  const linkedChapter = hash.startsWith("#chapter-")
+    ? decodeURIComponent(hash.slice("#chapter-".length))
+    : null;
   const returnChapter =
-    tiledChapters === null ? null : chapterOfRow(tiledChapters, requestedRow);
+    tiledChapters === null
+      ? null
+      : (chapterOfRow(tiledChapters, requestedRow) ??
+        tiledChapters.find((chapter) => chapter.id === linkedChapter)?.id ??
+        null);
+  const windowSource = `${source}${hash}`;
   // A choice in this window holds until the address changes. The route keeps it above the
   // shared/personal replacement, so a tile chosen while personal data loads stays open (#1896).
   const [windowChoice, setWindowChoice] = useProductChapterWindowChoice();
   const openChapterId =
-    windowChoice?.source === source ? windowChoice.id : returnChapter;
+    windowChoice?.source === windowSource ? windowChoice.id : returnChapter;
   const openedChapter = tiledChapters?.find(
     (chapter) => chapter.id === openChapterId,
   );
@@ -356,6 +376,28 @@ export function ProductJourneyControls({
       ?.scrollIntoView({ block: "center" });
   }, [returnSlug, hydrated]);
 
+  /**
+   * A plain click on a lesson link records the lesson in the programme address first, so Back
+   * from the reader returns to that lesson.
+   */
+  function rememberReturn(event: ReactMouseEvent, returnHref: Route) {
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey ||
+      !(event.target instanceof Element) ||
+      event.target.closest("a") === null
+    )
+      return;
+    if (
+      window.location.pathname ===
+      new URL(currentHref, window.location.origin).pathname
+    )
+      window.history.replaceState(window.history.state, "", returnHref);
+  }
+
   /** Уроки отрезка нумерованным списком: строки сервера, задания после уроков и объявленные уроки. */
   function runList(
     run: JourneyRun,
@@ -377,25 +419,7 @@ export function ProductJourneyControls({
         {rows.map((row, index) => (
           <li
             onClickCapture={(event) => {
-              if (
-                event.button !== 0 ||
-                event.metaKey ||
-                event.ctrlKey ||
-                event.shiftKey ||
-                event.altKey ||
-                !(event.target instanceof Element) ||
-                event.target.closest("a") === null
-              )
-                return;
-              if (
-                window.location.pathname ===
-                new URL(currentHref, window.location.origin).pathname
-              )
-                window.history.replaceState(
-                  window.history.state,
-                  "",
-                  row.returnHref,
-                );
+              rememberReturn(event, row.returnHref);
             }}
             aria-current={next?.slug === row.slug ? "step" : undefined}
             className="@container/series-entry relative min-w-0 scroll-mt-6 rounded-xl focus-visible:outline-2 focus-visible:outline-ring"
@@ -522,6 +546,9 @@ export function ProductJourneyControls({
                             href: continuationRow.readerHref,
                             label: inlineContinuation.label,
                             title: continuationRow.title,
+                            onFollow: (event) => {
+                              rememberReturn(event, continuationRow.returnHref);
+                            },
                           }
                     }
                     // The chapter to start or continue in: a new reader sees it too.
@@ -536,7 +563,7 @@ export function ProductJourneyControls({
                           )
                     }
                     onOpenChange={(id) => {
-                      setWindowChoice({ source, id });
+                      setWindowChoice({ source: windowSource, id });
                     }}
                     openId={openChapterId}
                   >

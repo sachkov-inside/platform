@@ -10,7 +10,10 @@ import {
   type TestInfo,
 } from "@playwright/test";
 import { z } from "zod";
-import { openProgrammeChapter } from "../support/programme-chapter";
+import {
+  openProgrammeChapter,
+  programmeChapterWindow,
+} from "../support/programme-chapter";
 
 const backend = `http://127.0.0.1:${process.env["FAKE_BACKEND_PORT"] ?? ""}`;
 const journal = z.object({
@@ -464,6 +467,39 @@ test("Home displays the same Product learning state while its shared pin stays p
     await request.post(`${backend}/__product-reader-state`);
     await invalidatePin();
     await owner.close();
+  }
+});
+
+test("continue from a chapter window returns to its lesson after Back", async ({
+  page,
+  context,
+  request,
+  baseURL,
+}, info) => {
+  if (baseURL === undefined) throw new Error("Web origin required");
+  const slug = `reader-state-paid${info.project.name === "mobile-chromium" ? "-mobile" : ""}`;
+  await signIn(context, baseURL, slug);
+  await request.post(`${backend}/__product-reader-state?pin=${slug}`);
+  try {
+    await page.goto(`/products/${slug}/programme`);
+    const continueLink = (
+      await openProgrammeChapter(page, "current")
+    ).getByRole("link", { name: /^Продолжить: /u });
+    const href = await continueLink.getAttribute("href");
+    if (href === null) throw new Error("Continue action without a lesson");
+    const lesson = new URL(href, baseURL).pathname.split("/").at(-1) ?? "";
+    await continueLink.click();
+    await page.waitForURL(new RegExp(`/materials/${lesson}`, "u"));
+    // The continue action records its lesson like a row does, so Back returns to that row.
+    await page.goBack();
+    await expect(page).toHaveURL(new RegExp(`[?&]at=${lesson}`, "u"));
+    const reopened = programmeChapterWindow(page);
+    await expect(reopened).toBeVisible();
+    await expect(
+      reopened.locator(`[data-route-material="${lesson}"]`),
+    ).toBeInViewport();
+  } finally {
+    await request.post(`${backend}/__product-reader-state`);
   }
 });
 

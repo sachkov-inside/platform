@@ -2,7 +2,12 @@
 
 import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
 import type { Route } from "next";
-import { useId, useRef, type ReactNode } from "react";
+import {
+  useId,
+  useRef,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+} from "react";
 
 import type { ProductChapterRoadmapStatus } from "@/features/library-discovery";
 import {
@@ -46,6 +51,8 @@ export interface ChapterContinuation {
   readonly href: Route;
   readonly label: string;
   readonly title: string;
+  /** Records the lesson in the programme address, so Back from the reader returns to it. */
+  readonly onFollow: (event: ReactMouseEvent) => void;
 }
 
 /**
@@ -182,7 +189,10 @@ export function ProgrammeChapterTiles({
                   data-chapter-continue
                   size="lg"
                 >
-                  <IntentPrefetchLink href={continuation.href}>
+                  <IntentPrefetchLink
+                    href={continuation.href}
+                    onClick={continuation.onFollow}
+                  >
                     <span>
                       {continuation.label}: {continuation.title}
                     </span>
@@ -274,6 +284,8 @@ function ChapterTile({
       className={styles["tile"]}
       data-chapter-status={tile.status}
       data-chapter-tile={chapter.id}
+      // The reader links a chapter as `#chapter-<id>`; without scripts the page still lands here.
+      id={`chapter-${chapter.id}`}
       data-current={current ? "" : undefined}
       onClick={onOpen}
       type="button"
@@ -344,8 +356,11 @@ function TileProgress({ chapter }: { readonly chapter: TiledChapter }) {
 }
 
 function WindowProgress({ chapter }: { readonly chapter: TiledChapter }) {
-  const { read, total, missing } = useChapterReading(chapter.tile.materialIds);
-  if (total === 0) return null;
+  const { read, total, missing, signedIn } = useChapterReading(
+    chapter.tile.materialIds,
+  );
+  // As in the programme header, a guest has no progress to show.
+  if (total === 0 || !signedIn) return null;
   return (
     <div className={styles["progress"]}>
       <div className={styles["progressLine"]}>

@@ -11,6 +11,8 @@ export interface ChapterReading {
   readonly missing: boolean;
   /** Studied materials; a guest has studied none. */
   readonly read: number;
+  /** A signed-in reader has saved marks; a guest has none. */
+  readonly signedIn: boolean;
   readonly total: number;
 }
 
@@ -37,7 +39,14 @@ export function useChapterReading(
     accountId === null
       ? 0
       : ids.filter((id) => states.get(id)?.isRead === true).length;
-  return { connect, failed, missing, read, total: ids.length };
+  return {
+    connect,
+    failed,
+    missing,
+    read,
+    signedIn: accountId !== null,
+    total: ids.length,
+  };
 }
 
 /**
