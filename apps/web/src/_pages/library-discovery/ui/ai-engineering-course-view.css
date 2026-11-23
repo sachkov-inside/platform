@@ -296,7 +296,6 @@
   min-width: 0;
   overflow: hidden;
   border-radius: 1.25rem;
-  background: var(--secondary);
 }
 .aie-bento > li[data-size="wide"] {
   grid-column: span 2;
@@ -326,29 +325,10 @@
   color: var(--muted-foreground);
 }
 .aie-bento > li[data-tone="ink"] {
-  background: var(--primary);
   color: var(--primary-foreground);
 }
 .ai-product-page .aie-bento > li[data-tone="ink"] p {
   color: color-mix(in srgb, var(--primary-foreground) 70%, var(--primary));
-}
-.aie-bento > li[data-tone="example"] {
-  background: color-mix(in srgb, var(--callout-example) 11%, var(--background));
-}
-.aie-bento > li[data-tone="good"] {
-  background: color-mix(in srgb, var(--callout-good) 11%, var(--background));
-}
-.aie-bento > li[data-tone="coral"] {
-  background: var(--cover-coral);
-}
-.aie-bento > li[data-tone="blue"] {
-  background: var(--cover-blue);
-}
-.aie-bento > li[data-tone="lavender"] {
-  background: var(--cover-lavender);
-}
-.aie-bento > li[data-tone="sand"] {
-  background: var(--cover-sand);
 }
 
 /*
@@ -1968,11 +1948,13 @@
  * ---------- Что изучим: рисунки по форме темы ----------
  * У каждой темы своя форма: слои, шкала, переписка, документ, схема, терминал, запись, аватары,
  * орбита, лог и доска. Цвет рисунка берётся из тона плитки (`--tile-ink`, `--tile-bg`), поэтому
- * рисунок читается на любом тоне и в тёмной теме.
+ * рисунок читается на любом тоне и в тёмной теме. Фон плитки тоже берётся из `--tile-bg`. Общие
+ * правила рисунков обёрнуты в `:where()`, чтобы размеры конкретного рисунка их перекрывали.
  */
 .aie-bento > li {
   --tile-ink: var(--foreground);
   --tile-bg: var(--secondary);
+  background: var(--tile-bg);
 }
 .aie-bento > li[data-tone="ink"] {
   --tile-ink: var(--accent-bright);
@@ -2002,17 +1984,17 @@
   --tile-ink: var(--cover-sand-foreground);
   --tile-bg: var(--cover-sand);
 }
-[data-art] svg {
+:where(.aie-bento-art [data-art]) svg {
   flex: none;
   width: 0.95rem;
   height: 0.95rem;
 }
-[data-art] code {
+:where(.aie-bento-art [data-art]) code {
   font-family: var(--font-utility);
   font-size: 0.7rem;
 }
-[data-art] ol,
-[data-art] ul {
+:where(.aie-bento-art [data-art]) ol,
+:where(.aie-bento-art [data-art]) ul {
   margin: 0;
   padding: 0;
   list-style: none;
@@ -2160,8 +2142,8 @@
 }
 .aie-art-chat [data-from="you"] > span {
   border-bottom-right-radius: 0.25rem;
-  background: var(--primary);
-  color: var(--primary-foreground);
+  background: var(--ink-surface);
+  color: var(--ink-surface-foreground);
 }
 
 /* Spec-Driven Development: спецификация с критериями делится на задачи. */
@@ -2181,7 +2163,7 @@
   background: var(--background);
   color: var(--foreground);
   box-shadow:
-    0 1px 2px rgb(0 0 0 / 6%),
+    0 1px 2px color-mix(in srgb, var(--ink-surface) 8%, transparent),
     0 10px 20px -14px color-mix(in srgb, var(--tile-ink) 60%, transparent);
 }
 .aie-art-spec-doc code {
@@ -2326,7 +2308,8 @@
   font-family: var(--font-utility);
   font-size: 0.72rem;
   line-height: 1.5;
-  box-shadow: 0 10px 22px -14px rgb(0 0 0 / 45%);
+  box-shadow: 0 10px 22px -14px
+    color-mix(in srgb, var(--ink-surface) 45%, transparent);
 }
 .aie-art-term-bar {
   display: flex;
@@ -2387,7 +2370,7 @@
   background: var(--background);
   color: var(--foreground);
   box-shadow:
-    0 1px 2px rgb(0 0 0 / 6%),
+    0 1px 2px color-mix(in srgb, var(--ink-surface) 8%, transparent),
     0 12px 24px -16px color-mix(in srgb, var(--tile-ink) 60%, transparent);
 }
 .aie-art-proof-head {
@@ -2503,9 +2486,8 @@
 .aie-art-review-bots b {
   flex-basis: 100%;
   color: var(--tile-ink);
-  font-family: var(--font-utility);
-  font-size: 0.68rem;
-  font-weight: 500;
+  font-size: 0.72rem;
+  font-weight: 600;
   text-align: center;
 }
 .aie-art-review-you {
@@ -2515,8 +2497,8 @@
   gap: 0.45rem;
   padding: 0.55rem 0.95rem;
   border-radius: 999px;
-  background: var(--primary);
-  color: var(--primary-foreground);
+  background: var(--ink-surface);
+  color: var(--ink-surface-foreground);
   font-size: 0.82rem;
   font-weight: 650;
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent);
@@ -2703,8 +2685,8 @@
   color: var(--foreground);
 }
 .aie-art-ops li[data-agent="true"] > span {
-  background: var(--primary);
-  color: var(--primary-foreground);
+  background: var(--ink-surface);
+  color: var(--ink-surface-foreground);
 }
 .aie-art-ops li[data-agent="true"] svg {
   color: var(--accent-bright);
@@ -2749,7 +2731,7 @@
   color: var(--foreground);
   font-size: 0.72rem;
   font-weight: 600;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 6%);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--ink-surface) 8%, transparent);
   overflow-wrap: anywhere;
 }
 .aie-art-board [data-state] svg {
