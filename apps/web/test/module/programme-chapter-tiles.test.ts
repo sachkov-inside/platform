@@ -87,22 +87,11 @@ describe("Programme chapter tiles", () => {
     expect(html).not.toContain("Показать ещё уроки");
   });
 
-  it("reopens the chapter of the lesson the reader returns from, with its upcoming lessons", () => {
+  it("returns from a lesson to the chapter overview", () => {
     const corpus = render(roadmapChapters);
-    const slug = corpus.slugs[13] ?? "";
-    const { html } = render(roadmapChapters, `at=${slug}`);
-    const rows = [...html.matchAll(/data-route-material="([^"]+)"/gu)].map(
-      (match) => match[1],
-    );
-    expect(rows).toEqual([corpus.slugs[13], corpus.slugs[14]]);
-    expect(html).toContain("Пишем первые уроки.");
-    const upcoming = [
-      ...html.matchAll(
-        /<li[^>]*data-roadmap-upcoming="([a-z]+)"[^>]*>(.*?)<\/li>/gu,
-      ),
-    ];
-    expect(upcoming.map((match) => match[1])).toEqual(["writing", "soon"]);
-    expect(upcoming[0]?.[2]).toContain("16");
+    const { html } = render(roadmapChapters, `at=${corpus.slugs[13] ?? ""}`);
+    expect(tiles(html)).toEqual(["done", "writing", "planned"]);
+    expect(html).not.toContain("data-chapter-window=");
   });
 
   it("derives the status of each chapter without a stored roadmap", () => {

@@ -299,24 +299,17 @@ export function ProductJourneyControls({
         : { materialSlug: firstOpen.slug, label: "Начать обучение" }
       : { materialSlug: next.slug, label: "Продолжить" };
 
-  // The chapter window: a return from a lesson reopens the chapter of that lesson, and a chapter
-  // link from the reader (`#chapter-<id>`) opens that chapter.
+  // Only an explicit chapter link opens its window on arrival.
   const hash = useSyncExternalStore(subscribeToHash, readHash, readServerHash);
   const linkedChapter = hash.startsWith("#chapter-")
     ? decodeURIComponent(hash.slice("#chapter-".length))
     : null;
-  const returnChapter =
-    tiledChapters === null
-      ? null
-      : (chapterOfRow(tiledChapters, requestedRow) ??
-        tiledChapters.find((chapter) => chapter.id === linkedChapter)?.id ??
-        null);
   const windowSource = `${source}${hash}`;
   // A choice in this window holds until the address changes. The route keeps it above the
   // shared/personal replacement, so a tile chosen while personal data loads stays open (#1896).
   const [windowChoice, setWindowChoice] = useProductChapterWindowChoice();
   const openChapterId =
-    windowChoice?.source === windowSource ? windowChoice.id : returnChapter;
+    windowChoice?.source === windowSource ? windowChoice.id : linkedChapter;
   const openedChapter = tiledChapters?.find(
     (chapter) => chapter.id === openChapterId,
   );
@@ -391,6 +384,8 @@ export function ProductJourneyControls({
       event.target.closest("a") === null
     )
       return;
+    if (openChapterId !== null)
+      setWindowChoice({ source: windowSource, id: null });
     if (
       window.location.pathname ===
       new URL(currentHref, window.location.origin).pathname

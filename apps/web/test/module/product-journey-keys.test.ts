@@ -190,7 +190,7 @@ describe("Product programme elements handed to the client", () => {
       false,
       false,
     ]);
-    // A return to the repeated placement reopens its chapter: the window joins both runs.
+    // A return to the repeated placement shows the chapter overview.
     const html = renderToStaticMarkup(
       withNextNavigation(
         createElement(ProductJourney, {
@@ -206,20 +206,7 @@ describe("Product programme elements handed to the client", () => {
         (match) => match[1],
       ),
     ).toEqual(["chapter-1", "chapter-2", "chapter-3", "chapter-4"]);
-    expect(html).toContain('data-chapter-window="chapter-1"');
-    expect(
-      html.match(/aria-label="Дополнительные материалы главы /gu),
-    ).toHaveLength(1);
-    expect(
-      [...html.matchAll(/data-programme-placement="([^"]+)"/gu)].map(
-        (match) => match[1],
-      ),
-    ).toEqual([
-      "10000000-0000-4000-8000-000000000001",
-      "10000000-0000-4000-8000-000000000002",
-      "10000000-0000-4000-8000-000000000003",
-      "10000000-0000-4000-8000-000000000005",
-    ]);
+    expect(html).not.toContain("data-chapter-window=");
     for (const run of runs) {
       const cardKeys = run.rows.map((row) =>
         isValidElement(row.card) ? row.card.key : null,

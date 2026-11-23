@@ -33,7 +33,6 @@ import { publicPageEnvironment } from "@/storybook/story-environment";
 
 import { cohortCall } from "../model/cohort-call";
 import { cohortStatus } from "../model/cohort-status";
-import { firstFreeLessonHref } from "../model/free-lessons";
 import { courseTelegramHandle } from "../model/course-contact";
 import { TicketContact } from "./telegram-contact";
 import { LearnerCourseStatus } from "./ai-engineering-course-view";
@@ -783,33 +782,6 @@ export const CohortBetween: Story = {
 };
 
 /** Анимация первого экрана зовёт того, кто ещё не учится, попробовать бесплатно (#1647). */
-const firstLessonHref =
-  firstFreeLessonHref({
-    slug: "ai-engineering",
-    items: [
-      {
-        materialId: "material-course-guide",
-        slug: "course-guide",
-        title: "Как устроен курс",
-        summary: "",
-        format: "Гайд",
-        topic: "Старт с агентом",
-        topicSlug: "start",
-        tags: [],
-        access: "free",
-        availability: "locked",
-        productMemberships: [],
-      },
-    ],
-    programmePlacements: [
-      {
-        id: "placement-course-guide",
-        materialId: "material-course-guide",
-        chapterId: null,
-        stepGroup: null,
-      },
-    ],
-  }) ?? fail("Первый урок программы бесплатный");
 const freeStartBadge = (countdown: string | null) => (
   <>
     <CourseLearningLink intent="try-free" slug="ai-engineering" />
@@ -902,19 +874,12 @@ export const FreeStartAnnouncement: Story = {
 };
 
 /**
- * Первый урок программы бесплатный: анимация зовёт «Начать бесплатно» прямо в него, а не в
- * программу (решение владельца 23.11.2026).
+ * Первый урок программы бесплатный: анимация зовёт «Начать бесплатно» в программу (решение владельца 23.11.2026).
  */
 export const FreeStartFirstLesson: Story = {
   args: {
     ...FreeStartAnnouncement.args,
-    heroBadge: (
-      <CourseLearningLink
-        intent="start-free"
-        slug="ai-engineering"
-        lessonHref={firstLessonHref}
-      />
-    ),
+    heroBadge: <CourseLearningLink intent="start-free" slug="ai-engineering" />,
   },
   play: async ({ canvasElement }) => {
     const film =
@@ -922,7 +887,7 @@ export const FreeStartFirstLesson: Story = {
       fail("Анимация курса");
     await expect(
       within(film).getByRole("link", { name: "Начать бесплатно" }),
-    ).toHaveAttribute("href", firstLessonHref);
+    ).toHaveAttribute("href", "/products/ai-engineering/programme");
     await expectFilmActionPlacement(film);
     await expect(within(film).queryByText("Попробовать бесплатно")).toBeNull();
   },
