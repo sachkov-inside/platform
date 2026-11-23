@@ -71,55 +71,6 @@
   }
 }
 
-/* Главы отмечены точками: открытая глава залита, готовящаяся — пустая. */
-.programme-chapter {
-  --chapter-rail: 1.75rem;
-  position: relative;
-  min-width: 0;
-  padding-left: var(--chapter-rail);
-}
-.programme-chapter::before {
-  content: "";
-  position: absolute;
-  top: 0.45rem;
-  left: 0;
-  width: 0.8rem;
-  height: 0.8rem;
-  border: 2px solid var(--accent);
-  border-radius: 999px;
-  background: var(--accent);
-}
-.programme-chapter[data-chapter-state="continuation"]::before {
-  content: none;
-}
-.programme-chapter[data-chapter-state="preparing"]::before {
-  border-color: color-mix(in srgb, var(--foreground) 28%, transparent);
-  background: var(--background);
-}
-/*
- * Телефон: строки уроков получают всю ширину; точка стоит возле заголовка главы.
- */
-@media (max-width: 39.999rem) {
-  .programme-chapter {
-    --chapter-rail: 0;
-  }
-  .programme-chapter::before {
-    width: 0.65rem;
-    height: 0.65rem;
-  }
-  .programme-chapter-head {
-    padding-left: 1.1rem;
-  }
-  /* Без линии пути главы разделяет тонкая черта: видно, где кончается одна и начинается другая. */
-  .programme-chapter + .programme-chapter {
-    padding-top: 1.25rem;
-    border-top: 1px solid var(--border);
-  }
-  .programme-chapter + .programme-chapter::before {
-    top: calc(1.25rem + 0.45rem);
-  }
-}
-
 /*
  * Колонка разделов: программа сдвигается вправо, слева прилипает короткий список разделов.
  * Колонка стоит в той же обёртке программы и занимает всю её высоту, поэтому держится у верха,

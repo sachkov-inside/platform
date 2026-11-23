@@ -10,6 +10,7 @@ import {
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
+  Fragment,
   useCallback,
   useEffect,
   useRef,
@@ -24,7 +25,6 @@ import {
   CourseNavigationBar,
   type CatalogueTopic,
   CourseNavigationItem,
-  type ProductChapterRoadmapStatus,
 } from "@/features/library-discovery";
 import { Button } from "@/shared/ui/button";
 import { readShellScroll, resetShellScroll } from "@/shared/lib/shell-scroll";
@@ -40,7 +40,11 @@ import {
 } from "./product-material-catalog.client";
 import { useProductOnboardingPresentation } from "./product-programme-onboarding.client";
 import { useProductLearning } from "./product-learning.client";
-import { RoadmapChapterDisclosure } from "./course-roadmap-view";
+import {
+  ProgrammeChapterTiles,
+  type JourneyChapterTile,
+  type TiledChapter,
+} from "./programme-chapter-tiles.client";
 import { HidePublicFooter } from "@/shared/ui/hide-public-footer.client";
 
 interface ProgrammeQuery {
@@ -99,38 +103,30 @@ export interface JourneyRow {
   readonly available: boolean;
   readonly card: ReactNode;
   readonly ordinal: number;
+  /** Адрес урока в читателе: кнопка продолжения в окне главы ведёт сюда. */
+  readonly readerHref: Route;
   readonly returnHref: Route;
   readonly slug: string;
+  readonly title: string;
 }
 
-/** Непрерывный отрезок части: глава или уроки вне глав. Заголовок главы тоже нарисовал сервер. */
+/** Непрерывный отрезок части: глава или уроки вне глав. */
 export interface JourneyRun {
   readonly supplementary?: ReactNode;
   readonly chapter: {
-    readonly header: ReactNode;
     readonly id: string;
     readonly name: string;
-    /**
-     * Глава дорожной карты курса (#2141): вместо `header` она сворачивается целиком, вместе с
-     * уроками. Есть только у первого отрезка главы.
-     */
-    readonly roadmap?: JourneyRoadmapChapter;
+    /** Плитка главы; есть только у первого отрезка главы. */
+    readonly tile?: JourneyChapterTile;
+    /** Темы главы в её окне, перед уроками. */
+    readonly intro?: ReactNode;
+    /** Неопубликованные уроки главы в работе: строки в конце её списка (#2141). */
+    readonly upcoming?: readonly ReactNode[];
   } | null;
   /** Задания в начале главы, перед её первым уроком (#947). */
   readonly leading?: ReactNode;
   readonly offset: number;
   readonly rows: readonly JourneyRow[];
-}
-
-/** Глава дорожной карты: строку заголовка и содержимое нарисовал сервер. */
-export interface JourneyRoadmapChapter {
-  readonly status: ProductChapterRoadmapStatus;
-  /** Название, метка статуса и строка под ними. */
-  readonly heading: ReactNode;
-  /** Темы запланированной главы или описание главы с уроками, перед уроками. */
-  readonly body?: ReactNode;
-  /** Неопубликованные уроки главы в работе: строки в конце её списка. */
-  readonly upcoming: readonly ReactNode[];
 }
 
 export type JourneyPart =
@@ -240,22 +236,22 @@ export function ProductJourneyControls({
         : query.hasPage
           ? requestedPage * PRODUCT_BATCH_SIZE
           : resumeIndex + 1;
-  // A folded chapter hides its last lesson from the reveal observer, so a roadmap whose chapters
-  // fold together with their lessons shows every lesson at once (#2141).
-  const foldsLessons =
-    part?.kind === "materials" &&
-    part.runs.some(
-      (run) => run.chapter?.roadmap !== undefined && run.rows.length > 0,
-    );
-  const initialCount = foldsLessons
-    ? visible.length
-    : Math.min(
-        visible.length,
-        Math.max(
-          PRODUCT_BATCH_SIZE,
-          Math.ceil(restoredCount / PRODUCT_BATCH_SIZE) * PRODUCT_BATCH_SIZE,
-        ),
-      );
+  // Chapters are tiles whose lessons open in a chapter window, so every lesson is there at once
+  // and nothing is revealed in batches.
+  const tiledChapters =
+    part?.kind === "materials" && part.chapterCount > 0
+      ? chapterGroups(part.runs)
+      : null;
+  const initialCount =
+    tiledChapters !== null
+      ? visible.length
+      : Math.min(
+          visible.length,
+          Math.max(
+            PRODUCT_BATCH_SIZE,
+            Math.ceil(restoredCount / PRODUCT_BATCH_SIZE) * PRODUCT_BATCH_SIZE,
+          ),
+        );
   const source = `${currentHref}:${part?.id ?? "programme"}:${requestedMaterial ?? ""}:${String(requestedPage)}`;
   const [reveal, setReveal] = useState({ source, count: initialCount });
   if (reveal.source !== source) setReveal({ source, count: initialCount });
@@ -289,6 +285,31 @@ export function ProductJourneyControls({
         : { materialSlug: firstOpen.slug, label: "Начать обучение" }
       : { materialSlug: next.slug, label: "Продолжить" };
 
+  // The chapter window: a return from a lesson reopens the chapter of that lesson.
+  const returnChapter =
+    tiledChapters?.find((chapter) =>
+      chapter.runs.some((run) => run.rows.some(requestedRow)),
+    )?.id ?? null;
+  // A choice in this window holds until the address changes.
+  const [windowChoice, setWindowChoice] = useState<{
+    readonly source: string;
+    readonly id: string | null;
+  } | null>(null);
+  const openChapterId =
+    windowChoice?.source === source ? windowChoice.id : returnChapter;
+  const openedChapter = tiledChapters?.find(
+    (chapter) => chapter.id === openChapterId,
+  );
+  const continuationRow =
+    inlineContinuation === null
+      ? undefined
+      : openedChapter?.runs
+          .flatMap((run) => run.rows)
+          .find(
+            (row) =>
+              row.slug === inlineContinuation.materialSlug && row.available,
+          );
+
   const lastLesson = useCallback(
     (node: HTMLLIElement | null) => {
       if (node === null || !hasMore) return;
@@ -299,7 +320,7 @@ export function ProductJourneyControls({
         });
       });
     },
-    [count, hasMore, initialCount, source, visible.length],
+    [count, hasMore, initialCount, setReveal, source, visible.length],
   );
 
   const returnSlug =
@@ -334,6 +355,70 @@ export function ProductJourneyControls({
       )
       ?.scrollIntoView({ block: "center" });
   }, [returnSlug, hydrated]);
+
+  /** Уроки отрезка нумерованным списком: строки сервера, задания после уроков и объявленные уроки. */
+  function runList(
+    run: JourneyRun,
+    rows: readonly JourneyRow[],
+    upcoming: readonly ReactNode[] = [],
+  ) {
+    if (rows.length === 0 && upcoming.length === 0) return null;
+    return (
+      <ol
+        aria-label={
+          run.chapter === null
+            ? "Материалы продукта"
+            : `Материалы главы «${run.chapter.name}»`
+        }
+        className={cn("grid gap-2", run.chapter === null ? "" : "mt-3")}
+        data-product-order
+        start={run.offset + 1}
+      >
+        {rows.map((row, index) => (
+          <li
+            onClickCapture={(event) => {
+              if (
+                event.button !== 0 ||
+                event.metaKey ||
+                event.ctrlKey ||
+                event.shiftKey ||
+                event.altKey ||
+                !(event.target instanceof Element) ||
+                event.target.closest("a") === null
+              )
+                return;
+              if (
+                window.location.pathname ===
+                new URL(currentHref, window.location.origin).pathname
+              )
+                window.history.replaceState(
+                  window.history.state,
+                  "",
+                  row.returnHref,
+                );
+            }}
+            aria-current={next?.slug === row.slug ? "step" : undefined}
+            className="@container/series-entry relative min-w-0 scroll-mt-6 rounded-xl focus-visible:outline-2 focus-visible:outline-ring"
+            data-route-material={row.slug}
+            data-programme-placement={row.id}
+            data-product-ordinal={row.ordinal}
+            key={row.id ?? row.slug}
+            // Observe the last lesson of a batch rather than the page-bottom button.
+            ref={
+              hasMore && run.offset + index === count - 1
+                ? lastLesson
+                : undefined
+            }
+            tabIndex={-1}
+          >
+            {row.card}
+            {row.after ?? null}
+          </li>
+        ))}
+        {upcoming}
+      </ol>
+    );
+  }
 
   function selectPart(id: JourneyPart["id"]) {
     setSelection(id);
@@ -409,148 +494,68 @@ export function ProductJourneyControls({
                 learning.kind === "loading" || learning.kind === "unavailable"
               }
             >
-              <div className="mt-5 grid gap-6">
-                {(part?.kind === "materials" ? part.runs : []).map((run) => {
-                  const rows = run.rows.slice(
-                    0,
-                    Math.max(0, count - run.offset),
-                  );
-                  const roadmap = run.chapter?.roadmap;
-                  const upcoming = roadmap?.upcoming ?? [];
-                  const continued =
-                    run.chapter?.header === null && roadmap === undefined;
-                  const sectionId = `${run.chapter === null ? "open" : `chapter-${run.chapter.id}`}-run-${String(run.offset)}`;
-                  const list =
-                    rows.length === 0 && upcoming.length === 0 ? null : (
-                      <ol
-                        aria-label={
-                          run.chapter === null
-                            ? "Материалы продукта"
-                            : `Материалы главы «${run.chapter.name}»`
-                        }
-                        className={cn(
-                          "grid gap-2",
-                          run.chapter === null ? "" : "mt-3",
+              {tiledChapters === null ? (
+                <div className="mt-5 grid gap-6">
+                  {(part?.kind === "materials" ? part.runs : []).map((run) => {
+                    const sectionId = `open-run-${String(run.offset)}`;
+                    return (
+                      <section id={sectionId} key={sectionId}>
+                        {run.leading ?? null}
+                        {runList(
+                          run,
+                          run.rows.slice(0, Math.max(0, count - run.offset)),
                         )}
-                        data-product-order
-                        start={run.offset + 1}
-                      >
-                        {rows.map((row, index) => (
-                          <li
-                            onClickCapture={(event) => {
-                              if (
-                                event.button !== 0 ||
-                                event.metaKey ||
-                                event.ctrlKey ||
-                                event.shiftKey ||
-                                event.altKey ||
-                                !(event.target instanceof Element) ||
-                                event.target.closest("a") === null
-                              )
-                                return;
-                              if (
-                                window.location.pathname ===
-                                new URL(currentHref, window.location.origin)
-                                  .pathname
-                              )
-                                window.history.replaceState(
-                                  window.history.state,
-                                  "",
-                                  row.returnHref,
-                                );
-                            }}
-                            aria-current={
-                              next?.slug === row.slug ? "step" : undefined
-                            }
-                            className="@container/series-entry relative min-w-0 scroll-mt-6 rounded-xl focus-visible:outline-2 focus-visible:outline-ring"
-                            data-route-material={row.slug}
-                            data-programme-placement={row.id}
-                            data-product-ordinal={row.ordinal}
-                            key={row.id ?? row.slug}
-                            // Future chapter headers may extend far beyond this batch.
-                            // Observe its last lesson rather than the page-bottom button.
-                            ref={
-                              hasMore && run.offset + index === count - 1
-                                ? lastLesson
-                                : undefined
-                            }
-                            tabIndex={-1}
-                          >
-                            {row.card}
-                            {row.after ?? null}
-                          </li>
-                        ))}
-                        {upcoming}
-                      </ol>
+                        {run.supplementary ?? null}
+                      </section>
                     );
-                  return (
-                    <section
-                      id={sectionId}
-                      // A continuation keeps its chapter name without repeating its landmark.
-                      role={continued ? "group" : undefined}
-                      aria-labelledby={
-                        run.chapter === null
-                          ? undefined
-                          : `chapter-${run.chapter.id}`
-                      }
-                      className={
-                        run.chapter === null ? undefined : "programme-chapter"
-                      }
-                      data-chapter-state={
-                        run.chapter === null
-                          ? undefined
-                          : continued
-                            ? "continuation"
-                            : roadmap === undefined
-                              ? run.rows.length === 0
-                                ? "preparing"
-                                : "open"
-                              : roadmap.status === "planned"
-                                ? "preparing"
-                                : "open"
-                      }
-                      key={sectionId}
-                    >
-                      {roadmap === undefined ? (
-                        <>
-                          {run.chapter?.header ?? null}
-                          {run.leading ?? null}
-                          {list}
-                          {run.supplementary ?? null}
-                        </>
-                      ) : (
-                        <div className="programme-chapter-head">
-                          <RoadmapChapterDisclosure
-                            collapsible={
-                              roadmap.body !== undefined ||
-                              run.leading !== undefined ||
-                              list !== null
-                            }
-                            heading={roadmap.heading}
-                            // The chapter in work starts open, and so does the one the reader
-                            // returns to or continues in: its row must stay reachable.
-                            open={
-                              roadmap.status === "writing" ||
-                              run.rows.some(
-                                (row) =>
-                                  requestedRow(row) ||
-                                  row.slug === returnSlug ||
-                                  row.slug === next?.slug,
-                              )
-                            }
-                            status={roadmap.status}
-                          >
-                            {roadmap.body ?? null}
+                  })}
+                </div>
+              ) : (
+                <div className="mt-5">
+                  <ProgrammeChapterTiles
+                    chapters={tiledChapters}
+                    continuation={
+                      continuationRow === undefined ||
+                      inlineContinuation === null
+                        ? null
+                        : {
+                            href: continuationRow.readerHref,
+                            label: inlineContinuation.label,
+                            title: continuationRow.title,
+                          }
+                    }
+                    currentId={
+                      tiledChapters.find((chapter) =>
+                        chapter.runs.some((run) =>
+                          run.rows.some((row) => row.slug === next?.slug),
+                        ),
+                      )?.id ?? null
+                    }
+                    onOpenChange={(id) => {
+                      setWindowChoice({ source, id });
+                    }}
+                    openId={openChapterId}
+                  >
+                    {openedChapter === undefined ? null : (
+                      // The window leads with its own continue action, so its rows do not repeat it.
+                      <ProductContinuationProvider continuation={null}>
+                        {openedChapter.intro ?? null}
+                        {openedChapter.runs.map((run, index) => (
+                          <Fragment key={`run-${String(run.offset)}`}>
                             {run.leading ?? null}
-                            {list}
+                            {runList(
+                              run,
+                              run.rows,
+                              index === 0 ? openedChapter.upcoming : [],
+                            )}
                             {run.supplementary ?? null}
-                          </RoadmapChapterDisclosure>
-                        </div>
-                      )}
-                    </section>
-                  );
-                })}
-              </div>
+                          </Fragment>
+                        ))}
+                      </ProductContinuationProvider>
+                    )}
+                  </ProgrammeChapterTiles>
+                </div>
+              )}
             </ProductContinuationProvider>
           </>
         )}
@@ -698,5 +703,41 @@ function ProgrammeSidebar({
         </ul>
       </nav>
     </aside>
+  );
+}
+
+/** Главы программы: каждая со всеми своими отрезками; плитку несёт первый отрезок главы. */
+function chapterGroups(runs: readonly JourneyRun[]): readonly (TiledChapter & {
+  readonly intro?: ReactNode;
+  readonly runs: readonly JourneyRun[];
+  readonly upcoming: readonly ReactNode[];
+})[] {
+  const groups = new Map<
+    string,
+    {
+      chapter: NonNullable<JourneyRun["chapter"]>;
+      runs: JourneyRun[];
+    }
+  >();
+  for (const run of runs) {
+    if (run.chapter === null) continue;
+    const group = groups.get(run.chapter.id);
+    if (group === undefined)
+      groups.set(run.chapter.id, { chapter: run.chapter, runs: [run] });
+    else group.runs.push(run);
+  }
+  return [...groups.values()].flatMap(({ chapter, runs: chapterRuns }) =>
+    chapter.tile === undefined
+      ? []
+      : [
+          {
+            id: chapter.id,
+            name: chapter.name,
+            tile: chapter.tile,
+            ...(chapter.intro === undefined ? {} : { intro: chapter.intro }),
+            runs: chapterRuns,
+            upcoming: chapter.upcoming ?? [],
+          },
+        ],
   );
 }

@@ -190,42 +190,26 @@ describe("Product programme elements handed to the client", () => {
       false,
       false,
     ]);
+    // A return to the repeated placement reopens its chapter: the window joins both runs.
     const html = renderToStaticMarkup(
       withNextNavigation(
         createElement(ProductJourney, {
           currentHref: productProgrammeHref("platform-inside"),
           result,
         }),
+        "atPlacement=10000000-0000-4000-8000-000000000005",
+        productProgrammeHref("platform-inside"),
       ),
     );
-    const sections = [...html.matchAll(/<section([^>]*)>/gu)]
-      .map((match) => match[1] ?? "")
-      .filter((attributes) => attributes.includes('class="programme-chapter"'));
-    expect(sections).toHaveLength(5);
-    const ids = sections.map(
-      (attributes) => / id="([^"]+)"/u.exec(attributes)?.[1],
-    );
-    expect(ids.every((id) => id !== undefined)).toBe(true);
-    expect(new Set(ids).size).toBe(5);
     expect(
-      sections.map(
-        (attributes) => /aria-labelledby="([^"]+)"/u.exec(attributes)?.[1],
+      [...html.matchAll(/data-chapter-tile="([^"]+)"/gu)].map(
+        (match) => match[1],
       ),
-    ).toEqual([
-      "chapter-chapter-1",
-      "chapter-chapter-2",
-      "chapter-chapter-3",
-      "chapter-chapter-1",
-      "chapter-chapter-4",
-    ]);
-    for (const chapter of chapters) {
-      expect(
-        html.match(new RegExp(`id="chapter-${chapter.id}"`, "gu")),
-      ).toHaveLength(1);
-    }
+    ).toEqual(["chapter-1", "chapter-2", "chapter-3", "chapter-4"]);
+    expect(html).toContain('data-chapter-window="chapter-1"');
     expect(
       html.match(/aria-label="Дополнительные материалы главы /gu),
-    ).toHaveLength(3);
+    ).toHaveLength(1);
     expect(
       [...html.matchAll(/data-programme-placement="([^"]+)"/gu)].map(
         (match) => match[1],
@@ -234,7 +218,6 @@ describe("Product programme elements handed to the client", () => {
       "10000000-0000-4000-8000-000000000001",
       "10000000-0000-4000-8000-000000000002",
       "10000000-0000-4000-8000-000000000003",
-      "10000000-0000-4000-8000-000000000004",
       "10000000-0000-4000-8000-000000000005",
     ]);
     for (const run of runs) {
