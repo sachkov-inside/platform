@@ -540,9 +540,6 @@ export function ProductJourneyControls({
                             href: continuationRow.readerHref,
                             label: inlineContinuation.label,
                             title: continuationRow.title,
-                            onFollow: (event) => {
-                              rememberReturn(event, continuationRow.returnHref);
-                            },
                           }
                     }
                     // The chapter to start or continue in: a new reader sees it too.
