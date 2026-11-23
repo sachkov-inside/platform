@@ -1,6 +1,6 @@
 ---
 name: ai-models-refresh
-description: Refresh the «ИИ-модели» Справочник, the bot's list of AI models: research current prices, plans, limits and ranks, show the owner a draft with a change list, and publish it to production after approval. Use when the owner asks to update or check the models list, prices or subscriptions.
+description: "Refresh the «ИИ-модели» Справочник, the bot's list of AI models: research current prices, plans, limits and ranks, show the owner a draft with a change list, and publish it to production after approval. Use when the owner asks to update or check the models list, prices or subscriptions."
 ---
 
 # Refresh the «ИИ-модели» Справочник
