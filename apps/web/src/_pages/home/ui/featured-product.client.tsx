@@ -76,8 +76,11 @@ function AiEngineeringFeaturedProduct({
         </IntentPrefetchLink>
         <div className="home-course-call">
           {courseCall ?? (
-            <IntentPrefetchLink href={href} className="home-course-open">
-              Открыть курс <ArrowRight aria-hidden="true" />
+            <IntentPrefetchLink
+              href={productProgrammeHref(product.slug)}
+              className="home-course-open"
+            >
+              Посмотреть программу <ArrowRight aria-hidden="true" />
             </IntentPrefetchLink>
           )}
         </div>

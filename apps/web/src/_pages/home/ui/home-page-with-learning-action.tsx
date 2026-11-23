@@ -3,8 +3,7 @@ import "server-only";
 import { Suspense } from "react";
 
 import { CohortCallView } from "@/features/ai-engineering-course";
-import { collectionDiscoveryHref } from "@/shared/routing/material-reader";
-import { hasText } from "@/shared/lib/text";
+import { productProgrammeHref } from "@/shared/routing/subscription-route";
 import {
   fillPinnedOfferTerms,
   withoutPinnedOfferTerms,
@@ -60,10 +59,8 @@ function GuestCourseCall({
         banner: null,
         action: {
           kind: "programme",
-          href: collectionDiscoveryHref("product", product.slug, "/"),
-          label: hasText(product.card?.action)
-            ? product.card.action
-            : "Открыть курс",
+          href: productProgrammeHref(product.slug),
+          label: "Посмотреть программу",
         },
       }}
     />

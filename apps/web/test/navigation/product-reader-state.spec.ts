@@ -149,9 +149,20 @@ for (const scenario of [
         page.getByRole("link", { name: /^(Оплатить|Приобрести доступ)/u }),
       ).toHaveCount(0);
       // Неизвестный доступ может принадлежать ученику: ему бесплатное не предлагается.
-      if (scenario === "unknown")
-        await expect(page.locator(".aie-learning-film")).toHaveCount(0);
-      else await expectTryFreeOnFilm(page, slug);
+      if (scenario === "unknown") {
+        const film = visibleLanding.locator(".aie-learning-film");
+        const programme = film.getByRole("link", {
+          name: "Посмотреть программу",
+        });
+        await expect(programme).toBeVisible();
+        await expect(programme).toHaveAttribute(
+          "href",
+          `/products/${slug}/programme`,
+        );
+        await expect(
+          film.getByRole("link", { name: /бесплатно/u }),
+        ).toHaveCount(0);
+      } else await expectTryFreeOnFilm(page, slug);
     }
     for (const suffix of ["/access", "/intake", "/membership"])
       expect(
