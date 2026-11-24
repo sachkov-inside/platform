@@ -83,6 +83,7 @@ const failureContracts: readonly FailureContract[] = [
       "submitProductTaskOperation",
       "recordMaterialOpenOperation",
       "recordOpenedPartsOperation",
+      "resetReadingProgressOperation",
       "getReadingStatesOperation",
       "setReadingStateOperation",
       "acceptTermsOperation",

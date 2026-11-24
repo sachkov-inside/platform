@@ -99,6 +99,29 @@ export class ReadingActivityService {
     });
   }
   /**
+   * Start at most 100 Materials over for the current Account: remove studied marks and opened lesson parts
+   * @returns any
+   * @throws ApiError
+   */
+  public resetMaterialReadingProgress({
+    requestBody,
+  }: {
+    requestBody: {
+      commandId: string;
+      materialIds: Array<string>;
+    },
+  }): CancelablePromise<{
+    replayed: boolean;
+    resetCount: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/reading-activity/materials/reset',
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
    * Read progress over the current published Product composition
    * @returns any
    * @throws ApiError

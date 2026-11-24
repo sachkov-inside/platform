@@ -19,6 +19,7 @@ import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 
 import type { ChapterArt, ChapterTone } from "../model/chapter-tile-art";
 import { ChapterArtwork } from "./chapter-artwork";
+import { ChapterProgressReset } from "./chapter-progress-reset.client";
 import {
   ChapterReadingProgress,
   useChapterReading,
@@ -201,6 +202,7 @@ export function ProgrammeChapterTiles({
                 </Button>
               )}
               <div className={styles["content"]}>{children}</div>
+              <ChapterProgressReset materialIds={opened.tile.materialIds} />
             </div>
             <nav aria-label="Другие главы" className={styles["pager"]}>
               <Button
