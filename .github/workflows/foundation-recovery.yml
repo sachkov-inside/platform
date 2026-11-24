@@ -120,6 +120,7 @@ jobs:
       - name: Build the PostgreSQL 18.4 pgBackRest 2.59.3 backup writer
         run: |
           set -euo pipefail
+          python3 infra/production/database/prepare-previous-writer.py previous-foundation/infra/production/database/Dockerfile
           docker build --iidfile "$RUNNER_TEMP/previous-foundation-image.id" previous-foundation/infra/production/database
       - name: Remove the owned builder before empty-runner recovery admission
         run: |
@@ -141,7 +142,7 @@ jobs:
             --legacy-source-image "$(cat "$RUNNER_TEMP/legacy-foundation-image.id")" \
             --state-directory "$RUNNER_TEMP/foundation-legacy-proof" \
             --receipt "$RUNNER_TEMP/foundation-legacy-recovery.json"
-      - name: Prove encrypted backup compatibility from the production baseline
+      - name: Restore the encrypted backup from the rebuilt PostgreSQL 18.4 writer
         run: |
           set -euo pipefail
           python3 -B scripts/foundation-recovery-proof.py \

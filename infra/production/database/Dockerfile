@@ -33,6 +33,7 @@ ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig
 
 # Stable Alpine 3.23 packages available on both x86_64 and aarch64. No edge repository.
 # Selected libpq pkg-config metadata requires libcurl.pc during Meson setup.
+# Pin the runtime libraries alongside their matching OpenSSL and zstd development packages.
 RUN apk add --no-cache \
     build-base=0.5-r3 \
     meson=1.9.1-r0 \
@@ -43,10 +44,14 @@ RUN apk add --no-cache \
     libpq-dev=18.7-r0 \
     libxml2-dev=2.13.9-r1 \
     lz4-dev=1.10.0-r0 \
-    openssl-dev=3.5.9-r0 \
+    openssl-dev=3.5.9-r1 \
+    libcrypto3=3.5.9-r1 \
+    libssl3=3.5.9-r1 \
     libssh2-dev=1.11.1-r4 \
     zlib-dev=1.4-r0 \
-    zstd-dev=1.5.7-r2
+    zstd=1.6.0-r0 \
+    zstd-libs=1.6.0-r0 \
+    zstd-dev=1.6.0-r0
 
 # Bind compilation to the PostgreSQL installed by the pinned base, not Alpine's libpq APK.
 COPY libpq-version.c /build/libpq-version.c
@@ -87,10 +92,10 @@ RUN apk add --no-cache \
     libpq=18.7-r0 \
     libssh2=1.11.1-r4 \
     libxml2=2.13.9-r1 \
-    libcrypto3=3.5.9-r0 \
-    libssl3=3.5.9-r0 \
+    libcrypto3=3.5.9-r1 \
+    libssl3=3.5.9-r1 \
     zlib=1.4-r0 \
-    zstd-libs=1.5.7-r2 \
+    zstd-libs=1.6.0-r0 \
     && install -d -m 755 /etc/pgbackrest/conf.d \
     && install -d -m 750 -o postgres -g postgres /var/log/pgbackrest /var/lib/pgbackrest \
     && install -d -m 700 -o postgres -g postgres /var/spool/pgbackrest

@@ -110,7 +110,7 @@ test("encrypted recovery removes its own builder after builds and preserves empt
     source.indexOf("\n  broker-upgrade:"),
   );
   const finalBuild = section.indexOf(
-    "previous-foundation/infra/production/database",
+    'docker build --iidfile "$RUNNER_TEMP/previous-foundation-image.id" previous-foundation/infra/production/database',
   );
   const removal = section.indexOf('docker buildx rm "$BUILDX_BUILDER"');
   const proof = section.indexOf(
