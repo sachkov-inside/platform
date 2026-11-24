@@ -33,6 +33,8 @@ ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig
 
 # Stable Alpine 3.23 packages available on both x86_64 and aarch64. No edge repository.
 # Selected libpq pkg-config metadata requires libcurl.pc during Meson setup.
+# openssl-dev requires libcrypto3/libssl3 of the same release; pinning them makes a base-image
+# mismatch fail here instead of silently upgrading the libraries.
 RUN apk add --no-cache \
     build-base=0.5-r3 \
     meson=1.9.1-r0 \
