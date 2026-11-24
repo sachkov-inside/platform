@@ -1,14 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { RotateCcw } from "lucide-react";
-import { useState } from "react";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 import { z } from "zod";
 
 import type { MaterialPreview } from "@/entities/material";
 import type { PublishedProductResult } from "@/features/library-discovery";
 import { ReadingProgressProvider } from "@/features/reading-progress";
-import { Button } from "@/shared/ui/button";
 import { fetchBeforeRender } from "@/storybook/mutation-mock";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 
@@ -249,6 +246,7 @@ function Steps() {
       {states.map((state) => (
         <ChapterProgressResetView
           key={JSON.stringify(state)}
+          moved={false}
           onCancel={() => undefined}
           onConfirm={() => undefined}
           onOffer={() => undefined}
@@ -262,103 +260,3 @@ function Steps() {
 
 /** Every step of the reset side by side: offer, question, saving, failure, result. */
 export const AllSteps: Story = { render: () => <Steps /> };
-
-/**
- * Prototype of the owner's choice (24.11.2026): the reset at the end of the lessons (chosen and
- * shipped) and the rejected alternative in the middle of the pager.
- */
-function PlacementPrototype({ placement }: { placement: "list" | "pager" }) {
-  const [state, setState] = useState<ChapterProgressResetState>({
-    kind: "offer",
-  });
-  const control = (
-    <ChapterProgressResetView
-      onCancel={() => {
-        setState({ kind: "offer" });
-      }}
-      onConfirm={() => {
-        setState({ kind: "done" });
-      }}
-      onOffer={() => {
-        setState({ kind: "confirm", status: "idle" });
-      }}
-      read={9}
-      state={state}
-    />
-  );
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        width: "min(40rem, 100%)",
-        height: "40rem",
-        margin: "0 auto",
-        overflow: "hidden",
-        borderRadius: "var(--radius-2xl)",
-        background: "var(--card)",
-        boxShadow: "var(--elevation-cover)",
-      }}
-    >
-      <div
-        style={{
-          display: "grid",
-          gap: "0.75rem",
-          flex: 1,
-          overflowY: "auto",
-          padding: "1.25rem 1.5rem",
-        }}
-      >
-        {materials.map((material, index) => (
-          <div
-            key={material.materialId}
-            style={{
-              borderRadius: "var(--radius-xl)",
-              background: "var(--secondary)",
-              padding: "1rem 1.25rem",
-            }}
-          >
-            <strong>{String(index + 1)}</strong> {material.title}
-          </div>
-        ))}
-        {placement === "list" ? control : null}
-      </div>
-      {/* The pager is too narrow for the question: it opens as a strip above it. */}
-      {placement === "pager" && state.kind !== "offer" ? (
-        <div style={{ padding: "0 1.5rem 1rem" }}>{control}</div>
-      ) : null}
-      <nav
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "0.5rem",
-          borderTop: "1px solid var(--border)",
-          padding: "0.5rem 0.75rem",
-        }}
-      >
-        <span>← Предыдущая</span>
-        {placement === "pager" ? (
-          <Button
-            disabled={state.kind !== "offer"}
-            onClick={() => {
-              setState({ kind: "confirm", status: "idle" });
-            }}
-            variant="ghost"
-          >
-            <RotateCcw aria-hidden="true" />
-            Сбросить прогресс
-          </Button>
-        ) : null}
-        <span>Следующая →</span>
-      </nav>
-    </div>
-  );
-}
-
-export const PrototypeAtListEnd: Story = {
-  render: () => <PlacementPrototype placement="list" />,
-};
-export const PrototypeInPager: Story = {
-  render: () => <PlacementPrototype placement="pager" />,
-};

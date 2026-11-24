@@ -1,7 +1,7 @@
 "use client";
 
 import { RotateCcw } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 import {
   useProgressReset,
@@ -11,6 +11,10 @@ import { Button } from "@/shared/ui/button";
 
 import { useChapterReading } from "./chapter-reading-progress.client";
 import styles from "./chapter-progress-reset.module.css";
+import { formatLessonsGenitive } from "./product-counts";
+
+/** The bound of one reset command; a longer chapter offers no reset. */
+const MAX_RESET_LESSONS = 100;
 
 /** Состояние сброса, которое видит читатель. */
 export type ChapterProgressResetState =
@@ -18,14 +22,21 @@ export type ChapterProgressResetState =
   | { readonly kind: "confirm"; readonly status: "idle" | "pending" | "failed" }
   | { readonly kind: "done" };
 
+function focusOnMount(node: HTMLElement | null) {
+  node?.focus();
+}
+
 /**
- * Сброс прогресса главы в конце окна главы (решение владельца 24.11.2026). Редкое действие стоит
- * после уроков, а не рядом с листанием глав. Подтверждение на месте: окно главы уже диалог, второе
- * окно поверх него не открывается.
+ * Сброс прогресса главы стоит после уроков, а не рядом с листанием глав
+ * (docs/specifications/platform-v1.md, окно главы). Подтверждение
+ * на месте: окно главы уже диалог, второе окно поверх него не открывается. `moved` значит, что шаг
+ * сменил читатель: тогда фокус идёт к «Отмене» при вопросе, к кнопке после отказа и к итогу, когда
+ * кнопки больше нет. Первый показ фокус не трогает.
  */
 export function ChapterProgressResetView({
   state,
   read,
+  moved,
   onOffer,
   onConfirm,
   onCancel,
@@ -33,28 +44,16 @@ export function ChapterProgressResetView({
   readonly state: ChapterProgressResetState;
   /** Изученные уроки главы: столько отметок снимет сброс. */
   readonly read: number;
+  readonly moved: boolean;
   readonly onOffer: () => void;
   readonly onConfirm: () => void;
   readonly onCancel: () => void;
 }) {
-  const cancelRef = useRef<HTMLButtonElement>(null);
-  const offerRef = useRef<HTMLButtonElement>(null);
-  const doneRef = useRef<HTMLParagraphElement>(null);
-  const previous = useRef(state.kind);
-  // Фокус идёт за сменой шага: к «Отмене» при вопросе, обратно к кнопке при отказе и к итогу,
-  // когда кнопки больше нет. Первый показ фокус не трогает.
-  useEffect(() => {
-    if (previous.current === state.kind) return;
-    previous.current = state.kind;
-    if (state.kind === "confirm") cancelRef.current?.focus();
-    else if (state.kind === "offer") offerRef.current?.focus();
-    else doneRef.current?.focus();
-  }, [state.kind]);
-
+  const focus = moved ? focusOnMount : undefined;
   if (state.kind === "done")
     return (
       <div className={styles["reset"]} data-chapter-reset="done">
-        <p className={styles["note"]} ref={doneRef} role="status" tabIndex={-1}>
+        <p className={styles["note"]} ref={focus} role="status" tabIndex={-1}>
           Прогресс главы сброшен. Можно проходить её заново.
         </p>
       </div>
@@ -65,7 +64,7 @@ export function ChapterProgressResetView({
         <Button
           className={styles["offer"]}
           onClick={onOffer}
-          ref={offerRef}
+          ref={focus}
           variant="ghost"
         >
           <RotateCcw aria-hidden="true" />
@@ -77,13 +76,13 @@ export function ChapterProgressResetView({
   return (
     <div
       aria-busy={pending}
+      aria-label="Сброс прогресса главы"
       className={styles["reset"]}
       data-chapter-reset="confirm"
       role="group"
-      aria-label="Сброс прогресса главы"
     >
       <p className={styles["question"]}>
-        {`Снять отметку «изучено» с ${String(read)} ${read % 10 === 1 && read % 100 !== 11 ? "урока" : "уроков"} и начать главу заново?`}
+        {`Снять отметку «изучено» с ${formatLessonsGenitive(read)} и начать главу заново?`}
       </p>
       {state.status === "failed" ? (
         <p className={styles["error"]} role="alert">
@@ -91,17 +90,22 @@ export function ChapterProgressResetView({
         </p>
       ) : null}
       <div className={styles["actions"]}>
-        <Button disabled={pending} onClick={onConfirm} variant="destructive">
+        <Button
+          aria-disabled={pending}
+          onClick={pending ? undefined : onConfirm}
+          variant="destructive"
+        >
           {pending
             ? "Сбрасываем…"
             : state.status === "failed"
               ? "Повторить"
               : "Сбросить"}
         </Button>
+        {/* Stays enabled while saving, so the focus it holds is not dropped to the page. */}
         <Button
-          disabled={pending}
-          onClick={onCancel}
-          ref={cancelRef}
+          aria-disabled={pending}
+          onClick={pending ? undefined : onCancel}
+          ref={focus}
           variant="ghost"
         >
           Отмена
@@ -118,16 +122,26 @@ export function ChapterProgressReset({
   readonly materialIds: readonly string[];
 }) {
   const { connect, missing, read, signedIn } = useChapterReading(materialIds);
-  // Once the reader has started a reset, the control stays to show its question and result,
-  // although the chapter has no studied lessons left.
-  const [engaged, setEngaged] = useState(false);
-  const visible = signedIn && !missing && (read > 0 || engaged);
+  // Once the reader has asked, the control stays to show its question and result, although the
+  // chapter may have no studied lessons left.
+  const [asked, setAsked] = useState(false);
+  const [moved, setMoved] = useState(false);
+  const visible =
+    signedIn &&
+    !missing &&
+    new Set(materialIds).size <= MAX_RESET_LESSONS &&
+    (read > 0 || asked);
   return (
     <div ref={connect}>
       {visible ? (
         <ResetControl
+          asked={asked}
           materialIds={materialIds}
-          onEngage={setEngaged}
+          moved={moved}
+          onAskedChange={(next) => {
+            setAsked(next);
+            setMoved(true);
+          }}
           read={read}
         />
       ) : null}
@@ -135,27 +149,30 @@ export function ChapterProgressReset({
   );
 }
 
+/** Mounted only when shown, so a guest's or a loading window holds no reset mutation. */
 function ResetControl({
+  asked,
   materialIds,
+  moved,
   read,
-  onEngage,
+  onAskedChange,
 }: {
+  readonly asked: boolean;
   readonly materialIds: readonly string[];
+  readonly moved: boolean;
   readonly read: number;
-  readonly onEngage: (engaged: boolean) => void;
+  readonly onAskedChange: (asked: boolean) => void;
 }) {
   const { status, reset } = useProgressReset(materialIds);
-  const [asked, setAsked] = useState(false);
   return (
     <ChapterProgressResetView
+      moved={moved}
       onCancel={() => {
-        setAsked(false);
-        onEngage(false);
+        onAskedChange(false);
       }}
       onConfirm={reset}
       onOffer={() => {
-        setAsked(true);
-        onEngage(true);
+        onAskedChange(true);
       }}
       read={read}
       state={resetState(asked, status)}

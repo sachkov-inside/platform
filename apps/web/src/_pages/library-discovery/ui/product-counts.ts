@@ -38,7 +38,11 @@ export function formatLessonCount(count: number): string {
   return plural(count, "урок", "урока", "уроков");
 }
 
-/** Родительный падеж после «из»: «из 1 урока», «из 7 уроков», «из 21 урока». */
+/** Родительный падеж после «из» и «с»: «1 урока», «7 уроков», «21 урока». */
+export function formatLessonsGenitive(count: number): string {
+  return plural(count, "урока", "уроков", "уроков");
+}
+
 export function formatOfLessons(count: number): string {
-  return `из ${plural(count, "урока", "уроков", "уроков")}`;
+  return `из ${formatLessonsGenitive(count)}`;
 }
