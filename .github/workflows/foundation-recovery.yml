@@ -120,18 +120,7 @@ jobs:
       - name: Build the PostgreSQL 18.4 pgBackRest 2.59.3 backup writer
         run: |
           set -euo pipefail
-          # Alpine 3.23 retired the frozen OpenSSL and zstd revisions (#2550).
-          # Keep the PostgreSQL and pgBackRest sources and the remaining pins from that writer.
-          dockerfile=previous-foundation/infra/production/database/Dockerfile
-          sed -i \
-            -e 's/^    openssl-dev=3\.5\.9-r0 \\$/    openssl-dev=3.5.9-r1 libcrypto3=3.5.9-r1 libssl3=3.5.9-r1 \\/' \
-            -e 's/^    \(libcrypto3\|libssl3\)=3\.5\.9-r0 \\$/    \1=3.5.9-r1 \\/' \
-            -e 's/^    zstd-dev=1\.5\.7-r2$/    zstd=1.6.0-r0 zstd-libs=1.6.0-r0 zstd-dev=1.6.0-r0/' \
-            -e 's/^    zstd-libs=1\.5\.7-r2 /    zstd-libs=1.6.0-r0 /' \
-            "$dockerfile"
-          if grep -n '3\.5\.9-r0' "$dockerfile"; then exit 1; fi
-          test "$(grep -c '3\.5\.9-r1' "$dockerfile")" -eq 3
-          test "$(grep -c 'zstd-libs=1\.6\.0-r0' "$dockerfile")" -eq 2
+          python3 infra/production/database/prepare-previous-writer.py previous-foundation/infra/production/database/Dockerfile
           docker build --iidfile "$RUNNER_TEMP/previous-foundation-image.id" previous-foundation/infra/production/database
       - name: Remove the owned builder before empty-runner recovery admission
         run: |
@@ -153,7 +142,7 @@ jobs:
             --legacy-source-image "$(cat "$RUNNER_TEMP/legacy-foundation-image.id")" \
             --state-directory "$RUNNER_TEMP/foundation-legacy-proof" \
             --receipt "$RUNNER_TEMP/foundation-legacy-recovery.json"
-      - name: Prove encrypted backup compatibility from the production baseline
+      - name: Restore the encrypted backup from the rebuilt PostgreSQL 18.4 writer
         run: |
           set -euo pipefail
           python3 -B scripts/foundation-recovery-proof.py \

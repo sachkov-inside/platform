@@ -21,6 +21,26 @@ def result(stdout="", code=0, stderr=""):
     return subprocess.CompletedProcess([], code, stdout, stderr)
 
 
+class PreviousWriterFixture(unittest.TestCase):
+    def test_updates_only_known_pins_and_rejects_unexpected_inputs(self):
+        path = pathlib.Path(__file__).resolve().parents[1] / "infra/production/database/prepare-previous-writer.py"
+        module_spec = importlib.util.spec_from_file_location("previous_writer", path)
+        writer = importlib.util.module_from_spec(module_spec)
+        module_spec.loader.exec_module(writer)
+        pins = ["openssl-dev=3.5.9-r0", "libcrypto3=3.5.9-r0", "libssl3=3.5.9-r0",
+                "zstd-libs=1.5.7-r2", "untouched=1.0", "zstd-dev=1.5.7-r2"]
+        source = (" " + '\\' + "\n").join("    " + pin for pin in pins) + "\n"
+        updated = writer.prepare(source)
+        self.assertIn("zstd=1.6.0-r0 zstd-libs=1.6.0-r0 zstd-dev=1.6.0-r0", updated)
+        self.assertIn("libcrypto3=3.5.9-r1 libssl3=3.5.9-r1", updated)
+        self.assertIn("untouched=1.0", updated)
+        for old in pins[:4] + pins[-1:]:
+            with self.subTest(pin=old), self.assertRaisesRegex(ValueError, "exactly one"):
+                writer.prepare(source.replace(old, "changed=2"))
+        with self.assertRaisesRegex(ValueError, "exactly one"):
+            writer.prepare(source + source)
+
+
 class RecoveryAdmission(unittest.TestCase):
     def test_refuses_remote_endpoint_before_contacting_daemon(self):
         with mock.patch.dict(os.environ, {"DOCKER_HOST": "ssh://production"}), mock.patch.object(proof, "invoke") as call:
