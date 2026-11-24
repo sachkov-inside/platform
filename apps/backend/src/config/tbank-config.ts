@@ -61,6 +61,7 @@ const realBankEndpoints = {
     "https://securepay.tinkoff.ru",
     "https://pay.tbank.ru",
     "https://pay.tbank-online.com",
+    "https://pay.linksecurepayment.com",
   ],
 } as const;
 const withinLimits = (value: {

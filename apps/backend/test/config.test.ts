@@ -486,6 +486,7 @@ describe("bank payment contour", () => {
           "https://securepay.tinkoff.ru",
           "https://pay.tbank.ru",
           "https://pay.tbank-online.com",
+          "https://pay.linksecurepayment.com",
         ],
       },
     });
