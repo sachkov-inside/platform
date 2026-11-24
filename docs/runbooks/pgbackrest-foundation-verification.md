@@ -24,9 +24,9 @@ self-hosted runner, нелокальном Docker endpoint или daemon с чу
   из замороженного source `9a17509d802f8fa165b5988962f20ae18155fd73`, не из production image.
 - Чтение копий текущего production writer 18.4/2.59.3 новым restore 18.7/2.60.0.
   Предыдущий writer собирается из замороженного source `e514406f9ec774b6ede2524b9638480617c44a24`.
-  Alpine больше не отдаёт закреплённый в нём OpenSSL 3.5.9-r0, поэтому перед сборкой workflow меняет
-  только эти закрепления на 3.5.9-r1 (#2550); версии PostgreSQL, pgBackRest и остальные закрепления
-  остаются замороженными.
+  Перед сборкой workflow заменяет снятые из Alpine 3.23 версии библиотек: OpenSSL 3.5.9-r0
+  на 3.5.9-r1 и zstd 1.5.7-r2 на 1.6.0-r0 (#2550). Проход восстанавливает копию, которую
+  создал этот пересобранный writer. Версии PostgreSQL и pgBackRest сохраняются.
 - Контрольное сравнение ключей на одном неизменном repository: правильный ключ читает
   `backup.info` полностью через `repo-get`, неверный даёт CryptoError либо другие plaintext
   bytes, затем restore обязан отказать именно на decipher/metadata validation. Внешний
