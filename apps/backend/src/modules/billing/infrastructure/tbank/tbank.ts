@@ -143,6 +143,7 @@ export function validatedPaymentUrl(
   const url = parsed.success ? new URL(parsed.data) : null;
   if (
     url === null ||
+    (url.protocol !== "https:" && url.protocol !== "http:") ||
     !origins.includes(url.origin) ||
     url.username !== "" ||
     url.password !== "" ||

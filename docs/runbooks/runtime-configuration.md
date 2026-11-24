@@ -199,7 +199,8 @@ declares the stand's mail interceptor in the same way and is rejected in product
 Real DEMO and production terminals share the fixed API endpoint and exact HTTPS hosted-form
 origins in [`tbank-config.ts`](../../apps/backend/src/config/tbank-config.ts). The policy includes
 `https://pay.tbank-online.com`, returned by the bank's original Init response during #1358 DEMO
-acceptance and verified in the authenticated matching bank order (#1407). Userinfo, fragments,
+acceptance and verified in the authenticated matching bank order (#1407). It also includes the exact origin
+`https://pay.linksecurepayment.com` observed in production Init responses on 24 November 2026. Userinfo, fragments,
 non-HTTPS URLs, alternate ports and other hosts remain rejected. The local double keeps only its
 own configured origin. A hosted-form URL is opaque: keep the bank's original URL rather than
 constructing it from `PaymentId` or changing its host.
