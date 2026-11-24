@@ -39,12 +39,7 @@ export class AuthorBroadcastDrafts {
     }
     return {
       broadcast,
-      name:
-        draft?.name ??
-        (broadcast.parts[0] === undefined
-          ? undefined
-          : truncateText(broadcast.parts[0].content.text, 128)) ??
-        "Рассылка",
+      name: draft?.name ?? defaultBroadcastName(broadcast),
     };
   }
   async list(c: Context, cursor?: string) {
@@ -93,14 +88,17 @@ export class AuthorBroadcastDrafts {
       if (!broadcast) throw new CommunicationsError("not_found");
       return {
         broadcast,
-        name:
-          draft?.name ??
-          (broadcast.parts[0] === undefined
-            ? undefined
-            : truncateText(broadcast.parts[0].content.text, 128)) ??
-          "Рассылка",
+        name: draft?.name ?? defaultBroadcastName(broadcast),
       };
     });
     return { items, nextCursor: ids.length > 10 ? ids[9]?.id : undefined };
   }
+}
+
+/** A broadcast without a stored name is named after the text of its first message. */
+function defaultBroadcastName(broadcast: AuthorBroadcast): string {
+  const first = broadcast.parts[0];
+  return first === undefined
+    ? "Рассылка"
+    : truncateText(first.content.text, 128);
 }

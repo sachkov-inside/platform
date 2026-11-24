@@ -1284,14 +1284,16 @@ async function acceptPost(
 }
 describe("simple sequential authoring", () => {
   it("names a broadcast from a first message whose name boundary falls inside an emoji and shows the next step", async () => {
-    // The 80th UTF-16 unit of this production text is the first half of 📆.
     const text =
       "Не пропусти скидку 24% на курс AI Engineering ⚡️\n\nСкидка действует до 31 января📆, поэтому давай";
+    expect(text.charCodeAt(79)).toBe(0xd83d);
     await beginSequence("Рассылки");
     await authorMessage(103, text);
     await authorClick(104, "Сразу");
     const state = await sessionState();
-    expect(state.broadcastName).toBe(text.slice(0, 79));
+    expect(state.broadcastName).toBe(
+      "Не пропусти скидку 24% на курс AI Engineering ⚡️\n\nСкидка действует до 31 января",
+    );
     expect(required(state.broadcast).parts).toHaveLength(1);
     expect(state.composing?.destination.expectedRevision).toBe(1);
     expect(required(state.menu).buttons.map(([label]) => label)).toEqual([

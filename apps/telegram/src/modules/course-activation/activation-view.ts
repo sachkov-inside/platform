@@ -1,5 +1,6 @@
 import { isProductCapability } from "@inside/access-capabilities";
 import { isTruthy } from "../../shared/truthiness.js";
+import { truncateText } from "../../shared/text.js";
 import type {
   OwnAccess,
   ActivationResult,
@@ -196,7 +197,7 @@ export function ownAccessText(access: OwnAccess): string {
   const heading = `Мои доступы\n\n${admission}\n\n`;
   const details = rows.join("\n\n");
   const room = 3900 - heading.length - footer.length - 3;
-  return `${heading}${details.length > room ? details.slice(0, room - 1) + "…" : details}\n\n${footer}`;
+  return `${heading}${details.length > room ? truncateText(details, room - 1) + "…" : details}\n\n${footer}`;
 }
 function date(value: string): string {
   return (
