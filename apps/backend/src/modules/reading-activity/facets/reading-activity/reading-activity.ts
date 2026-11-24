@@ -11,6 +11,7 @@ import { summarizeProductLearning } from "../../features/summarize-product-learn
 import { setReadingState } from "../../features/set-reading-state/set-reading-state.js";
 import type { SetReadingStateCommand } from "../../features/set-reading-state/set-reading-state.contract.js";
 import { recordOpenedParts } from "../../features/record-opened-parts/record-opened-parts.js";
+import { resetReadingProgress } from "../../features/reset-reading-progress/reset-reading-progress.js";
 
 export class ReadingActivity {
   constructor(
@@ -41,6 +42,14 @@ export class ReadingActivity {
     readonly openedParts: number;
   }) {
     return recordOpenedParts(this.dependencies, command);
+  }
+  /** Starts the given Materials over for the Account: studied marks and opened lesson parts. */
+  resetReadingProgress(command: {
+    readonly accountId: string;
+    readonly materialIds: readonly string[];
+    readonly commandId: string;
+  }) {
+    return resetReadingProgress(this.dependencies, command);
   }
   getReadingStates(query: {
     readonly accountId: string;

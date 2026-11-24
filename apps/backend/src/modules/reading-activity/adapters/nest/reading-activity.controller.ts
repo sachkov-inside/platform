@@ -56,6 +56,11 @@ import {
   type RecordOpenedPartsResult,
 } from "../../features/record-opened-parts/record-opened-parts.js";
 import {
+  resetReadingProgressBodySchema,
+  resetReadingProgressOutcomeSchema,
+  type ResetReadingProgressResult,
+} from "../../features/reset-reading-progress/reset-reading-progress.js";
+import {
   setReadingStateSchema,
   type SetReadingStateError,
 } from "../../features/set-reading-state/set-reading-state.contract.js";
@@ -182,6 +187,41 @@ export class ReadingActivityController {
     return { openedParts: result.value.openedParts };
   }
 
+  @Post("materials/reset")
+  @HttpCode(200)
+  @ApiOperation({
+    operationId: "resetMaterialReadingProgress",
+    summary:
+      "Start at most 100 Materials over for the current Account: remove studied marks and opened lesson parts",
+  })
+  @ApiBody({ schema: toOpenApiSchema(resetReadingProgressBodySchema) })
+  @ApiOkResponse({
+    schema: toOpenApiSchema(
+      resetReadingProgressOutcomeSchema.extend({ replayed: z.boolean() }),
+    ),
+  })
+  @ApiResponse({
+    status: 409,
+    content: problemDetailsOneOfContent(
+      problemDetailsSchema(409, ["command_conflict"]),
+      accountProblemSchema,
+    ),
+  })
+  async reset(
+    @CurrentAccount() current: AuthenticatedAccount,
+    @Body() input: unknown,
+  ) {
+    const parsed = resetReadingProgressBodySchema.safeParse(input);
+    if (!parsed.success)
+      throw readingException(400, { code: "invalid_request" });
+    const result = await this.reading.resetReadingProgress({
+      ...parsed.data,
+      accountId: current.accountId,
+    });
+    if (!result.ok) throwReadingError(result.error);
+    return result.value;
+  }
+
   @Post("materials/query")
   @HttpCode(200)
   @ApiOperation({
@@ -252,7 +292,8 @@ type ReadingError =
   | Extract<
       | GetReadingStatesResult
       | GetProductProgressResult
-      | RecordOpenedPartsResult,
+      | RecordOpenedPartsResult
+      | ResetReadingProgressResult,
       { readonly ok: false }
     >["error"];
 

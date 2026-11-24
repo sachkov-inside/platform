@@ -8,6 +8,10 @@ export type {
 
 export { ReadingProgressProvider } from "./ui/reading-provider.client";
 export { SavedReadingAction } from "./ui/saved-reading-action.client";
+export {
+  useProgressReset,
+  type ProgressResetStatus,
+} from "./ui/use-progress-reset.client";
 export { VisibleMaterialOpen } from "./ui/visible-material-open.client";
 export {
   guestOpenedPartsKey,

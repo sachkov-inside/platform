@@ -15,6 +15,10 @@ import {
 } from "../model/opened-parts-contract";
 import { personalHomeResultSchema } from "../model/personal-home-contract";
 import {
+  progressResetCommandSchema,
+  progressResetResultSchema,
+} from "../model/progress-reset-contract";
+import {
   readingCommandSchema,
   readingResultSchema,
   readingStatesResultSchema,
@@ -85,6 +89,15 @@ export const getReadingStatesOperation = defineMutationOperation({
   method: "POST",
   path: "/api/reading-progress/states",
   result: readingStatesResultSchema,
+  transportFailure: readerFailure,
+});
+
+/** Starts the Materials of a chapter over for the reader. */
+export const resetReadingProgressOperation = defineMutationOperation({
+  input: progressResetCommandSchema,
+  method: "POST",
+  path: "/api/reading-progress/reset",
+  result: progressResetResultSchema,
   transportFailure: readerFailure,
 });
 

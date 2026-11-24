@@ -29,6 +29,19 @@ export function requestRecordLessonOpenedParts(
     { accessToken },
   );
 }
+export function requestResetReadingProgress(
+  input: { materialIds: string[]; commandId: string },
+  accessToken: string,
+) {
+  return executeGeneratedRequest(
+    (request) =>
+      new ReadingActivityService(request).resetMaterialReadingProgress({
+        requestBody: input,
+      }),
+    200,
+    { accessToken },
+  );
+}
 export function requestSetReadingState(
   input: {
     materialId: string;
