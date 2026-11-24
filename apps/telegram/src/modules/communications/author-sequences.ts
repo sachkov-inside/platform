@@ -1,5 +1,5 @@
 import { isTruthy } from "../../shared/truthiness.js";
-import { hasText, presentText } from "../../shared/text.js";
+import { hasText, presentText, truncateText } from "../../shared/text.js";
 import { unhandled } from "../../shared/unhandled.js";
 import type {
   AuthorAction,
@@ -131,7 +131,7 @@ export function appendPrepared(t: Turn, content: TemplateContent) {
     name:
       !isTruthy(f.entryResponse.parts.length) &&
       f.name === "Новая последовательность"
-        ? (presentText(content.text.slice(0, 80)) ?? messageLabel(content))
+        ? (presentText(truncateText(content.text, 80)) ?? messageLabel(content))
         : f.name,
     entryResponse: {
       ...f.entryResponse,
@@ -496,7 +496,7 @@ function performSelection(
       if (!part) throw new CommunicationsError("not_found");
       t.preview(part.content);
       return t.reply(
-        `Сообщение ${index + 1} · ${part.content.type}\n${part.content.text.slice(0, 1000)}\nКнопок: ${part.content.buttons.length}`,
+        `Сообщение ${index + 1} · ${part.content.type}\n${truncateText(part.content.text, 1000)}\nКнопок: ${part.content.buttons.length}`,
         [
           [
             "Изменить сообщение и кнопки",
@@ -705,7 +705,7 @@ function performEdit(t: Turn, s: AuthorSequenceState, a: SequenceEdit): void {
           ...f.sources
             .slice(offset, offset + 15)
             .map((source): AuthorButton => [
-              source.name.slice(0, 50),
+              truncateText(source.name, 50),
               { kind: "seq:source", id: source.sourceId },
             ]),
           ...(offset > 0
@@ -1050,7 +1050,7 @@ export function answerSequenceQuery(
         [
           ["Создать последовательность", { kind: "seq:new" }],
           ...event.items.map(({ id, name, status }): AuthorButton => [
-            `${name.slice(0, 40)} · ${status === "edited" ? "есть правки" : names[status]}`,
+            `${truncateText(name, 40)} · ${status === "edited" ? "есть правки" : names[status]}`,
             { kind: "seq:read", id },
           ]),
           ...(hasText(event.nextCursor)
@@ -1095,7 +1095,7 @@ export function answerSequenceQuery(
             .slice(0, 10)
             .map(
               (error) =>
-                `${error.url.slice(0, 200)} — ${{ not_found: "не найдено", not_published: "не опубликовано", not_free: "нет бесплатного доступа", incomplete: "серия не готова" }[error.reason]}`,
+                `${truncateText(error.url, 200)} — ${{ not_found: "не найдено", not_published: "не опубликовано", not_free: "нет бесплатного доступа", incomplete: "серия не готова" }[error.reason]}`,
             )
             .join("\n")}`,
           back,

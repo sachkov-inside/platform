@@ -1,4 +1,4 @@
-import { hasText } from "../../shared/text.js";
+import { hasText, truncateText } from "../../shared/text.js";
 import type { Context } from "./author-admin.js";
 import { parseBroadcastDraft, type AuthorBroadcast } from "./author-dialog.js";
 import { authorRequest } from "./author-request.js";
@@ -41,7 +41,9 @@ export class AuthorBroadcastDrafts {
       broadcast,
       name:
         draft?.name ??
-        broadcast.parts[0]?.content.text.slice(0, 128) ??
+        (broadcast.parts[0] === undefined
+          ? undefined
+          : truncateText(broadcast.parts[0].content.text, 128)) ??
         "Рассылка",
     };
   }
@@ -93,7 +95,9 @@ export class AuthorBroadcastDrafts {
         broadcast,
         name:
           draft?.name ??
-          broadcast.parts[0]?.content.text.slice(0, 128) ??
+          (broadcast.parts[0] === undefined
+            ? undefined
+            : truncateText(broadcast.parts[0].content.text, 128)) ??
           "Рассылка",
       };
     });

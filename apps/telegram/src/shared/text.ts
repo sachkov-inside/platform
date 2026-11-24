@@ -20,3 +20,12 @@ export function presentText(
 ): NonEmptyText | undefined {
   return hasText(value) ? value : undefined;
 }
+
+/**
+ * At most `limit` UTF-16 units of `value`, cut on a code point boundary. A plain `slice` may cut an
+ * emoji in half and leave a lone surrogate, which PostgreSQL rejects in `jsonb` and Telegram in text.
+ */
+export function truncateText(value: string, limit: number): string {
+  const cut = value.slice(0, limit);
+  return /[\uD800-\uDBFF]$/u.test(cut) ? cut.slice(0, -1) : cut;
+}

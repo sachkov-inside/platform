@@ -1,3 +1,4 @@
+import { truncateText } from "../../shared/text.js";
 import {
   nativeAlbumMedia,
   type NativeAlbumMedia,
@@ -105,9 +106,7 @@ export function nativeMessageSource(
   const albumMedia =
     group === undefined ? undefined : nativeAlbumMedia(message);
   if (group !== undefined && albumMedia === undefined) return undefined;
-  let text = rawText.slice(0, 4096);
-  if (text.length > 0 && /[\uD800-\uDBFF]/u.test(text.at(-1) ?? ""))
-    text = text.slice(0, -1);
+  const text = truncateText(rawText, 4096);
   return {
     messageId: id,
     ...(typeof group === "string" ? { mediaGroupId: group } : {}),
