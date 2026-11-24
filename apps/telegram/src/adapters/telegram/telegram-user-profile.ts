@@ -1,4 +1,5 @@
 import { telegramContactSchema } from "@inside/contracts/telegram-contact";
+import { truncateText } from "../../shared/text.js";
 import type { TelegramUserProfile } from "../../shared/telegram-contact.js";
 
 /**
@@ -15,7 +16,7 @@ export function telegramUserProfile(user: {
     .join(" ")
     .trim();
   const displayName = telegramContactSchema.shape.displayName.safeParse(
-    name === "" ? null : name.slice(0, 160),
+    name === "" ? null : truncateText(name, 160),
   );
   const username = telegramContactSchema.shape.username.safeParse(
     user.username ?? null,

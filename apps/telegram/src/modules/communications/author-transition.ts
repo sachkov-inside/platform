@@ -1,5 +1,5 @@
 import { isTruthy } from "../../shared/truthiness.js";
-import { hasText, presentText } from "../../shared/text.js";
+import { hasText, presentText, truncateText } from "../../shared/text.js";
 import { unhandled } from "../../shared/unhandled.js";
 import {
   appendAuthorButton,
@@ -220,7 +220,7 @@ function step(t: Turn, event: AuthorEvent): void {
         ["Создать рассылку", { kind: "new-broadcast" }],
         ["Сохранённые посты", { kind: "posts-all" }],
         ...event.items.map(({ broadcast, name }): AuthorButton => [
-          `${name.slice(0, 35)} · ${broadcastNames[broadcast.state]}`,
+          `${truncateText(name, 35)} · ${broadcastNames[broadcast.state]}`,
           { kind: "read-broadcast", id: broadcast.broadcastId },
         ]),
         ...(hasText(event.nextCursor)
@@ -411,7 +411,7 @@ function perform(t: Turn, a: AuthorAction): void {
       if (!template) return unavailable();
       s.broadcast = newBroadcast(t, [{ content: template.content }]);
       s.broadcastName =
-        presentText(template.content.text.slice(0, 128)) ?? "Рассылка";
+        presentText(truncateText(template.content.text, 128)) ?? "Рассылка";
       return saveBroadcast(t, { kind: "card" });
     case "broadcasts":
       s.batch = undefined;
@@ -697,7 +697,7 @@ function showPost(t: Turn) {
   if (!template) throw new CommunicationsError("not_found");
   t.state.prompt = undefined;
   t.reply(
-    `Пост · версия ${template.revision}\n${template.content.type} · ${template.content.buttons.length} кнопок\n${presentText(template.content.text.slice(0, 500)) ?? "Медиа без подписи"}`,
+    `Пост · версия ${template.revision}\n${template.content.type} · ${template.content.buttons.length} кнопок\n${presentText(truncateText(template.content.text, 500)) ?? "Медиа без подписи"}`,
     [
       ["Образец себе", { kind: "sample" }],
       ["Заменить сообщение", { kind: "replace" }],
@@ -878,7 +878,7 @@ function sequenceResult(t: Turn, result: SequenceResult): void {
         throw new CommunicationsError("revision_conflict");
       if (!isTruthy(b.parts.length) && !hasText(t.state.broadcastName))
         t.state.broadcastName =
-          presentText(result.content.text.slice(0, 80)) ??
+          presentText(truncateText(result.content.text, 80)) ??
           messageLabel(result.content);
       b.parts.push({
         partId: t.newId(),
@@ -1096,7 +1096,7 @@ function answer(t: Turn, input: { text: string; content: unknown }): void {
       );
     if (!isTruthy(b.parts.length) && !hasText(s.broadcastName))
       s.broadcastName =
-        presentText(content.text.slice(0, 80)) ?? messageLabel(content);
+        presentText(truncateText(content.text, 80)) ?? messageLabel(content);
     appendPart(t, b, structuredClone(content));
     return saveBroadcast(t, { kind: "batch" });
   }

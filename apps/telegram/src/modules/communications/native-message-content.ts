@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
+import { truncateText } from "../../shared/text.js";
 import type { TemplateContent } from "./communications-contract.js";
 import type { NativeMessageSource } from "./native-message-source.js";
 
@@ -6,12 +7,13 @@ export function nativeContent(
   archiveRef: string,
   sources: readonly NativeMessageSource[],
 ): TemplateContent {
-  let text = sources
-    .map((source) => source.text)
-    .filter(Boolean)
-    .join("\n\n")
-    .slice(0, 4096);
-  if (/[\uD800-\uDBFF]/u.test(text.at(-1) ?? "")) text = text.slice(0, -1);
+  const text = truncateText(
+    sources
+      .map((source) => source.text)
+      .filter(Boolean)
+      .join("\n\n"),
+    4096,
+  );
   return {
     type: "native",
     text,
