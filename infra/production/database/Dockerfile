@@ -49,9 +49,9 @@ RUN apk add --no-cache \
     libssl3=3.5.9-r1 \
     libssh2-dev=1.11.1-r4 \
     zlib-dev=1.4-r0 \
-    zstd=1.6.0-r0 \
-    zstd-libs=1.6.0-r0 \
-    zstd-dev=1.6.0-r0
+    zstd=1.6.0-r1 \
+    zstd-libs=1.6.0-r1 \
+    zstd-dev=1.6.0-r1
 
 # Bind compilation to the PostgreSQL installed by the pinned base, not Alpine's libpq APK.
 COPY libpq-version.c /build/libpq-version.c
@@ -95,7 +95,7 @@ RUN apk add --no-cache \
     libcrypto3=3.5.9-r1 \
     libssl3=3.5.9-r1 \
     zlib=1.4-r0 \
-    zstd-libs=1.6.0-r0 \
+    zstd-libs=1.6.0-r1 \
     && install -d -m 755 /etc/pgbackrest/conf.d \
     && install -d -m 750 -o postgres -g postgres /var/log/pgbackrest /var/lib/pgbackrest \
     && install -d -m 700 -o postgres -g postgres /var/spool/pgbackrest
