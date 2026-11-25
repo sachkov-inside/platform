@@ -79,12 +79,13 @@ test("the shared supplementary lesson downloads its declared current file throug
     },
   ]);
   await page.goto("/materials/synthetic-reference");
-  const action = page.getByRole("link", {
+  const lesson = page.getByRole("main").getByRole("article");
+  const action = lesson.getByRole("link", {
     name: "Скачать шаблон результата (.txt)",
     exact: true,
   });
   await expect(action).toHaveAttribute("download");
-  await expect(page.getByText(/synthetic-result.txt/)).toBeVisible();
+  await expect(lesson.getByText("synthetic-result.txt")).toBeVisible();
   const assertDownload = async () => {
     const pending = page.waitForEvent("download");
     await action.click();
