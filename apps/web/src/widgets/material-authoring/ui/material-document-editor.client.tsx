@@ -134,6 +134,32 @@ function MaterialDocumentEditorView({
   const [linkInvalid, setLinkInvalid] = useState(false);
   const [menuSearch, setMenuSearch] = useState("");
   const dialog = useRef<HTMLDialogElement>(null);
+  const toolbar = useRef<HTMLDivElement>(null);
+  const attachToolbar = useCallback((element: HTMLDivElement | null) => {
+    toolbar.current = element;
+    const editorWindow = element?.parentElement;
+    if (element === null || !editorWindow) return;
+    const syncHeight = () => {
+      editorWindow.style.setProperty(
+        "--material-editor-toolbar-height",
+        `${String(element.offsetHeight)}px`,
+      );
+    };
+    syncHeight();
+    const observer = new ResizeObserver(syncHeight);
+    observer.observe(element);
+    return () => {
+      toolbar.current = null;
+      observer.disconnect();
+      editorWindow.style.removeProperty("--material-editor-toolbar-height");
+    };
+  }, []);
+  const toolbarInset = () => {
+    const element = toolbar.current;
+    if (element === null) return 0;
+    const top = Number.parseFloat(getComputedStyle(element).top);
+    return element.offsetHeight + (Number.isFinite(top) ? top : 0);
+  };
   const [imagePreviews] = useState(createMaterialImagePreviews);
   const attachDialog = useCallback(
     (element: HTMLDialogElement | null) => {
@@ -178,6 +204,23 @@ function MaterialDocumentEditorView({
     extensions: materialEditorExtensions,
     immediatelyRender: false,
     editorProps: {
+      // ProseMirror scrolls the caret separately from native focus and scrollIntoView.
+      scrollMargin: {
+        get top() {
+          return toolbarInset() + 5;
+        },
+        bottom: 5,
+        left: 5,
+        right: 5,
+      },
+      scrollThreshold: {
+        get top() {
+          return toolbarInset();
+        },
+        bottom: 0,
+        left: 0,
+        right: 0,
+      },
       handleKeyDown(view, event) {
         if (
           (event.key === "/" || (event.key === "Tab" && !event.shiftKey)) &&
@@ -487,12 +530,13 @@ function MaterialDocumentEditorView({
       }}
       className={
         expanded
-          ? "fixed inset-0 m-0 h-dvh max-h-none w-screen max-w-none overflow-y-auto border-0 bg-card p-0 text-foreground backdrop:bg-black/40"
+          ? "fixed inset-0 m-0 h-dvh max-h-none w-screen max-w-none overflow-y-auto border-0 bg-card p-0 text-foreground [--material-authoring-header-height:0px] backdrop:bg-black/40"
           : "relative isolate m-0 mt-5 block w-full min-w-0 max-w-none overflow-visible rounded-2xl border border-border bg-card p-0 text-foreground"
       }
     >
       {/* В странице панель встаёт под закреплённую шапку материала, на весь экран шапки нет. */}
       <div
+        ref={attachToolbar}
         className={`sticky z-30 flex min-h-12 flex-wrap items-center justify-end gap-1 rounded-t-2xl bg-card/95 px-3 py-1 ${expanded ? "top-0" : "top-(--material-authoring-header-height,0px)"}`}
       >
         <div className="mr-auto flex min-w-0 flex-wrap items-center gap-1">

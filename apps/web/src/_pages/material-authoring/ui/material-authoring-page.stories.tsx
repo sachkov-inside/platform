@@ -252,6 +252,18 @@ export const ShortWindowHeader: Story = {
       fullscreen.contains(clickTargetAtCentre(fullscreen)),
       "«На весь экран» закрыта другим элементом",
     ).toBe(true);
+
+    // Перед щелчком по полю браузер прокручивает его к центру видимой области.
+    const body = page.getByRole("textbox", { name: "Содержимое материала" });
+    const firstBlock = body.firstElementChild;
+    const toolbar = fullscreen.parentElement;
+    if (firstBlock === null || toolbar === null)
+      throw new Error("Не найдены первый блок или панель редактора");
+    scroller.scrollTo({ behavior: "instant", top: 0 });
+    body.scrollIntoView({ block: "center", behavior: "instant" });
+    await expect(firstBlock.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+      toolbar.getBoundingClientRect().bottom,
+    );
   },
 };
 
