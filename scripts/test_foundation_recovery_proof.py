@@ -31,7 +31,8 @@ class PreviousWriterFixture(unittest.TestCase):
                 "zstd-libs=1.5.7-r2", "untouched=1.0", "zstd-dev=1.5.7-r2"]
         source = (" " + '\\' + "\n").join("    " + pin for pin in pins) + "\n"
         updated = writer.prepare(source)
-        self.assertIn("zstd=1.6.0-r0 zstd-libs=1.6.0-r0 zstd-dev=1.6.0-r0", updated)
+        self.assertIn("zstd=1.6.0-r1 zstd-libs=1.6.0-r1 zstd-dev=1.6.0-r1", updated)
+        self.assertIn("    zstd-libs=1.6.0-r1 \\", updated.splitlines())
         self.assertIn("libcrypto3=3.5.9-r1 libssl3=3.5.9-r1", updated)
         self.assertIn("untouched=1.0", updated)
         for old in pins[:4] + pins[-1:]:
