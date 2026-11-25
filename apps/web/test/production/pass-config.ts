@@ -31,7 +31,7 @@ export const productA = {
   slug: "ai-engineering",
   bodyMaterialSlug: "inside-content-aie-ch1-pipeline",
   assetMaterialSlug: "inside-content-aie-ch1-pipeline",
-  videoMaterialSlug: "inside-content-aie-ch2-plan-domain",
+  videoMaterialSlug: "inside-content-aie-ch1-pipeline",
   taskCode: "aie-ch1-running-skeleton",
 } as const;
 
