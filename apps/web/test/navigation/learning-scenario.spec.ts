@@ -19,6 +19,9 @@ test("the shared populated Product keeps main lessons and practice separate from
   // Main lessons and their practice live in chapter windows: two lessons and the task in the
   // first chapter, one lesson in the second.
   const chapter = await openProgrammeChapter(page, 1);
+  const title = chapter.getByRole("heading", { level: 2 });
+  await expect(title).toBeFocused();
+  await expect(title).toHaveCSS("outline-style", "none");
   await expect(
     chapter.getByRole("link", { name: /Учебный пример: работа над проектом/ }),
   ).toBeVisible();
