@@ -373,8 +373,11 @@
   min-width: 0;
 }
 
-.windowTitle {
+.windowTitle:focus {
   outline: none;
+}
+
+.windowTitle {
   margin-top: 0.125rem;
   font-size: 1.25rem;
   font-weight: 600;
