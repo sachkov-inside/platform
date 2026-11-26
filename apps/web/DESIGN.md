@@ -325,8 +325,7 @@ representative states in the production Library discovery stories. Earlier card 
 not define a second layout or terminology.
 
 Feed cards on Home show a cover only when one is assigned. Without a cover, the title and public
-summary lead. Cards in a Product’s Material catalog (#2022) are uniform: a 16:9 picture and the
-title, no summary. A pill on the picture names the medium in words (owner decision 2026-11-13):
+summary lead. Wide Product catalogues show up to three whole cards per shelf, each with a 16:9 picture and a title. Narrow catalogues use a topic select and large rows with a thumbnail up to 124 px wide, a title clamped to three lines with an ellipsis, and the format below. A pill on the picture names the medium in words (owner decision 2026-11-13):
 «Видео · 23:40» in the accent colour or «Текст» in white; the genre («Гайд») is not shown, since a
 video can be a guide too. Without a cover the picture is a charcoal title card with the title, like
 the link preview card without its logo, plus a play button for a video, and the title is not

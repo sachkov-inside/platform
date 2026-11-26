@@ -154,6 +154,17 @@ describe("Product return context", () => {
 });
 
 describe("Catalog return context", () => {
+  it("returns to the expanded fresh shelf from the reader", () => {
+    const href = catalogReaderReturnHref(
+      internalRoute("/products/engineering/programme"),
+      "storybook",
+      "fresh",
+    );
+    expect(parseMaterialReaderReturnTarget(href).href).toBe(
+      "/products/engineering/programme?part=materials&at=storybook&shelf=fresh",
+    );
+  });
+
   it("returns from a lesson to the Materials catalog and its card", () => {
     const href = catalogReaderReturnHref(
       internalRoute("/products/ai-engineering/programme?page=2"),
