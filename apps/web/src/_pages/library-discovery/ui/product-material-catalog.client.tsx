@@ -130,11 +130,13 @@ export function ProductMaterialCatalog({
   currentHref,
   entries,
   returnSlug,
+  initialShelf,
   topics,
 }: {
   readonly accessPending: boolean;
   readonly currentHref: Route;
   readonly entries: readonly CatalogEntry[];
+  readonly initialShelf: string | null;
   readonly returnSlug: string | undefined;
   readonly topics: readonly CatalogueTopic[];
 }) {
@@ -212,7 +214,8 @@ export function ProductMaterialCatalog({
               (entry) => entry.material.slug === returnSlug,
             ) >= SHELF_PREVIEW_COUNT,
         );
-  const selectedId = openTopic === undefined ? returnShelf?.id : openTopic;
+  const selectedId =
+    openTopic === undefined ? (initialShelf ?? returnShelf?.id) : openTopic;
   const opened = overviewShelves.find((shelf) => shelf.id === selectedId);
   const activeTopic = opened?.id ?? null;
   const selectTopic = (id: string | null) => {
@@ -233,7 +236,11 @@ export function ProductMaterialCatalog({
       headingLevel="h4"
       material={entry.material}
       readerContext={{ referenceView: true }}
-      returnHref={catalogReaderReturnHref(currentHref, entry.material.slug)}
+      returnHref={catalogReaderReturnHref(
+        currentHref,
+        entry.material.slug,
+        needle === "" ? opened?.id : undefined,
+      )}
       {...(annotation === undefined ? {} : { rowAnnotation: annotation })}
       variant="library"
     />
@@ -319,7 +326,7 @@ export function ProductMaterialCatalog({
           <label className="mt-3 flex w-fit max-w-full items-center gap-2 text-sm @min-[34rem]/catalog:hidden">
             Тема
             <select
-              className="min-h-10 min-w-0 max-w-full rounded-xl bg-muted px-3 font-semibold"
+              className="min-h-11 min-w-0 max-w-full rounded-xl bg-muted px-3 text-base font-semibold"
               value={activeTopic ?? ""}
               onChange={(event) => {
                 const value = event.currentTarget.value;

@@ -134,7 +134,7 @@ function readReturnTarget(
     const part = singleSearchValue(url.searchParams, "part");
     // `part=materials` — возврат в каталог «Материалы» программы.
     const allowed = toProduct
-      ? ["from", "page", "at", "atPlacement", "part"]
+      ? ["from", "page", "at", "atPlacement", "part", "shelf"]
       : ["from"];
     if (
       depth >= 3 ||
@@ -153,6 +153,9 @@ function readReturnTarget(
         !/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/u.test(
           url.searchParams.get("atPlacement") ?? "",
         )) ||
+      (url.searchParams.has("shelf") &&
+        (part !== "materials" ||
+          !slugPattern.test(url.searchParams.get("shelf") ?? ""))) ||
       (url.searchParams.has("part") && part !== "materials")
     ) {
       return undefined;
@@ -207,12 +210,17 @@ export function readProductPage(value: string | null): number {
 export function catalogReaderReturnHref(
   href: Route,
   materialSlug: string,
+  shelf?: string,
 ): Route {
   assertSlug(materialSlug);
   const url = new URL(href, applicationOrigin);
   url.searchParams.delete("page");
   url.searchParams.set("part", "materials");
   url.searchParams.set("at", materialSlug);
+  if (shelf !== undefined) {
+    assertSlug(shelf);
+    url.searchParams.set("shelf", shelf);
+  }
   return internalRoute(`${url.pathname}${url.search}`);
 }
 

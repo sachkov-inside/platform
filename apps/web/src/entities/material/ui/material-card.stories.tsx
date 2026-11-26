@@ -144,17 +144,19 @@ export const LibraryFormats: Story = {
       },
     ] as const;
     return (
-      <ul className="mx-auto grid w-full max-w-4xl grid-cols-2 gap-x-4 gap-y-5 p-4 sm:grid-cols-4">
-        {cards.map((card) => (
-          <li className="min-w-0" key={card.slug}>
-            <MaterialCard
-              {...args}
-              material={{ ...args.material, ...card }}
-              variant="library"
-            />
-          </li>
-        ))}
-      </ul>
+      <div className="@container/catalog mx-auto max-w-4xl p-4">
+        <ul className="grid grid-cols-1 gap-x-4 gap-y-5 @min-[34rem]/catalog:grid-cols-3">
+          {cards.map((card) => (
+            <li className="min-w-0" key={card.slug}>
+              <MaterialCard
+                {...args}
+                material={{ ...args.material, ...card }}
+                variant="library"
+              />
+            </li>
+          ))}
+        </ul>
+      </div>
     );
   },
   play: async ({ canvasElement }) => {

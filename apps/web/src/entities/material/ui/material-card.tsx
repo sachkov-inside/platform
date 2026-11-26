@@ -31,6 +31,7 @@ import {
   ProductRowArticle,
 } from "./product-continuation.client";
 import "./product-material-row.css";
+import "./library-material-card.css";
 
 export interface MaterialCardProps {
   /** Match the heading level to the surrounding page outline. */
@@ -605,7 +606,10 @@ function LibraryMaterialCard({
   );
   return (
     <article
-      className="group/library relative flex h-full min-w-0 flex-col gap-2 @max-[34rem]/catalog:grid @max-[34rem]/catalog:grid-cols-[4.75rem_minmax(0,1fr)] @max-[34rem]/catalog:items-center @max-[34rem]/catalog:gap-3"
+      className="library-material-card relative min-w-0"
+      data-title-on-cover={
+        cover === null && material.availability === "available" ? "" : undefined
+      }
       data-material-id={material.slug}
       data-material-slug={material.slug}
       data-material-variant="library"
@@ -620,9 +624,6 @@ function LibraryMaterialCard({
               className="relative flex aspect-video w-full @max-[34rem]/catalog:p-0 flex-col justify-center bg-cover-ink px-[6cqw] pt-[5cqw] pb-[15cqw] text-white"
               data-library-title-card
             >
-              <Heading className="line-clamp-3 @max-[34rem]/catalog:hidden pr-[14cqw] text-[clamp(0.875rem,6.2cqw,1.5rem)] leading-[1.16] font-medium tracking-[-0.01em] [&_a:hover]:text-white [&_a:hover]:underline">
-                {title}
-              </Heading>
               <span
                 aria-hidden="true"
                 className="absolute @max-[34rem]/catalog:hidden bottom-[6cqw] left-[6cqw] h-0.5 w-[10cqw] bg-accent"
@@ -652,7 +653,7 @@ function LibraryMaterialCard({
             cover={cover}
             fallbackKind={kind}
             fallbackSeed={material.slug}
-            sizes="(max-width: 640px) 4.75rem, 24rem"
+            sizes="auto, (max-width: 575px) 4.75rem, 24rem"
           />
         )}
         {material.materialId === undefined ? null : (
@@ -661,46 +662,31 @@ function LibraryMaterialCard({
             materialId={material.materialId}
           />
         )}
-        <span
-          className={cn(
-            "absolute right-2 bottom-2 inline-flex @max-[34rem]/catalog:hidden min-h-5 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums shadow-sm",
-            video
-              ? "bg-accent text-accent-foreground"
-              : "bg-background text-foreground",
-          )}
-        >
-          <FormatIcon
-            aria-hidden="true"
-            className="size-3"
-            {...(video ? { fill: "currentColor" } : {})}
-          />
-          {formatLabel}
-        </span>
       </AccessCover>
-      <div
+      <span
         className={cn(
-          "flex min-w-0 flex-col gap-1 px-1.5 @max-[34rem]/catalog:px-0",
-          cover === null &&
-            annotation === undefined &&
-            "@min-[34rem]/catalog:hidden",
+          "library-material-format inline-flex min-h-5 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums shadow-sm",
+          video
+            ? "bg-accent text-accent-foreground"
+            : "bg-background text-foreground",
         )}
       >
+        <FormatIcon
+          aria-hidden="true"
+          className="size-3 @max-[34rem]/catalog:hidden"
+          {...(video ? { fill: "currentColor" } : {})}
+        />
+        {formatLabel}
+      </span>
+      <div className="library-material-copy">
         {annotation === undefined ? null : (
           <span className="text-xs font-medium text-muted-foreground">
             {annotation}
           </span>
         )}
-        <Heading
-          className={cn(
-            "line-clamp-2 text-[0.9375rem] leading-5 font-semibold tracking-[-0.01em] @max-[34rem]/catalog:line-clamp-none @max-[34rem]/catalog:[overflow-wrap:anywhere]",
-            cover === null && "hidden @max-[34rem]/catalog:block",
-          )}
-        >
+        <Heading className="library-material-title text-[0.9375rem] leading-5 font-semibold tracking-[-0.01em]">
           {title}
         </Heading>
-        <span className="hidden text-xs text-muted-foreground @max-[34rem]/catalog:block">
-          {formatLabel}
-        </span>
       </div>
     </article>
   );
