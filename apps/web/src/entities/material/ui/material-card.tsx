@@ -617,7 +617,7 @@ function LibraryMaterialCard({
       <AccessCover material={material}>
         {cover === null ? (
           // Контейнер стоит на обёртке: единицы cqw внутри считаются от ширины самой карточки.
-          <span className="block w-full overflow-hidden rounded-2xl [container-type:inline-size]">
+          <span className="block w-full overflow-hidden rounded-2xl @max-[34rem]/catalog:rounded-[10px] [container-type:inline-size]">
             {/* Нижний отступ оставляет место плашке формата: иначе на телефоне она закрывает
                 последнюю строку названия. */}
             <span
@@ -649,11 +649,11 @@ function LibraryMaterialCard({
         ) : (
           <ContentCoverImage
             alt=""
-            className="aspect-video w-full rounded-2xl"
+            className="aspect-video w-full rounded-2xl @max-[34rem]/catalog:rounded-[10px]"
             cover={cover}
             fallbackKind={kind}
             fallbackSeed={material.slug}
-            sizes="auto, (max-width: 575px) 4.75rem, 24rem"
+            sizes="auto, (max-width: 575px) 124px, 24rem"
           />
         )}
         {material.materialId === undefined ? null : (

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, Search } from "lucide-react";
+import { ChevronDown, ChevronRight, Search } from "lucide-react";
 import type { Route } from "next";
 import { useRef, useState, useSyncExternalStore } from "react";
 
@@ -249,7 +249,7 @@ export function ProductMaterialCatalog({
     list: readonly CatalogEntry[],
     annotate: (entry: CatalogEntry) => string | undefined,
   ) => (
-    <ul className="grid grid-cols-1 gap-x-3 gap-y-3 @min-[34rem]/catalog:gap-y-5 @min-[34rem]/catalog:grid-cols-3 @min-[34rem]/catalog:gap-x-4">
+    <ul className="grid grid-cols-1 gap-x-3 gap-y-4 @min-[34rem]/catalog:gap-y-5 @min-[34rem]/catalog:grid-cols-3 @min-[34rem]/catalog:gap-x-4">
       {list.map((entry) => (
         <li
           className="min-w-0"
@@ -323,10 +323,10 @@ export function ProductMaterialCatalog({
       </label>
       {topics.length === 0 && opened === undefined ? null : (
         <>
-          <label className="mt-3 flex w-fit max-w-full items-center gap-2 text-sm @min-[34rem]/catalog:hidden">
+          <label className="relative mt-3 flex w-fit max-w-full items-center gap-2 text-sm @min-[34rem]/catalog:hidden">
             Тема
             <select
-              className="min-h-11 min-w-0 max-w-full rounded-xl bg-muted px-3 text-base font-semibold"
+              className="min-h-11 min-w-0 max-w-full appearance-none rounded-xl bg-muted pl-3 pr-10 text-base font-semibold"
               value={activeTopic ?? ""}
               onChange={(event) => {
                 const value = event.currentTarget.value;
@@ -343,6 +343,10 @@ export function ProductMaterialCatalog({
                 </option>
               ))}
             </select>
+            <ChevronDown
+              aria-hidden="true"
+              className="pointer-events-none absolute right-3.5 size-4"
+            />
           </label>
           <div
             aria-label="Тема"
@@ -494,7 +498,7 @@ function ShelfRow({
           </button>
         )}
       </div>
-      <ul className="grid grid-cols-1 gap-3 @min-[34rem]/catalog:grid-cols-3 @min-[34rem]/catalog:gap-4">
+      <ul className="grid grid-cols-1 gap-4 @min-[34rem]/catalog:grid-cols-3">
         {entries.slice(0, SHELF_PREVIEW_COUNT).map((entry) => (
           <li
             className="min-w-0"

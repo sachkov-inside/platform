@@ -107,6 +107,9 @@ export const FeedCardIsOpen: Story = {
 };
 
 /** Формат на карточке каталога (решение владельца 13.11.2026): видео и текст, с обложкой и без. */
+const longTitle =
+  "Практика на проекте. Агентский слой: первый диалог с помощником на локальной модели";
+
 export const LibraryFormats: Story = {
   render: (args) => {
     const cover = {
@@ -137,7 +140,7 @@ export const LibraryFormats: Story = {
       },
       {
         slug: "text-cover",
-        title: "Как работать с агентом в существующем проекте",
+        title: longTitle,
         format: "Гайд",
         formatSlug: "guide",
         cover: { ...cover, coverId: "27100000-0000-4000-8000-000000000009" },
@@ -169,5 +172,13 @@ export const LibraryFormats: Story = {
 };
 export const LibraryFormatsMobile: Story = {
   ...LibraryFormats,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const heading = canvas.getByRole("heading", { name: longTitle });
+    const lineHeight = Number.parseFloat(getComputedStyle(heading).lineHeight);
+    await expect(heading.clientHeight).toBe(Math.round(3 * lineHeight));
+    await expect(heading.scrollHeight).toBeGreaterThan(heading.clientHeight);
+    await expect(canvas.getByRole("link", { name: longTitle })).toBeVisible();
+  },
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
