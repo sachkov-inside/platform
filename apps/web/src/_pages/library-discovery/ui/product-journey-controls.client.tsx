@@ -489,6 +489,7 @@ export function ProductJourneyControls({
             accessPending={part.accessPending}
             currentHref={currentHref}
             entries={part.entries}
+            returnSlug={returnSlug}
             topics={part.topics}
           />
         ) : (

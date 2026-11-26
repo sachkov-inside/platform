@@ -2,7 +2,7 @@
 
 import { ChevronRight, Search } from "lucide-react";
 import type { Route } from "next";
-import { useState, useSyncExternalStore } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 
 import {
   MaterialCard,
@@ -53,6 +53,8 @@ function readNewMaterialCutoff(): number {
 const readServerNewMaterialCutoff = () => null;
 const subscribeToClock = () => () => undefined;
 
+const SHELF_PREVIEW_COUNT = 3;
+const FRESH_SHELF_ID = "fresh";
 const OTHER_SHELF_ID = "other";
 
 interface Shelf {
@@ -127,16 +129,21 @@ export function ProductMaterialCatalog({
   accessPending,
   currentHref,
   entries,
+  returnSlug,
   topics,
 }: {
   readonly accessPending: boolean;
   readonly currentHref: Route;
   readonly entries: readonly CatalogEntry[];
+  readonly returnSlug: string | undefined;
   readonly topics: readonly CatalogueTopic[];
 }) {
+  const catalogHeading = useRef<HTMLHeadingElement>(null);
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState<CatalogKind>("all");
-  const [openTopic, setOpenTopic] = useState<string | null>(null);
+  const [openTopic, setOpenTopic] = useState<string | null | undefined>(
+    undefined,
+  );
   const newSince = useSyncExternalStore(
     subscribeToClock,
     readNewMaterialCutoff,
@@ -188,8 +195,38 @@ export function ProductMaterialCatalog({
           ),
         );
   // Фильтр вида может опустошить открытую тему: тогда страница снова показывает полки.
-  const opened = shelves.find((shelf) => shelf.id === openTopic);
+  const freshShelf: Shelf = {
+    id: FRESH_SHELF_ID,
+    name: "Новое",
+    summary: "",
+    entries: fresh,
+  };
+  const overviewShelves = fresh.length > 0 ? [freshShelf, ...shelves] : shelves;
+  // При возврате к карточке за пределами первых трёх сразу открываем её тему.
+  const returnShelf =
+    returnSlug === undefined || topics.length === 0
+      ? undefined
+      : shelves.find(
+          (shelf) =>
+            shelf.entries.findIndex(
+              (entry) => entry.material.slug === returnSlug,
+            ) >= SHELF_PREVIEW_COUNT,
+        );
+  const selectedId = openTopic === undefined ? returnShelf?.id : openTopic;
+  const opened = overviewShelves.find((shelf) => shelf.id === selectedId);
   const activeTopic = opened?.id ?? null;
+  const selectTopic = (id: string | null) => {
+    setOpenTopic(id);
+    setQuery("");
+  };
+  const openShelf = (id: string) => {
+    selectTopic(id);
+    catalogHeading.current?.focus({ preventScroll: true });
+    catalogHeading.current?.scrollIntoView({ block: "start" });
+  };
+  const topicOptions = shelves.filter(
+    (shelf) => shelf.id !== OTHER_SHELF_ID || activeTopic === OTHER_SHELF_ID,
+  );
   const card = (entry: CatalogEntry, annotation?: string) => (
     <MaterialCard
       accessPending={accessPending}
@@ -205,7 +242,7 @@ export function ProductMaterialCatalog({
     list: readonly CatalogEntry[],
     annotate: (entry: CatalogEntry) => string | undefined,
   ) => (
-    <ul className="grid grid-cols-2 gap-x-3 gap-y-5 @min-[34rem]/catalog:grid-cols-3 @min-[34rem]/catalog:gap-x-4">
+    <ul className="grid grid-cols-1 gap-x-3 gap-y-3 @min-[34rem]/catalog:gap-y-5 @min-[34rem]/catalog:grid-cols-3 @min-[34rem]/catalog:gap-x-4">
       {list.map((entry) => (
         <li
           className="min-w-0"
@@ -227,7 +264,11 @@ export function ProductMaterialCatalog({
   return (
     <div className="@container/catalog" data-material-catalog>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold tracking-[-0.02em] sm:text-xl">
+        <h2
+          ref={catalogHeading}
+          tabIndex={-1}
+          className="scroll-mt-4 text-lg font-semibold tracking-[-0.02em] sm:text-xl"
+        >
           Материалы
         </h2>
         <div
@@ -273,38 +314,59 @@ export function ProductMaterialCatalog({
           value={query}
         />
       </label>
-      {topics.length === 0 ? null : (
-        <div
-          aria-label="Тема"
-          className="public-horizontal-rail -mx-4 mt-2.5 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:mt-3 sm:flex-wrap sm:overflow-visible sm:px-0"
-          role="group"
-        >
-          <button
-            aria-pressed={activeTopic === null}
-            className={chip(activeTopic === null)}
-            onClick={() => {
-              setOpenTopic(null);
-            }}
-            type="button"
+      {topics.length === 0 && opened === undefined ? null : (
+        <>
+          <label className="mt-3 flex w-fit max-w-full items-center gap-2 text-sm @min-[34rem]/catalog:hidden">
+            Тема
+            <select
+              className="min-h-10 min-w-0 max-w-full rounded-xl bg-muted px-3 font-semibold"
+              value={activeTopic ?? ""}
+              onChange={(event) => {
+                const value = event.currentTarget.value;
+                selectTopic(value === "" ? null : value);
+              }}
+            >
+              <option value="">Все темы</option>
+              {activeTopic === FRESH_SHELF_ID && (
+                <option value={FRESH_SHELF_ID}>Новое</option>
+              )}
+              {topicOptions.map((shelf) => (
+                <option key={shelf.id} value={shelf.id}>
+                  {shelf.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div
+            aria-label="Тема"
+            className="mt-3 hidden flex-wrap gap-1.5 @min-[34rem]/catalog:flex"
+            role="group"
           >
-            Все темы
-          </button>
-          {shelves
-            .filter((shelf) => shelf.id !== OTHER_SHELF_ID)
-            .map((shelf) => (
+            <button
+              aria-pressed={activeTopic === null}
+              className={chip(activeTopic === null)}
+              onClick={() => {
+                selectTopic(null);
+              }}
+              type="button"
+            >
+              Все темы
+            </button>
+            {topicOptions.map((shelf) => (
               <button
                 aria-pressed={activeTopic === shelf.id}
                 className={chip(activeTopic === shelf.id)}
                 key={shelf.id}
                 onClick={() => {
-                  setOpenTopic(activeTopic === shelf.id ? null : shelf.id);
+                  selectTopic(activeTopic === shelf.id ? null : shelf.id);
                 }}
                 type="button"
               >
                 {shelf.name}
               </button>
             ))}
-        </div>
+          </div>
+        </>
       )}
       <div aria-label="Материалы курса" role="region">
         {entries.length === 0 ? (
@@ -355,6 +417,9 @@ export function ProductMaterialCatalog({
               <ShelfRow
                 card={card}
                 entries={fresh}
+                onOpen={() => {
+                  openShelf(FRESH_SHELF_ID);
+                }}
                 returnTarget={false}
                 title="Новое"
               />
@@ -373,7 +438,7 @@ export function ProductMaterialCatalog({
                   entries={shelf.entries}
                   key={shelf.id}
                   onOpen={() => {
-                    setOpenTopic(shelf.id);
+                    openShelf(shelf.id);
                   }}
                   title={shelf.name}
                 />
@@ -386,7 +451,7 @@ export function ProductMaterialCatalog({
   );
 }
 
-/** Полка: заголовок, «Все N» и ряд карточек, который листается вбок. */
+/** Полка: заголовок, «Все N» и до трёх карточек. */
 function ShelfRow({
   card,
   entries,
@@ -396,7 +461,7 @@ function ShelfRow({
 }: {
   readonly card: (entry: CatalogEntry) => React.ReactNode;
   readonly entries: readonly CatalogEntry[];
-  readonly onOpen?: () => void;
+  readonly onOpen: () => void;
   /**
    * Возврат из урока ищет карточку по `data-route-material`. Свежий материал стоит и в «Новом», и на
    * полке своей темы; целью возврата служит только полка темы.
@@ -410,7 +475,7 @@ function ShelfRow({
         <h3 className="text-base font-semibold tracking-[-0.02em] sm:text-lg">
           {title}
         </h3>
-        {onOpen === undefined ? null : (
+        {entries.length <= SHELF_PREVIEW_COUNT ? null : (
           <button
             aria-label={`Все ${String(entries.length)}: ${title}`}
             className="inline-flex min-h-8 shrink-0 items-center gap-0.5 text-sm font-semibold text-action hover:text-action-hover focus-visible:outline-2 focus-visible:outline-ring"
@@ -422,18 +487,10 @@ function ShelfRow({
           </button>
         )}
       </div>
-      {/* Больше трёх карточек: край четвёртой виден, и понятно, что полку можно листать. */}
-      <ul
-        className={cn(
-          "public-horizontal-rail -mx-4 grid snap-x scroll-px-4 auto-cols-[62%] grid-flow-col gap-3 overflow-x-auto px-4 sm:mx-0 sm:scroll-px-0 sm:px-0 @min-[34rem]/catalog:gap-4",
-          entries.length > 3
-            ? "@min-[34rem]/catalog:auto-cols-[calc((100%-3rem)/3.25)]"
-            : "@min-[34rem]/catalog:auto-cols-[calc((100%-2rem)/3)]",
-        )}
-      >
-        {entries.map((entry) => (
+      <ul className="grid grid-cols-1 gap-3 @min-[34rem]/catalog:grid-cols-3 @min-[34rem]/catalog:gap-4">
+        {entries.slice(0, SHELF_PREVIEW_COUNT).map((entry) => (
           <li
-            className="min-w-0 snap-start"
+            className="min-w-0"
             data-route-material={returnTarget ? entry.material.slug : undefined}
             key={entry.material.slug}
           >
