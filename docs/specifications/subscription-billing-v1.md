@@ -939,9 +939,8 @@ username при входе (раздел «Telegram sign-in» в
 (`billing_respondents_*`); админка показывает анкетные скидки только архивом в «Скидках» и
 респондентов в отчёте «Воронка продаж».
 
-Правила исполняются наборами `survey-respondents` (PostgreSQL), `survey-respondent-usernames`,
-`billing-checkout-promo`, `sales-catalog-bff` и историями Storybook
-`Pages/Authoring/Sales funnel report` и `Pages/Product/Payment/Flow`.
+Правила проверяют наборы `survey-respondents` (PostgreSQL), `survey-respondent-usernames`,
+`billing-checkout-promo` и `sales-catalog-bff`.
 
 ## Историческая поставка #908
 
@@ -1088,8 +1087,7 @@ codec. Сбой чтения привязок возвращает `unavailable`
 - `revenue` — подтверждённые оплаты по месяцу подтверждения и подтверждённые возвраты по месяцу
   подтверждения банком, по календарю Москвы и Offer из снимка платежа, за 12 месяцев с текущим.
 
-Правила исполняются набором `access-roster` на PostgreSQL, module-тестом
-`billing-admin-access` и историями Storybook `Pages/Authoring/Access *`.
+Правила проверяют набор `access-roster` на PostgreSQL и модульный тест `billing-admin-access`.
 
 ## Возможности и модули
 
@@ -1371,8 +1369,7 @@ POST `accounts/current/billing/consents` принимает `operationId`, `cont
 До legal #412 production-каталог пуст: синтетические документы существуют только в тестах.
 Форма контакта подтверждает адрес внутри раздела «Покупки»; прежний адрес `/account/email`
 перенаправляет туда же. Checkout поставлен в #411 и использует тот же серверный каталог
-документов; отметки согласий #411 заменены в #658 принятием кнопкой. Она использует production BFF/API; Storybook
-подставляет только presentation.
+документов; отметки согласий #411 заменены в #658 принятием кнопкой. Форма использует production BFF/API.
 SMTP и ключ хранения подключаются явно; без конфигурации start/confirm возвращают unavailable.
 Consent acceptance requires an authenticated Account and exact legal editions, independently of a Billing Contact.
 [Runbook контактов](../runbooks/billing-contact.md) описывает эксплуатационную границу и proof.

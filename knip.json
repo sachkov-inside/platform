@@ -21,9 +21,12 @@
     "apps/web": {
       "entry": [
         "app/**/*.{ts,tsx}",
-        "src/**/*.stories.tsx",
         "scripts/**/*.mjs",
-        "test/**/*.{ts,mjs}"
+        "test/**/*.{ts,tsx,mjs}"
+      ],
+      "ignoreDependencies": [
+        "@fontsource-variable/jetbrains-mono",
+        "@fontsource-variable/manrope"
       ]
     },
     "apps/telegram": {

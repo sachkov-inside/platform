@@ -176,7 +176,7 @@ async function verifyDiagram(
       .poll(() => retainedDialog.evaluate((node) => node.hasAttribute("open")))
       .toBe(false);
     expect(
-      await capturedStage.evaluate(
+      await retainedDialog.evaluate(
         (node) =>
           !node.dispatchEvent(
             new WheelEvent("wheel", { deltaY: -100, cancelable: true }),

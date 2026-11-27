@@ -22,12 +22,12 @@ import { readPackageScripts } from "./package-scripts.mjs";
 
 const contractFiles = {
   "scripts/check-agent-documentation.mjs":
-    "96e735faf47f54cb34f45259935f3e6a59aa32e9",
+    "de2c29b5ee6fadaf87fca26b8028324b794c2ad9",
   "scripts/check-materials-documentation.mjs":
     "2db86a99f3288b1b39ffedce5ea54200bc332a03",
   "scripts/check-new-em-dashes.mjs": "37b961f7c8dbdb31a3deeec950326291a5b26fd6",
   "scripts/documentation-references.mjs":
-    "daec2e9733e255aec7b9014ebfe25ef9379663e4",
+    "f4c3fc9699744370041d94a2d201c6f59193f4d9",
   "scripts/package-scripts.mjs": "0891e9fcda14076f8076de2a5915cfd3285756ed",
 };
 const commands = Object.keys(contractFiles).slice(0, 3);

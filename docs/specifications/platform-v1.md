@@ -1974,8 +1974,7 @@ Callout signs survive Markdown import into Materials and Task c pages (#1196). `
 The optional document attribute accepts null or absence for old blocks; the rendered block omits
 it in both cases. The editor preserves it through serialization and clipboard HTML. Titles and
 nested Markdown bodies remain in the block; fenced examples stay code. Reader, Task c and author
-preview use native disclosure controls for signed callouts. Temporary semantic UI awaits the
-Storybook visual integration in #1278.
+preview use native disclosure controls for signed callouts. The history of visual review is recorded in #1278.
 
 Definition v1 keeps its `situation`, `result`, `freedom` and `requirement` fields. Definition v2 adds
 `format: c`, `intro`, `freedom` and criteria with `id`, `level`, `task`, `explanation`, optional
