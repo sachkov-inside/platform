@@ -47,7 +47,7 @@
 
 Источники: [#1447](https://github.com/sachkov-inside/platform/issues/1447), [#1358](https://github.com/sachkov-inside/platform/issues/1358), [#1493](https://github.com/sachkov-inside/platform/issues/1493), [#1440](https://github.com/sachkov-inside/platform/pull/1440), [#1504](https://github.com/sachkov-inside/platform/issues/1504), [#1399](https://github.com/sachkov-inside/platform/issues/1399), [#1464](https://github.com/sachkov-inside/platform/issues/1464), [текущая сверка #854](https://github.com/sachkov-inside/platform/issues/854).
 
-Локальные данные #1427 полезны для повторного использования доказательств: `pnpm check`, integration, Storybook, fullstack и before/after hashes 38 защищённых таблиц записаны на точных снимках. Последний полный fullstack `55a1c180…` имеет **176 PASS / 4 declared skips / 2 failures**; последующий test-only `9abdb831` исправляет селектор, шесть focused practice сценариев прошли. Это не зелёный полный fullstack на текущем PR head. [Последний локальный отчёт](https://github.com/sachkov-inside/platform/issues/1427#issuecomment-6197830199).
+Локальные данные #1427 полезны для повторного использования доказательств: `pnpm check`, integration, UI catalog, fullstack и before/after hashes 38 защищённых таблиц записаны на точных снимках. Последний полный fullstack `55a1c180…` имеет **176 PASS / 4 declared skips / 2 failures**; последующий test-only `9abdb831` исправляет селектор, шесть focused practice сценариев прошли. Это не зелёный полный fullstack на текущем PR head. [Последний локальный отчёт](https://github.com/sachkov-inside/platform/issues/1427#issuecomment-6197830199).
 
 ## Миграции и legacy
 

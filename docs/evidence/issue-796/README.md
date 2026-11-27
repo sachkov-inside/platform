@@ -85,7 +85,7 @@ Codex 0.158.0 выполнил настоящий OAuth PKCE-вход через
 
 ## Автоматические проверки
 
-- `pnpm check`: успешно — static, unit, UI/Storybook, production build, web E2E и navigation.
+- `pnpm check`: успешно – static, unit, UI/ui-catalog, production build, web E2E и navigation.
   Web E2E: 171 passed, 17 skipped; navigation: 26 passed, 2 skipped по существующей конфигурации.
 - После финального изменения audience: 21 тест Logto verifier/MCP HTTP успешно,
   включая отказ learner-токену на авторском endpoint.

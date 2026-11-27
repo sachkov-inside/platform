@@ -2,7 +2,7 @@
 
 Дата: 2026-09-09. Фиксированная база Platform: `aa36a728e30ad88dad736fce6243d1537d1e2577`.
 
-Снимки сделаны на собранном Storybook (`pnpm build:storybook`) для того же модуля
+Снимки сделаны на собранном UI catalog (`pnpm build:ui-catalog`) для того же модуля
 `features/guide-artifacts`, который импортирует продакшен-страница редактора руководства.
 Виджеты и размеры совпадают с проектами Playwright: desktop 1440×1024 и mobile 390×844.
 

@@ -7,10 +7,10 @@
 
 | Среда | Компьютер | Телефон |
 | --- | --- | --- |
-| Storybook, синтетический Telegram и почта | [1440 px](storybook-desktop.png) | [390 px](storybook-mobile.png) |
+| UI catalog, синтетический Telegram и почта | [1440 px](ui-catalog-desktop.png) | [390 px](ui-catalog-mobile.png) |
 | Настоящие Web/API/PostgreSQL, синтетический identity provider | [1440 px](live-desktop.png) | [390 px](live-mobile.png) |
 
-Storybook: `Pages/Account/Live cabinet/With subscription`, viewport снимки.
+ui-catalog: `Pages/Account/Live cabinet/With subscription`, viewport снимки.
 Live: `/account` после сохранения имени и перезагрузки, целая страница через
 `screenshotWholePage`. Прогон `CAPTURE_EVIDENCE=1` и `FULLSTACK_TEST_GREP='cabinet presents|cabinet saves'`
 в `pnpm smoke:fullstack`, отдельные временные PostgreSQL и RustFS. Все четыре desktop/mobile

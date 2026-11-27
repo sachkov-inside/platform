@@ -34,7 +34,7 @@ Raw originals and installer backups with matching locks stay ignored, outside co
 | Target-branch gate authority, CI Gate, merge queue, permission and advance acceptance (advance acceptance retired by #2215) | [Implementation](../agents/implementation.md), [Ship](../agents/ship.md) |
 | One integration branch/final PR for a whole spec, fresh workers and full integration review | [Coordinated execution](../agents/coordinated-execution.md) |
 | Localized PR shape and risk/presentation pointers | [PR body](../agents/pr.md) |
-| Storybook prototype route, fixtures and owner visual gates | Existing [frontend delivery](../agents/frontend-delivery.md) |
+| UI catalog prototype route, fixtures and owner visual gates | Existing [frontend delivery](../agents/frontend-delivery.md) |
 | GitHub, labels, glossary/ADR placement, correction handling | Existing [issue tracker](../agents/issue-tracker.md), [triage labels](../agents/triage-labels.md), [domain](../agents/domain.md), [owner corrections](../agents/owner-corrections.md) |
 
 `ask-matt` was already excluded. Its renamed `ask` successor stays excluded; there is no orphaned

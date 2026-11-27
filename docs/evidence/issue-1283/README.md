@@ -2,7 +2,7 @@
 
 Synthetic fixture evidence; no actual Content package was applied.
 
-## Storybook MCP gate
+## UI catalog MCP gate
 
 The original writing session used the owner-authorized HTTP MCP client on port 6006.
 Its raw server-sent protocol responses remain in [mcp](./mcp/).
@@ -13,8 +13,8 @@ The raw responses are in [mcp/cloud-2026-10-09](./mcp/cloud-2026-10-09/).
 The new rich-option story failed before the pointer-events fix and passed afterwards;
 all six quiz stories passed the final MCP test-run with accessibility enabled.
 
-Start command: `pnpm storybook` after checking that port 6006 is free.
-Only the task session's Storybook process may be stopped.
+Start command: `pnpm ui-catalog` after checking that port 6006 is free.
+Only the task session's UI catalog process may be stopped.
 
 ## Reproduce responsive and live evidence
 
@@ -26,7 +26,7 @@ CAPTURE_EVIDENCE=1 pnpm --filter @inside/web test:fullstack --config playwright.
 ```
 
 This checked-in wrapper enters the shared heavy-check FIFO. The config does not start a web server.
-Twelve tests cover five Storybook states plus the real Reader/editor route at 1440 and 390 pixels.
+Twelve tests cover five UI catalog states plus the real Reader/editor route at 1440 and 390 pixels.
 They check keyboard Enter/Space, retry focus, review-heading navigation, reload reset,
 horizontal overflow and axe on the quiz. Agentation remains enabled for manual review;
 automation hides both its root and its shadow-DOM toolbar/portals.
@@ -35,12 +35,12 @@ Screenshots use `screenshotWholePage`; the writing agent inspected all twelve fi
 The live tests reserve and apply a synthetic Content fixture through the real authoring API.
 The imported material stays protected in the editor. A separate editor-owned draft with the same
 quiz allows an adjacent paragraph to be edited, autosaved and reopened; its quiz node remains
-identical before and after saving. The new rich-option Storybook test also checks callout expansion,
+identical before and after saving. The new rich-option UI catalog test also checks callout expansion,
 image zoom, Escape and image retry without choosing an answer.
 
 Preview: [Rich option content](http://localhost:6006/?path=/story/pages-material-reader-quiz--rich-option-content),
 [Unanswered](http://localhost:6006/?path=/story/pages-material-reader-quiz--unanswered).
-These local links require Storybook to be running from the PR worktree.
+These local links require UI catalog to be running from the PR worktree.
 
 ## Remaining gates
 

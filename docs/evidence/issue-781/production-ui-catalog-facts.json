@@ -32,7 +32,7 @@
       "trustedEscapeCancels": true,
       "cancelRestoresTrigger": false,
       "confirmRestoresTrigger": false,
-      "publicationBoundary": "Storybook fixture callbacks only",
+      "publicationBoundary": "ui-catalog fixture callbacks only",
       "pageErrors": []
     },
     {
@@ -66,7 +66,7 @@
       "trustedEscapeCancels": true,
       "cancelRestoresTrigger": false,
       "confirmRestoresTrigger": false,
-      "publicationBoundary": "Storybook fixture callbacks only",
+      "publicationBoundary": "ui-catalog fixture callbacks only",
       "pageErrors": []
     },
     {
@@ -100,7 +100,7 @@
       "trustedEscapeCancels": true,
       "cancelRestoresTrigger": false,
       "confirmRestoresTrigger": false,
-      "publicationBoundary": "Storybook fixture callbacks only",
+      "publicationBoundary": "ui-catalog fixture callbacks only",
       "pageErrors": []
     },
     {
@@ -134,7 +134,7 @@
       "trustedEscapeCancels": true,
       "cancelRestoresTrigger": true,
       "confirmRestoresTrigger": true,
-      "publicationBoundary": "Storybook fixture callbacks only",
+      "publicationBoundary": "ui-catalog fixture callbacks only",
       "pageErrors": []
     },
     {
@@ -168,7 +168,7 @@
       "trustedEscapeCancels": true,
       "cancelRestoresTrigger": true,
       "confirmRestoresTrigger": true,
-      "publicationBoundary": "Storybook fixture callbacks only",
+      "publicationBoundary": "ui-catalog fixture callbacks only",
       "pageErrors": []
     },
     {
@@ -202,7 +202,7 @@
       "trustedEscapeCancels": true,
       "cancelRestoresTrigger": true,
       "confirmRestoresTrigger": true,
-      "publicationBoundary": "Storybook fixture callbacks only",
+      "publicationBoundary": "ui-catalog fixture callbacks only",
       "pageErrors": []
     }
   ]

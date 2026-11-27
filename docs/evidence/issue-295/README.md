@@ -39,7 +39,7 @@ The earlier Library route-chip evidence below documents the superseded intermedi
 current owner contract is verified by focused tests and the replacement captures below. In the
 Library capture, the selected `Platform` Topic leaves the full Series section unchanged while the
 Materials count and cards reflect the local filter. Reader captures cover the real short guide,
-the real primary-Video path and the existing rich Storybook fixture at both viewport widths.
+the real primary-Video path and the existing rich UI catalog fixture at both viewport widths.
 The follow-up Home review used viewports positioned at the Notes section to confirm each note reads
 as an independent rounded mini-post at desktop and mobile widths without truncation or overflow.
 Axe reported zero WCAG A/AA findings in the application Home and Reader UI. The development-only
@@ -73,7 +73,7 @@ Compose stack and gave visual GO with no findings.
 - `pnpm lint`, both package typechecks, `pnpm api:check`, `pnpm docs:check`: passed.
 - `pnpm test`: passed, including backend `296/296`, web module `334/334`, tooling contracts and Go
   evaluator tests.
-- `pnpm test:storybook`: `158/158` passed.
+- `pnpm test:ui-catalog`: `158/158` passed.
 - `pnpm test:integration`: `151/151` passed with isolated Testcontainers.
 - `bash scripts/compose-stack-smoke.sh`: passed on the preserved local volumes.
 - Host full-stack smoke: `54` passed and `1` intentionally skipped on Node `24.19.0` with pnpm

@@ -51,7 +51,7 @@
 
 ### Экран: встроенный ViewTransition
 
-В проекте закреплены Next `16.3.3`, React `19.2.8`. Документация именно тега Next `v16.3.3` подтверждает: App Router использует встроенный React Canary и поддерживает `ViewTransition` без дополнительной конфигурации. Не требуется переводить приложение на `react@canary` или слепо копировать старый experimental flag. Это всё ещё Canary API React; работоспособность в production build и Storybook нужно проверять отдельно, поскольку их React runtime отличается. Источники: [Next v16.3.3](https://github.com/vercel/next.js/blob/v16.3.3/docs/01-app/02-guides/view-transitions.mdx), [React ViewTransition](https://react.dev/reference/react/ViewTransition).
+В проекте закреплены Next `16.3.3`, React `19.2.8`. Документация именно тега Next `v16.3.3` подтверждает: App Router использует встроенный React Canary и поддерживает `ViewTransition` без дополнительной конфигурации. Не требуется переводить приложение на `react@canary` или слепо копировать старый experimental flag. Это всё ещё Canary API React; работоспособность в production build и UI catalog нужно проверять отдельно, поскольку их React runtime отличается. Источники: [Next v16.3.3](https://github.com/vercel/next.js/blob/v16.3.3/docs/01-app/02-guides/view-transitions.mdx), [React ViewTransition](https://react.dev/reference/react/ViewTransition).
 
 Начать с перехода области содержимого, сохраняя shell. При отсутствии поддержки браузера навигация должна работать без анимации. Нельзя просто обернуть `router.push()` в `document.startViewTransition()` и считать задачу решённой: commit маршрута и готовность данных происходят асинхронно. Учитывать Suspense, быстрые переходы, browser back и reduced motion.
 
@@ -86,7 +86,7 @@ body { background: var(--background); }
 
 ## Следующий проверяемый результат
 
-Сначала согласовать canvas, подготовку данных и восстановление вкладок; затем сравнить анимацию текущей панели и короткий переход содержимого. Визуальный образец показывать на реальной production-owned навигации, а маршрутные свойства проверять в приложении, не только в Storybook.
+Сначала согласовать canvas, подготовку данных и восстановление вкладок; затем сравнить анимацию текущей панели и короткий переход содержимого. Визуальный образец показывать на реальной production-owned навигации, а маршрутные свойства проверять в приложении, не только в UI catalog.
 
 Проверка: cold/warm переключения Главная → База → Профиль → База; возврат после фильтрации и прокрутки; серия быстрых кликов; offline/медленная сеть; фоновая ошибка; смена аккаунта; клавиатура и browser Back; reduced motion; 320/390/430 px и landscape. Зафиксировать время от нажатия до первого отклика и до содержимого, запросы и кадры. На настоящем iPhone проверить Safari с развёрнутой и свёрнутой панелью, overscroll и safe areas. Playwright WebKit не доказывает окраску системного интерфейса iOS.
 

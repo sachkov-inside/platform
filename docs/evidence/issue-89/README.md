@@ -5,14 +5,14 @@ Captured from the implementation branch on 2026-08-25 after `pnpm check:full` pa
 | Surface | Desktop | Mobile |
 | --- | --- | --- |
 | Live PostgreSQL → Nest → Next route | [`live-desktop.png`](./live-desktop.png) | [`live-mobile.png`](./live-mobile.png) |
-| Exact production-owned Storybook component | [`storybook-desktop.png`](./storybook-desktop.png) | [`storybook-mobile.png`](./storybook-mobile.png) |
+| Exact production-owned UI catalog component | [`ui-catalog-desktop.png`](./ui-catalog-desktop.png) | [`ui-catalog-mobile.png`](./ui-catalog-mobile.png) |
 | Membership offer state | [`access-required-desktop.png`](./access-required-desktop.png) | [`access-required-mobile.png`](./access-required-mobile.png) |
 
 - Live route: `/materials/inside-platform-overview`
-- Storybook: `Pages/Material/Reader` (`Desktop` and `Mobile`)
+- ui-catalog: `Pages/Material/Reader` (`Desktop` and `Mobile`)
 - Desktop viewport: `1440 × 1000`
 - Mobile viewport: `390 × 844`
-- Storybook Agentation control is enabled in the development capture.
+- UI catalog Agentation control is enabled in the development capture.
 - Keyboard smoke: first `Tab` focuses “Перейти к содержанию”; `Enter` moves focus to `main`;
   local navigation, code and table overflow regions remain keyboard reachable.
 - Screen-reader/AX smoke: one named main journey exposes the Material `h1`, ordered section

@@ -1,5 +1,5 @@
 {
-  "source": "Storybook, «Страницы/Редактор/Материал и предпросмотр», фикстура materialAuthoringPresentation",
+  "source": "ui-catalog, «Страницы/Редактор/Материал и предпросмотр», фикстура materialAuthoringPresentation",
   "unit": "px",
   "before": {
     "commit": "ee4e1a87326c2671d823ea82f514bae595607181",

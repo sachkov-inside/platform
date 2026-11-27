@@ -14,7 +14,7 @@ Production visual GO и обязательный final-head CI пока ожид
 
 Подготовленная реализация: `92683d4c962e5b95d621ae9d62041f58ee126200`.
 Production source последний раз менялся в `7c4a71b48e2f63de7d690651911e71742c7330ba`;
-следующий коммит меняет только интерактивную Storybook fixture и её проверки.
+следующий коммит меняет только интерактивную UI catalog fixture и её проверки.
 Base и trusted policy: `2f5300026c5a3e946f30596262a02747c6f48827`, `docs/agents/change-risk.md`.
 
 ## Результат
@@ -38,30 +38,30 @@ header и размещена в панели. Изменения не затра
 ## Проверки
 
 Шов проверки: production `MaterialReaderView` с настоящими `SavedReadingAction`,
-`SavedBookmarkAction` и `MaterialShareButton`; внешние ответы в Storybook заменены fixtures.
+`SavedBookmarkAction` и `MaterialShareButton`; внешние ответы в UI catalog заменены fixtures.
 Сначала новая проверка Grouped Reader Actions упала на отсутствии «Сохранить», после
 реализации прошла. Проверки двух замечаний ревью также воспроизвели дефекты до исправления.
 
-- На `a95b26067`: 134 focused Storybook cases прошли, включая Reader, bookmark и Share states.
+- На `a95b26067`: 134 focused UI catalog cases прошли, включая Reader, bookmark и Share states.
 - На том же source production-build navigation: 11 passed, 1 intentionally skipped
   (desktop sidebar case не применяется к mobile). Проверены панели, canonical Share,
   clipboard failure, hydration readiness, Next absent и сохранение sidebar при переходах.
-- На `92683d4c9` прошли 137 финальных focused Storybook cases. Отдельный запуск трёх
+- На `92683d4c9` прошли 137 финальных focused UI catalog cases. Отдельный запуск трёх
   regression cases для S1/P1 также прошёл. Повторный production-build navigation после
   исправлений на этом же source: 11 passed, 1 intentionally skipped, exit code 0.
 - На `92683d4c9`: `tsc --noEmit`, focused oxlint и `pnpm docs:check` прошли.
-- Browser review той же production-owned Storybook presentation на 1440, 820, 390 и 320 px:
+- Browser review той же production-owned UI catalog presentation на 1440, 820, 390 и 320 px:
   ручное переключение Studied в обе стороны синхронизировало панели; пересечений кнопок и
   горизонтального переполнения нет; axe WCAG 2/2.1 A/AA дал ноль нарушений.
   [Результаты](production/story-browser-results.json).
 - Web architecture и negative guardrails прошли до CSS-only review fixes. Изменения исправлений
   не меняют imports и adapter boundaries. Полная обязательная CI coverage проверяется в PR.
 
-Storybook: [desktop](http://localhost:6019/?path=/story/pages-material-reader-actions--grouped-reader-actions),
+ui-catalog: [desktop](http://localhost:6019/?path=/story/pages-material-reader-actions--grouped-reader-actions),
 [mobile 390×844](http://localhost:6019/?path=/story/pages-material-reader-actions--grouped-reader-actions-mobile).
 Это production-owned компоненты с тестовыми ответами, без записей в реальные данные.
 
-Снимки Storybook: [desktop](production/story-desktop.png), [tablet](production/story-tablet.png),
+Снимки ui-catalog: [desktop](production/story-desktop.png), [tablet](production/story-tablet.png),
 [mobile top](production/story-mobile-top.png), [mobile bottom](production/story-mobile-bottom.png).
 Снимки live route после сборки исправленного source: [desktop](production/route-desktop-top.png),
 [tablet](production/route-tablet-top.png), [mobile top](production/route-mobile-top.png),
@@ -82,7 +82,7 @@ Targeted review `7c4a71b48...92683d4c9` не выявил новых наруш�
 
 Независимый read-only review того же source выявил **P1, P2**: действие «Обновить статус»
 после конфликта Studied перекрывало Next на 390/320 px. Исправлено в `7c4a71b48`.
-Повтор на настоящем Storybook подтвердил отсутствие пересечений в обеих панелях при конфликте,
+Повтор на настоящем UI catalog подтвердил отсутствие пересечений в обеих панелях при конфликте,
 а также при 200% тексте. Fixture-only review `92683d4c9` подтвердил сброс параметров между stories
 и синхронизацию в обе стороны. Других подтверждённых Spec findings нет.
 
@@ -126,13 +126,13 @@ Production source и визуальное evidence не изменились. П
 
 ## Ресурсы
 
-Storybook этой сессии оставлен на `6019`, PID `79792` на момент проверки, cwd этой рабочей
+UI catalog этой сессии оставлен на `6019`, PID `79792` на момент проверки, cwd этой рабочей
 копии `apps/web`. При изменении PID сверить listener и cwd. Перезапуск из корня ветки:
 
 ```bash
-pnpm --filter @inside/web exec storybook dev --port 6019 --ci --no-open
+pnpm --filter @inside/web exec ui-catalog dev --port 6019 --ci --no-open
 ```
 
 Чужие процессы и общий stand сохраняются. Собственные браузерные сессии закрыты.
-Navigation harness сам останавливает свои процессы. До owner review Storybook сохраняется;
+Navigation harness сам останавливает свои процессы. До owner review UI catalog сохраняется;
 после завершения при подтверждённом PID его можно остановить `kill -TERM 79792`.

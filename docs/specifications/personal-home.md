@@ -89,8 +89,8 @@ Published visibility, актуальный ContentAccess и текущая Video
 персональные queries и mutations. Открытие и ручная отметка инвалидируют персональные проекции.
 Публичные данные не содержат историю Account и не заменяют private response/cache.
 
-Storybook и реальные страницы используют HomePage, PlaylistCard, MaterialCard, LibraryDiscoveryView,
-ProductProgrammeView и SeriesMaterialMarker. Runtime не импортирует stories/fixtures. В development seed
+Рабочие страницы используют HomePage, PlaylistCard, MaterialCard, LibraryDiscoveryView,
+ProductProgrammeView и SeriesMaterialMarker. В development seed
 есть серия `demo-progress-series` с текстом, видео и гайдом для воспроизводимой сквозной проверки.
 
 Приёмка: free non-member начинает серию → профиль → программа руководства → Reader; отметки
@@ -101,8 +101,8 @@ expiry/rejoin сохраняет факты. Проверяются 390×844 и 
 PostgreSQL. Kinescope iframe SDK в локальном proof является double; это не credentialed provider proof.
 
 Root `pnpm check`, PostgreSQL integration, full-stack browser path, Standards/Spec review и current-head
-CI обязательны. Доказательства находятся в `docs/evidence/issue-332/`. Принятие Storybook не заменяет
-отдельное визуальное принятие в локальном приложении, merge и deploy. PR #365 остаётся местом результата и оставшихся решений.
+CI обязательны. Доказательства находятся в `docs/evidence/issue-332/` и в PR #365.
+Внешний вид принимают в локальном приложении. Слияние и развёртывание идут отдельно.
 
 ## Авторский закреп на главной
 

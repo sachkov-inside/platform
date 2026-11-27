@@ -79,7 +79,7 @@ operations of the earlier grouping that these pages retain.
 
 The [#1617 evidence directory](../../../../docs/evidence/issue-1617/admin-ui/) contains 18 PNGs:
 products, product editor, Materials, Material editor, topics, people, payments, analytics and
-submissions, each at 1440px and 390px. Captures show finished Storybook play states with settled
+submissions, each at 1440px and 390px. Captures show finished UI catalog play states with settled
 fonts and document/main scroll at the top. People finishes with an empty source-filter result,
 analytics on waitlist, and Material editor on parameters. These viewport captures do not show
 all offscreen controls or every route state.

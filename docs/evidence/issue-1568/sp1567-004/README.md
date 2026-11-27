@@ -25,15 +25,15 @@ they do not set an opening date or open a real sale.
 | --- | --- | --- | --- | --- |
 | Live available Offer | [Image](live-offer-hero-desktop.png) | [Image](live-offer-hero-mobile.png) | [Image](live-offer-lower-desktop.png) | [Image](live-offer-lower-mobile.png) |
 | Live learner | [Image](live-learning-hero-desktop.png) | [Image](live-learning-hero-mobile.png) | [Image](live-learning-lower-desktop.png) | [Image](live-learning-lower-mobile.png) |
-| Storybook available Offer | [Image](storybook-offer-hero-desktop.png) | [Image](storybook-offer-hero-mobile.png) | [Image](storybook-offer-lower-desktop.png) | [Image](storybook-offer-lower-mobile.png) |
-| Storybook continuing learner | [Image](storybook-learning-hero-desktop.png) | [Image](storybook-learning-hero-mobile.png) | [Image](storybook-learning-lower-desktop.png) | [Image](storybook-learning-lower-mobile.png) |
+| UI catalog available Offer | [Image](ui-catalog-offer-hero-desktop.png) | [Image](ui-catalog-offer-hero-mobile.png) | [Image](ui-catalog-offer-lower-desktop.png) | [Image](ui-catalog-offer-lower-mobile.png) |
+| UI catalog continuing learner | [Image](ui-catalog-learning-hero-desktop.png) | [Image](ui-catalog-learning-hero-mobile.png) | [Image](ui-catalog-learning-lower-desktop.png) | [Image](ui-catalog-learning-lower-mobile.png) |
 
 Additional mobile states: [live withdrawal retry](live-learning-retry-mobile.png),
-[Storybook retry](storybook-learning-retry-mobile.png),
-[Storybook continuing intent](storybook-learning-continuing-mobile.png).
+[UI catalog retry](ui-catalog-learning-retry-mobile.png),
+[UI catalog continuing intent](ui-catalog-learning-continuing-mobile.png).
 
 The live fixture has no prior lesson progress, so its retained learning action is
-«Открыть программу». The production composition test and Storybook also cover the existing
+«Открыть программу». The production composition test and UI catalog also cover the existing
 «Продолжить обучение» action with progress. Both use the same production learning-action module.
 
 The previous [closed-state evidence](../README.md) remains evidence for its stated dd48 source.
@@ -47,7 +47,7 @@ new-source captures or replace the pending production visual gate.
 Production server slot selection plus mounted `WaitlistProvider` was tested first: active
 membership with purchase and with learning both failed for missing withdrawal controls; the
 inactive learner case passed. After the fix all three pass. Auth/BFF plus composition tests pass
-24/24; course Storybook tests pass 22/22. Web typecheck, lint and docs checks pass. On c143 the
+24/24; course UI catalog tests pass 22/22. Web typecheck, lint and docs checks pass. On c143 the
 production Web build, deterministic-test guard, Web architecture and negative guardrails pass.
 The premerge focused-test inputs are identical after the four unrelated main files were merged.
 
@@ -87,7 +87,7 @@ by the coordinator's scoped integrated security review and this browser negative
 
 The Impeccable scan reports only the previously accepted accent border/type-size choices in the
 existing presentation CSS. New scoped membership styles add spacing, with no new finding.
-The build also verifies the production graph remains outside Storybook fixtures.
+The build also verifies the production graph remains outside UI catalog fixtures.
 
 These are focused results, not final-source provider CI or production visual GO. Those gates,
 plus acceptance of the exact integrated High-risk result, remain with the coordinator/owner.
@@ -97,16 +97,16 @@ plus acceptance of the exact integrated High-risk result, remain with the coordi
 Worktree: `/Users/dev/orca/workspaces/inside-platform/ai-waitlist-implementation`.
 
 - Live route: http://localhost:6019/products/ai-engineering
-- Storybook Offer: http://localhost:6018/?path=/story/pages-product-ai-engineering--waitlist-existing-with-offer
-- Storybook learning: http://localhost:6018/?path=/story/pages-product-ai-engineering--waitlist-existing-with-learning
-- Storybook continuing: http://localhost:6018/?path=/story/pages-product-ai-engineering--waitlist-continuing-with-learning
-- Storybook retry: http://localhost:6018/?path=/story/pages-product-ai-engineering--waitlist-withdrawal-retry-with-learning
+- UI catalog Offer: http://localhost:6018/?path=/story/pages-product-ai-engineering--waitlist-existing-with-offer
+- UI catalog learning: http://localhost:6018/?path=/story/pages-product-ai-engineering--waitlist-existing-with-learning
+- UI catalog continuing: http://localhost:6018/?path=/story/pages-product-ai-engineering--waitlist-continuing-with-learning
+- UI catalog retry: http://localhost:6018/?path=/story/pages-product-ai-engineering--waitlist-withdrawal-retry-with-learning
 
-Current owned preview listeners after restart: Storybook `6018`, PID `20245`, cwd `apps/web`, started 16:06:43 UTC;
+Current owned preview listeners after restart: UI catalog `6018`, PID `20245`, cwd `apps/web`, started 16:06:43 UTC;
 API/launcher `6020`, PID `6814`, cwd `apps/backend`, started 18:30:19 UTC; its production Web child
 `6019`, PID `6916`, cwd `apps/web`, started 18:30:23 UTC. The earlier live learning captures used the previous owned API/Web pair, PID `78620`/`79467`,
 also running c143. That pair was stopped gracefully before restarting the same production build
-with the isolated dummy bank/contact contour for the Offer scenario. API/Web report c143 source. Storybook
+with the isolated dummy bank/contact contour for the Offer scenario. API/Web report c143 source. UI catalog
 serves the same current production presentation source. Accepted-proof port6017 is already stopped
 by the coordinator; its branch/source remain preserved.
 
@@ -119,7 +119,7 @@ No payment, real login, external message or production configuration was perform
 
 Before stopping, verify each PID/command/cwd. SIGTERM to the owned API/launcher closes its Web
 child, Prisma, IdP and disposable database and removes its temporary Web release identity.
-Stop the owned Storybook PID separately only after review. Rebuild/restart the launcher from the
+Stop the owned UI catalog PID separately only after review. Rebuild/restart the launcher from the
 intended exact source using `WAITLIST_PROOF_PRODUCTION=1` and pinned Node26/pnpm; do not reuse a
 build from a different source by setting the skip-build flag. Keep these previews while owner
 visual review is pending. The coordinator receives ownership of them with the acceptance packet.

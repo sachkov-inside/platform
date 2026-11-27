@@ -2,7 +2,7 @@
   {
     "id": "pages-authoring-редактор-продукта--sale-tab-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-product-editor--sale-tab-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-product-editor--sale-tab-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -11,7 +11,7 @@
   {
     "id": "pages-authoring-редактор-продукта--learners-tab-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-product-editor--learners-tab-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-product-editor--learners-tab-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -20,7 +20,7 @@
   {
     "id": "pages-authoring-редактор-продукта--community-tab-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-product-editor--community-tab-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-product-editor--community-tab-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -29,7 +29,7 @@
   {
     "id": "features-product-продажа-продукта--unpriced-mobile",
     "width": 390,
-    "file": "storybook-features-product-sale--unpriced-mobile-390.png",
+    "file": "ui-catalog-features-product-sale--unpriced-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -38,7 +38,7 @@
   {
     "id": "features-product-продажа-продукта--closed-mobile",
     "width": 390,
-    "file": "storybook-features-product-sale--closed-mobile-390.png",
+    "file": "ui-catalog-features-product-sale--closed-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -47,7 +47,7 @@
   {
     "id": "features-product-продажа-продукта--running-mobile",
     "width": 390,
-    "file": "storybook-features-product-sale--running-mobile-390.png",
+    "file": "ui-catalog-features-product-sale--running-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -56,7 +56,7 @@
   {
     "id": "features-product-продажа-продукта--price-archived-mobile",
     "width": 390,
-    "file": "storybook-features-product-sale--price-archived-mobile-390.png",
+    "file": "ui-catalog-features-product-sale--price-archived-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -65,7 +65,7 @@
   {
     "id": "features-product-продажа-продукта--unavailable-mobile",
     "width": 390,
-    "file": "storybook-features-product-sale--unavailable-mobile-390.png",
+    "file": "ui-catalog-features-product-sale--unavailable-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -74,7 +74,7 @@
   {
     "id": "features-product-продажа-продукта--forbidden-mobile",
     "width": 390,
-    "file": "storybook-features-product-sale--forbidden-mobile-390.png",
+    "file": "ui-catalog-features-product-sale--forbidden-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -83,7 +83,7 @@
   {
     "id": "features-product-сообщество-и-активация--rules-mobile",
     "width": 390,
-    "file": "storybook-features-product-community--rules-mobile-390.png",
+    "file": "ui-catalog-features-product-community--rules-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -92,7 +92,7 @@
   {
     "id": "features-product-сообщество-и-активация--empty-mobile",
     "width": 390,
-    "file": "storybook-features-product-community--empty-mobile-390.png",
+    "file": "ui-catalog-features-product-community--empty-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -101,7 +101,7 @@
   {
     "id": "features-product-сообщество-и-активация--unavailable-mobile",
     "width": 390,
-    "file": "storybook-features-product-community--unavailable-mobile-390.png",
+    "file": "ui-catalog-features-product-community--unavailable-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -110,7 +110,7 @@
   {
     "id": "pages-authoring-продукт-ученики--one-learner-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-product-learners--one-learner-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-product-learners--one-learner-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -119,7 +119,7 @@
   {
     "id": "pages-authoring-продукт-ученики--long-list-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-product-learners--long-list-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-product-learners--long-list-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -128,7 +128,7 @@
   {
     "id": "pages-authoring-продукт-ученики--empty-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-product-learners--empty-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-product-learners--empty-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -137,7 +137,7 @@
   {
     "id": "pages-authoring-продукт-ученики--refused-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-product-learners--refused-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-product-learners--refused-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -146,7 +146,7 @@
   {
     "id": "pages-authoring-продукт-ученики--error-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-product-learners--error-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-product-learners--error-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -155,7 +155,7 @@
   {
     "id": "pages-authoring-продукт-выдать-продукт--selection-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-product-grant--selection-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-product-grant--selection-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -164,7 +164,7 @@
   {
     "id": "pages-authoring-продукт-выдать-продукт--partial-failure-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-product-grant--partial-failure-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-product-grant--partial-failure-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -173,7 +173,7 @@
   {
     "id": "pages-authoring-продукты--products-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-products--products-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-products--products-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -182,7 +182,7 @@
   {
     "id": "pages-authoring-продукты--long-list-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-products--long-list-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-products--long-list-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -191,7 +191,7 @@
   {
     "id": "pages-authoring-продукты--empty-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-products--empty-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-products--empty-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -200,7 +200,7 @@
   {
     "id": "pages-authoring-продукты--sale-without-owner-prices-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-products--sale-without-owner-prices-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-products--sale-without-owner-prices-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -209,7 +209,7 @@
   {
     "id": "pages-authoring-платежи--one-sale-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-payments--one-sale-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-payments--one-sale-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -218,7 +218,7 @@
   {
     "id": "pages-authoring-платежи--long-list-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-payments--long-list-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-payments--long-list-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -227,7 +227,7 @@
   {
     "id": "pages-authoring-платежи--empty-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-payments--empty-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-payments--empty-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -236,7 +236,7 @@
   {
     "id": "pages-authoring-платежи--filtered-no-results-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-payments--filtered-no-results-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-payments--filtered-no-results-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -245,7 +245,7 @@
   {
     "id": "pages-authoring-платежи--unavailable-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-payments--unavailable-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-payments--unavailable-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -254,7 +254,7 @@
   {
     "id": "pages-authoring-платежи--forbidden",
     "width": 390,
-    "file": "storybook-pages-authoring-payments--forbidden-390.png",
+    "file": "ui-catalog-pages-authoring-payments--forbidden-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -263,7 +263,7 @@
   {
     "id": "pages-authoring-платёж--with-refunds-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-payment--with-refunds-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-payment--with-refunds-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -272,7 +272,7 @@
   {
     "id": "pages-authoring-платёж--unknown-state-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-payment--unknown-state-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-payment--unknown-state-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -281,7 +281,7 @@
   {
     "id": "pages-authoring-платёж--not-found",
     "width": 390,
-    "file": "storybook-pages-authoring-payment--not-found-390.png",
+    "file": "ui-catalog-pages-authoring-payment--not-found-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -290,7 +290,7 @@
   {
     "id": "pages-authoring-платёж--unavailable",
     "width": 390,
-    "file": "storybook-pages-authoring-payment--unavailable-390.png",
+    "file": "ui-catalog-pages-authoring-payment--unavailable-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -299,7 +299,7 @@
   {
     "id": "pages-authoring-платёж-email-заказа--hidden-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-payment-order-email--hidden-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-payment-order-email--hidden-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -308,7 +308,7 @@
   {
     "id": "pages-authoring-платёж-email-заказа--shown-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-payment-order-email--shown-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-payment-order-email--shown-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -317,7 +317,7 @@
   {
     "id": "pages-authoring-платёж-email-заказа--forbidden",
     "width": 390,
-    "file": "storybook-pages-authoring-payment-order-email--forbidden-390.png",
+    "file": "ui-catalog-pages-authoring-payment-order-email--forbidden-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -326,7 +326,7 @@
   {
     "id": "pages-authoring-sales-payment-links--empty-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-sales-payment-links--empty-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-sales-payment-links--empty-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -335,7 +335,7 @@
   {
     "id": "pages-authoring-sales-payment-links--one-link-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-sales-payment-links--one-link-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-sales-payment-links--one-link-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -344,7 +344,7 @@
   {
     "id": "pages-authoring-sales-payment-links--long-list-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-sales-payment-links--long-list-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-sales-payment-links--long-list-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -353,7 +353,7 @@
   {
     "id": "pages-authoring-sales-payment-links--link-details-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-sales-payment-links--link-details-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-sales-payment-links--link-details-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -362,7 +362,7 @@
   {
     "id": "pages-authoring-sales-payment-links--refused-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-sales-payment-links--refused-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-sales-payment-links--refused-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -371,7 +371,7 @@
   {
     "id": "pages-authoring-sales-payment-links--unavailable",
     "width": 390,
-    "file": "storybook-pages-authoring-sales-payment-links--unavailable-390.png",
+    "file": "ui-catalog-pages-authoring-sales-payment-links--unavailable-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -380,7 +380,7 @@
   {
     "id": "components-админка-продажи-создание-ссылки-на-оплату--product-price-mobile",
     "width": 390,
-    "file": "storybook-components-admin-sales-payment-link-create--product-price-mobile-390.png",
+    "file": "ui-catalog-components-admin-sales-payment-link-create--product-price-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -389,7 +389,7 @@
   {
     "id": "components-админка-продажи-создание-ссылки-на-оплату--discount-mobile",
     "width": 390,
-    "file": "storybook-components-admin-sales-payment-link-create--discount-mobile-390.png",
+    "file": "ui-catalog-components-admin-sales-payment-link-create--discount-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -398,7 +398,7 @@
   {
     "id": "components-админка-продажи-создание-ссылки-на-оплату--created-mobile",
     "width": 390,
-    "file": "storybook-components-admin-sales-payment-link-create--created-mobile-390.png",
+    "file": "ui-catalog-components-admin-sales-payment-link-create--created-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -407,7 +407,7 @@
   {
     "id": "components-админка-продажи-создание-ссылки-на-оплату--products-unavailable",
     "width": 390,
-    "file": "storybook-components-admin-sales-payment-link-create--products-unavailable-390.png",
+    "file": "ui-catalog-components-admin-sales-payment-link-create--products-unavailable-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -416,7 +416,7 @@
   {
     "id": "pages-authoring-sales-discounts--empty-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-sales-discounts--empty-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-sales-discounts--empty-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -425,7 +425,7 @@
   {
     "id": "pages-authoring-sales-discounts--list-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-sales-discounts--list-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-sales-discounts--list-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -434,7 +434,7 @@
   {
     "id": "pages-authoring-sales-discounts--archive-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-sales-discounts--archive-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-sales-discounts--archive-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -443,7 +443,7 @@
   {
     "id": "pages-authoring-sales-discounts--questionnaire-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-sales-discounts--questionnaire-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-sales-discounts--questionnaire-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -452,7 +452,7 @@
   {
     "id": "pages-authoring-sales-discounts--refused-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-sales-discounts--refused-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-sales-discounts--refused-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -461,7 +461,7 @@
   {
     "id": "pages-authoring-sales-discounts--unavailable",
     "width": 390,
-    "file": "storybook-pages-authoring-sales-discounts--unavailable-390.png",
+    "file": "ui-catalog-pages-authoring-sales-discounts--unavailable-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -470,7 +470,7 @@
   {
     "id": "components-админка-продажи-форма-скидки--create-mobile",
     "width": 390,
-    "file": "storybook-components-admin-sales-promotion-form--create-mobile-390.png",
+    "file": "ui-catalog-components-admin-sales-promotion-form--create-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -479,7 +479,7 @@
   {
     "id": "components-админка-продажи-форма-скидки--edit-mobile",
     "width": 390,
-    "file": "storybook-components-admin-sales-promotion-form--edit-mobile-390.png",
+    "file": "ui-catalog-components-admin-sales-promotion-form--edit-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -488,7 +488,7 @@
   {
     "id": "components-админка-продажи-форма-скидки--revision-conflict",
     "width": 390,
-    "file": "storybook-components-admin-sales-promotion-form--revision-conflict-390.png",
+    "file": "ui-catalog-components-admin-sales-promotion-form--revision-conflict-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -497,7 +497,7 @@
   {
     "id": "pages-authoring-sales-funnel-report--ready-mobile",
     "width": 390,
-    "file": "storybook-pages-authoring-sales-funnel--ready-mobile-390.png",
+    "file": "ui-catalog-pages-authoring-sales-funnel--ready-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -506,7 +506,7 @@
   {
     "id": "pages-authoring-sales-funnel-report--empty-period",
     "width": 390,
-    "file": "storybook-pages-authoring-sales-funnel--empty-period-390.png",
+    "file": "ui-catalog-pages-authoring-sales-funnel--empty-period-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -515,7 +515,7 @@
   {
     "id": "pages-authoring-sales-funnel-report--forbidden",
     "width": 390,
-    "file": "storybook-pages-authoring-sales-funnel--forbidden-390.png",
+    "file": "ui-catalog-pages-authoring-sales-funnel--forbidden-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -524,7 +524,7 @@
   {
     "id": "pages-authoring-sales-funnel-report--unavailable",
     "width": 390,
-    "file": "storybook-pages-authoring-sales-funnel--unavailable-390.png",
+    "file": "ui-catalog-pages-authoring-sales-funnel--unavailable-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -533,7 +533,7 @@
   {
     "id": "components-админка-adminconfirmdialog--danger-mobile",
     "width": 390,
-    "file": "storybook-components-admin-confirm-dialog--danger-mobile-390.png",
+    "file": "ui-catalog-components-admin-confirm-dialog--danger-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -542,7 +542,7 @@
   {
     "id": "components-админка-adminconfirmdialog--with-error",
     "width": 390,
-    "file": "storybook-components-admin-confirm-dialog--with-error-390.png",
+    "file": "ui-catalog-components-admin-confirm-dialog--with-error-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -551,7 +551,7 @@
   {
     "id": "components-админка-выбор-из-длинного-списка--bounded-mobile",
     "width": 390,
-    "file": "storybook-components-admin-search-select--bounded-mobile-390.png",
+    "file": "ui-catalog-components-admin-search-select--bounded-mobile-390.png",
     "scrollWidth": 390,
     "clientWidth": 390,
     "noOverflow": true,
@@ -560,7 +560,7 @@
   {
     "id": "pages-authoring-редактор-продукта--sale-tab-desktop",
     "width": 1440,
-    "file": "storybook-pages-authoring-product-editor--sale-tab-desktop-1440.png",
+    "file": "ui-catalog-pages-authoring-product-editor--sale-tab-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -569,7 +569,7 @@
   {
     "id": "pages-authoring-редактор-продукта--learners-tab-desktop",
     "width": 1440,
-    "file": "storybook-pages-authoring-product-editor--learners-tab-desktop-1440.png",
+    "file": "ui-catalog-pages-authoring-product-editor--learners-tab-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -578,7 +578,7 @@
   {
     "id": "pages-authoring-редактор-продукта--community-tab-desktop",
     "width": 1440,
-    "file": "storybook-pages-authoring-product-editor--community-tab-desktop-1440.png",
+    "file": "ui-catalog-pages-authoring-product-editor--community-tab-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -587,7 +587,7 @@
   {
     "id": "features-product-продажа-продукта--unpriced-desktop",
     "width": 1440,
-    "file": "storybook-features-product-sale--unpriced-desktop-1440.png",
+    "file": "ui-catalog-features-product-sale--unpriced-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -596,7 +596,7 @@
   {
     "id": "features-product-продажа-продукта--closed-desktop",
     "width": 1440,
-    "file": "storybook-features-product-sale--closed-desktop-1440.png",
+    "file": "ui-catalog-features-product-sale--closed-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -605,7 +605,7 @@
   {
     "id": "features-product-продажа-продукта--running-desktop",
     "width": 1440,
-    "file": "storybook-features-product-sale--running-desktop-1440.png",
+    "file": "ui-catalog-features-product-sale--running-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -614,7 +614,7 @@
   {
     "id": "features-product-продажа-продукта--price-archived-desktop",
     "width": 1440,
-    "file": "storybook-features-product-sale--price-archived-desktop-1440.png",
+    "file": "ui-catalog-features-product-sale--price-archived-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -623,7 +623,7 @@
   {
     "id": "features-product-продажа-продукта--unavailable-desktop",
     "width": 1440,
-    "file": "storybook-features-product-sale--unavailable-desktop-1440.png",
+    "file": "ui-catalog-features-product-sale--unavailable-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -632,7 +632,7 @@
   {
     "id": "features-product-продажа-продукта--forbidden-desktop",
     "width": 1440,
-    "file": "storybook-features-product-sale--forbidden-desktop-1440.png",
+    "file": "ui-catalog-features-product-sale--forbidden-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -641,7 +641,7 @@
   {
     "id": "features-product-сообщество-и-активация--rules-desktop",
     "width": 1440,
-    "file": "storybook-features-product-community--rules-desktop-1440.png",
+    "file": "ui-catalog-features-product-community--rules-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -650,7 +650,7 @@
   {
     "id": "features-product-сообщество-и-активация--empty-desktop",
     "width": 1440,
-    "file": "storybook-features-product-community--empty-desktop-1440.png",
+    "file": "ui-catalog-features-product-community--empty-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -659,7 +659,7 @@
   {
     "id": "features-product-сообщество-и-активация--unavailable-desktop",
     "width": 1440,
-    "file": "storybook-features-product-community--unavailable-desktop-1440.png",
+    "file": "ui-catalog-features-product-community--unavailable-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -668,7 +668,7 @@
   {
     "id": "pages-authoring-продукт-ученики--one-learner-desktop",
     "width": 1440,
-    "file": "storybook-pages-authoring-product-learners--one-learner-desktop-1440.png",
+    "file": "ui-catalog-pages-authoring-product-learners--one-learner-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -677,7 +677,7 @@
   {
     "id": "pages-authoring-продукт-ученики--long-list-desktop",
     "width": 1440,
-    "file": "storybook-pages-authoring-product-learners--long-list-desktop-1440.png",
+    "file": "ui-catalog-pages-authoring-product-learners--long-list-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -686,7 +686,7 @@
   {
     "id": "pages-authoring-продукт-ученики--empty-desktop",
     "width": 1440,
-    "file": "storybook-pages-authoring-product-learners--empty-desktop-1440.png",
+    "file": "ui-catalog-pages-authoring-product-learners--empty-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -695,7 +695,7 @@
   {
     "id": "pages-authoring-продукт-ученики--refused-desktop",
     "width": 1440,
-    "file": "storybook-pages-authoring-product-learners--refused-desktop-1440.png",
+    "file": "ui-catalog-pages-authoring-product-learners--refused-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -704,7 +704,7 @@
   {
     "id": "pages-authoring-продукт-ученики--error-desktop",
     "width": 1440,
-    "file": "storybook-pages-authoring-product-learners--error-desktop-1440.png",
+    "file": "ui-catalog-pages-authoring-product-learners--error-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -713,7 +713,7 @@
   {
     "id": "pages-authoring-продукт-выдать-продукт--selection-desktop",
     "width": 1440,
-    "file": "storybook-pages-authoring-product-grant--selection-desktop-1440.png",
+    "file": "ui-catalog-pages-authoring-product-grant--selection-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -722,7 +722,7 @@
   {
     "id": "pages-authoring-продукт-выдать-продукт--partial-failure-desktop",
     "width": 1440,
-    "file": "storybook-pages-authoring-product-grant--partial-failure-desktop-1440.png",
+    "file": "ui-catalog-pages-authoring-product-grant--partial-failure-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -731,7 +731,7 @@
   {
     "id": "pages-authoring-продукты--products-desktop",
     "width": 1440,
-    "file": "storybook-pages-authoring-products--products-desktop-1440.png",
+    "file": "ui-catalog-pages-authoring-products--products-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -740,7 +740,7 @@
   {
     "id": "pages-authoring-продукты--long-list",
     "width": 1440,
-    "file": "storybook-pages-authoring-products--long-list-1440.png",
+    "file": "ui-catalog-pages-authoring-products--long-list-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -749,7 +749,7 @@
   {
     "id": "pages-authoring-продукты--empty",
     "width": 1440,
-    "file": "storybook-pages-authoring-products--empty-1440.png",
+    "file": "ui-catalog-pages-authoring-products--empty-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -758,7 +758,7 @@
   {
     "id": "pages-authoring-продукты--sale-without-owner-prices",
     "width": 1440,
-    "file": "storybook-pages-authoring-products--sale-without-owner-prices-1440.png",
+    "file": "ui-catalog-pages-authoring-products--sale-without-owner-prices-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -767,7 +767,7 @@
   {
     "id": "pages-authoring-платежи--one-sale",
     "width": 1440,
-    "file": "storybook-pages-authoring-payments--one-sale-1440.png",
+    "file": "ui-catalog-pages-authoring-payments--one-sale-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -776,7 +776,7 @@
   {
     "id": "pages-authoring-платежи--long-list",
     "width": 1440,
-    "file": "storybook-pages-authoring-payments--long-list-1440.png",
+    "file": "ui-catalog-pages-authoring-payments--long-list-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -785,7 +785,7 @@
   {
     "id": "pages-authoring-платежи--empty",
     "width": 1440,
-    "file": "storybook-pages-authoring-payments--empty-1440.png",
+    "file": "ui-catalog-pages-authoring-payments--empty-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -794,7 +794,7 @@
   {
     "id": "pages-authoring-платежи--filtered-no-results",
     "width": 1440,
-    "file": "storybook-pages-authoring-payments--filtered-no-results-1440.png",
+    "file": "ui-catalog-pages-authoring-payments--filtered-no-results-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -803,7 +803,7 @@
   {
     "id": "pages-authoring-платежи--unavailable",
     "width": 1440,
-    "file": "storybook-pages-authoring-payments--unavailable-1440.png",
+    "file": "ui-catalog-pages-authoring-payments--unavailable-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -812,7 +812,7 @@
   {
     "id": "pages-authoring-платежи--forbidden",
     "width": 1440,
-    "file": "storybook-pages-authoring-payments--forbidden-1440.png",
+    "file": "ui-catalog-pages-authoring-payments--forbidden-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -821,7 +821,7 @@
   {
     "id": "pages-authoring-платёж--with-refunds",
     "width": 1440,
-    "file": "storybook-pages-authoring-payment--with-refunds-1440.png",
+    "file": "ui-catalog-pages-authoring-payment--with-refunds-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -830,7 +830,7 @@
   {
     "id": "pages-authoring-платёж--unknown-state",
     "width": 1440,
-    "file": "storybook-pages-authoring-payment--unknown-state-1440.png",
+    "file": "ui-catalog-pages-authoring-payment--unknown-state-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -839,7 +839,7 @@
   {
     "id": "pages-authoring-платёж--not-found",
     "width": 1440,
-    "file": "storybook-pages-authoring-payment--not-found-1440.png",
+    "file": "ui-catalog-pages-authoring-payment--not-found-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -848,7 +848,7 @@
   {
     "id": "pages-authoring-платёж-email-заказа--hidden",
     "width": 1440,
-    "file": "storybook-pages-authoring-payment-order-email--hidden-1440.png",
+    "file": "ui-catalog-pages-authoring-payment-order-email--hidden-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -857,7 +857,7 @@
   {
     "id": "pages-authoring-платёж-email-заказа--shown",
     "width": 1440,
-    "file": "storybook-pages-authoring-payment-order-email--shown-1440.png",
+    "file": "ui-catalog-pages-authoring-payment-order-email--shown-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -866,7 +866,7 @@
   {
     "id": "pages-authoring-платёж-email-заказа--forbidden",
     "width": 1440,
-    "file": "storybook-pages-authoring-payment-order-email--forbidden-1440.png",
+    "file": "ui-catalog-pages-authoring-payment-order-email--forbidden-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -875,7 +875,7 @@
   {
     "id": "pages-authoring-sales-payment-links--empty-desktop",
     "width": 1440,
-    "file": "storybook-pages-authoring-sales-payment-links--empty-desktop-1440.png",
+    "file": "ui-catalog-pages-authoring-sales-payment-links--empty-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -884,7 +884,7 @@
   {
     "id": "pages-authoring-sales-payment-links--one-link-desktop",
     "width": 1440,
-    "file": "storybook-pages-authoring-sales-payment-links--one-link-desktop-1440.png",
+    "file": "ui-catalog-pages-authoring-sales-payment-links--one-link-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -893,7 +893,7 @@
   {
     "id": "pages-authoring-sales-payment-links--long-list-desktop",
     "width": 1440,
-    "file": "storybook-pages-authoring-sales-payment-links--long-list-desktop-1440.png",
+    "file": "ui-catalog-pages-authoring-sales-payment-links--long-list-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -902,7 +902,7 @@
   {
     "id": "pages-authoring-sales-payment-links--link-details-desktop",
     "width": 1440,
-    "file": "storybook-pages-authoring-sales-payment-links--link-details-desktop-1440.png",
+    "file": "ui-catalog-pages-authoring-sales-payment-links--link-details-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -911,7 +911,7 @@
   {
     "id": "pages-authoring-sales-payment-links--refused-desktop",
     "width": 1440,
-    "file": "storybook-pages-authoring-sales-payment-links--refused-desktop-1440.png",
+    "file": "ui-catalog-pages-authoring-sales-payment-links--refused-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -920,7 +920,7 @@
   {
     "id": "pages-authoring-sales-payment-links--unavailable",
     "width": 1440,
-    "file": "storybook-pages-authoring-sales-payment-links--unavailable-1440.png",
+    "file": "ui-catalog-pages-authoring-sales-payment-links--unavailable-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -929,7 +929,7 @@
   {
     "id": "components-админка-продажи-создание-ссылки-на-оплату--product-price-desktop",
     "width": 1440,
-    "file": "storybook-components-admin-sales-payment-link-create--product-price-desktop-1440.png",
+    "file": "ui-catalog-components-admin-sales-payment-link-create--product-price-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -938,7 +938,7 @@
   {
     "id": "components-админка-продажи-создание-ссылки-на-оплату--discount-desktop",
     "width": 1440,
-    "file": "storybook-components-admin-sales-payment-link-create--discount-desktop-1440.png",
+    "file": "ui-catalog-components-admin-sales-payment-link-create--discount-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -947,7 +947,7 @@
   {
     "id": "components-админка-продажи-создание-ссылки-на-оплату--created-desktop",
     "width": 1440,
-    "file": "storybook-components-admin-sales-payment-link-create--created-desktop-1440.png",
+    "file": "ui-catalog-components-admin-sales-payment-link-create--created-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -956,7 +956,7 @@
   {
     "id": "components-админка-продажи-создание-ссылки-на-оплату--products-unavailable",
     "width": 1440,
-    "file": "storybook-components-admin-sales-payment-link-create--products-unavailable-1440.png",
+    "file": "ui-catalog-components-admin-sales-payment-link-create--products-unavailable-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -965,7 +965,7 @@
   {
     "id": "pages-authoring-sales-discounts--empty-desktop",
     "width": 1440,
-    "file": "storybook-pages-authoring-sales-discounts--empty-desktop-1440.png",
+    "file": "ui-catalog-pages-authoring-sales-discounts--empty-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -974,7 +974,7 @@
   {
     "id": "pages-authoring-sales-discounts--list-desktop",
     "width": 1440,
-    "file": "storybook-pages-authoring-sales-discounts--list-desktop-1440.png",
+    "file": "ui-catalog-pages-authoring-sales-discounts--list-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -983,7 +983,7 @@
   {
     "id": "pages-authoring-sales-discounts--archive-desktop",
     "width": 1440,
-    "file": "storybook-pages-authoring-sales-discounts--archive-desktop-1440.png",
+    "file": "ui-catalog-pages-authoring-sales-discounts--archive-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -992,7 +992,7 @@
   {
     "id": "pages-authoring-sales-discounts--questionnaire-desktop",
     "width": 1440,
-    "file": "storybook-pages-authoring-sales-discounts--questionnaire-desktop-1440.png",
+    "file": "ui-catalog-pages-authoring-sales-discounts--questionnaire-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -1001,7 +1001,7 @@
   {
     "id": "pages-authoring-sales-discounts--refused-desktop",
     "width": 1440,
-    "file": "storybook-pages-authoring-sales-discounts--refused-desktop-1440.png",
+    "file": "ui-catalog-pages-authoring-sales-discounts--refused-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -1010,7 +1010,7 @@
   {
     "id": "pages-authoring-sales-discounts--unavailable",
     "width": 1440,
-    "file": "storybook-pages-authoring-sales-discounts--unavailable-1440.png",
+    "file": "ui-catalog-pages-authoring-sales-discounts--unavailable-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -1019,7 +1019,7 @@
   {
     "id": "components-админка-продажи-форма-скидки--create-desktop",
     "width": 1440,
-    "file": "storybook-components-admin-sales-promotion-form--create-desktop-1440.png",
+    "file": "ui-catalog-components-admin-sales-promotion-form--create-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -1028,7 +1028,7 @@
   {
     "id": "components-админка-продажи-форма-скидки--edit-desktop",
     "width": 1440,
-    "file": "storybook-components-admin-sales-promotion-form--edit-desktop-1440.png",
+    "file": "ui-catalog-components-admin-sales-promotion-form--edit-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -1037,7 +1037,7 @@
   {
     "id": "components-админка-продажи-форма-скидки--revision-conflict",
     "width": 1440,
-    "file": "storybook-components-admin-sales-promotion-form--revision-conflict-1440.png",
+    "file": "ui-catalog-components-admin-sales-promotion-form--revision-conflict-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -1046,7 +1046,7 @@
   {
     "id": "pages-authoring-sales-funnel-report--ready",
     "width": 1440,
-    "file": "storybook-pages-authoring-sales-funnel--ready-1440.png",
+    "file": "ui-catalog-pages-authoring-sales-funnel--ready-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -1055,7 +1055,7 @@
   {
     "id": "pages-authoring-sales-funnel-report--empty-period",
     "width": 1440,
-    "file": "storybook-pages-authoring-sales-funnel--empty-period-1440.png",
+    "file": "ui-catalog-pages-authoring-sales-funnel--empty-period-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -1064,7 +1064,7 @@
   {
     "id": "pages-authoring-sales-funnel-report--forbidden",
     "width": 1440,
-    "file": "storybook-pages-authoring-sales-funnel--forbidden-1440.png",
+    "file": "ui-catalog-pages-authoring-sales-funnel--forbidden-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -1073,7 +1073,7 @@
   {
     "id": "pages-authoring-sales-funnel-report--unavailable",
     "width": 1440,
-    "file": "storybook-pages-authoring-sales-funnel--unavailable-1440.png",
+    "file": "ui-catalog-pages-authoring-sales-funnel--unavailable-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -1082,7 +1082,7 @@
   {
     "id": "components-админка-adminconfirmdialog--danger-desktop",
     "width": 1440,
-    "file": "storybook-components-admin-confirm-dialog--danger-desktop-1440.png",
+    "file": "ui-catalog-components-admin-confirm-dialog--danger-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -1091,7 +1091,7 @@
   {
     "id": "components-админка-adminconfirmdialog--with-error",
     "width": 1440,
-    "file": "storybook-components-admin-confirm-dialog--with-error-1440.png",
+    "file": "ui-catalog-components-admin-confirm-dialog--with-error-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,
@@ -1100,7 +1100,7 @@
   {
     "id": "components-админка-выбор-из-длинного-списка--bounded-desktop",
     "width": 1440,
-    "file": "storybook-components-admin-search-select--bounded-desktop-1440.png",
+    "file": "ui-catalog-components-admin-search-select--bounded-desktop-1440.png",
     "scrollWidth": 1440,
     "clientWidth": 1440,
     "noOverflow": true,

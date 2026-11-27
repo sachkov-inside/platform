@@ -1,6 +1,6 @@
 # #602 — контролы блока стоят там же, где стояли
 
-Снимки и замеры сняты в Storybook, в настоящей оболочке редактора: история «Страницы/Редактор/Материал
+Снимки и замеры сняты в UI catalog, в настоящей оболочке редактора: история «Страницы/Редактор/Материал
 и предпросмотр» на фикстуре `materialAuthoringPresentation`, окно 1440 и 390. `before` — код
 редактора из `origin/main` (`ee4e1a87`), `after` — эта ветка (`ade20a99`). Все числа взяты из
 `measurements.json`, снятого тем же прогоном, что и снимки.
@@ -39,7 +39,7 @@
 CI. Команда прогона:
 
 ```
-pnpm --filter @inside/web exec vitest run --config vitest.config.mts --project=storybook \
+pnpm --filter @inside/web exec vitest run --config vitest.config.mts --project=ui-catalog \
   src/workshop/material-authoring.stories.tsx -t "контролы блока"
 ```
 

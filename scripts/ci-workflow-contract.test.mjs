@@ -707,12 +707,13 @@ describe("application CI workflow contract", () => {
     }
     assert.doesNotMatch(workflow, /run: pnpm check$/mu);
     const ui = jobBlock("ui");
-    for (const command of [
-      "--filter @inside/telegram test:widget",
-      "--filter @inside/web test:browser-engines",
-    ])
-      assert.match(ui, new RegExp(`run: pnpm ${escapeRegExp(command)}$`, "mu"));
-    assert.doesNotMatch(ui, /storybook/iu);
+    assert.deepEqual(
+      Array.from(ui.matchAll(/^ {8}run: (.+)$/gmu), ([, command]) => command),
+      [
+        "pnpm --filter @inside/telegram test:widget",
+        "pnpm --filter @inside/web test:browser-engines",
+      ],
+    );
     assert.match(jobBlock("ui"), /browsers: chromium webkit$/mu);
     assert.match(jobBlock("web-e2e-browser"), /browsers: chromium$/mu);
   });

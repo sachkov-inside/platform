@@ -6,17 +6,17 @@
 
 ## Геометрия: загрузка → готово
 
-Верх блока «Материалы», пиксели. «До» — перепроверка на `9803853a` (Storybook, `HomeLoading` против
+Верх блока «Материалы», пиксели. «До» – перепроверка на `9803853a` (UI catalog, `HomeLoading` против
 готовой главной). «После» — две независимые проверки одного и того же кода.
 
-| Ширина | Состав | До: сдвиг | После, Storybook: загрузка / готово | После, живой маршрут: загрузка / готово |
+| Ширина | Состав | До: сдвиг | После, ui-catalog: загрузка / готово | После, живой маршрут: загрузка / готово |
 | --- | --- | --- | --- | --- |
 | 1440 | без закрепа | −432 | 153 / 153 | 153 / 153 |
 | 1440 | AI-first | +21 | 606,36 / 606,36 | 585 / 585 |
 | 390 | без закрепа | −672 | 64 / 64 | 64 / 64 |
 | 390 | AI-first | −112 | 624,25 / 624,25 | 527 / 527 |
 
-Разница между Storybook и живым маршрутом у AI-first — длина описания в фикстуре и в двойнике
+Разница между UI catalog и живым маршрутом у AI-first – длина описания в фикстуре и в двойнике
 backend, а не геометрия каркаса. Верх первой строки ленты, верх и высота панели форматов и карточка
 продукта совпадают в обоих состояниях так же (`live-measure.json`).
 
@@ -29,7 +29,7 @@ backend, а не геометрия каркаса. Верх первой стр
 Истории перехода проверяют, что скелет не держит ничего, кроме ленты.
 
 ```
-pnpm --filter @inside/web exec vitest run --config vitest.config.mts --project=storybook \
+pnpm --filter @inside/web exec vitest run --config vitest.config.mts --project=ui-catalog \
   src/_pages/home/ui/home-page.stories.tsx
 ```
 
@@ -86,9 +86,9 @@ DOUBLE_DELAY_MS=400 node docs/evidence/issue-562/capture.mjs docs/evidence/issue
 - геометрия загрузки и готовой ленты совпадает, сдвиг 0;
 - axe на `.home-page` не находит нарушений ни в загрузке, ни в готовом состоянии.
 
-Снимки: `live-loading-*` и `live-ready-*`. Снимки Storybook: `storybook-*-ready-*` и
-`storybook-navigation-pending-*` — последний в настоящей рамке перехода `NavigationPendingFrame`.
-Доступность историй проверяет a11y-проверка Storybook в том же прогоне `pnpm test`.
+Снимки: `live-loading-*` и `live-ready-*`. Снимки ui-catalog: `ui-catalog-*-ready-*` и
+`ui-catalog-navigation-pending-*` – последний в настоящей рамке перехода `NavigationPendingFrame`.
+Доступность историй проверяет a11y-проверка UI catalog в том же прогоне `pnpm test`.
 
 ## Цена для первого экрана
 
@@ -122,6 +122,6 @@ production. Этот ответ по-прежнему несёт `guides`, `note
 
 `apps/web/test/personal-home-proof/personal-home.spec.ts` и `playwright.personal-home-proof.config.ts`
 удалены. Spec открывал истории `pages-personal-home--*`, которых в каталоге нет с тех пор, как личная
-главная ушла из Storybook; ни один скрипт, CI или документ его не запускал. Геометрию первого экрана
+главная ушла из UI catalog; ни один скрипт, CI или документ его не запускал. Геометрию первого экрана
 теперь держат истории выше, а поведение личных продолжений — `test/fullstack/personal-home.spec.ts`.
 История proof остаётся в `docs/evidence/issue-331`.

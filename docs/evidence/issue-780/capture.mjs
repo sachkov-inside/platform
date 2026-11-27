@@ -6,7 +6,7 @@ const requireWeb = createRequire(path.resolve("apps/web/package.json"));
 const { chromium, expect } = requireWeb("@playwright/test");
 const AxeBuilder = requireWeb("@axe-core/playwright").default;
 
-const storybook = process.env.STORYBOOK_URL ?? "http://127.0.0.1:3401";
+const catalogOrigin = process.env.UI_CATALOG_URL ?? "http://127.0.0.1:3401";
 const surfaces = [
   ["checkout-course", "pages-guide-payment--ready", "Без ограничения срока"],
   [
@@ -43,7 +43,7 @@ let browser;
     const page = await context.newPage();
     for (const [surface, id, label] of surfaces) {
       await page.goto(
-        `${storybook}/iframe.html?id=${encodeURIComponent(id)}&viewMode=story`,
+        `${catalogOrigin}/iframe.html?id=${encodeURIComponent(id)}&viewMode=story`,
         { waitUntil: "domcontentloaded" },
       );
       await expect(page.getByText(label, { exact: true }).first()).toBeVisible({

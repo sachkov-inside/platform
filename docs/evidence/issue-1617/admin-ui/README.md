@@ -2,7 +2,7 @@
 
 Подготовленная реализация по выбранному варианту A. Окончательная визуальная приёмка владельцем
 ещё не проведена. Рабочий интерфейс использует существующие production-компоненты, маршруты и
-адаптеры. Storybook подставляет только данные и ответы запросов.
+адаптеры. UI catalog подставляет только данные и ответы запросов.
 
 ## Просмотр
 
@@ -19,7 +19,7 @@
 - [Карта операций и их нового размещения](../../../research/2026-10-20-admin-operations.md).
 
 Боковое меню в историях показывает настоящие адреса приложения. Для перехода между историями
-используется дерево Storybook. Настоящие переходы проверяются отдельно на live routes.
+используется дерево UI catalog. Настоящие переходы проверяются отдельно на live routes.
 Прототип остаётся на `prototype/admin-redesign`, commit `35082ef81e9248760c3528bae1bd3bab3d92960f`.
 
 ## Визуальные проверки
@@ -42,7 +42,7 @@
 
 [Измерения](measurements.json): в этих 18 состояниях `scrollWidth === clientWidth`, axe-core с
 WCAG A/AA не обнаружил нарушений. Состояния историй могут выполнять свои сценарии; завершение
-их отрисовки не считается доказательством прохождения всех Storybook-тестов.
+их отрисовки не считается доказательством прохождения всех ui-catalog-тестов.
 
 Независимый finish review потребовал убрать пустые синие обложки, сократить мобильные фильтры
 платежей и показать состояние, сумму и доступ без горизонтальной прокрутки. Все три исправления
@@ -51,23 +51,23 @@ WCAG A/AA не обнаружил нарушений. Состояния ист�
 
 ## Ресурсы просмотра
 
-- Новый Storybook: порт 6036, worktree `shrimp`, Orca terminal
+- Новый ui-catalog: порт 6036, worktree `shrimp`, Orca terminal
   `term_b655a32e-a3ab-4388-9488-a9fcf4e932a9`.
 - Прототип: порт 6026, worktree `admin-approved-proof`, Orca terminal
   `term_fcee6a38-517e-4269-a0bc-50ee58bf242e`.
-- Оба сервера запущены из `apps/web` через `pnpm exec storybook dev --port <port> --host 0.0.0.0 --no-open`.
+- Оба сервера запущены из `apps/web` через `pnpm exec ui-catalog dev --port <port> --host 0.0.0.0 --no-open`.
   Используется Node 26.10.0. Остановка: Ctrl+C в указанном терминале.
 - Общий Compose-стенд с данными принадлежит другой сессии и не изменялся.
 
 
-## Готовая реализация в Storybook и live routes
+## Готовая реализация в UI catalog и live routes
 
 После исправлений и объединения с main снята текущая реализация
 `6f0397c1a282dac71f21a96159333801cf0cffd4`:
 
-- [Storybook: продукты, 1440](current-storybook/products-1440.png), [390](current-storybook/products-390.png).
-- [Storybook: платежи, 1440](current-storybook/payments-1440.png), [390](current-storybook/payments-390.png).
-- [Измерения текущих историй](current-storybook/measurements.json): 4 состояния, нет переполнения и axe WCAG A/AA нарушений.
+- [ui-catalog: продукты, 1440](current-ui-catalog/products-1440.png), [390](current-ui-catalog/products-390.png).
+- [ui-catalog: платежи, 1440](current-ui-catalog/payments-1440.png), [390](current-ui-catalog/payments-390.png).
+- [Измерения текущих историй](current-ui-catalog/measurements.json): 4 состояния, нет переполнения и axe WCAG A/AA нарушений.
 - [Live: продукты, 1440](live/products-1440.png), [390](live/products-390.png).
 - [Live: редактор материала, 1440](live/material-editor-1440.png), [390](live/material-editor-390.png).
 - [Live: редактор продукта, 1440](live/product-editor-1440.png), [390](live/product-editor-390.png).
@@ -87,7 +87,7 @@ axe WCAG A/AA и best-practice без нарушений. Снимки пока�
 явно разрешает блокирующую загрузку через `instant = false` по ADR 0027. Встроенный индикатор Next.js
 на снимках относится к этому режиму. Проверки переходов выполняются отдельно на production build.
 
-Общий прогон содержит 921 Storybook test, 173 прошедших browser E2E (15 skipped) и 221 прошедшую
+Общий прогон содержит 921 UI catalog test, 173 прошедших browser E2E (15 skipped) и 221 прошедшую
 проверку navigation (9 skipped). Дополнительный `pnpm smoke:enrollments` прошёл на desktop/mobile.
 Итог расширенного fullstack, final-head CI и текущий source SHA находятся в PR, чтобы запись
 проверок не меняла проверяемый код после каждого запуска. Окончательный визуальный GO остаётся
@@ -104,5 +104,5 @@ axe WCAG A/AA и best-practice без нарушений. Снимки пока�
 - Остановка приложения: Ctrl+C в указанном терминале. Остановка инфраструктуры из этого worktree:
   `COMPOSE_PROJECT_NAME=admin1617-preview POSTGRES_HOST_PORT=54396 OBJECT_STORAGE_HOST_PORT=9036 OBJECT_STORAGE_CONSOLE_HOST_PORT=9037 docker compose down`.
   Обычная остановка сохраняет демонстрационные данные. Не применять эту команду к общему `inside-platform`.
-- Source Storybook 6036: PID 94692, cwd `shrimp/apps/web`. Прототип 6026: PID 81889,
+- Source UI catalog 6036: PID 94692, cwd `shrimp/apps/web`. Прототип 6026: PID 81889,
   cwd `admin-approved-proof/apps/web`. Оба просмотра сохранены для сравнения.

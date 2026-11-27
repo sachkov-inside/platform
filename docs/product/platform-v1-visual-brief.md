@@ -319,7 +319,7 @@ Rendered review в [Platform #45](https://github.com/sachkov-inside/platform/iss
 - `Hybrid Catalog` является принятым composition proof для этих cards, но не финальным layout
   Библиотеки.
 
-При раннем ревью rendered proofs находились в Storybook stories `Navigation/Application shell` и
+При раннем ревью rendered proofs находились в UI catalog stories `Navigation/Application shell` и
 `Compositions/Material cards`. Laboratory использует Tailwind CSS, shadcn-compatible shared UI
 structure; overlay Agentation снят 09.10.2026 по решению владельца. Production routes пока не импортируют workshop
 runtime или fixtures.
@@ -376,7 +376,7 @@ surface reviews.
 
 ### Integrated mobile-first public baseline
 
-Owner review 2026-09-04 выбрал Storybook proof `Pages/Mobile-first Platform/Prototype` как
+Owner review 2026-09-04 выбрал UI catalog proof `Pages/Mobile-first Platform/Prototype` как
 canonical visual baseline для public Home, Library, Topic, Playlist and Reader. Versioned sources:
 
 - `apps/web/src/workshop/mobile-first-platform.prototype.tsx`;

@@ -1,6 +1,6 @@
 # Platform #658: принятие условий кнопкой, журнал принятия, профиль только для владельца
 
-Семь production-owned поверхностей в Storybook сняты при 1440×1024 (`*-desktop.png`) и 390×844
+Семь production-owned поверхностей в UI catalog сняты при 1440×1024 (`*-desktop.png`) и 390×844
 (`*-mobile.png`) на дереве поверх `origin/main` `80722758`:
 
 | Кадр | История | Что видно |
@@ -24,9 +24,9 @@
 Воспроизведение из корня checkout на pinned Node/pnpm:
 
 ```bash
-pnpm --filter @inside/web exec storybook dev --ci --no-open -p 3411
+pnpm --filter @inside/web exec ui-catalog dev --ci --no-open -p 3411
 # Во втором терминале; каталог вывода выбирается отдельно от сохранённых доказательств.
-STORYBOOK_URL=http://127.0.0.1:3411 node docs/evidence/issue-658/capture.mjs /tmp/platform658-new-evidence
+UI_CATALOG_URL=http://127.0.0.1:3411 node docs/evidence/issue-658/capture.mjs /tmp/platform658-new-evidence
 ```
 
 Это визуальное доказательство настоящих компонентов с fixture-данными, не вход через настоящий

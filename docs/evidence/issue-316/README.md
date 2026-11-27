@@ -7,7 +7,7 @@
 Контракт: [Workspace #131](https://github.com/sachkov-inside/workspace/pull/131).
 
 Редактор использует общие tokens из `app/globals.css` и принятый `AuthoringShell`.
-Storybook и `/authoring/communications` импортируют один `CommunicationsWorkspace`.
+UI catalog и `/authoring/communications` импортируют один `CommunicationsWorkspace`.
 Выбранная воронка выделена в списке; настройки, сообщения, источники, проверка охвата и история
 разделены на блоки. Длинные подписи действий переносятся на узком экране. Сохранены отдельные
 Save, Preview, Publish и явное подтверждение риска дубля перед retry.
@@ -18,14 +18,14 @@ Save, Preview, Publish и явное подтверждение риска ду�
 
 ## Что смотреть
 
-Локально: `pnpm --filter @inside/web exec storybook dev -p 6316 --ci`.
+Локально: `pnpm --filter @inside/web exec ui-catalog dev -p 6316 --ci`.
 Каталог: **Pages → Authoring → Воронки Telegram**. Agentation включён для ручных замечаний.
 Состояния: Existing, Empty, Loading, NoAccess, Conflict, PublishPreview, UnpublishedTarget,
 MultipartMobile, UnknownDelivery, LoadError, Keyboard, NarrowMobile, Dark, SavedPostPagination,
 SwitchFunnelWhileChoosing.
-Storybook fixtures не отправляют сообщения; кнопки предназначены для проверки интерфейса.
+UI catalog fixtures не отправляют сообщения; кнопки предназначены для проверки интерфейса.
 
-| Состояние Storybook            | Desktop                                 | Mobile                                |
+| Состояние UI catalog            | Desktop                                 | Mobile                                |
 | ------------------------------ | --------------------------------------- | ------------------------------------- |
 | Редактор                       | [1440](story-existing-1440.png)         | [390](story-existing-390.png)         |
 | Пустой список                  | [1440](story-empty-1440.png)            | [390](story-empty-390.png)            |
@@ -57,15 +57,15 @@ operationId; после подтверждения новый явный зап�
 
 ```bash
 PLAYWRIGHT_PORT=3316 pnpm --filter @inside/web exec playwright test communications.spec.ts
-pnpm test:storybook
-pnpm build:storybook
+pnpm test:ui-catalog
+pnpm build:ui-catalog
 PLAYWRIGHT_PORT=3416 pnpm check
 ```
 
 ## Проверки и решение владельца
 
-- Focused Storybook: 15 состояний прошли, включая pagination/no-submit и переключение воронки.
-- Storybook responsive capture: 18 сценариев (9 состояний × 2 ширины), axe и отсутствие overflow.
+- Focused ui-catalog: 15 состояний прошли, включая pagination/no-submit и переключение воронки.
+- UI catalog responsive capture: 18 сценариев (9 состояний × 2 ширины), axe и отсутствие overflow.
 - Реальная страница: четыре browser tests прошли — responsive editor и повтор образца после reload
   на desktop/mobile; редактор дополнительно проверен на двух ширинах в каждом проекте.
 - Standards и Spec review от `ae37b7b` закрыты. Исправлены submit при пагинации, перенос выбора

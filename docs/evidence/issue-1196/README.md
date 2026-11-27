@@ -3,7 +3,7 @@
 Функциональная проверка временного semantic UI; визуальное принятие принадлежит
 [интеграции #1278](https://github.com/sachkov-inside/platform/issues/1278).
 
-## Storybook
+## UI catalog
 
 Снимки production-owned `MaterialBodyView` из story
 `entities-material-body--collapsible-callouts`, 09.10.2026, commit `73d9b7e9`.
@@ -24,7 +24,7 @@ MCP `test-run` с `a11y: true` прошёл для семи stories:
 
 В браузере проверены Enter и Space на `summary`; при ширине 390
 `document.documentElement.scrollWidth` не превышал `clientWidth`.
-Storybook dev server и браузер `platform-1196` остановлены после проверки.
+UI catalog dev server и браузер `platform-1196` остановлены после проверки.
 
 ## Настоящий импорт
 

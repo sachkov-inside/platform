@@ -235,7 +235,7 @@ for the #1717 shell.
 
 ## Elevation & Depth
 
-The system is mostly tonal and bordered. Resting content surfaces use canvas, card, muted fill and one-pixel dividers; restrained card shadows are reserved for interactive bounded objects such as accepted Material cards and popover content. Charcoal regions create structural depth without glow, glass or gradients. Hover lift is slight and disabled for reduced-motion users; Storybook exercises that contract in a real reduced-motion browser context.
+The system is mostly tonal and bordered. Resting content surfaces use canvas, card, muted fill and one-pixel dividers; restrained card shadows are reserved for interactive bounded objects such as accepted Material cards and popover content. Charcoal regions create structural depth without glow, glass or gradients. Hover lift is slight and disabled for reduced-motion users; Browser tests exercise reduced-motion behaviour.
 
 ### Shadow Vocabulary
 

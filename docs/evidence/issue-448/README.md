@@ -39,7 +39,7 @@ Digest текущих Materials: `0621967a8ce43ed2cdca3626734d2c1d` (MD5 сер�
 - Полный `pnpm check`: успешно на Node 24.19.0. Включает docs/API contracts, lint,
   typecheck, guardrails, 153 tooling tests, Go checks, 512 backend tests,
   555 Web tests (1 предусмотренный skip), E2E 52 passed / 14 предусмотренных
-  viewport skips, production build, standalone config и Storybook build.
+  viewport skips, production build, standalone config и UI catalog build.
   Команда: `WATCHPACK_POLLING=true PLAYWRIGHT_PORT=3448 pnpm check`.
   Polling применён из-за macOS `EMFILE` в файловом watcher на общей машине;
   исходный прогон остановлен, итоговый полный прогон завершён с кодом 0.
@@ -47,7 +47,7 @@ Digest текущих Materials: `0621967a8ce43ed2cdca3626734d2c1d` (MD5 сер�
   одинаковые ordinal и размеры строк; переход в Material сохраняет контекст и возврат,
   прямой адрес Material не подставляет контекст. Библиотека и редактор доступны; кнопка
   создания и содержимое редактора не выходят за экран. Axe: 0 нарушений на Guide.
-- Storybook использует production-компонент Guide с 24 Materials, прогрессом 8/24,
+- UI catalog использует production-компонент Guide с 24 Materials, прогрессом 8/24,
   видео resume и второй страницей состава. Снимки мобильного и desktop состояний осмотрены.
 
 ## UI evidence
@@ -58,7 +58,7 @@ Digest текущих Materials: `0621967a8ce43ed2cdca3626734d2c1d` (MD5 сер�
 | Material по прямой ссылке | [PNG](live-direct-material-mobile.png) | [PNG](live-direct-material-desktop.png) |
 | Библиотека | [PNG](live-library-mobile.png) | [PNG](live-library-desktop.png) |
 | Редактор руководств | [PNG](live-authoring-mobile.png) | [PNG](live-authoring-desktop.png) |
-| Guide, Storybook `Series journey / Mobile` | [PNG](storybook-guide-mobile.png) | [PNG](storybook-guide-desktop.png) |
+| Guide, UI catalog `Series journey / Mobile` | [PNG](ui-catalog-guide-mobile.png) | [PNG](ui-catalog-guide-desktop.png) |
 
 [Измерения browser smoke](browser-results.json) относятся к isolated PostgreSQL fixtures.
 На mobile сохранена нижняя навигация; она закреплена относительно viewport, поэтому при

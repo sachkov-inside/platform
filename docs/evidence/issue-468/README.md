@@ -55,7 +55,7 @@ absent from their original frontmatter. The local paid-access choice is stored s
   corrected. One image-processing test timed out under the complete run and passed in isolation.
   The subsequent complete `pnpm check` passed, including 669 backend unit tests,
   920 Web tests (one skipped), 139 browser scenarios (17 skipped), application builds, standalone
-  config verification and Storybook build. These checks do not establish real author acceptance.
+  config verification and UI catalog build. These checks do not establish real author acceptance.
 - The programme and one real lesson were inspected in the local browser. No real upload, owner
   acceptance, current-head CI or complete #468 acceptance yet.
 
@@ -161,7 +161,7 @@ Earlier rows remain mounted, and Reader return, browser Back and reload restore 
 Explicit programme tab selection resets the prefix to the first 12 entries.
 
 Verification: root `pnpm check` passed, final lint passed, and Standards/Spec re-reviews passed.
-Storybook interaction checks cover card geometry, appending entries and tab reset; routing
+UI catalog interaction checks cover card geometry, appending entries and tab reset; routing
 regressions retain validation of return URLs. The local real API stand demonstrated 12 → 24
 entries, opening lesson 13, browser Back and reload restoration. After restart, switching from
 Additional Materials to Programme returned to 12 entries. The updated fullstack scenario was

@@ -15,7 +15,7 @@ checksums:
 | `mobile-first-platform.prototype.css` | `65e9ccee5b05cebc9f5d143e65033e592061785ed2e821800d52b9bb341c0fd7` |
 | `mobile-first-platform.prototype.stories.tsx` | `5b2f5cfff79d1484b2a505dfc7aede2a2b4b81c9ff4492849c3d5058791f0706` |
 
-The prototype stories are excluded from the canonical Storybook. `Pages/Mobile-first Platform`
+The prototype stories are excluded from the canonical UI catalog. `Pages/Mobile-first Platform`
 and `Patterns/Mobile-first Platform` render the same production components used by the Next routes,
 with controlled real-data-shaped states. Product behaviour continues to follow issue #271 rather
 than the preserved prototype fixtures: there is no Continue/history block, and Home is ordered as

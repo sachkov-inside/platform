@@ -439,7 +439,7 @@ only if the platform actually records views for the same population.
 18. Fewer cards and borders: tables sit on the page surface; cards only for real context changes;
     one dark primary button per view; orange for focus/accent, not for every badge.
 19. Status chips: one shared map from domain status to label and tone, past tense, text plus tone.
-20. Validate the design in Storybook with real Russian lengths, empty data, one sale, and 1000 rows.
+20. Validate the design in UI catalog with real Russian lengths, empty data, one sale, and 1000 rows.
 
 ## Best references to look at
 

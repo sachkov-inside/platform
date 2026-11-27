@@ -5,7 +5,7 @@
 These captures show production presentation from `dd48b535f10e18146f7d39a8d05f4ba7be91f89f`
 (tree `d48fb3118104b2b683ed268699cca31c19fd2f98`). They do not claim verification of a later
 integration head. The production Next.js build succeeded on this source. No fixture module
-enters that build. Storybook imports the same public presentation modules.
+enters that build. UI catalog imports the same public presentation modules.
 
 Actual independent risk/participation, Standards/Spec dispositions and security applicability:
 [#1568 checkpoint](https://github.com/sachkov-inside/platform/issues/1568#issuecomment-6272090715).
@@ -20,9 +20,9 @@ Production visual approval remains pending. Prototype approval alone does not ap
 | Confirmed hero | [Capture](live-confirmed-hero-desktop.png) | [Capture](live-confirmed-hero-mobile.png) |
 | Confirmed lower action | [Capture](live-confirmed-lower-desktop.png) | [Capture](live-confirmed-lower-mobile.png) |
 | Owner demand from real API/DB | [Capture](live-demand-component-desktop.png) | [Capture](live-demand-component-mobile.png) |
-| Storybook representative demand | [Capture](storybook-demand-component-desktop.png) | [Capture](storybook-demand-component-mobile.png) |
+| UI catalog representative demand | [Capture](ui-catalog-demand-component-desktop.png) | [Capture](ui-catalog-demand-component-mobile.png) |
 
-PNG files are direct, unmodified Playwright locator captures. The mobile Storybook capture
+PNG files are direct, unmodified Playwright locator captures. The mobile UI catalog capture
 includes the incumbent fixed authoring navigation at its lower edge. Production mobile demand
 is also supplied separately. `capture-metadata.json` binds source, viewports and SHA-256 digests.
 Reduced motion stabilizes existing course animations. Every capture asserts document
@@ -64,7 +64,7 @@ real owner Account, production data, outbound notification or payment was used.
 - Nest HTTP boundary: 2/2, including AccountGuard/CurrentAccount, strict actor input,
   anonymous/private authorization and owner report counts.
 - Auth/BFF/intent module suite: 22/22; lifecycle tests also passed independently.
-- Course/report Storybook interactions: 26/26 on the implementation; subsequent fixes affect
+- Course/report UI catalog interactions: 26/26 on the implementation; subsequent fixes affect
   the production lifecycle adapter and test isolation, not these presentation stories.
 - Web typecheck, lint, docs contract and Web/Backend architecture plus negative guardrails pass.
 - Production Web build passes. Independent Standards and Spec reviews have no remaining
@@ -82,11 +82,11 @@ Worktree: `/Users/dev/orca/workspaces/inside-platform/ai-waitlist-implementation
 All URLs below are local to the owner's Mac. They are review resources, not publication.
 
 - Production guest route: http://localhost:6019/products/ai-engineering?utm_source=youtube
-- Storybook course: http://localhost:6018/?path=/story/pages-product-ai-engineering--waitlist-guest
-- Storybook report: http://localhost:6018/?path=/story/pages-authoring-sales-funnel-report--waitlist-demand
+- UI catalog course: http://localhost:6018/?path=/story/pages-product-ai-engineering--waitlist-guest
+- UI catalog report: http://localhost:6018/?path=/story/pages-authoring-sales-funnel-report--waitlist-demand
 - Production report: `/authoring/sales-funnel`, authenticated synthetic owner session only.
 
-Listeners at capture: Storybook PID `20245` on `6018`, production Web PID `89062` on `6019`,
+Listeners at capture: UI catalog PID `20245` on `6018`, production Web PID `89062` on `6019`,
 API/launcher PID `88400` on `6020`. The launcher owns a disposable Testcontainers database
 and synthetic identity provider. It does not use the shared Compose stand. The accepted proof
 on port `6017` and its PID `71783` remain untouched.
@@ -99,5 +99,5 @@ source with `WAITLIST_PROOF_PRODUCTION=1 WAITLIST_PROOF_SKIP_BUILD=1`.
 
 Keep previews while visual review is pending. To stop them, first verify PID, command and worktree.
 Send SIGTERM to this API/launcher PID; its handler closes its Web child, identity provider,
-Prisma, database and owned temporary `apps/web/release-identity.json`. Stop only this Storybook
+Prisma, database and owned temporary `apps/web/release-identity.json`. Stop only this UI catalog
 PID separately. Never stop a listener just because it occupies a familiar port.

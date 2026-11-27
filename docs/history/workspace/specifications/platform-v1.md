@@ -76,7 +76,7 @@ Exact dependency versions, physical schema, package paths, deploy scripts и run
 - production environments, deployment, release/rollback, capacity, domains, monitoring, secrets,
   backup и recovery — они получат отдельную specification перед реальным release;
 - final visual language, information design, typography, palette, motion и component/UI foundation
-  вне owner-controlled lane Platform #44–#46; Storybook внутри существующего `apps/web` разрешён
+  вне owner-controlled lane Platform #44–#46; UI catalog внутри существующего `apps/web` разрешён
   только как development laboratory, а не как отдельный production frontend.
 
 Этапы ниже доводят v1 до feature-complete candidate в согласованной тестовой среде, но не объявляют
@@ -160,7 +160,7 @@ composition, backend connection seam и временный functional shell, к�
 component system. Owner-controlled UI lane идёт параллельно headless/backend работе:
 [#44](https://github.com/sachkov-inside/platform/issues/44) синхронизирует local contract,
 [#45](https://github.com/sachkov-inside/platform/issues/45) создаёт
-Storybook laboratory, bounded tokens/components и typed representative fixtures, а
+UI catalog laboratory, bounded tokens/components и typed representative fixtures, а
 [#46](https://github.com/sachkov-inside/platform/issues/46) применяет принятую foundation к
 production shell. Laboratory — внутренний mergeable development surface, а не второй app или
 deployable. Stories используют те же typed presentation contracts, что production adapters, но не
@@ -483,12 +483,12 @@ Stage 1, в отдельном worktree, и не блокирует headless/bac
 Результат:
 
 - #44 синхронизирует repository-local documents и live frontend contracts;
-- #45 создаёт development-only Storybook внутри существующего `apps/web`, semantic tokens,
+- #45 создаёт development-only UI catalog внутри существующего `apps/web`, semantic tokens,
   bounded components и representative stories на typed presentation contracts;
 - fixtures покрывают нужные loading/empty/error/content/access/responsive states, но не реализуют
   fake API/client, business rules, SQL или alternate content model;
 - #46 заменяет временную visual заглушку shell #36 на owner-approved tokens/components; production
-  bundle не включает Storybook runtime или fixtures;
+  bundle не включает UI catalog runtime или fixtures;
 - exact initial brief, rendered mobile/desktop evidence, visual/component GO и merge GO остаются
   owner gates #45/#46. Broad speculative catalog и отдельное frontend application запрещены.
 
@@ -509,7 +509,7 @@ data path. Exact integration dependencies заданы только в разд�
   Library/search/Topic/Series surfaces.
 
 Server/application adapters маппят реальные #30/#31/#28 outcomes в принятые presentation
-contracts; Storybook fixtures не импортируются в runtime routes. Каждый surface сохраняет
+contracts; UI catalog fixtures не импортируются в runtime routes. Каждый surface сохраняет
 mobile/desktop visual, accessibility и merge owner gates.
 
 Exit: reader, editor/Preview и Library/search работают в одном `apps/web`, используют canonical
@@ -593,7 +593,7 @@ flowchart TD
     F --> EDITOR[Platform #38: editor + exact Preview]
     F --> DISCOVERY[Platform #39: Library + search UI]
 
-    SYNC[Platform #44: sync UI laboratory contract] --> LAB[Platform #45: Storybook + UI foundation]
+    SYNC[Platform #44: sync UI laboratory contract] --> LAB[Platform #45: UI catalog + UI foundation]
     LAB --> SHELL[Platform #46: production shell adoption]
     SHELL --> READER
     SHELL --> EDITOR
@@ -641,8 +641,8 @@ Stage 4 candidate.
 
 | Decision | Нужна к этапу | Default/recommendation | Если не принято |
 |---|---|---|---|
-| #45 Storybook/reference/component/token brief и visual/component GO | UI laboratory | bounded set из representative compositions на typed presentation contracts | UI adoption/integration blocked; backend не blocked |
-| #46 rendered shell adoption | production frontend shell | заменить visual заглушку #36 без Storybook runtime/fixtures | Stage 2 integration blocked; backend не blocked |
+| #45 ui-catalog/reference/component/token brief и visual/component GO | UI laboratory | bounded set из representative compositions на typed presentation contracts | UI adoption/integration blocked; backend не blocked |
+| #46 rendered shell adoption | production frontend shell | заменить visual заглушку #36 без UI catalog runtime/fixtures | Stage 2 integration blocked; backend не blocked |
 | Rendered surfaces #37–#39 | Stage 2 integration | approved components + real application interfaces | reuse следующими surfaces blocked |
 | Identity UX: email code/password, redirect/inline, Yandex и OIDC/M2M horizon | Platform #49 proof | начать с branded redirect + email code; Better Auth fallback | #49 production code blocked |
 | Identity link/unlink/recovery authority | Platform #49/#52 | explicit verification; audited owner recovery без email-only merge | linking/convergence blocked |

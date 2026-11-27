@@ -11,12 +11,12 @@ The Material links back to the first Task. The package declares only `task-c-v2`
 
 ## Interface evidence
 
-The page reuses the accepted Product Task surface and the Reader document renderer. Storybook and
+The page reuses the accepted Product Task surface and the Reader document renderer. UI catalog and
 production import the same modules. The local advice uses native `details`/`summary`; acceptable
 agent evidence does not enter the format c reader response.
 
-- [Storybook, desktop width 1440](task-c-storybook-desktop.png).
-- [Storybook, mobile width 390](task-c-storybook-mobile.png).
+- [UI catalog, desktop width 1440](task-c-ui-catalog-desktop.png).
+- [UI catalog, mobile width 390](task-c-ui-catalog-mobile.png).
 
 Desktop capture expands the accepted shell's scroll container to include the complete page.
 Browser verification opened and closed advice with Enter, loaded the diagram, and found no mobile

@@ -1,11 +1,11 @@
 # Гостевая главная: перенос #380 в Platform #416
 
-Принятый proof: `1af7b612`. Production-owned Home и его Storybook используют одну реализацию.
+Принятый proof: `1af7b612`. Production-owned Home и его UI catalog используют одну реализацию.
 Снимки сняты 8 сентября 2026 в Chromium: desktop 1440 × 900, mobile 390 × 900 CSS px.
 
-- [Storybook desktop](storybook-desktop.png), [mobile](storybook-mobile.png).
+- [UI catalog desktop](ui-catalog-desktop.png), [mobile](ui-catalog-mobile.png).
 - [Настоящий Next route desktop](route-desktop.png), [mobile](route-mobile.png).
-- [17 сценариев Storybook](storybook-metrics.json): 320–3840 CSS px, DPR 1/2, текст 200%, длинная серия.
+- [17 сценариев UI catalog](ui-catalog-metrics.json): 320–3840 CSS px, DPR 1/2, текст 200%, длинная серия.
 - [10 сценариев настоящего route](route-metrics.json): 320–3840 CSS px, DPR 1/2, текст 200%.
 
 Матрицы подтверждают отсутствие горизонтального переполнения, центрирование и ограничение ширины,
@@ -21,10 +21,10 @@
 Проверены 8 новых full-stack сценариев (desktop/mobile): membership-предложение, настоящая серия,
 прокрутка планшета и текст 200%. Дополнительно прошли 6 существующих сценариев Home, открытого
 Reader и закрытого teaser. Axe не обнаружил serious/critical нарушений на настоящей Home.
-Storybook покрывает guest, member, unknown, empty, unavailable, loading, mobile и длинную серию.
+UI catalog покрывает guest, member, unknown, empty, unavailable, loading, mobile и длинную серию.
 
 Полный `pnpm check` прошёл на закреплённом Node 24.19.0: 422 backend tests,
-508 web tests (1 предусмотренный skip), 52 e2e (14 платформенных skip), сборки приложения и Storybook.
+508 web tests (1 предусмотренный skip), 52 e2e (14 платформенных skip), сборки приложения и UI catalog.
 После последней локальной коррекции reflow повторены responsive и full-stack проверки; текущий
 удалённый коммит и итог CI указаны в PR, чтобы не создавать второй источник статуса доставки.
 

@@ -22,7 +22,7 @@ There are no primary/optional roles or a second Reader path.
 
 The first mobile review caught unbounded video summaries making rows disproportionately tall.
 The final source limits them to three lines and gives the two demo videos concise, concrete
-summaries. Storybook verifies the rendered height against the three-line limit.
+summaries. UI catalog verifies the rendered height against the three-line limit.
 
 ## Current responsive evidence
 
@@ -36,7 +36,7 @@ Root independent visual inspection: desktop and mobile GO on `fe4c5f3`. All six 
 weight, labels are inside cards, and video summaries remain compact. The mobile full-page image
 shows the fixed shell at its initial viewport position; that is a full-page capture artifact.
 
-The production route and Storybook import the same implementation. Stories verify step labels
+The production route and UI catalog import the same implementation. Stories verify step labels
 inside the guide cards, equal marker appearance, line/marker alignment, summary height, literal
 HTML-like summary text and absence of horizontal overflow on desktop/mobile.
 

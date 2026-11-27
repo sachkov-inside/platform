@@ -10,7 +10,7 @@ the loading state is an overlay over that explicit content, so it does not guess
 Playwright checks the Series heading position for ready/empty/error refresh transitions. Removing
 an explicitly completed item changes the content intentionally.
 
-Validation: 32 responsive/axe/keyboard Playwright checks at 390×844 and 1440×1024; 12 Storybook
+Validation: 32 responsive/axe/keyboard Playwright checks at 390×844 and 1440×1024; 12 UI catalog
 interaction states. Keyboard checks use Tab/Space/Enter, including navigation after card removal.
 The screenshot corpus records the production-owned presentation; it is fixture proof, not live
 backend proof. Production evidence is delivered separately in #332.

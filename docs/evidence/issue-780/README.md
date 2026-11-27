@@ -1,6 +1,6 @@
 # Platform #780: оферта редакции 5 и сроки предложения до оплаты
 
-Production-owned поверхности в Storybook сняты при 1440×1024 и 390×844:
+Production-owned поверхности в UI catalog сняты при 1440×1024 и 390×844:
 
 - **оплата предложения курса** (`pages-guide-payment--ready`): «Материалы и общий чат — без
   ограничения срока», сопровождение на срок предложения, доли цены «Из них поровну», сводка
@@ -21,9 +21,9 @@ Agentation скрыт только для снимка и axe.
 Воспроизведение из корня checkout на pinned Node/pnpm:
 
 ```bash
-pnpm --filter @inside/web exec storybook dev --ci --no-open -p 3401
+pnpm --filter @inside/web exec ui-catalog dev --ci --no-open -p 3401
 # Во втором терминале; каталог вывода выбирается отдельно от сохранённых доказательств.
-STORYBOOK_URL=http://127.0.0.1:3401 node docs/evidence/issue-780/capture.mjs /tmp/platform780-evidence
+UI_CATALOG_URL=http://127.0.0.1:3401 node docs/evidence/issue-780/capture.mjs /tmp/platform780-evidence
 ```
 
 Это визуальное доказательство настоящих компонентов с fixture-данными, не реальные продажи,

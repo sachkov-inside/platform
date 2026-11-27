@@ -33,7 +33,7 @@
 | 9 | Разброс версий Node: platform 24.19.0, telegram 24.20.0, landing CI 22.23.1; последняя 24.x — 24.21.0 | Medium | S |
 | 10 | amqplib: platform `0.10.9` + `@types/amqplib`, telegram `2.0.1` (типы встроены) | Medium | M |
 | 11 | Управляемые harness workflows используют `actions/upload-artifact@v4`, а весь остальной CI — `v7.0.1` | Low | S |
-| 12 | Storybook в web рассинхронизирован: `storybook` 10.6.0 против `@storybook/*` 10.5.10 | Low | S |
+| 12 | UI catalog в web рассинхронизирован: `ui-catalog` 10.6.0 против `@ui-catalog/*` 10.5.10 | Low | S |
 | 13 | `packages/runtime-identity`: `.mjs` + рукописный `index.d.mts`, реализация против объявлений не проверяется | Low | S |
 | 14 | `openapi-typescript-codegen` 0.31.0 даёт классы с parameter properties и мешает `erasableSyntaxOnly` в web. По моим данным автор объявил проект неподдерживаемым и рекомендует `@hey-api/openapi-ts`; это нужно перепроверить | Low | M |
 
@@ -62,7 +62,7 @@
 | `@modelcontextprotocol/{server,node,client}` | 2.0.0 | 2.1.0 | minor | p/apps/backend |
 | `@nestjs/{common,core,platform-fastify,testing}` | 12.0.1 | 12.1.0 | minor | telegram |
 | `@playwright/test` | 1.62.1 | 1.63.0 | minor | p/apps/web |
-| `@storybook/{addon-a11y,addon-docs,addon-vitest,react-vite}` | 10.5.10 | 10.6.0 | minor | p/apps/web |
+| `@ui-catalog/{addon-a11y,addon-docs,addon-vitest,react-vite}` | 10.5.10 | 10.6.0 | minor | p/apps/web |
 | `@tanstack/react-query` | 5.102.8 | 5.103.2 | minor | p/apps/web |
 | `@tiptap/*` (7 пакетов) | 3.30.3 | 3.31.3 | minor | p/apps/web, p/pk/material-blocks |
 | `react`, `react-dom` | 19.2.8 | 19.3.0 | minor | p/apps/web, landing |
@@ -152,12 +152,12 @@ patch. Устаревших на момент обзора (deprecated) паке
 | amqplib 0.10 → 2.0 (platform) | Два файла: `notification-transport/rabbitmq.ts` и `worker.ts`. Точный список breaking changes не проверял. Практичный путь — повторить адаптер telegram (`src/adapters/amqp/notification-broker.ts`), который уже работает на 2.0.1. По памяти у notification-transport в CI есть нестабильные краш-тесты | Medium |
 | TS 6 → 7 (telegram) | Блокер: `typescript-eslint <6.1.0`. Сначала переносим линт на oxlint + tsgolint, потом поднимаем TS. `experimentalDecorators`/`emitDecoratorMetadata` в TS 7 работают: platform backend на Nest собирается на 7.0.2 | Medium |
 | TS 6 → 7 (landing) | Блокер: `@astrojs/check@0.9.10` peer `typescript ^5 \|\| ^6`. Остаёмся на 6.x, пока Astro не поддержит 7 | Low |
-| vitest 4 → 5 | 5.0.1 вышла 2026-09-15; engines `^22.12 \|\| ^24 \|\| >=26`. Breaking changes не изучал. Затронуты 5 пакетов плюс storybook addon-vitest и browser-режим web. Переводить одной волной во всех репозиториях | Medium (неизвестность) |
+| vitest 4 → 5 | 5.0.1 вышла 2026-09-15; engines `^22.12 \|\| ^24 \|\| >=26`. Breaking changes не изучал. Затронуты 5 пакетов плюс ui-catalog addon-vitest и browser-режим web. Переводить одной волной во всех репозиториях | Medium (неизвестность) |
 | dotenv 17 → 18 | Проще удалить (см. 1.4) | Low |
 | pnpm 11 → 12 | Не изучал. Возможны изменения формата lockfile и настроек `allowBuilds`/`minimumReleaseAge`. Отдельная задача после остальных | Medium (неизвестность) |
 | Node 24 → 26 | 26 станет LTS примерно в конце октября 2026. Тогда поднимать вместе с `@types/node@26`. До этого держать `@types/node` в линии 24.x, под рантайм | Low сейчас |
 | Prisma 7 → 8 | Пока RC (`8.0.0-rc.15`), ждать GA | — |
-| React 19.2 → 19.3 | Minor. Поднимать вместе с `@types/react*` 19.3, прогнать Storybook и e2e | Low |
+| React 19.2 → 19.3 | Minor. Поднимать вместе с `@types/react*` 19.3, прогнать UI catalog и e2e | Low |
 
 ## 2. Строгость TypeScript
 
@@ -508,13 +508,13 @@ Build-варианты перестают дублировать флаги.
 
 | Фаза | Что | Вместе с | Риск | Effort |
 |---|---|---|---|---|
-| **0. Гигиена версий** (сразу, после суточной выдержки) | Все patch/minor из 1.1: zod 4.6.5, tiptap 3.31.3, `@storybook/*` → 10.6.0 (синхронно со `storybook`), react/react-dom/@types 19.3.0, next 16.3.6, aws-sdk, pg-boss, undici, MCP 2.1.0, oxlint 1.85 + tsgolint 7.0.2002, fastify 5.12.5 в обоих репозиториях, telegram Nest 12.1.0, `@types/node` 24.13.6, tsx, prettier. Node 24.21.0 в `.node-version` обоих, Dockerfile (`24.21.0-alpine3.24` / `trixie-slim`) и landing CI. pnpm 11.27.1 во всех местах: `packageManager`, Dockerfile, telegram Dockerfile. Actions: pnpm/action-setup 6.1.0, build-push 7.4.0, setup-buildx 4.4.1. Go 1.27 + `go get -u` indirect. Для platform отдельно Nest 11.2.6 как страховка до фазы 2 | Один PR на репозиторий | Low | S |
+| **0. Гигиена версий** (сразу, после суточной выдержки) | Все patch/minor из 1.1: zod 4.6.5, tiptap 3.31.3, `@ui-catalog/*` → 10.6.0 (синхронно со `ui-catalog`), react/react-dom/@types 19.3.0, next 16.3.6, aws-sdk, pg-boss, undici, MCP 2.1.0, oxlint 1.85 + tsgolint 7.0.2002, fastify 5.12.5 в обоих репозиториях, telegram Nest 12.1.0, `@types/node` 24.13.6, tsx, prettier. Node 24.21.0 в `.node-version` обоих, Dockerfile (`24.21.0-alpine3.24` / `trixie-slim`) и landing CI. pnpm 11.27.1 во всех местах: `packageManager`, Dockerfile, telegram Dockerfile. Actions: pnpm/action-setup 6.1.0, build-push 7.4.0, setup-buildx 4.4.1. Go 1.27 + `go get -u` indirect. Для platform отдельно Nest 11.2.6 как страховка до фазы 2 | Один PR на репозиторий | Low | S |
 | **1. Бесплатная строгость** | Общий `tsconfig.base.json` + пресеты (2.3). Включить `verbatimModuleSyntax`, `isolatedModules`, `noUnused*` (1 правка), `allowUnreachableCode:false`, `allowUnusedLabels:false`. В пакетах `erasableSyntaxOnly` + `isolatedDeclarations` (33 правки). В `.oxlintrc.json` расширить type-aware override на `packages/**`. Landing → `astro/tsconfigs/strictest`. `upload-artifact@v4→v7.0.1` в каноническом пакете harness | — | Low | S |
 | **2. Nest 12 + amqplib 2 в platform** | `@nestjs/{common,core,platform-fastify}` 12.1.x, `@nestjs/swagger` 12.0.2, `@nestjs/config` 12.0.1, fastify ровно как в platform-fastify. `peerDependencyRules.allowedVersions: { "@nestjs/swagger>typescript": "7" }` в `pnpm-workspace.yaml`. amqplib 2.0.1 по образцу telegram, удалить `@types/amqplib`. Прогнать `check:full`, integration и `smoke:fullstack`; по памяти проекта полный прогон эксклюзивный | Nest и amqplib — отдельные PR; swagger обязательно вместе с core | High (swagger peer, OpenAPI-генерация `api:check`) | L |
 | **3. Telegram: линт → oxlint, затем TS 7** | Шаг 1: oxlint + tsgolint с базой, исправить non-null (317) и плавающие промисы. Шаг 2: tsconfig на base (`exactOptionalPropertyTypes`, `noImplicitReturns`). Шаг 3: TypeScript 7.0.2. Удалить `dotenv` → `process.loadEnvFile()` / `util.parseEnv` | Шаги строго по очереди | Medium | M–L |
 | **4. Landing: выравнивание** | pnpm + exact pins, Node 24 (engines `24.x`), oxlint, prettier. TS остаётся 6.x, пока `@astrojs/check` не поддержит 7 | — | Low | S |
 | **5. Строгий линт и хвосты** | Правила из 3.2: `no-unnecessary-condition` (68), `prefer-optional-chain` (24), `require-array-sort-compare` (5), `no-unsafe-type-assertion` в web (72), затем `strict-boolean-expressions` (277). Codemod под `noPropertyAccessFromIndexSignature` (743). Замена `openapi-typescript-codegen` → включить `erasableSyntaxOnly` в web. `.mjs` → `.ts` или `checkJs` (~15k LOC). `runtime-identity` в TS-пакет. Форматтер в platform | По одному правилу на PR | Low | M–L |
-| **6. Мажоры с неизвестностью** | vitest 5 во всех репозиториях одной волной (вместе с `@vitest/browser*` и `@storybook/addon-vitest`). pnpm 12. Сначала прочитать migration guides | vitest — везде одновременно | Medium | M |
+| **6. Мажоры с неизвестностью** | vitest 5 во всех репозиториях одной волной (вместе с `@vitest/browser*` и `@ui-catalog/addon-vitest`). pnpm 12. Сначала прочитать migration guides | vitest – везде одновременно | Medium | M |
 | **7. По календарю** | Node 26 LTS (конец октября 2026) + `@types/node@26` + образы. Prisma 8 после GA. TS 7 в landing, когда появится поддержка в Astro | — | Medium | M |
 
 Порядок объясняется так. Фаза 0 снижает разрыв и делает следующие диффы маленькими. Фаза 1 почти

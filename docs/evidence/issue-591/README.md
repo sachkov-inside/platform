@@ -1,6 +1,6 @@
 # #591 — состояния авторского списка материалов берут каркас у страницы
 
-Снимки и измерения сняты в Storybook, внутри настоящей оболочки редактора (`AuthoringShell`).
+Снимки и измерения сняты в UI catalog, внутри настоящей оболочки редактора (`AuthoringShell`).
 Истории: «Загрузка», «Список · широкий экран» и «Сервис недоступен» из
 `Страницы/Редактор/Материалы`. Окно 1440 × 900 и 390 × 844. Все числа взяты из
 `measurements.json`: в `before` — `origin/main` до правки, в `after` — эта ветка.
@@ -68,7 +68,7 @@
 в `pnpm check` и CI. Команда прогона:
 
 ```
-pnpm --filter @inside/web exec vitest run --config vitest.config.mts --project=storybook \
+pnpm --filter @inside/web exec vitest run --config vitest.config.mts --project=ui-catalog \
   src/workshop/authoring-materials.stories.tsx
 ```
 

@@ -7,7 +7,7 @@ const { chromium, expect } = requireWeb("@playwright/test");
 const AxeBuilder = requireWeb("@axe-core/playwright").default;
 
 /**
- * Снимки поверхностей Platform #658 в Storybook: настоящие production-модули с fixture-данными.
+ * Снимки поверхностей Platform #658 в ui-catalog: настоящие production-модули с fixture-данными.
  * Для каждого кадра записывается переполнение по горизонтали, serious/critical нарушения axe и то,
  * есть ли на поверхности отметки (checkbox) — путь A принимает условия только кнопкой.
  */
@@ -27,7 +27,7 @@ let browser;
   const out = process.argv[2];
   if (!out) throw new Error("Pass an evidence output directory");
   fs.mkdirSync(out, { recursive: true });
-  const base = process.env.STORYBOOK_URL ?? "http://127.0.0.1:3411";
+  const base = process.env.UI_CATALOG_URL ?? "http://127.0.0.1:3411";
   browser = await chromium.launch({ headless: true });
   const results = [];
   for (const [viewport, width, height] of [["desktop", 1440, 1024], ["mobile", 390, 844]]) {

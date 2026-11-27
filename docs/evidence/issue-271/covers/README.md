@@ -1,8 +1,8 @@
 # Home cover study — 2026-09-05
 
-Proposed visual direction for #271, pending owner visual GO. Generated with the built-in imagegen tool. Optimized WebP files are served by Storybook under the existing `/api/content-covers/<coverId>/960` shape; live routes receive separately uploaded covers through the normal authoring lifecycle. These are review assets, not production fallback artwork or a new data source.
+Proposed visual direction for #271, pending owner visual GO. Generated with the built-in imagegen tool. Optimized WebP files are served by UI catalog under the existing `/api/content-covers/<coverId>/960` shape; live routes receive separately uploaded covers through the normal authoring lifecycle. These are review assets, not production fallback artwork or a new data source.
 
-The files retain the numeric rendition path so Storybook can use the unchanged production ContentCoverImage. Each image is 960 px wide. Square topics/guides and 16:9 video scenes share ceramic forms, graphite details and a restrained orange accent. Titles stay in HTML, outside the image. A topic has a stable emblem; a material has a subject-specific composition. For later covers, reuse the art direction and an accepted reference image, change the subject, then inspect the thumbnail and both viewport sizes.
+The files retain the numeric rendition path so UI catalog can use the unchanged production ContentCoverImage. Each image is 960 px wide. Square topics/guides and 16:9 video scenes share ceramic forms, graphite details and a restrained orange accent. Titles stay in HTML, outside the image. A topic has a stable emblem; a material has a subject-specific composition. For later covers, reuse the art direction and an accepted reference image, change the subject, then inspect the thumbnail and both viewport sizes.
 
 | Asset | File |
 | --- | --- |

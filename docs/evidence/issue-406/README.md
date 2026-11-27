@@ -9,4 +9,4 @@ Identity, почта и legal fixtures синтетические. Скрипт 
 не доказывает Logto/SMTP production-доставку, оплату или принятие реальных юридических текстов.
 Final visual integration/owner visual GO формы и checkout остаются в #411.
 
-`storybook-code-*` — та же production-owned форма в Storybook на presentation fixtures; Agentation включён.
+`ui-catalog-code-*` – та же production-owned форма в UI catalog на presentation fixtures; Agentation включён.

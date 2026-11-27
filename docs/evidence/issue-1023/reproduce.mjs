@@ -3,11 +3,14 @@ import { once } from 'node:events';
 import { writeFileSync, createWriteStream, mkdirSync } from 'node:fs';
 import { setTimeout as delay } from 'node:timers/promises';
 import path from 'node:path';
+// Run against the historical checkout linked from README.md.
+const entry = process.env.UI_CATALOG_CLI;
+if (!entry) throw Error('Set UI_CATALOG_CLI to the historical CLI entry point');
 const root = process.cwd();
 const artifacts = path.join(root, 'node_modules/.cache/issue-1023');
 mkdirSync(artifacts, { recursive: true });
-const log = createWriteStream(path.join(artifacts, 'storybook.log'));
-const child = spawn(process.execPath, ['--inspect=127.0.0.1:6116', '--expose-gc', 'node_modules/storybook/dist/bin/dispatcher.js', 'dev', '-p', '6106', '--ci', '--no-open'], { cwd: path.join(root, 'apps/web'), env: { ...process.env, STORYBOOK_DISABLE_TELEMETRY: '1' }, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
+const log = createWriteStream(path.join(artifacts, 'ui-catalog.log'));
+const child = spawn(process.execPath, ['--inspect=127.0.0.1:6116', '--expose-gc', path.resolve(root, entry), 'dev', '-p', '6106', '--ci', '--no-open'], { cwd: path.join(root, 'apps/web'), env: { ...process.env }, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
 child.stdout.pipe(log); child.stderr.pipe(log);
 console.log(JSON.stringify({ pid: child.pid, artifacts }));
 let socket;
@@ -59,19 +62,19 @@ async function waitForProcessGroupExit(budgetMs) {
 
 try {
   for (let attempt = 0; attempt < 120; attempt++) {
-    if (child.exitCode !== null || child.signalCode !== null) throw Error('Storybook exited before readiness');
+    if (child.exitCode !== null || child.signalCode !== null) throw Error('ui-catalog exited before readiness');
     try { const response = await fetch('http://127.0.0.1:6116/json/list'); inspectorUrl = (await response.json())[0].webSocketDebuggerUrl; break; } catch { await delay(500); }
   }
   socket = new WebSocket(inspectorUrl);
   await new Promise(resolve => socket.addEventListener('open', resolve, { once: true }));
-  socket.addEventListener('close', () => { for (const entry of pending.values()) entry.reject(Error('Inspector closed: Storybook crashed')); pending.clear(); });
+  socket.addEventListener('close', () => { for (const entry of pending.values()) entry.reject(Error('Inspector closed: ui-catalog crashed')); pending.clear(); });
   socket.addEventListener('message', event => {
     const data = JSON.parse(event.data); const entry = pending.get(data.id);
     if (entry) { pending.delete(data.id); if (data.error) entry.reject(Error(JSON.stringify(data.error))); else entry.resolve(data); }
   });
   await inspect('HeapProfiler.startSampling', { samplingInterval: 65536 });
   for (let attempt = 0; attempt < 120; attempt++) {
-    if (child.exitCode !== null || child.signalCode !== null) throw Error('Storybook exited before readiness');
+    if (child.exitCode !== null || child.signalCode !== null) throw Error('ui-catalog exited before readiness');
     try { const response = await fetch('http://localhost:6106/index.json'); if (response.ok) { const index = await response.json(); console.log(JSON.stringify({ stories: Object.values(index.entries).filter(entry => entry.type === 'story').length })); break; } } catch { /* The server may not have started, or cleanup may already have ended the process. */ }
     await delay(1000);
   }
@@ -89,10 +92,10 @@ try {
   }
   await inspect('Runtime.evaluate', { expression: 'global.gc()' });
   await sample('after-gc');
-  if (child.exitCode !== null || child.signalCode !== null) throw Error('Storybook exited after test-run');
+  if (child.exitCode !== null || child.signalCode !== null) throw Error('ui-catalog exited after test-run');
   const response = await fetch('http://localhost:6106/index.json');
-  if (!response.ok) throw Error('Storybook failed health check after test-run');
-  console.log('PASS: full MCP run returned and Storybook still serves index');
+  if (!response.ok) throw Error('ui-catalog failed health check after test-run');
+  console.log('PASS: full MCP run returned and ui-catalog still serves index');
   socket.close(); socket = undefined;
   const parentExited = once(child, 'exit', { signal: AbortSignal.timeout(10000) });
   process.kill(child.pid, process.env.PROBE_PARENT_SIGNAL || 'SIGTERM');
@@ -100,7 +103,7 @@ try {
   const remaining = await waitForProcessGroupExit(10000);
   writeFileSync(path.join(artifacts, 'children-after-parent-exit.txt'), remaining.join('\n'));
   console.log(JSON.stringify({ remainingChildren: remaining }));
-  if (remaining.length > 0) throw Error('Descendants outlived Storybook parent: ' + remaining.join('\n'));
+  if (remaining.length > 0) throw Error('Descendants outlived ui-catalog parent: ' + remaining.join('\n'));
 } finally {
   clearInterval(timer);
   if (socket) socket.close();

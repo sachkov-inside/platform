@@ -12,7 +12,7 @@ Platform уже имеет хороший **архитектурный фунд�
 - Backend — не заготовка: это модульный NestJS application с Material domain/application слоями,
   Kysely/PostgreSQL, migrations, real integration tests и архитектурными guardrails.
 - Frontend — не «отсутствует», но пока является foundation: Next.js App Router, FSD-compatible
-  layout, accepted Storybook UI, accessibility/E2E tooling и shell. Production pages пока не
+  layout, accepted UI catalog UI, accessibility/E2E tooling и shell. Production pages пока не
   загружают product data и не реализуют законченные user journeys.
 - Локальная разработка документирована, однако обычный `pnpm dev:api` сейчас падает на реальном
   `GET /health`. Green repository checks этого не обнаруживают.
@@ -48,7 +48,7 @@ pnpm smoke:health
 ```
 
 `pnpm check` подтвердил lint, strict typecheck, backend architecture guardrails, 41 backend tests,
-27 web/Storybook tests, 26 Playwright desktop/mobile scenarios, production builds и Storybook build.
+27 web/ui-catalog tests, 26 Playwright desktop/mobile scenarios, production builds и UI catalog build.
 Real PostgreSQL integration suite подтвердила 22 scenarios в 5 files. In-process health smoke с
 Compose PostgreSQL прошёл 2/2.
 
@@ -83,12 +83,12 @@ blind spot.
 | Backend architecture | Готова | Nest modular monolith, deep Materials module, application interfaces, Kysely, ADR, guardrails | Публичные product transports для Reader/Library/Authoring и transport contract |
 | Backend persistence/tests | Готова | Migrations, generated types, Testcontainers, race/idempotency/rollback coverage | Включить правильный real-DB gate в canonical delivery path |
 | Backend local runtime | Блокер | Config lifecycle, Compose, in-process smoke | Починить `pnpm dev:api`; внешний smoke именно живого process |
-| Frontend foundation | Готова | Next 16, React 19, TypeScript 6, FSD-compatible layout, Storybook, accepted UI, Playwright/axe | Закрепить server-only/public-interface rules на первом реальном slice |
+| Frontend foundation | Готова | Next 16, React 19, TypeScript 6, FSD-compatible layout, UI catalog, accepted UI, Playwright/axe | Закрепить server-only/public-interface rules на первом реальном slice |
 | Production frontend | Не готова | Shell и статические `/`, `/library`, `/map` routes | Реальные feature routes, adapters, SSR data, route states, presentation models |
 | Local onboarding | Частично | `.node-version`, exact pnpm, `.env.example`, runbook, Compose | One-command doctor/bootstrap, deterministic seed, full-stack smoke, ясное владение Compose |
-| CI | Частично | Pinned actions, Node pin, PostgreSQL service, lint/type/test/build/smoke | Guardrails, Playwright E2E, Storybook build, integration suite и единый canonical gate |
+| CI | Частично | Pinned actions, Node pin, PostgreSQL service, lint/type/test/build/smoke | Guardrails, Playwright E2E, UI catalog build, integration suite и единый canonical gate |
 | Observability | Не готова к production | Nest default logger, bootstrap error output, application correlation IDs | Request context propagation, structured/redacted logs, correlation proof, metrics/tracing decision |
-| AI-first navigation | Достаточно сейчас | AGENTS/docs/ADR, capability indexes, `rg`, compiler, guardrails, Storybook MCP | Измерять navigation failures; optional tooling только по доказанной проблеме |
+| AI-first navigation | Достаточно сейчас | AGENTS/docs/ADR, capability indexes, `rg`, compiler, guardrails, UI catalog MCP | Измерять navigation failures; optional tooling только по доказанной проблеме |
 
 ### Observability
 
@@ -131,8 +131,8 @@ Responsibilities разделены так:
 - `app/materials/[slug]` владеет route files: `page`, `loading`, `error`, `not-found`.
 - Client Component появляется только для реального browser interaction. Initial Reader content
   server-renders без client fetch и без внутреннего Next Route Handler round trip.
-- Storybook и production route импортируют одну accepted presentation implementation. Fixtures
-  остаются только в Storybook graph.
+- UI catalog и production route импортируют одну accepted presentation implementation. Fixtures
+  остаются только в UI catalog graph.
 
 Подробный source-backed вариант структуры, caching, forms и test pyramid находится в
 [`frontend-architecture-sources.md`](frontend-architecture-sources.md).
@@ -205,7 +205,7 @@ Material из PostgreSQL в принятом responsive UI.
 
 - Nest HTTP endpoint поверх `PublishedMaterialReader`;
 - runtime-checked server-only Next adapter;
-- SSR Reader route и accepted Storybook presentation implementation;
+- SSR Reader route и accepted UI catalog presentation implementation;
 - loading, not-found, unavailable/access и unexpected-error states;
 - deterministic representative Material seed/fixture boundary;
 - real PostgreSQL + production-like Next/Nest Playwright proof;

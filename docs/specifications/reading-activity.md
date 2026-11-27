@@ -152,8 +152,8 @@ Module case и forbidden cross-schema fixture при появлении схем
 Visual proof child согласует состояния. Integration child соединяет реальный transport,
 presentation и invalidation, проверяет mobile/desktop, reload, два browser contexts, разные форматы
 и маршруты, non-member/member/expired/anonymous; получает production visual GO. Все children
-проходят применимые pnpm checks и Standards/Spec review. Done означает пользовательскую вертикаль,
-а не только таблицы или Storybook. Merge/deploy отдельно.
+проходят применимые pnpm checks и Standards/Spec review. Приёмка охватывает полный пользовательский сценарий.
+Слияние и развёртывание идут отдельно.
 
 ## Задачи поставки
 

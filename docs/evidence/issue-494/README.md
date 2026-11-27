@@ -27,7 +27,7 @@ Playwright: desktop 1440 и mobile 390. Высота окна увеличена
 | `reminder-modal-desktop.png` | Окно подключения поверх текущей страницы: коротко сказано, что даёт бот |
 
 Состояния разделов без живого сервера — загрузка, завершённая сессия, недоступность, пустые
-списки, отменённая и завершённая подписка, запрещённая карта — проверяются в Storybook:
+списки, отменённая и завершённая подписка, запрещённая карта – проверяются в ui-catalog:
 `Pages/Account/Profile`, `Pages/Account/Access`, `Pages/Account/Telegram connection`,
 `Pages/Account/Purchases`, `Pages/Account/Subscription`, `Pages/Account/Notifications`,
 `Pages/Account/Section navigation`.

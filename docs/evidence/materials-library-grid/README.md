@@ -3,15 +3,15 @@
 Реализация принятого прототипа A2 (#1832). Снимки сделаны с кода PR #1834 на коммите `c88455279`
 (изменён только тест `course-payload.spec.ts` после снимков).
 
-## Storybook
+## UI catalog
 
 `Pages/Product/Programme` → `MaterialLibrary` и `MaterialLibraryMobile`: обложки и узоры формата,
 две главы, три материала вне программы (один закрыт), два изученных урока, зафиксированная дата
 показа 2026-10-29.
 
-- `storybook-new-order-desktop.png`, `storybook-new-order-phone.png`: порядок «Сначала новые»,
+- `ui-catalog-new-order-desktop.png`, `ui-catalog-new-order-phone.png`: порядок «Сначала новые»,
   группы «Новое», «Октябрь 2026 г.», «Сентябрь 2026 г.».
-- `storybook-programme-order-desktop.png`, `storybook-programme-order-phone.png`: порядок
+- `ui-catalog-programme-order-desktop.png`, `ui-catalog-programme-order-phone.png`: порядок
   «По программе», главы и «Вне программы», все материалы раскрыты.
 
 ## Живой маршрут

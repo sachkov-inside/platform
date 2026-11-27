@@ -23,23 +23,23 @@ The live application uses a separate local PostgreSQL review database with the c
 and a copy of the earlier review data. Four Topics, two Playlists and the seeded Materials were
 populated through the existing authoring interfaces. Covers were uploaded through ContentCovers,
 processed into responsive WebP renditions, and stored in the local Object Storage. No production
-database was changed. The exact same production UI renders both live routes and Storybook.
+database was changed. The exact same production UI renders both live routes and UI catalog.
 
 `Pages/Mobile-first Platform/Home/Illustrated Catalog` uses controlled presentation fixtures and
-the checked-in image assets through Storybook static delivery. It does not depend on the local
+the checked-in image assets through UI catalog static delivery. It does not depend on the local
 database, backend process, credentials, or machine paths. The earlier fallback and unavailable
 stories remain available. Counts and ordering can differ between the fixture and the live data.
 
 ## Exact viewport evidence
 
-Captured from the production-owned Next routes in the local development runtime and from Storybook.
+Captured from the production-owned Next routes in the local development runtime and from UI catalog.
 Desktop is 1440 × 1024; mobile is 390 × 844. Animations and developer overlays are hidden for capture.
 Images are loaded and decoded before capture. Desktop content scrolls inside the application shell.
 
 | Surface | Desktop | Mobile |
 | --- | --- | --- |
 | Home `/` | [Top](home-desktop-viewport.png), [Guides](home-desktop-home-guides.png), [Notes](home-desktop-home-notes.png) | [Top](home-mobile-viewport.png), [Guides](home-mobile-home-guides.png), [Notes](home-mobile-home-notes.png) |
-| Home Storybook | [Top](storybook-home-desktop-viewport.png), [Guides](storybook-home-desktop-home-guides.png) | [Top](storybook-home-mobile-viewport.png), [Guides](storybook-home-mobile-home-guides.png) |
+| Home UI catalog | [Top](ui-catalog-home-desktop-viewport.png), [Guides](ui-catalog-home-desktop-home-guides.png) | [Top](ui-catalog-home-mobile-viewport.png), [Guides](ui-catalog-home-mobile-home-guides.png) |
 | Library `/library` | [View](library-desktop-viewport.png) | [View](library-mobile-viewport.png) |
 | Topic `/topics/platform` | [View](topic-desktop-viewport.png) | [View](topic-mobile-viewport.png) |
 | Playlist `/series/platform-inside` | [View](playlist-desktop-viewport.png) | [View](playlist-mobile-viewport.png) |
@@ -51,10 +51,10 @@ Images are loaded and decoded before capture. Desktop content scrolls inside the
 - The initial illustrated-catalog iteration passed all `pnpm check` stages. Its first run reached E2E but could not start a second Next dev
   process in the same worktree; after stopping the review process, E2E and the remaining build
   stages passed, then the review application was restarted.
-- Tooling: 74 tests; backend modules: 294 tests; Web module/Storybook: 330 tests.
+- Tooling: 74 tests; backend modules: 294 tests; Web module/ui-catalog: 330 tests.
 - Browser E2E: 39 passed, 3 expected skipped. Web/backend builds, standalone configuration tests,
-  and Storybook build passed.
-- The Home Storybook test verifies the generated cover loads and a two-material Playlist has
+  and UI catalog build passed.
+- The Home UI catalog test verifies the generated cover loads and a two-material Playlist has
   exactly two cover previews.
 - Responsive route capture checks image loading, horizontal overflow, browser errors and axe
   on the six live routes and the illustrated Home story in both viewport sizes.

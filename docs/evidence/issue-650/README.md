@@ -3,7 +3,7 @@
 Изменённая реализация: `fd481f8c537cd31c1181f28534c61f348f9d34d2`, база
 `a6df3438d22083748da781a259b1a661b4d09e3d`.
 
-Три production-owned поверхности в Storybook проверены при 1440×1024 и 390×844:
+Три production-owned поверхности в UI catalog проверены при 1440×1024 и 390×844:
 
 - **оплата** (`pages-guide-payment--ready`): состав, сроки «Материалы и общий чат — 2 года
   гарантированно», «Сопровождение автора — 6 месяцев», цена с долями «Из них поровну», блок
@@ -26,9 +26,9 @@ serious/critical нарушений axe WCAG2/2.1 A/AA и пустой спис�
 Воспроизведение из корня checkout на pinned Node/pnpm:
 
 ```bash
-pnpm --filter @inside/web exec storybook dev --ci --no-open -p 3401
+pnpm --filter @inside/web exec ui-catalog dev --ci --no-open -p 3401
 # Во втором терминале; каталог вывода выбирается отдельно от сохранённых доказательств.
-STORYBOOK_URL=http://127.0.0.1:3401 node docs/evidence/issue-650/capture.mjs /tmp/platform650-new-evidence
+UI_CATALOG_URL=http://127.0.0.1:3401 node docs/evidence/issue-650/capture.mjs /tmp/platform650-new-evidence
 ```
 
 Это визуальное доказательство настоящих компонентов с fixture-данными, не реальные продажи,

@@ -1,15 +1,15 @@
-# #1023 — Storybook MCP memory and child lifecycle
+# #1023 : UI catalog MCP memory and child lifecycle
 
 ## Reproduction
 
-Host: macOS, Node `26.10.0`, pnpm `11.27.1`, Storybook/addon-vitest `10.6.1`.
-Run from the repository root with an orchestrator slot:
+Host: macOS, Node `26.10.0`, pnpm `11.27.1`, ui-catalog/addon-vitest `10.6.1`.
+Use the historical checkout at `6fed4ca1`. From its root, set `UI_CATALOG_CLI` to the installed CLI entry point and run the probe with an orchestrator slot:
 
 ```bash
-PROBE_PARENT_SIGNAL=SIGKILL node docs/evidence/issue-1023/reproduce.mjs
+UI_CATALOG_CLI=/path/to/cli.js PROBE_PARENT_SIGNAL=SIGKILL node docs/evidence/issue-1023/reproduce.mjs
 ```
 
-The diagnostic script starts the real Storybook CLI on 6106, samples the parent heap via Node
+The diagnostic script starts the real UI catalog CLI on 6106, samples the parent heap via Node
 Inspector on 6116, and calls MCP `test-run` with `{}`. After the response it checks the server's
 index, kills only the parent and checks for surviving Vitest/esbuild processes. A `finally` block
 terminates its own process group. Logs and allocation profiles go to
@@ -18,12 +18,12 @@ terminates its own process group. Logs and allocation profiles go to
 ## Before
 
 Baseline `6fed4ca1`: 74 files / 589 tests passed in Vitest (24.78 s), but MCP never returned.
-Storybook aborted around 91 s:
+UI catalog aborted around 91 s:
 
 ```text
 Mark-Compact (reduce) 3617.1 (4102.7) -> 3617.1 (4102.7) MB
 FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory
-Error: Inspector closed: Storybook crashed
+Error: Inspector closed: UI catalog crashed
 ```
 
 [Heap samples](memory-before.json) show the growth after the tests completed. The allocation
@@ -33,7 +33,7 @@ Execa's `lib/ipc/buffer-messages.js` keeps each deserialized message in `ipcOutp
 current and previous full test-state snapshots. Their history, rather than the final MCP text or
 manifest generation, retained the heap.
 
-The minimized regression `node --test scripts/storybook-runner.test.mjs` delivered 16 synthetic
+The minimized regression `node --test scripts/ui-catalog-runner.test.mjs` delivered 16 synthetic
 reports through the real preset. Before the fix Execa retained 17 messages (including readiness).
 The second regression kept an active server in the real installed runner while initialization was
 stubbed; closing parent IPC left the runner alive and exhausted the 10 s guard.
@@ -46,7 +46,7 @@ handler. It keeps stdout/stderr buffering, all test and accessibility results an
 limit.
 
 Full MCP run on that catalog: 74 files / 585 tests passed (Vitest 26.76 s); MCP returned 27,560 bytes
-at 85.66 s. Parent heap was 1334 MiB before explicit GC and 410 MiB afterward. Storybook still
+at 85.66 s. Parent heap was 1334 MiB before explicit GC and 410 MiB afterward. UI catalog still
 served `index.json`. After SIGKILL of the parent, the process-group check found no surviving
 processes, including Vitest and esbuild. [Heap samples](memory-after.json) record the complete run.
 Timing includes allocation profiling and repeated serialization of upstream full-state snapshots;

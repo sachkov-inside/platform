@@ -38,13 +38,13 @@ Desktop 1440 px, mobile 390 px; дополнительно Главная 320 px
 
 ## Автоматические проверки и пределы
 
-- Storybook анимации и страницы: 2 файла, 16 тестов прошли; добавлены отдельные мобильные
-  истории всех пяти сцен. Отдельно прошли 6 Storybook tests Главной.
+- UI catalog анимации и страницы: 2 файла, 16 тестов прошли; добавлены отдельные мобильные
+  истории всех пяти сцен. Отдельно прошли 6 UI catalog tests Главной.
 - `pnpm lint`, `pnpm docs:check`, `git diff --check` прошли.
 - Корневой `pnpm check` прошёл документацию, contracts, lint, typecheck, guardrails и unit tests:
   backend 603, web 902 (1 skipped), legal 46, access-capabilities 6.
 - Полный `pnpm check` остановился на E2E: второй `next dev` не получил lock уже работающего
-  проекта. Существующий стенд сохранён. Следующие build/standalone/Storybook build не запускались
+  проекта. Существующий стенд сохранён. Следующие build/standalone/ui-catalog build не запускались
   этой цепочкой. Сквозной прогон всего продукта и готовность к production не заявляются.
 
 Documentation impact: локальные детали принадлежат компоненту/CSS и историям; контракт анимации

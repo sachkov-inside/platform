@@ -82,7 +82,7 @@ PAIR `course-desktop.json` and `course-mobile.json` each records `PASS moderatio
 
 ## Reproduction and interpretation
 
-From Platform on pinned Node: `pnpm check`, `pnpm test:integration`, `pnpm test:storybook`, `pnpm smoke:fullstack`, `pnpm smoke:enrollments`. Integration tests own disposable PostgreSQL databases. Actual Tribute/browser setup is in the repository runbook and the evidence README; never point tests at a shared acceptance or production database.
+From Platform on pinned Node: `pnpm check`, `pnpm test:integration`, `pnpm test:ui-catalog`, `pnpm smoke:fullstack`, `pnpm smoke:enrollments`. Integration tests own disposable PostgreSQL databases. Actual Tribute/browser setup is in the repository runbook and the evidence README; never point tests at a shared acceptance or production database.
 
 From accepted Telegram on pinned Node with a dedicated disposable integration database: `pnpm test:integration test/integration/community-v2.integration.test.ts test/integration/subscription-activation.integration.test.ts` (28 PASS), then `pnpm test:integration test/integration/community-entitlements.integration.test.ts test/integration/identity-link-recovery.integration.test.ts test/integration/identity-linking.integration.test.ts` (51 PASS). Source and Platform grant authority are not replaced by those adapter test results.
 

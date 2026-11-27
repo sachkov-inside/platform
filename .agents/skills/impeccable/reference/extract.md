@@ -57,7 +57,7 @@ Update design system documentation:
 - Add new components to the component library
 - Document token usage and values
 - Add examples and guidelines
-- Update any Storybook or component catalog
+- Update the component catalog
 
 **NEVER**:
 - Extract one-off, context-specific implementations without generalization

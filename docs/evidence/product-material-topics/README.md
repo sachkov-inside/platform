@@ -2,7 +2,7 @@
 
 Реализация принятого прототипа: ветка `prototype/materials-library-sections` (f0e316a94),
 решения владельца в `docs/evidence/material-library-sections/README.md` на той ветке.
-Снимки сделаны из Storybook этой ветки на 1440 и 390 px; горизонтальной прокрутки и ошибок
+Снимки сделаны из UI catalog этой ветки на 1440 и 390 px; горизонтальной прокрутки и ошибок
 страницы нет.
 
 - `catalogue-desktop.png`, `catalogue-phone.png`: `Pages/Product/Programme` → `MaterialLibrary`

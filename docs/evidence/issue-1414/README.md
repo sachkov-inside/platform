@@ -33,7 +33,7 @@ Text and stable anchors remain in the original renderer. Warm canvas and compone
 ## Verification and review
 
 Initial focused checks passed: TypeScript; web architecture/negative guardrails; docs contract;
-12 programme/context module cases; Storybook course pending, shared save failure/retry, submitted task,
+12 programme/context module cases; UI catalog course pending, shared save failure/retry, submitted task,
 chapter selector and server-step changes. A live DOM measurement confirmed 240 px rail, contained chevron,
 and `scrollWidth === clientWidth` at 1440.
 
@@ -42,7 +42,7 @@ Full `pnpm check` is reserved for the stable integrated head after review fixes,
 Independent final Standards/Spec confirmation is complete through the immutable inputs below.
 The owner gave production visual GO for the real guide/task at a1d1293d, with #1426 explicitly separate.
 
-Review previews: Storybook http://localhost:6207 and real frontend http://localhost:3107.
+Review previews: UI catalog http://localhost:6207 and real frontend http://localhost:3107.
 These processes belong to this writer; API 3001 and other owners' previews remain untouched.
 
 ## Review corrections against a403ffd3
@@ -67,7 +67,7 @@ Existing full-stack/navigation behavior assertions now target the one course act
 standalone duplicate-panel checks remain meaningful. A held-private-practice production navigation case is
 prepared for the final production-build suite; its execution result is recorded with final checks.
 
-Focused correction checks: TypeScript and Oxlint passed; 12 module cases passed; five affected Storybook
+Focused correction checks: TypeScript and Oxlint passed; 12 module cases passed; five affected UI catalog
 cases passed after the A–B–A story awaited Select dismissal. Web/negative guardrails and docs contract passed.
 
 ## CI diagnosis before final evidence
@@ -100,7 +100,7 @@ are in [production/images.json](production/images.json). The local Next dev badg
 - Derived diagram details: [pastel overview](production/live-guide-overview-detail.webp),
   [Brief focus](production/live-guide-brief-detail.webp). These are crops of the inspected desktop whole page.
 - Keyboard chapter picker: [open selector](production/live-chapter-keyboard.webp).
-- Operational Storybook: [pending](production/story-pending-320.webp), [access](production/story-access-320.webp),
+- Operational ui-catalog: [pending](production/story-pending-320.webp), [access](production/story-access-320.webp),
   [submitted task](production/story-task-submitted-1440.webp), [task-only](production/story-task-only-1440.webp),
   [navigation/history fallback](production/story-task-fallback-390.webp).
 
@@ -112,8 +112,8 @@ have 10 px heading-to-paragraph gaps. Task → pipeline → task Range measureme
 `Как устроен пайплайн ` / `разработки с агентом`. Mobile programme opens and closes by Escape;
 chapter selection opens, moves and confirms by keyboard. These checks do not claim to fix #1426 flicker.
 
-Accessibility: live route scans report no violations. Whole-iframe Storybook scans retain one moderate
-`region` result for the shell skip link `.fixed`; they are not zero. The iframe has hidden Storybook
+Accessibility: live route scans report no violations. Whole-iframe UI catalog scans retain one moderate
+`region` result for the shell skip link `.fixed`; they are not zero. The iframe has hidden UI catalog
 no-preview documentation links before that control. The owning `[data-story-content]` scope reports zero
 in the diagnostic comparison; [a11y-scope.json](production/a11y-scope.json) records both results and the
 scaffolding. No rule is disabled. Manual capture uses the existing `globals.a11y.manual` mechanism so it

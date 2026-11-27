@@ -1,6 +1,6 @@
 # Issue 1837: один столбец доступа в строке программы
 
-Снимки историй Storybook на ширине 390 и 1440 px, код ветки `feat/1837-lesson-row-access-column`.
+Снимки историй UI catalog на ширине 390 и 1440 px, код ветки `feat/1837-lesson-row-access-column`.
 Горизонтального переполнения нет ни в одном снимке. Выбранный вариант прототипа: ветка
 `prototype/lesson-row-access-marks`, история `Prototypes/Lesson Row Access Marks → Access Column Accent`.
 

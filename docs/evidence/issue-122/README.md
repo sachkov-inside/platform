@@ -1,6 +1,6 @@
 # Issue 122 — private Account access-state evidence
 
-Captured from the implementation branch on 2026-09-02 after focused backend, module, Storybook and
+Captured from the implementation branch on 2026-09-02 after focused backend, module, UI catalog and
 isolated full-stack checks passed.
 
 | Surface | Desktop | Mobile |
@@ -16,7 +16,7 @@ isolated full-stack checks passed.
 | Dependency unavailable | — | [`unavailable-mobile.png`](./unavailable-mobile.png) |
 | Page loading / error | — | [`loading-mobile.png`](./loading-mobile.png) · [`page-unavailable-mobile.png`](./page-unavailable-mobile.png) |
 
-- Desktop viewport: `1440 × 1024`; live mobile viewport: `390 × 844`. Storybook access blocks use
+- Desktop viewport: `1440 × 1024`; live mobile viewport: `390 × 844`. UI catalog access blocks use
   the same `390px` mobile width with enough vertical canvas to show both independent rows.
 - Telegram linking and Membership remain independent: Account renders a compact blue Telegram
   strip above an orange-accented premium `Доступ к Sachkov Inside` card. The inactive state keeps
@@ -32,7 +32,7 @@ isolated full-stack checks passed.
   PostgreSQL. The access block has no serious/critical axe findings or horizontal overflow.
 - The access-required reader keeps related Materials in two columns on desktop and one column on
   mobile; the third desktop card starts the next row.
-- Sixteen Account Storybook cases cover unlinked, linking, linked member/non-member, conflict,
+- Sixteen Account UI catalog cases cover unlinked, linking, linked member/non-member, conflict,
   stale, unavailable, separately typed safe retry and unsafe recovery, page loading/error and
   mobile composition. The interaction journey exercises Begin, immediate bot launch, automatic
   confirmation on browser return, outage fallback, retry and the final linked state.

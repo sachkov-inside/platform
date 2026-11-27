@@ -1,6 +1,6 @@
 # Issue 309 — broadcasts and communication analytics
 
-Captured on 2026-09-06. Storybook uses source commit `f4d20f6`; working-page screenshots
+Captured on 2026-09-06. UI catalog uses source commit `f4d20f6`; working-page screenshots
 were refreshed after integrating the funnel UI from `e528cbe` into this branch.
 The broadcast route is now `/authoring/communications/broadcasts`, linked from the
 existing funnel page `/authoring/communications`.
@@ -9,7 +9,7 @@ existing funnel page `/authoring/communications`.
 | --- | --- | --- |
 | Working draft editor | [Editor](./desktop-chromium-editor.png) | [Editor](./mobile-chromium-editor.png) |
 | Analytics and entry history | [Analytics](./desktop-chromium.png) | [Analytics](./mobile-chromium.png) |
-| Storybook draft and preview | [Storybook](./storybook-desktop.png) | [Storybook](./storybook-mobile.png) |
+| UI catalog draft and preview | [UI catalog](./ui-catalog-desktop.png) | [UI catalog](./ui-catalog-mobile.png) |
 
 - Viewports: desktop `1440 × 1024`, mobile `390 × 844`.
 - The working page uses the production Web BFF, Nest API, and an isolated PostgreSQL
@@ -17,7 +17,7 @@ existing funnel page `/authoring/communications`.
 - `pnpm smoke:communications` covers correcting an invalid draft without losing edits,
   saving, preview without sending, launch/pause/resume/cancel, source history, forwarded
   tracking links, anonymous access denial, keyboard access, axe, and horizontal overflow.
-- The 14 focused Storybook tests also cover lifecycle and failure states, including
+- The 14 focused UI catalog tests also cover lifecycle and failure states, including
   blocking Resume while a paused draft has unsaved edits.
 - Screenshots were visually inspected. This is the temporary semantic interface allowed
   for #309; final visual acceptance and integration remain in #317.

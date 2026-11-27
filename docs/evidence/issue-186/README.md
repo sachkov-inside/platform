@@ -63,7 +63,7 @@ MaterialBody schema запрещает inline Video; текущая и published
 Код проверки: `595dc9a`; итоговые снимки сняты полным прогоном на этом commit.
 
 - `pnpm check`: итоговый прогон прошёл; 412 backend и 448 web проверок, 43 browser route checks,
-  build, standalone-config, Storybook build и архитектурные guardrails.
+  build, standalone-config, UI catalog build и архитектурные guardrails.
 - `pnpm test:integration`: 30 файлов, 176 проверок прошли.
 - `CAPTURE_EVIDENCE=1 pnpm smoke:fullstack`: прошёл на desktop/mobile, включая новую матрицу.
 - Focused convergence и исправленные watched-сценарии: прошли на desktop/mobile.

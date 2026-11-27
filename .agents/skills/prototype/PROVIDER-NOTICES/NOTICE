@@ -13,6 +13,11 @@ provenance/engineering/LICENSE.humanlayer
 The exact revision copied by Matt is not stated in his source copy.
 PR credits remain in skills/engineering/pr/CREDITS.md.
 
+The create-verification-skill skill adapts pstack material:
+https://github.com/backnotprop/pstack/tree/c3464c11c60b1352d5e8f5f0428a3a6943837568
+Copyright (c) 2026 Lauren Tan, MIT. Full notice:
+skills/engineering/create-verification-skill/LICENSE.pstack
+
 Public source histories and original authorship are preserved from
 KirillSachkov/agent-harness and KirillSachkov/agent-clarity.
 See provenance/sources.json for immutable revisions and retained branches.

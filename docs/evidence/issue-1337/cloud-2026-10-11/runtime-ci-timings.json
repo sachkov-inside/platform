@@ -163,7 +163,7 @@
           "durationSeconds": 56
         },
         {
-          "name": "Run Storybook and browser-engine checks",
+          "name": "Run ui-catalog and browser-engine checks",
           "conclusion": "success",
           "startedAt": "2026-10-11T09:07:07Z",
           "completedAt": "2026-10-11T09:09:48Z",

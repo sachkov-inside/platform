@@ -1,6 +1,6 @@
 # Evidence: survey respondents in the sales funnel report (#818)
 
-Captured from Storybook for the production module
+Captured from UI catalog for the production module
 `apps/web/src/_pages/sales-funnel-report/ui/sales-funnel-report-view.tsx`, stories
 `Pages/Authoring/Sales funnel report`. Each capture asserted no horizontal overflow of the document
 or the report. The figures are fixture aggregates; no username appears in the report.

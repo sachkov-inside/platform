@@ -2,8 +2,8 @@
 
 Дата: 2026-09-11. Фиксированная база Platform: `b41ff41e6cbe160f5a2cb3f5ef50e0f08a12be50`.
 
-Снимки сделаны в собранном Storybook этой ветки, размеры совпадают с проектами Playwright:
-desktop 1440, mobile 390. Storybook получает только состояние представления; upload, Kinescope API
+Снимки сделаны в собранном UI catalog этой ветки, размеры совпадают с проектами Playwright:
+desktop 1440, mobile 390. UI catalog получает только состояние представления; upload, Kinescope API
 и права доступа остаются за production adapters. Это доказательство состава и текста интерфейса,
 а не реальной загрузки в Kinescope.
 
@@ -30,7 +30,7 @@ desktop 1440, mobile 390. Storybook получает только состоян
 | «Убрать» у готового видео не отменяется восстановлением | тот же тест: после detach `unselectedVideoUpload` остаётся пустым |
 | Поле доходит до черновика редактора | `apps/web/test/module/material-authoring.test.ts` |
 | Решения восстановления: усыновление, ворота опроса, исход сверки, снятие | `apps/web/test/module/material-video-recovery.test.ts`, 12 проверок |
-| Текст и состав интерфейса в трёх состояниях | три истории Storybook, прогоняются в Chromium |
+| Текст и состав интерфейса в трёх состояниях | три истории UI catalog, прогоняются в Chromium |
 
 ## Не доказано этим протоколом
 

@@ -9,13 +9,13 @@
 
 ## Доказательства
 
-- `storybook-pin-*`: production Home, 1440px, 390px и text 200% при 1280px.
+- `ui-catalog-pin-*`: production Home, 1440px, 390px и text 200% при 1280px.
 - `editor-*` и `series-list-*`: текущие отдельная страница редактора и список с закрепом, desktop/mobile.
 - `live-series-editor-*`: текущий production editor с авторской навигацией, desktop/mobile.
 - `live-*-authoring-pin.png`: текущий общий список после сохранения закрепа и перезагрузки.
 - `live-*-home-pin*.png`: реальная главная и text 200%, desktop/mobile.
 
-Storybook: первый section — featured-title, overflow отсутствует, аватар загружен (900px).
+ui-catalog: первый section – featured-title, overflow отсутствует, аватар загружен (900px).
 Full-stack Playwright проверяет loading→error→retry→ready без сдвига редактора, выбор,
 перезагрузку, замену, снятие, guest/member, отказ неавтору, переход на страницу Серии,
 отсутствие кнопок закрепа у Materials и serious/critical axe findings.

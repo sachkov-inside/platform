@@ -148,12 +148,12 @@ cd apps/web && node ../../docs/evidence/issue-614/ai-first-animation/shoot.mjs
 
 ## Проверка перед передачей владельцу
 
-- Storybook: истории для анимации в слоте Home (512×432), статичных сцен 1–5, мобильного слота
+- ui-catalog: истории для анимации в слоте Home (512×432), статичных сцен 1–5, мобильного слота
   (358×230) и reduced motion. Обновить `Pages/Guide/AI-first` и истории Главной, если они
   проверяют иллюстрацию.
 - Реальные маршруты `/` и `/guides/working-with-agents` на 1440 и 390 px; правило одиночного
   владения Compose в `docs/runbooks/local-development.md`.
-- `pnpm typecheck`, `pnpm lint`, `pnpm docs:check`, Storybook-тесты web.
+- `pnpm typecheck`, `pnpm lint`, `pnpm docs:check`, ui-catalog-тесты web.
 - Снимки в `docs/evidence/issue-614/` и визуальные ворота по `docs/agents/frontend-delivery.md`;
   визуальное GO не равно разрешению на merge (`WORKFLOW.md`).
 

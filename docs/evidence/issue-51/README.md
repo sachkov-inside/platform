@@ -6,7 +6,7 @@ Next full-stack smoke, after automated accessibility checks passed.
 | Surface | Desktop | Mobile |
 | --- | --- | --- |
 | Private Account editor and exact Member Profile projection | [`desktop.png`](./desktop.png) | [`mobile.png`](./mobile.png) |
-| Active-member projection and report control | Storybook `Active · desktop` | Storybook `Active · mobile` |
+| Active-member projection and report control | UI catalog `Active · desktop` | UI catalog `Active · mobile` |
 
 - Live route: `/account` with a real authenticated local session fixture.
 - Desktop viewport: `1440 × 1024`.
@@ -15,7 +15,7 @@ Next full-stack smoke, after automated accessibility checks passed.
 - The generated public ID is shown as `<opaque-public-id>` only while capturing deterministic
   screenshots; the smoke continues with the actual generated route stored before redaction.
 - `Pages/Member Profile/Production` exercises the positive active-member projection and report
-  control at desktop and 390 px mobile widths with Storybook accessibility checks enabled.
+  control at desktop and 390 px mobile widths with UI catalog accessibility checks enabled.
 - Narrow order remains edit → preview → lifecycle; desktop adds the labelled privacy seam.
 - Full-stack automation covers fail-closed mandatory onboarding, create, edit, export, safe member
   404 and hard delete against real PostgreSQL and Nest HTTP.

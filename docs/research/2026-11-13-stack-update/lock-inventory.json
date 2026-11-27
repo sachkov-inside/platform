@@ -1944,52 +1944,52 @@
       "candidate": ["1.1.0"]
     },
     {
-      "name": "@storybook/addon-a11y",
+      "name": "@ui-catalog/addon-a11y",
       "before": ["10.6.1"],
       "candidate": ["10.6.7"]
     },
     {
-      "name": "@storybook/addon-docs",
+      "name": "@ui-catalog/addon-docs",
       "before": ["10.6.1"],
       "candidate": ["10.6.7"]
     },
     {
-      "name": "@storybook/addon-mcp",
+      "name": "@ui-catalog/addon-mcp",
       "before": ["10.6.1"],
       "candidate": ["10.6.7"]
     },
     {
-      "name": "@storybook/addon-vitest",
+      "name": "@ui-catalog/addon-vitest",
       "before": ["10.6.1"],
       "candidate": ["10.6.7"]
     },
     {
-      "name": "@storybook/builder-vite",
+      "name": "@ui-catalog/builder-vite",
       "before": ["10.6.1"],
       "candidate": ["10.6.7"]
     },
     {
-      "name": "@storybook/global",
+      "name": "@ui-catalog/global",
       "before": ["5.0.0"],
       "candidate": ["5.0.0"]
     },
     {
-      "name": "@storybook/icons",
+      "name": "@ui-catalog/icons",
       "before": ["2.1.0"],
       "candidate": ["2.2.0"]
     },
     {
-      "name": "@storybook/react",
+      "name": "@ui-catalog/react",
       "before": ["10.6.1"],
       "candidate": ["10.6.7"]
     },
     {
-      "name": "@storybook/react-dom-shim",
+      "name": "@ui-catalog/react-dom-shim",
       "before": ["10.6.1"],
       "candidate": ["10.6.7"]
     },
     {
-      "name": "@storybook/react-vite",
+      "name": "@ui-catalog/react-vite",
       "before": ["10.6.1"],
       "candidate": ["10.6.7"]
     },
@@ -5334,7 +5334,7 @@
       "candidate": ["0.2.2"]
     },
     {
-      "name": "storybook",
+      "name": "ui-catalog",
       "before": ["10.6.1"],
       "candidate": ["10.6.7"]
     },
