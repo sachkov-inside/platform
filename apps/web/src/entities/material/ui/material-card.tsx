@@ -31,6 +31,7 @@ import {
   ProductRowArticle,
 } from "./product-continuation.client";
 import "./product-material-row.css";
+import "./library-material-card.css";
 
 export interface MaterialCardProps {
   /** Match the heading level to the surrounding page outline. */
@@ -590,6 +591,11 @@ function LibraryMaterialCard({
   const FormatIcon = libraryFormatIcons[kind];
   const duration = video ? materialDuration(material) : undefined;
   const cover = material.cover ?? null;
+  const formatLabel = video
+    ? duration === undefined
+      ? "Видео"
+      : `Видео · ${duration}`
+    : "Текст";
   const title = (
     <IntentPrefetchLink
       className="no-underline hover:text-action after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-4 focus-visible:after:outline-ring"
@@ -600,7 +606,10 @@ function LibraryMaterialCard({
   );
   return (
     <article
-      className="group/library relative flex h-full min-w-0 flex-col gap-2"
+      className="library-material-card relative min-w-0"
+      data-title-on-cover={
+        cover === null && material.availability === "available" ? "" : undefined
+      }
       data-material-id={material.slug}
       data-material-slug={material.slug}
       data-material-variant="library"
@@ -608,24 +617,25 @@ function LibraryMaterialCard({
       <AccessCover material={material}>
         {cover === null ? (
           // Контейнер стоит на обёртке: единицы cqw внутри считаются от ширины самой карточки.
-          <span className="block w-full overflow-hidden rounded-2xl [container-type:inline-size]">
+          <span className="block w-full overflow-hidden rounded-2xl @max-[34rem]/catalog:rounded-[10px] [container-type:inline-size]">
             {/* Нижний отступ оставляет место плашке формата: иначе на телефоне она закрывает
                 последнюю строку названия. */}
             <span
-              className="relative flex aspect-video w-full flex-col justify-center bg-cover-ink px-[6cqw] pt-[5cqw] pb-[15cqw] text-white"
+              className="relative flex aspect-video w-full @max-[34rem]/catalog:p-0 flex-col justify-center bg-cover-ink px-[6cqw] pt-[5cqw] pb-[15cqw] text-white"
               data-library-title-card
             >
-              <Heading className="line-clamp-3 pr-[14cqw] text-[clamp(0.875rem,6.2cqw,1.5rem)] leading-[1.16] font-medium tracking-[-0.01em] [&_a:hover]:text-white [&_a:hover]:underline">
-                {title}
-              </Heading>
               <span
                 aria-hidden="true"
-                className="absolute bottom-[6cqw] left-[6cqw] h-0.5 w-[10cqw] bg-accent"
+                className="absolute @max-[34rem]/catalog:hidden bottom-[6cqw] left-[6cqw] h-0.5 w-[10cqw] bg-accent"
+              />
+              <FormatIcon
+                aria-hidden="true"
+                className="hidden size-5 self-center @max-[34rem]/catalog:block"
               />
               {video ? (
                 <span
                   aria-hidden="true"
-                  className="absolute top-1/2 right-[6cqw] grid size-[13cqw] -translate-y-1/2 place-items-center rounded-full bg-white/15 ring-1 ring-white/25"
+                  className="absolute @max-[34rem]/catalog:hidden top-1/2 right-[6cqw] grid size-[13cqw] -translate-y-1/2 place-items-center rounded-full bg-white/15 ring-1 ring-white/25"
                   data-library-play
                 >
                   <Play
@@ -639,11 +649,11 @@ function LibraryMaterialCard({
         ) : (
           <ContentCoverImage
             alt=""
-            className="aspect-video w-full rounded-2xl"
+            className="aspect-video w-full rounded-2xl @max-[34rem]/catalog:rounded-[10px]"
             cover={cover}
             fallbackKind={kind}
             fallbackSeed={material.slug}
-            sizes="(min-width: 640px) 24rem, 100vw"
+            sizes="auto, (max-width: 575px) 124px, 24rem"
           />
         )}
         {material.materialId === undefined ? null : (
@@ -652,38 +662,32 @@ function LibraryMaterialCard({
             materialId={material.materialId}
           />
         )}
-        <span
-          className={cn(
-            "absolute right-2 bottom-2 inline-flex min-h-5 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums shadow-sm",
-            video
-              ? "bg-accent text-accent-foreground"
-              : "bg-background text-foreground",
-          )}
-        >
-          <FormatIcon
-            aria-hidden="true"
-            className="size-3"
-            {...(video ? { fill: "currentColor" } : {})}
-          />
-          {video
-            ? duration === undefined
-              ? "Видео"
-              : `Видео · ${duration}`
-            : "Текст"}
-        </span>
       </AccessCover>
-      {/* Место в программе стоит сразу под картинкой у всех карточек (решение владельца 12.11.2026):
-          прижатое к низу растянутой карточки, оно читалось как подпись следующего ряда. */}
-      {annotation === undefined ? null : (
-        <span className="-mb-1 px-1.5 text-xs font-medium text-muted-foreground">
-          {annotation}
-        </span>
-      )}
-      {cover === null ? null : (
-        <Heading className="line-clamp-2 px-1.5 text-[0.9375rem] leading-5 font-semibold tracking-[-0.01em]">
+      <span
+        className={cn(
+          "library-material-format inline-flex min-h-5 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums shadow-sm",
+          video
+            ? "bg-accent text-accent-foreground"
+            : "bg-background text-foreground",
+        )}
+      >
+        <FormatIcon
+          aria-hidden="true"
+          className="size-3 @max-[34rem]/catalog:hidden"
+          {...(video ? { fill: "currentColor" } : {})}
+        />
+        {formatLabel}
+      </span>
+      <div className="library-material-copy">
+        {annotation === undefined ? null : (
+          <span className="text-xs font-medium text-muted-foreground">
+            {annotation}
+          </span>
+        )}
+        <Heading className="library-material-title text-[0.9375rem] leading-5 font-semibold tracking-[-0.01em]">
           {title}
         </Heading>
-      )}
+      </div>
     </article>
   );
 }
@@ -727,7 +731,9 @@ function MaterialAccessBadge({
     <span
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full bg-background/92 font-semibold text-foreground shadow-xl backdrop-blur-xl",
-        compact ? "size-8 justify-center p-0" : "px-3 py-2 text-xs",
+        compact
+          ? "size-8 justify-center p-0"
+          : "px-3 py-2 text-xs @max-[34rem]/catalog:size-7 @max-[34rem]/catalog:justify-center @max-[34rem]/catalog:p-0",
       )}
     >
       {material.access === "free" ? (
@@ -738,7 +744,9 @@ function MaterialAccessBadge({
       {compact ? (
         <span className="sr-only">{materialAccessLabel(material)}</span>
       ) : (
-        materialAccessLabel(material)
+        <span className="@max-[34rem]/catalog:sr-only">
+          {materialAccessLabel(material)}
+        </span>
       )}
     </span>
   );

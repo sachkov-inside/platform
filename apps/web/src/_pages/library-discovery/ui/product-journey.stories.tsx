@@ -1077,7 +1077,12 @@ export const MaterialLibrary: Story = {
     await expect(
       within(topic).getAllByText(/^Глава \d · урок \d+$/u),
     ).toHaveLength(5);
-    await userEvent.click(canvas.getByRole("button", { name: "Все темы" }));
+    const topicSelect = canvas.queryByRole("combobox", { name: "Тема" });
+    if (topicSelect === null) {
+      await userEvent.click(canvas.getByRole("button", { name: "Все темы" }));
+    } else {
+      await userEvent.selectOptions(topicSelect, "");
+    }
     // Первые два урока изучены: отметка стоит в углу картинки, её название читает скринридер.
     const overview = canvas.getByRole("region", { name: "Материалы курса" });
     await expect(within(overview).getByText("Просмотрено")).toBeInTheDocument();
@@ -1099,29 +1104,24 @@ export const MaterialLibraryDoubleText: Story = {
   },
 };
 
-/**
- * На широком экране полка с шестью материалами показывает край четвёртой карточки, а с мышью видна
- * полоса прокрутки: понятно, что полку можно листать.
- */
+/** Обзор показывает три целые карточки и открывает все материалы подборки. */
 export const MaterialShelfShowsMore: Story = {
   ...MaterialLibrary,
   globals: { viewport: { value: "desktop1440", isRotated: false } },
   play: async ({ canvasElement }) => {
     await openPart(canvasElement, /^Материалы/u);
     const shelf = canvasElement.querySelector<HTMLElement>(
-      '[data-catalog-shelf="Ревью и замечания"] ul',
+      '[data-catalog-shelf="Ревью и замечания"]',
     );
     if (shelf === null) throw new Error("The topic shelf is missing");
-    const cards = [...shelf.children].map((card) =>
-      card.getBoundingClientRect(),
+    await expect(within(shelf).getAllByRole("listitem")).toHaveLength(3);
+    await userEvent.click(
+      within(shelf).getByRole("button", { name: /^Все 6/u }),
     );
-    const edge = shelf.getBoundingClientRect().right;
-    await expect(cards[2]?.right).toBeLessThanOrEqual(edge);
-    const fourth = cards[3];
-    if (fourth === undefined) throw new Error("The shelf needs a fourth card");
-    await expect(fourth.left).toBeLessThan(edge - 24);
-    await expect(fourth.right).toBeGreaterThan(edge);
-    await expect(getComputedStyle(shelf).scrollbarWidth).toBe("auto");
+    const library = within(canvasElement).getByRole("region", {
+      name: "Материалы курса",
+    });
+    await expect(within(library).getAllByRole("listitem")).toHaveLength(6);
   },
 };
 
