@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Enter through the same machine queue as automated browser checks.
 if [[ "${1:-}" != --owned ]]; then
-  exec bash scripts/heavy-check.sh --exclusive --timeout 900 bash scripts/verify-light.sh --owned "$@"
+  exec bash scripts/heavy-check.sh --exclusive --timeout 900 --cleanup-grace 30 bash scripts/verify-light.sh --owned "$@"
 fi
 shift
 if ! python3 scripts/heavy-check/lock.py --owns; then
@@ -11,21 +11,30 @@ if ! python3 scripts/heavy-check/lock.py --owns; then
   exit 2
 fi
 options=(up)
+browser_only=0
 while [[ $# -gt 0 && "$1" != -- ]]; do
   case "$1" in
     --dev|--mcp) options+=("$1") ;;
-    *) printf '%s\n' 'Usage: pnpm verify:light [--dev] [--mcp] -- COMMAND [ARG...]' >&2; exit 2 ;;
+    --browser-only) browser_only=1 ;;
+    *) printf '%s\n' 'Usage: pnpm verify:light [--dev] [--mcp] [--browser-only] -- COMMAND [ARG...]' >&2; exit 2 ;;
   esac
   shift
 done
 if [[ $# -lt 2 ]]; then
-  printf '%s\n' 'Usage: pnpm verify:light [--dev] [--mcp] -- COMMAND [ARG...]' >&2
+  printf '%s\n' 'Usage: pnpm verify:light [--dev] [--mcp] [--browser-only] -- COMMAND [ARG...]' >&2
   exit 2
 fi
 shift
+if [[ "$browser_only" = 1 && "${#options[@]}" -ne 1 ]]; then
+  printf '%s\n' 'Use --browser-only by itself for a running instance.' >&2
+  exit 2
+fi
 receipt=$(mktemp -d "${TMPDIR:-/tmp}/platform-verify.XXXXXX")
 export INSIDE_LIGHT_VERIFICATION="$receipt"
 export INSIDE_LIGHT_VERIFICATION_WORKTREE="$(pwd -P)"
+export AGENT_BROWSER_NAMESPACE="${AGENT_BROWSER_NAMESPACE:-kirill-agents}"
+export INSIDE_LIGHT_VERIFICATION_NAMESPACE="$AGENT_BROWSER_NAMESPACE"
+boot=
 cleanup() {
   local result=$? cleanup_failed=0
   trap - EXIT
@@ -38,23 +47,25 @@ cleanup() {
   if [[ -f "$receipt/started" ]]; then
     pnpm stand:light down || cleanup_failed=1
   fi
-  wait "$boot" || cleanup_failed=1
+  if [[ -n "$boot" ]]; then wait "$boot" || cleanup_failed=1; fi
   rm -f "$receipt/roles" "$receipt/started" "$receipt/ready"
   rmdir "$receipt"
   if [[ "$result" -ne 0 ]]; then exit "$result"; fi
   exit "$cleanup_failed"
 }
-pnpm stand:light "${options[@]}" &
-boot=$!
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM HUP
-while [[ ! -f "$receipt/ready" ]]; do
-  if ! kill -0 "$boot" 2>/dev/null; then
-    wait "$boot"
-    printf '%s\n' 'The light instance ended before declaring readiness.' >&2
-    exit 1
-  fi
-  sleep 0.25
-done
+if [[ "$browser_only" = 0 ]]; then
+  pnpm stand:light "${options[@]}" &
+  boot=$!
+  while [[ ! -f "$receipt/ready" ]]; do
+    if ! kill -0 "$boot" 2>/dev/null; then
+      wait "$boot"
+      printf '%s\n' 'The light instance ended before declaring readiness.' >&2
+      exit 1
+    fi
+    sleep 0.25
+  done
+fi
 "$@"

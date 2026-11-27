@@ -9,7 +9,7 @@
     "dev:api": "pnpm --filter @inside/backend dev:api",
     "dev:mcp": "pnpm --filter @inside/backend dev:mcp",
     "dev:video-deletions-worker": "pnpm --filter @inside/backend dev:video-deletions-worker",
-    "storybook": "bash scripts/heavy-check.sh pnpm --filter @inside/web storybook",
+    "storybook": "pnpm --filter @inside/web storybook",
     "preview:files": "node apps/web/file-preview/server.mjs",
     "platform:doctor": "bash scripts/doctor.sh",
     "identity:proof:certs": "node scripts/identity-proof-certificates.mjs",

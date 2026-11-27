@@ -240,21 +240,57 @@ printf '%s\\n' "$*" >>"$VERIFY_TEST_LOG"
     VERIFY_TEST_LOG: log,
   };
   delete environment["CI"];
-  const result = spawnSync(
-    "bash",
-    [
-      "scripts/verify-light.sh",
-      "--",
-      "sh",
-      "-c",
-      'printf "holder\\nholder\\n" > "$INSIDE_LIGHT_VERIFICATION/roles"; exit 17',
-    ],
-    { env: environment, encoding: "utf8", timeout: 12_000 },
-  );
-  assert.equal(result.status, 17, result.stderr);
-  assert.deepEqual((await readFile(log, "utf8")).trim().split("\n"), [
+  delete environment["INSIDE_HEAVY_CHECK_OWNER"];
+  delete environment["INSIDE_HEAVY_CHECK_EXCLUSIVE"];
+  const expected = [
     "stand:light up",
     "scripts/verify-platform.mjs browser --role holder -- close",
     "stand:light down",
-  ]);
+  ];
+  const verification = ["bash", "scripts/verify-light.sh", "--", "sh", "-c"];
+  const recordRoles =
+    'printf "holder\\nholder\\n" > "$INSIDE_LIGHT_VERIFICATION/roles"';
+  for (const { command, status, expectedOperations } of [
+    {
+      command: [...verification.slice(1), `${recordRoles}; exit 17`],
+      status: 17,
+      expectedOperations: expected,
+    },
+    {
+      command: [
+        "scripts/heavy-check.sh",
+        "--exclusive",
+        "--timeout",
+        "2",
+        "--cleanup-grace",
+        "8",
+        ...verification,
+        `${recordRoles}; sleep 60`,
+      ],
+      status: 124,
+      expectedOperations: expected,
+    },
+    {
+      command: [
+        ...verification.slice(1, 2),
+        "--browser-only",
+        ...verification.slice(2),
+        `${recordRoles}; exit 0`,
+      ],
+      status: 0,
+      expectedOperations: [expected[1]],
+    },
+  ]) {
+    await writeFile(log, "");
+    const result = spawnSync("bash", command, {
+      env: environment,
+      encoding: "utf8",
+      timeout: 12_000,
+    });
+    assert.equal(result.status, status, result.stderr);
+    assert.deepEqual(
+      (await readFile(log, "utf8")).trim().split("\n"),
+      expectedOperations,
+    );
+  }
 });

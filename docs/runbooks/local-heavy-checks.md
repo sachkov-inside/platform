@@ -45,7 +45,7 @@ root PID, and save them in the queue directory as `last-stop.json`. The supervis
 on Linux, the supervisor adopts orphaned descendants as a child subreaper. It closes the slot after
 the command exits and the tracked groups contain no running processes. On interruption, including SIGKILL of the wrapper or a
 launching ancestor such as `pnpm`, it stops the tracked groups before releasing the slot. SIGTERM has a
-five-second shutdown budget, then remaining members receive SIGKILL. A crash therefore cannot
+five-second shutdown budget by default; the verification shell gets 30 seconds for its normal cleanup. Remaining members then receive SIGKILL. A crash therefore cannot
 leave a stale kernel lock. On macOS, tracking includes detached groups observed after fork events or during shutdown. A custom
 command that detaches a child and exits before observation must manage that child itself. Linux
 also tracks detached orphans adopted by the supervisor. Use foreground commands for

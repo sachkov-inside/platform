@@ -154,10 +154,10 @@ def signal_groups(groups, signum):
                 raise
 
 
-def stop_groups(process, tracked, known_groups):
+def stop_groups(process, tracked, known_groups, grace):
     groups = track_descendants(process, tracked, known_groups)
     signal_groups(groups, signal.SIGTERM)
-    deadline = time.monotonic() + STOP_SECONDS
+    deadline = time.monotonic() + grace
     signalled = set(groups)
     while groups:
         process.poll()
@@ -255,9 +255,12 @@ def pressure():
             capture_output=True, text=True, timeout=1, check=True,
         )
         # The public sysctl returns NOTE_MEMORYSTATUS_PRESSURE_* masks.
-        return {1: 1, 2: 2, 4: 4}.get(int(result.stdout))
-    except (OSError, ValueError, subprocess.SubprocessError):
-        return None
+        level = int(result.stdout)
+        if level in (1, 2, 4):
+            return level
+        raise ValueError('unknown memory pressure level')
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
+        raise RuntimeError('cannot read the macOS memory pressure level') from error
 
 
 def record_stop(directory, reason, pid, elapsed):
@@ -275,7 +278,7 @@ def record_stop(directory, reason, pid, elapsed):
         print('heavy-check: could not save stop receipt', file=sys.stderr, flush=True)
 
 
-def supervise(read_fd, command, parents, exclusive, timeout):
+def supervise(read_fd, command, parents, exclusive, timeout, grace):
     directory = Path(os.environ.get(
         'INSIDE_HEAVY_CHECK_DIRECTORY',
         str(Path.home() / '.cache/inside-platform/heavy-check'),
@@ -341,7 +344,7 @@ def supervise(read_fd, command, parents, exclusive, timeout):
         return 143
     finally:
         if process is not None:
-            stop_groups(process, tracked, known_groups)
+            stop_groups(process, tracked, known_groups, grace)
         events.close()
         admission.close()
         for slot in slots:
@@ -360,16 +363,21 @@ def main():
     if command and command[0] == '--exclusive':
         exclusive = True
         command = command[1:]
-    if command and command[0] == '--timeout':
-        if len(command) < 3 or not command[1].isdecimal() or int(command[1]) < 1:
-            print('heavy-check: --timeout must be a positive number of seconds', file=sys.stderr)
-            return 2
-        timeout = int(command[1])
-        command = command[2:]
+    grace = STOP_SECONDS
+    for option in ('--timeout', '--cleanup-grace'):
+        if command and command[0] == option:
+            if len(command) < 3 or not command[1].isdecimal() or int(command[1]) < 1:
+                print(f'heavy-check: {option} must be a positive number of seconds', file=sys.stderr)
+                return 2
+            if option == '--timeout':
+                timeout = int(command[1])
+            else:
+                grace = int(command[1])
+            command = command[2:]
     if command == ['--owns']:
         return 0 if owner_alive(ancestors()) else 1
     if not command:
-        print('usage: heavy-check.sh [--exclusive] [--timeout SECONDS] COMMAND [ARG ...]', file=sys.stderr)
+        print('usage: heavy-check.sh [--exclusive] [--timeout SECONDS] [--cleanup-grace SECONDS] COMMAND [ARG ...]', file=sys.stderr)
         return 2
     parents = ancestors()
     if owner_alive(parents):
@@ -400,7 +408,7 @@ def main():
         if write_fd is not None:
             os.close(write_fd)
         try:
-            status = supervise(read_fd, command, parents, exclusive, timeout)
+            status = supervise(read_fd, command, parents, exclusive, timeout, grace)
         except Exception as error:
             print(f'heavy-check: {error}', file=sys.stderr, flush=True)
             status = 1

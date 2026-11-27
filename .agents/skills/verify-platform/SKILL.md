@@ -79,8 +79,8 @@ O wait --text "Доступ выдан."
 - **Roles.** `owner`, `holder`, `learner`, `newcomer` and `guest`, one session each;
   [roles and gotchas](roles-and-gotchas.md) says who each one is, which scenario it suits and how
   it signs in, on a light instance and on the shared stand.
-- **Namespace.** When the machine's `agent-browser` rules name a namespace, export it as
-  `AGENT_BROWSER_NAMESPACE` in each command; the helper passes it on.
+- **Namespace.** Set `AGENT_BROWSER_NAMESPACE` before starting the admitted shell.
+  The same namespace identifies each role for automatic cleanup.
 - **Handles.** Act on roles and accessible names (`find role … --name`, `find label …`), or on a
   ref from a fresh `snapshot -i`; take the names from the code and the snapshot. Coordinates are
   never a handle.
