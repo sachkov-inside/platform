@@ -50,8 +50,7 @@ git ls-files 'apps/**/*.ts' 'apps/**/*.tsx' 'apps/**/*.css' | xargs wc -l
   `index.ts`, запрещает raw persistence imports и задаёт точную verification command;
 - [`docs/agents/frontend-delivery.md`](../agents/frontend-delivery.md) задаёт production/ui-catalog
   ownership, presentation interface и запрет параллельного fake data path;
-- [`apps/web/src/ui-catalog/overview.mdx`](../../apps/web/src/ui-catalog/overview.mdx)
-  делает UI catalog manifest и локальный `/mcp` catalog executable UI interface для людей и агентов;
+- На момент исследования каталог публиковал manifest и локальный `/mcp` для людей и агентов. [Исходные ссылки в снимке до удаления](https://github.com/sachkov-inside/platform/blob/6ffac6ab6efcc03e67daa607a4315b3a52671842/docs/research/ai-first-tooling-assessment.md).
 - [`apps/backend/scripts/check-backend-architecture.mjs`](../../apps/backend/scripts/check-backend-architecture.mjs)
   и negative fixtures проверяют dependency direction, а не только объясняют её prose;
 - TypeScript compiler, ESLint, tests, Playwright/ui-catalog и production builds входят в

@@ -1,12 +1,12 @@
-# #1023 : UI catalog MCP memory and child lifecycle
+# #1023: UI catalog MCP memory and child lifecycle
 
 ## Reproduction
 
 Host: macOS, Node `26.10.0`, pnpm `11.27.1`, ui-catalog/addon-vitest `10.6.1`.
-Use the historical checkout at `6fed4ca1`. From its root, set `UI_CATALOG_CLI` to the installed CLI entry point and run the probe with an orchestrator slot:
+Use a historical application checkout and run the [archived probe](reproduce.mjs) by absolute path from that checkout’s root. The earlier baseline `6fed4ca1` predates the probe. Set `UI_CATALOG_CLI` to the installed CLI entry point and reserve an orchestrator slot.
 
 ```bash
-UI_CATALOG_CLI=/path/to/cli.js PROBE_PARENT_SIGNAL=SIGKILL node docs/evidence/issue-1023/reproduce.mjs
+UI_CATALOG_CLI=/path/to/cli.js PROBE_PARENT_SIGNAL=SIGKILL node /path/to/archive-checkout/docs/evidence/issue-1023/reproduce.mjs
 ```
 
 The diagnostic script starts the real UI catalog CLI on 6106, samples the parent heap via Node
