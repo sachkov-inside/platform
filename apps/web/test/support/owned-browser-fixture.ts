@@ -290,7 +290,8 @@ async function runHost(config: Configuration) {
       ...(config.name === "body-fragments" ||
       config.name === "cabinet-facts" ||
       config.name === "course-film" ||
-      config.name === "reading-cache"
+      config.name === "reading-cache" ||
+      config.name === "checkout-selection"
         ? { define: { "process.env": "{}" } }
         : {}),
       resolve: {
