@@ -48,7 +48,10 @@ class LockTest(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
-        self.environment = dict(os.environ, INSIDE_HEAVY_CHECK_DIRECTORY=self.directory.name)
+        self.environment = dict(
+            os.environ, INSIDE_HEAVY_CHECK_DIRECTORY=self.directory.name,
+            INSIDE_HEAVY_CHECK_TWO_SLOTS='1',
+        )
         self.environment.pop('CI', None)
         self.environment.pop('INSIDE_HEAVY_CHECK_OWNER', None)
 
@@ -101,6 +104,63 @@ class LockTest(unittest.TestCase):
         line = line.decode().strip()
         self.assertIn(expected, line)
         return line
+
+    def test_exclusive_run_waits_for_an_existing_legacy_slot(self):
+        with open(Path(self.directory.name) / 'slot-1.lock', 'a') as legacy:
+            fcntl.flock(legacy, fcntl.LOCK_EX)
+            run = self.start(launcher=[
+                'bash', str(WRAPPER), '--exclusive', sys.executable, '-c', FIXTURE,
+            ])
+            self.line(run, 'waiting')
+        self.line(run, 'acquired')
+        self.line(run, 'READY')
+        run.stdin.close()
+        self.assertEqual(run.wait(timeout=10), 0)
+
+    def test_deadline_stops_owned_command_and_releases_queue(self):
+        run = self.start(launcher=[
+            'bash', str(WRAPPER), '--timeout', '1', sys.executable, '-c', FIXTURE,
+        ])
+        self.line(run, 'acquired')
+        pid = int(self.line(run, 'READY').split()[-1])
+        self.line(run, 'deadline exceeded')
+        self.assertEqual(run.wait(timeout=10), 124)
+        receipt = json.loads((Path(self.directory.name) / 'last-stop.json').read_text())
+        self.assertEqual(receipt['reason'], 'deadline exceeded')
+        self.assertEqual(receipt['pid'], pid)
+        self.assert_stopped(pid)
+        successor = self.start()
+        self.line(successor, 'acquired')
+        self.line(successor, 'READY')
+
+    @unittest.skipUnless(sys.platform == 'darwin', 'Darwin memory-pressure probe')
+    def test_pressure_defers_start_and_stops_only_the_admitted_command(self):
+        here = Path(self.directory.name)
+        level = here / 'level'
+        level.write_text('2')
+        sysctl = here / 'sysctl'
+        sysctl.write_text('#!/bin/sh\ncat "$PRESSURE_TEST_LEVEL"\n')
+        sysctl.chmod(0o700)
+        environment = dict(
+            self.environment,
+            PATH=f'{here}:{os.environ["PATH"]}',
+            PRESSURE_TEST_LEVEL=str(level),
+        )
+        run = self.start(environment=environment)
+        self.line(run, 'waiting for normal memory pressure')
+        level.write_text('1')
+        self.line(run, 'acquired')
+        pid = int(self.line(run, 'READY').split()[-1])
+        level.write_text('4')
+        self.line(run, 'critical memory pressure')
+        self.assertEqual(run.wait(timeout=10), 125)
+        receipt = json.loads((here / 'last-stop.json').read_text())
+        self.assertEqual(receipt['reason'], 'critical memory pressure')
+        self.assert_stopped(pid)
+        level.write_text('1')
+        next_run = self.start(environment=environment)
+        self.line(next_run, 'acquired')
+        self.line(next_run, 'READY')
 
     def test_two_worktrees_share_capacity_and_kill_releases_slot(self):
         first_cwd = Path(self.directory.name) / 'worktree-a'

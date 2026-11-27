@@ -5,10 +5,11 @@
 // changes an instance.
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, lstatSync, statSync } from "node:fs";
+import { appendFileSync, existsSync, lstatSync, statSync } from "node:fs";
 import { mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { z } from "zod";
 import {
@@ -164,7 +165,7 @@ async function instanceState(context) {
   );
   if (state === null)
     throw new Error(
-      "No light instance for this worktree; start one with pnpm stand:light up",
+      "No light instance for this worktree; start one with pnpm verify:light -- bash",
     );
   return state;
 }
@@ -182,7 +183,7 @@ async function doctor(context) {
       name: "process",
       ok: false,
       detail:
-        "no light instance for this worktree; start one with pnpm stand:light up",
+        "no light instance for this worktree; start one with pnpm verify:light -- bash",
     });
   else {
     const alive = processAlive(state.pid);
@@ -191,7 +192,7 @@ async function doctor(context) {
       ok: alive && state.phase === "ready",
       detail: alive
         ? `supervisor ${String(state.pid)} is ${state.phase}${state.failure ? ` (${state.failure})` : ""}`
-        : `supervisor ${String(state.pid)} is gone; run pnpm stand:light down, then up`,
+        : `supervisor ${String(state.pid)} is gone; run pnpm stand:light down, then start a new pnpm verify:light session`,
     });
     checks.push({
       name: "source",
@@ -362,12 +363,37 @@ async function address(context) {
 
 /** @param {Context} context */
 function browser(context) {
+  const role = verifyRoleSchema.parse(values.role ?? "owner");
+  const receipt = process.env["INSIDE_LIGHT_VERIFICATION"];
   const invocation = browserInvocation({
     worktree: context.worktree,
-    role: verifyRoleSchema.parse(values.role ?? "owner"),
+    role,
+    ...(receipt && {
+      runId: createHash("sha256").update(receipt).digest("hex").slice(0, 8),
+    }),
     args: passed.length > 0 ? passed : positionals.slice(1),
     environment: process.env,
   });
+  if (process.platform === "darwin" && !receipt)
+    throw new Error("Drive a light instance on Mac through pnpm verify:light");
+  if (receipt) {
+    if (process.env["INSIDE_LIGHT_VERIFICATION_WORKTREE"] !== context.worktree)
+      throw new Error(
+        "The verification session belongs to a different worktree",
+      );
+    execFileSync("python3", [
+      fileURLToPath(new URL("./heavy-check/lock.py", import.meta.url)),
+      "--owns",
+    ]);
+    if (
+      process.env["INSIDE_LIGHT_VERIFICATION_NAMESPACE"] !==
+      process.env["AGENT_BROWSER_NAMESPACE"]
+    )
+      throw new Error(
+        "Set AGENT_BROWSER_NAMESPACE when starting pnpm verify:light",
+      );
+    appendFileSync(join(receipt, "roles"), `${role}\n`);
+  }
   const result = spawnSync(invocation.command, invocation.args, {
     env: invocation.environment,
     stdio: "inherit",

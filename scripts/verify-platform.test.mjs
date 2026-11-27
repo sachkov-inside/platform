@@ -210,3 +210,87 @@ test("the browser command refuses to act outside its session", async (context) =
   assert.equal(option.status, 1);
   assert.doesNotMatch(option.stderr, /\n\s+at /u);
 });
+
+test("the guarded light session closes browsers before stopping its instance", async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), "light-verification-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const log = join(directory, "operations");
+  await writeFile(
+    join(directory, "pnpm"),
+    `#!/bin/sh
+printf '%s\\n' "$*" >>"$VERIFY_TEST_LOG"
+if [ "$2" = up ]; then
+  touch "$INSIDE_LIGHT_VERIFICATION/started" "$INSIDE_LIGHT_VERIFICATION/ready"
+fi
+`,
+    { mode: 0o700 },
+  );
+  await writeFile(
+    join(directory, "node"),
+    `#!/bin/sh
+printf '%s\\n' "$*" >>"$VERIFY_TEST_LOG"
+`,
+    { mode: 0o700 },
+  );
+  /** @type {NodeJS.ProcessEnv} */
+  const environment = {
+    ...process.env,
+    PATH: `${directory}:${process.env["PATH"] ?? ""}`,
+    INSIDE_HEAVY_CHECK_DIRECTORY: join(directory, "queue"),
+    VERIFY_TEST_LOG: log,
+  };
+  delete environment["CI"];
+  delete environment["INSIDE_HEAVY_CHECK_OWNER"];
+  delete environment["INSIDE_HEAVY_CHECK_EXCLUSIVE"];
+  const expected = [
+    "stand:light up",
+    "scripts/verify-platform.mjs browser --role holder -- close",
+    "stand:light down",
+  ];
+  const verification = ["bash", "scripts/verify-light.sh", "--", "sh", "-c"];
+  const recordRoles =
+    'printf "holder\\nholder\\n" > "$INSIDE_LIGHT_VERIFICATION/roles"';
+  for (const { command, status, expectedOperations } of [
+    {
+      command: [...verification.slice(1), `${recordRoles}; exit 17`],
+      status: 17,
+      expectedOperations: expected,
+    },
+    {
+      command: [
+        "scripts/heavy-check.sh",
+        "--exclusive",
+        "--timeout",
+        "2",
+        "--cleanup-grace",
+        "8",
+        ...verification,
+        `${recordRoles}; sleep 60`,
+      ],
+      status: 124,
+      expectedOperations: expected,
+    },
+    {
+      command: [
+        ...verification.slice(1, 2),
+        "--browser-only",
+        ...verification.slice(2),
+        `${recordRoles}; exit 0`,
+      ],
+      status: 0,
+      expectedOperations: [expected[1]],
+    },
+  ]) {
+    await writeFile(log, "");
+    const result = spawnSync("bash", command, {
+      env: environment,
+      encoding: "utf8",
+      timeout: 12_000,
+    });
+    assert.equal(result.status, status, result.stderr);
+    assert.deepEqual(
+      (await readFile(log, "utf8")).trim().split("\n"),
+      expectedOperations,
+    );
+  }
+});

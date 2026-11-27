@@ -40,7 +40,8 @@ const processStopGraceMilliseconds = 10_000;
 // Owned processes stop when any ancestor of their owner exits (owned-process.py). The instance
 // outlives the `up` command, so its supervisor first leaves that ancestry: it starts a copy of
 // itself and exits, and the copy waits until launchd (PID 1) adopts it.
-if (process.env["STAND_LIGHT_DETACHED"] !== "1") {
+const verification = process.env["INSIDE_LIGHT_VERIFICATION"];
+if (!verification && process.env["STAND_LIGHT_DETACHED"] !== "1") {
   // deterministic-test-allow process-cleanup: the detached copy is the instance supervisor itself; it stops its owned tree on SIGTERM from `pnpm stand:light down`.
   spawn(process.execPath, [fileURLToPath(import.meta.url)], {
     detached: true,
@@ -50,7 +51,7 @@ if (process.env["STAND_LIGHT_DETACHED"] !== "1") {
   process.exit(0);
 }
 const adoptionDeadline = Date.now() + adoptionBudgetMilliseconds;
-while (process.ppid !== 1) {
+while (!verification && process.ppid !== 1) {
   if (Date.now() > adoptionDeadline) {
     process.stderr.write(
       "The light instance supervisor was not adopted by launchd; its processes would stop with the caller\n",

@@ -23,7 +23,7 @@
     "smoke:backend": "vitest run --config vitest.smoke.config.mts",
     "openapi:generate": "node scripts/generate-openapi-client.mjs generate",
     "openapi:check": "node scripts/generate-openapi-client.mjs check",
-    "storybook": "storybook dev -p 6006",
+    "storybook": "bash ../../scripts/heavy-check.sh storybook dev -p 6006",
     "build-storybook": "bash ../../scripts/heavy-check.sh storybook build --output-dir storybook-static",
     "test:contracts": "bash ../../scripts/heavy-check.sh vitest run --config vitest.config.mts --project=contracts"
   },
@@ -62,7 +62,6 @@
     "@playwright/test": "1.65.0",
     "@storybook/addon-a11y": "10.6.7",
     "@storybook/addon-docs": "10.6.7",
-    "@storybook/addon-mcp": "10.6.7",
     "@storybook/addon-vitest": "10.6.7",
     "@storybook/react-dom-shim": "10.6.7",
     "@storybook/react-vite": "10.6.7",

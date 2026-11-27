@@ -21,7 +21,7 @@ a new test from the sample of its kind.
 | Web module | Presentation mapping, query behaviour, BFF route modules, mutation operations | Own modules, session, SDK, adapters and schemas in Node | Time; external backend and identity over HTTP | [`billing-subscription-presentation.test.ts`](../../apps/web/test/module/billing-subscription-presentation.test.ts) | `pnpm --filter @inside/web test:module` |
 | Web contract | Web tooling lifecycles, such as the run-scoped Vite cache | Subprocesses, temporary files | External services | [`run-scoped-vite-cache.test.ts`](../../apps/web/test/contracts/run-scoped-vite-cache.test.ts) | `pnpm --filter @inside/web test:contracts` |
 | Browser engine | Browser behaviour that a Node module test cannot see: caches between documents, history, SVG and sign-in in a real engine | Vite dev server or a fixture page, Chromium and, where a test asks for it, WebKit | Time; backend answers from the test | [`reader-history.test.ts`](../../apps/web/test/browser-engines/reader-history.test.ts) | `pnpm --filter @inside/web test:browser-engines` |
-| Storybook | A meaningful UI state renders from the production module in its production environment | Chromium through the Vitest browser project | Fetch mocks and fixtures in `apps/web/src/storybook` | [`public-shell.stories.tsx`](../../apps/web/src/_app/ui/public-shell.stories.tsx) | `pnpm test:storybook` |
+| Existing Storybook fixtures | A UI state still covered by the legacy fixture suite | Chromium through the Vitest browser project | Fetch mocks and fixtures in `apps/web/src/storybook` | [`public-shell.stories.tsx`](../../apps/web/src/_app/ui/public-shell.stories.tsx) | `pnpm test:storybook` |
 | Web E2E | Route behaviour and accessibility on the production build | Production Next.js build, Playwright browser | Backend absent or answered by Playwright route interception | [`routes.spec.ts`](../../apps/web/test/e2e/routes.spec.ts) | `pnpm test:e2e` after `pnpm build` |
 | Navigation | Page transitions, prefetch and loading states on the production build | Production Next.js build, Playwright browser | Backend as `apps/web/test/navigation/fake-backend.mjs` or a per-spec backend | [`authoring-shell.spec.ts`](../../apps/web/test/navigation/authoring-shell.spec.ts) | `pnpm test:navigation` after `pnpm build` |
 | Full-stack | Web/BFF, backend contract and production data flow together | Built Web, backend API and MCP, PostgreSQL, object storage | Synthetic sign-in provider, local bank double | [`material-reader.spec.ts`](../../apps/web/test/fullstack/material-reader.spec.ts) | `pnpm smoke:fullstack`; `pnpm smoke:enrollments` and `pnpm smoke:buyer-journey` for their specs |
@@ -51,7 +51,7 @@ the highest public seam that reaches the behaviour.
   acceptance.
 - A subprocess, compiled entrypoint or owned loopback provider gets a contract test.
 - Web presentation mapping, query behaviour and mutation operations get Web module tests.
-- A UI state that [frontend delivery](frontend-delivery.md#stories) names gets a Storybook story.
+- Select the owning seam for new UI checks. Preserve unique assertions from [existing UI fixtures](frontend-delivery.md#existing-ui-fixtures) during migration.
 - Route behaviour and accessibility get a Web E2E test; page transitions and prefetch get a
   navigation test.
 - A change to a backend contract the Web uses, to a BFF route, to query ownership or to a

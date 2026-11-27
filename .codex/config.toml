@@ -1,2 +1,1 @@
-[mcp_servers.platform-storybook]
-url = "http://localhost:6006/mcp"
+# Project MCP servers are configured only when needed.

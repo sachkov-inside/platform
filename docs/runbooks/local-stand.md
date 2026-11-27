@@ -172,12 +172,12 @@ reserved range of `scripts/smoke-stand.mjs` (#896), so checks in two worktrees r
 
 A light instance runs one worktree's web and API on the host, against the shared stand's PostgreSQL
 and object storage, with its own database, free loopback ports and the synthetic sign-in of the
-full-stack checks. It needs no reservation and no queue.
+full-stack checks. It needs no shared stand reservation. The Mac verification command holds [heavy-check admission](local-heavy-checks.md) for the session.
 
 ```bash
-pnpm stand:light up          # add --mcp for MCP, --dev for next dev
+pnpm verify:light -- bash    # run commands in the admitted shell, then exit it
 pnpm stand:light status
-pnpm stand:light down
+pnpm stand:light down       # recover an interrupted instance record
 ```
 
 The [verify-platform skill](../../.agents/skills/verify-platform/SKILL.md) drives an instance as a
@@ -272,16 +272,8 @@ Measured on 2026-11-16 on a Mac with 24 GiB, of which the OrbStack VM takes 12 G
 | Production build (default) | 10–20 s; 20 s with a cold build cache | 0.4–1.0 GiB | 2.9 GiB while `next build` runs |
 | `next dev` (`--dev`) | 7–9 s; the first page then compiles for 2–5 s | 0.5–2.3 GiB; `next dev` alone up to 1.8 GiB | as while running |
 
-- Two default-mode instances in two worktrees ran at the same time; each passed a browser scenario
-  (a guest gets «Страница не найдена» on `/authoring`, the owner signs in and sees «Обзор»). They
-  used 440 and 675 MiB, and 6.0 GiB of Mac memory stayed free. Each further instance needs 2.9 GiB
-  while it builds and up to 1.0 GiB afterwards, so three more fit when started one after another:
-  five in total.
-- One default-mode instance against the running shared stand became ready in 10 s and passed the
-  same scenario. The stand's database list differed only by its `inside_light_<id>` while it ran.
-
-Plan for 1 GiB of Mac memory per running instance and start one at a time. `pnpm stand:light status`
-shows the resident memory of each instance's process tree.
+Use one admitted Mac verification at a time. `pnpm stand:light status` shows the resident
+memory of each instance's process tree.
 
 ## Start from a fresh clone
 

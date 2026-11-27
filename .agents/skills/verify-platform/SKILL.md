@@ -20,17 +20,16 @@ as, what a light instance cannot do, and where the browser tool misleads. Read i
 ## 1. Launch
 
 A **light instance** is this worktree's web and API on free loopback ports with its own freshly
-seeded database. It needs no reservation and runs beside other worktrees' instances.
+seeded database. It needs no shared stand reservation.
 
 ```bash
-pnpm stand:light up        # prints the addresses when ready
+pnpm verify:light -- bash  # prints the addresses and opens the admitted shell
 ```
 
 Commit first: web is built once at `up`, so a later commit, checkout or edit of a web build input
-(`apps/web`, `packages`, dependencies) needs `pnpm stand:light down` and `up`. Start one instance
-at a time on the machine; the runbook's
-[memory budget](../../../docs/runbooks/local-stand.md#memory-budget) says why. `up` refuses when the shared stand's PostgreSQL and object
-storage are not running; it never starts containers, so report that as a blocker.
+(`apps/web`, `packages`, dependencies) needs a new verification session. Run the following commands inside that shell. Exit it to close
+the browsers and the light instance. The command requires the shared PostgreSQL and object
+storage to be running.
 
 The instance is usable when the doctor passes, not when `up` returns.
 
@@ -80,8 +79,8 @@ O wait --text "Доступ выдан."
 - **Roles.** `owner`, `holder`, `learner`, `newcomer` and `guest`, one session each;
   [roles and gotchas](roles-and-gotchas.md) says who each one is, which scenario it suits and how
   it signs in, on a light instance and on the shared stand.
-- **Namespace.** When the machine's `agent-browser` rules name a namespace, export it as
-  `AGENT_BROWSER_NAMESPACE` in each command; the helper passes it on.
+- **Namespace.** Set `AGENT_BROWSER_NAMESPACE` before starting the admitted shell.
+  The same namespace identifies each role for automatic cleanup.
 - **Handles.** Act on roles and accessible names (`find role … --name`, `find label …`), or on a
   ref from a fresh `snapshot -i`; take the names from the code and the snapshot. Coordinates are
   never a handle.

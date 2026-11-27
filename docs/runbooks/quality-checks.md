@@ -17,7 +17,7 @@ Its failed, cancelled, missing or skipped result prevents `CI Gate` success.
 | `pnpm quality:shell` | ShellCheck on repository shell scripts and hooks, including informational/style diagnostics. Imported skills and negative fixtures keep their source bytes |
 | `pnpm quality:docker` | Hadolint warnings/errors fail. Informational findings remain visible. File-specific upstream/package-install exceptions are in `scripts/quality-check.mjs`; Docker runtime/image/provenance contracts remain required |
 | `pnpm quality:unused` | Knip checks unused and undeclared dependencies with explicit workspace entries. Guardrail fixtures and generated outputs are excluded. Prisma's generated runtime requires the explicit `@prisma/client` exception in `knip.json` |
-| `pnpm quality:agents` | JSON shape and agreement of the Storybook MCP URL in `.mcp.json` and `.codex/config.toml`; not a complete Codex TOML validator |
+| `pnpm quality:agents` | JSON shape and absence of the legacy Storybook MCP server in both agent configs |
 
 The pinned external binaries and archive SHA-256 digests for macOS/Linux, arm64/x64, live in
 `scripts/quality-tools.json`. First use downloads only those assets into the worktree's
