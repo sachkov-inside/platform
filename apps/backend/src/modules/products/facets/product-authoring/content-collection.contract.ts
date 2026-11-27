@@ -3,7 +3,7 @@ export type ContentCollectionKind = "product" | "topic";
 /**
  * Author-written fields that tell a reader who a Product is for, what they will be
  * able to do, what they must know beforehand, and what stays outside it. Field
- * names follow the Course Studio authoring `product.yaml`, so an import carries
+ * names follow the Course Studio authoring `guide.yaml`, so an import carries
  * the authored text without translation. A Topic has no introduction.
  */
 /** One introduction field holds an authored paragraph, not a headline. */

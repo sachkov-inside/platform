@@ -31,6 +31,23 @@ export function grantStandProductAccess(pnpmPath) {
   });
 }
 
+/** @param {string} materials @param {string} [override] */
+export function resolveContentCheckout(materials, override) {
+  const current = resolve(materials, "course-studio");
+  const candidates =
+    override === undefined
+      ? [current, resolve(materials, "content-studio")]
+      : [resolve(override)];
+  const checkout = candidates.find((path) =>
+    existsSync(resolve(path, "tools/content.py")),
+  );
+  if (checkout === undefined)
+    throw new Error(
+      `Course Studio is not at ${candidates.join(" or ")}; pass --content PATH`,
+    );
+  return checkout;
+}
+
 async function main() {
   // The stand's journal of transferred originals; keep it between runs.
   const standStateDirectory = "_local/platform-468/local-stand";
@@ -46,11 +63,10 @@ async function main() {
   });
   const { email } = await standIdentity(values["owner-email"]);
   // Authoring lives in Materials independently of the primary checkout or assigned worktree.
-  const content = resolve(
-    values.content ?? resolve(homedir(), "Work", "Materials", "course-studio"),
+  const content = resolveContentCheckout(
+    resolve(homedir(), "Work", "Materials"),
+    values.content,
   );
-  if (!existsSync(resolve(content, "tools/content.py")))
-    throw new Error(`Course Studio is not at ${content}; pass --content PATH`);
   const receipt = await withStandGateway(email, (origin) =>
     syncGitLocal(
       content,
