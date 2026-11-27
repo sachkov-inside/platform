@@ -1,4 +1,5 @@
-import { writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   expect as ui,
@@ -363,10 +364,46 @@ for (const engine of ["chromium", "webkit"]) {
     }
   }, 30_000);
 
-  test(`${engine}: a pointer held across hide cannot drag the returned crop without a new press`, async () => {
+  test(`${engine}: a pointer held across hide cannot drag the returned crop without a new press`, async (t) => {
+    const directory = resolve(
+      import.meta.dirname,
+      "../../test-results/browser-engines/account-avatar/held-pointer",
+      engine,
+    );
+    const failureReport = resolve(directory, "failure.json");
+    await rm(failureReport, { force: true });
+    const started = performance.now();
+    let bodyPhase = "open-page";
+    let cleanupPhase = "pending";
+    t.onTestFailed(async () => {
+      try {
+        await mkdir(directory, { recursive: true });
+        await writeFile(
+          failureReport,
+          JSON.stringify(
+            {
+              engine,
+              bodyPhase,
+              cleanupPhase,
+              elapsedMilliseconds: performance.now() - started,
+              browserConnected: browsers.get(engine)?.isConnected() ?? null,
+            },
+            null,
+            2,
+          ) + "\n",
+        );
+      } catch (error) {
+        console.error(
+          "[account-avatar held pointer diagnostics unavailable]",
+          error instanceof Error ? error.name : "unknown",
+        );
+      }
+    });
     const page = await openPage();
     try {
+      bodyPhase = "choose-avatar";
       const { dialog } = await chooseAvatar(page);
+      bodyPhase = "prepare-crop";
       const zoom = dialog.getByRole("slider", { name: "Масштаб" });
       await zoom.focus();
       await zoom.press("End");
@@ -390,6 +427,7 @@ for (const engine of ["chromium", "webkit"]) {
         return receipt;
       });
       const cropHandle = await crop.elementHandle();
+      bodyPhase = "initial-drag";
       await page.mouse.move(x, y);
       await page.mouse.down();
       await page.mouse.move(x + 20, y);
@@ -405,6 +443,7 @@ for (const engine of ["chromium", "webkit"]) {
       await inspect(page);
       const horizontal = dialog.getByRole("slider", { name: "По горизонтали" });
       const before = await horizontal.inputValue();
+      bodyPhase = "hide";
       await page.locator("#hide").evaluate((button: HTMLButtonElement) => {
         button.click();
       });
@@ -414,21 +453,28 @@ for (const engine of ["chromium", "webkit"]) {
           pointerId,
         ),
       ).toBe(false);
+      bodyPhase = "show";
       await page.locator("#show").evaluate((button: HTMLButtonElement) => {
         button.click();
       });
       await ui(dialog).toBeVisible();
+      bodyPhase = "held-drag";
       await page.mouse.move(x + 40, y);
       await inspect(page);
       await ui(horizontal).toHaveValue(before);
+      bodyPhase = "new-drag";
       await page.mouse.up();
       await page.mouse.down();
       await page.mouse.move(x + 60, y);
       await inspect(page);
       ui(await horizontal.inputValue()).not.toBe(before);
+      bodyPhase = "complete";
     } finally {
+      cleanupPhase = "release-pointer";
       await page.mouse.up();
+      cleanupPhase = "close-page";
       await page.close();
+      cleanupPhase = "complete";
     }
   }, 30_000);
 }
