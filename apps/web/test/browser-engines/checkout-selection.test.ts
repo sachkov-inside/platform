@@ -13,6 +13,10 @@ test("a late quote for the previous checkout selection cannot reenable payment",
   const chromium = browsers.get("chromium");
   if (!chromium) throw new Error("Missing Chromium");
   const page = await chromium.newPage();
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => {
+    pageErrors.push(error.message);
+  });
   const releaseOld = Promise.withResolvers<undefined>();
   const releaseCurrent = Promise.withResolvers<undefined>();
   try {
@@ -29,7 +33,12 @@ test("a late quote for the previous checkout selection cannot reenable payment",
       }
     });
     await page.goto(url);
-    await expect.poll(() => requests).toBe(1);
+    await expect
+      .poll(() => {
+        expect(pageErrors).toEqual([]);
+        return requests;
+      })
+      .toBe(1);
     await page.getByRole("button", { name: "Вариант B" }).click();
     const retry = page.getByRole("button", { name: "Обновить условия" });
     await expect(retry).toBeEnabled();
