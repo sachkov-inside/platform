@@ -43,7 +43,7 @@ attempt/provider state; do not manufacture a fresh idempotency key for a blind r
 ### `pnpm authoring:video upload` (#1794)
 
 For an imported Material, this command runs that sequence from a file on a local target
-(`editor`, `stand`) or on the trusted `production` target, and journals each step. Content Studio
+(`editor`, `stand`) or on the trusted `production` target, and journals each step. Course Studio
 uses it to deliver an accepted master; the next `authoring:release` attaches the ready upload.
 
 ```bash
@@ -126,7 +126,7 @@ publication state; uploading does not publish anything.
 
 Every upload lands in the protected Kinescope project, whatever the lesson's access, so the same
 provider recording serves the stand and production and survives a later change of access
-([ADR 0041](../adr/0041-protected-recording-serves-any-access.md)). The contract with Content Studio:
+([ADR 0041](../adr/0041-protected-recording-serves-any-access.md)). The contract with Course Studio:
 
 1. Upload an accepted master once, through one target: `--target stand` while the stand runs the
    real adapter (`pnpm stand:kinescope status`), otherwise `--target production`. Keep the printed

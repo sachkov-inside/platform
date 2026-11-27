@@ -80,7 +80,7 @@ shared `inside-platform_*` volumes, so every branch and worktree sees the same c
 - `pnpm local:stand` links a worktree's `.identity-proof` to the primary checkout, so the stand keeps
   one set of sign-in keys whatever branch starts it.
 - `pnpm local:product [--owner-email EMAIL]` transfers the committed AI Engineering originals from the
-  `~/Work/Materials/content-studio` checkout (override with `--content PATH`) and features that product on Home. It starts the authoring
+  `~/Work/Materials/course-studio` checkout (or the previous `~/Work/Materials/content-studio` checkout if only that is installed; `--content PATH` selects an explicit checkout) and features that product on Home. It starts the authoring
   gateway for the run when none is running and repeats safely at any time. This local reader view
   approves the publication of every transferred original, as `--publish-all` does; see the publication
   policy below. After the transfer and its JSON receipt it repeats `pnpm local:accounts:bootstrap`, which

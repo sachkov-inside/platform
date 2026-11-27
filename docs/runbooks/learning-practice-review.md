@@ -44,7 +44,7 @@ Replay does not republish, change a row or certify current publication. Migratio
 original definitions in historical storage. Current local sync, release, Reader and native review
 use Product Tasks; there is no current Practice validation or learner decoder.
 
-Real authored originals stay in Engineering Content. Provenance records repository, commit and
+Real authored originals stay in Course Studio. Provenance records repository, commit and
 relative path as the author's assertion, not independent cryptographic attestation of Git history.
 Technical source transfer/readiness and author acceptance remain distinct.
 

@@ -26,7 +26,7 @@ let readOnlyURL = "";
 let editedURL = "";
 let browser: Browser | undefined;
 
-/** The arguments Content Studio starts the preview with: its export folder and any free port. */
+/** The arguments Course Studio starts the preview with: its export folder and any free port. */
 function previewArguments(exports: string) {
   return [server, "--package", exports, "--port", "0"];
 }

@@ -237,7 +237,7 @@ const trimmedText = (max, name) =>
 export const GLOSSARY_FEATURE = "glossary-v1";
 
 /**
- * One Glossary Term as Content exports it (content-studio#88). `sourceId` is the permanent term
+ * One Glossary Term as Content exports it (course-studio#88). `sourceId` is the permanent term
  * identifier Materials write in `term:<id>`; `introducedInMaterialId` is the source ID of the
  * Material that introduces the term, possibly outside this package. The full definition is plain
  * text, a blank line between paragraphs. The receiver stores trimmed text, so the limits apply to

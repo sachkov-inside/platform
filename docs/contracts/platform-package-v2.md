@@ -1,7 +1,7 @@
-# Content Studio snapshot, platform-package-v2
+# Course Studio snapshot, platform-package-v2
 
-This file is the single contract authority for Content Studio's Platform adapter and Platform's
-snapshot receiver. Content Studio links here instead of keeping a second v2 specification.
+This file is the single contract authority for Course Studio's Platform adapter and Platform's
+snapshot receiver. Course Studio links here instead of keeping a second v2 specification.
 The v1 adapter contract remains supported: an ordinary authoring package still uses its existing
 preview, release and content-preserving deliver paths. Snapshot contract versions and constituent
 `schemaVersion` values are independent.

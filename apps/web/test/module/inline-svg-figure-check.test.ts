@@ -12,7 +12,7 @@ const fixture = (path: string) =>
     "utf8",
   );
 
-/** A figure in the shape Content Studio generates, with `style` as its stylesheet. */
+/** A figure in the shape Course Studio generates, with `style` as its stylesheet. */
 function figure(style: string, body = "", rootId = "fig-loop-wide") {
   return `<svg xmlns="http://www.w3.org/2000/svg" id="${rootId}" width="720" height="240" viewBox="0 0 720 240"><style>${style}</style>${body}<text x="10" y="20">Шаг</text></svg>`;
 }

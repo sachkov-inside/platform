@@ -18,7 +18,7 @@ const tall = {
   width: 360,
 } as const;
 
-/** A wide/tall SVG pair as Content Studio delivers it: one file in both theme keys (#2041). */
+/** A wide/tall SVG pair as Course Studio delivers it: one file in both theme keys (#2041). */
 export const svgFigurePair: ImageBlock = {
   kind: "image",
   alt: "Цикл агента: запрос, проверка, результат",

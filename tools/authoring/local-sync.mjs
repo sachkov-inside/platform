@@ -1266,7 +1266,7 @@ export async function syncLocal(
             throw new Error(
               `${row.sourcePath}: a term mention requires ${GLOSSARY_FEATURE}`,
             );
-          // Content carries every term its Materials mention (content-studio#88), so a missing
+          // Content carries every term its Materials mention (course-studio#88), so a missing
           // one is an export defect, not a term the receiver may already hold.
           if (
             !(pkg.manifest.glossaryTerms ?? []).some(

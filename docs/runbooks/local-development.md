@@ -42,7 +42,7 @@ procedures; open the one that matches the task.
 - [Local sale acceptance](local-acceptance-sale.md): bank double, mail capture, payment recovery,
   seeded offers and owner billing operations.
 - [AI Engineering course acceptance](local-acceptance-course.md): `pnpm local:course` preview.
-- [Local authoring preview](local-acceptance-authoring.md): Engineering Content import to `editor`
+- [Local authoring preview](local-acceptance-authoring.md): Course Studio import to `editor`
   or `stand`.
 - [Isolated quiz acceptance](local-acceptance-quiz.md): quiz run against the editor runtime.
 

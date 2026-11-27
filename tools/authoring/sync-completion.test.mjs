@@ -3233,7 +3233,7 @@ test("a topics edit after the reviewed preview stops apply before the compositio
 });
 
 /**
- * Moves the fixture to package v2 with Glossary Terms (#2126, the content-studio#88 shape) and
+ * Moves the fixture to package v2 with Glossary Terms (#2126, the course-studio#88 shape) and
  * mentions a term in the lesson.
  *
  * @param {Awaited<ReturnType<typeof fixture>>} setup

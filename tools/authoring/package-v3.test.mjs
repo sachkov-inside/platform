@@ -591,7 +591,7 @@ const glossaryFixture = (
   features = ["canonical-product-source-v2", "glossary-v1"],
 ) => ({ ...fixture(), requiredFeatures: features, glossaryTerms });
 
-test("a package carries Glossary Terms in the content-studio#88 shape (glossary-v1)", async (t) => {
+test("a package carries Glossary Terms in the course-studio#88 shape (glossary-v1)", async (t) => {
   const terms = [glossaryTerm("aggregate"), glossaryTerm("bounded-context")];
   const pkg = await loadTopicPackage(t, glossaryFixture(terms));
   assert.deepEqual(pkg.manifest.glossaryTerms, terms);

@@ -1,6 +1,6 @@
 import type { ProductIntroductionDraft } from "./content-collections";
 
-/** Reader-facing wording; the field names follow the Inside Content `product.yaml`. */
+/** Reader-facing wording; the field names follow the Course Studio `guide.yaml`. */
 export const PRODUCT_INTRODUCTION_FIELDS: readonly {
   readonly field: keyof ProductIntroductionDraft;
   readonly label: string;
