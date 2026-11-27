@@ -26,8 +26,7 @@
 ├── Products/
 │   └── inside-platform/       # Platform, включая apps/telegram
 └── Materials/                # общий Obsidian vault
-    ├── course-studio/        # оригиналы курса
-    └── knowledge-base/       # исследования и накопленные знания
+    └── course-studio/        # оригиналы курса
 ```
 
 Platform по умолчанию читает оригиналы из `~/Work/Materials/course-studio`. Прежние пути
