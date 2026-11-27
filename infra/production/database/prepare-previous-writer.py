@@ -1,10 +1,12 @@
-"""Refresh the five retired APK pins in the CI checkout of the frozen 18.4 writer."""
+"""Refresh retired APK pins in the CI checkout of the frozen 18.4 writer."""
 import pathlib
 import sys
 
 
 def prepare(source):
     replacements = {
+        "libxml2-dev=2.13.9-r1": "libxml2-dev=2.13.9-r2 libxml2=2.13.9-r2",
+        "libxml2=2.13.9-r1": "libxml2=2.13.9-r2",
         "openssl-dev=3.5.9-r0": "openssl-dev=3.5.9-r1 libcrypto3=3.5.9-r1 libssl3=3.5.9-r1",
         "libcrypto3=3.5.9-r0": "libcrypto3=3.5.9-r1",
         "libssl3=3.5.9-r0": "libssl3=3.5.9-r1",
