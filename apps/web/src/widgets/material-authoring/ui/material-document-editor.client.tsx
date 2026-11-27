@@ -536,6 +536,7 @@ function MaterialDocumentEditorView({
     >
       {/* В странице панель встаёт под закреплённую шапку материала, на весь экран шапки нет. */}
       <div
+        data-material-editor-toolbar
         ref={attachToolbar}
         className={`sticky z-30 flex min-h-12 flex-wrap items-center justify-end gap-1 rounded-t-2xl bg-card/95 px-3 py-1 ${expanded ? "top-0" : "top-(--material-authoring-header-height,0px)"}`}
       >
