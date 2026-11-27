@@ -49,6 +49,63 @@ test("the shared populated Product keeps main lessons and practice separate from
   ).toHaveCount(4);
 });
 
+test("the mobile programme reserves its dock clearance when the storage notice returns", async ({
+  page,
+  context,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/products/synthetic-learning/programme");
+  const nav = page.locator(
+    'nav[data-layout="sections"][aria-label="Разделы продукта"]',
+  );
+  const notice = page.getByRole("region", { name: "Хранение в браузере" });
+  const clearance = () =>
+    nav.evaluate((dock) => {
+      const spacer = dock.previousElementSibling;
+      if (!spacer?.hasAttribute("data-course-navigation-space"))
+        throw new Error("The programme has no dock spacer");
+      return Math.round(
+        spacer.getBoundingClientRect().height -
+          dock.getBoundingClientRect().height -
+          Number.parseFloat(getComputedStyle(dock).bottom),
+      );
+    });
+  await expect(nav).toBeVisible();
+  await notice.getByRole("button", { name: "Понятно" }).click();
+  await expect(notice).toBeHidden();
+  await expect.poll(clearance).toBe(12);
+  const originalBottom = await nav.evaluate((dock) =>
+    Number.parseFloat(getComputedStyle(dock).bottom),
+  );
+
+  const other = await context.newPage();
+  try {
+    await other.goto("/legal/terms");
+    await other.evaluate(() => localStorage.clear());
+    await expect(notice).toBeVisible();
+    await expect
+      .poll(() =>
+        nav.evaluate((dock) =>
+          Number.parseFloat(getComputedStyle(dock).bottom),
+        ),
+      )
+      .toBeGreaterThan(originalBottom);
+    await expect.poll(clearance).toBe(12);
+    await notice.getByRole("button", { name: "Понятно" }).click();
+    await expect(notice).toBeHidden();
+    await expect
+      .poll(() =>
+        nav.evaluate((dock) =>
+          Number.parseFloat(getComputedStyle(dock).bottom),
+        ),
+      )
+      .toBe(originalBottom);
+    await expect.poll(clearance).toBe(12);
+  } finally {
+    await other.close();
+  }
+});
+
 test("the shared supplementary lesson downloads its declared current file through the real web route", async ({
   page,
   context,

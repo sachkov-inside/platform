@@ -666,11 +666,8 @@ describe("supported toolchain contract", () => {
     );
   });
 
-  it("keeps Storybook MCP on the compiler-free React docgen path", () => {
-    assert.equal(
-      webPackage.devDependencies["@storybook/addon-mcp"],
-      webPackage.devDependencies["@storybook/react-vite"],
-    );
+  it("keeps the legacy Storybook preview without an MCP runner", () => {
+    assert.equal(webPackage.devDependencies["@storybook/addon-mcp"], undefined);
     assert.match(
       read("apps/web/.storybook/main.ts"),
       /typescript:\s*\{\s*reactDocgen:\s*"react-docgen"\s*\}/u,

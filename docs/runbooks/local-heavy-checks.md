@@ -1,16 +1,14 @@
 # Heavy local checks
 
-How repository commands share the machine's two heavy-check slots.
+How guarded work waits and stops on the local machine.
 
 ## Automatic slots for heavy local checks
 
-Use the checked-in `pnpm` commands for heavy checks. `scripts/heavy-check.sh` admits at most two
-independent command trees across all worktrees on this machine. The installed optional
-`agent-heavy -- COMMAND [ARG ...]` host CLI shares the same slot files and nesting marker
-(`INSIDE_HEAVY_CHECK_OWNER`), so other participating projects consume this same machine budget.
-The checked-in wrapper remains usable without the host CLI or a sibling checkout. Inspect the
-host queue with `agent-heavy --status --json` when it is installed. A third invocation prints
-`heavy-check: waiting for one of two local slots` and waits; admission needs no coordinator request.
+Use the checked-in `pnpm` commands. On macOS, one supervised run holds both existing slot locks
+across worktrees, including while a verification browser is open. Linux local checks retain two
+slots. The persistent locks also coordinate with older wrappers and the optional `agent-heavy`
+host CLI. A direct local verification uses `pnpm verify:light -- COMMAND` and holds admission from
+setup through browser and light-instance cleanup. [Local stand procedure](local-stand.md#light-instance-per-agent).
 
 The wrappers cover root `check`, `check:full`, `check:ui`, `check:web-e2e`, `test`, `test:tooling`,
 `test:integration` (including its parallel and serial commands), `test:e2e`, `test:navigation`,
@@ -33,15 +31,16 @@ Do not remove them while checks run: the kernel owns their locks, and empty file
 occupied slots. `INSIDE_HEAVY_CHECK_DIRECTORY` is for isolated lock tests; normal sessions must
 keep the shared default. CI bypasses admission before invoking Python and retains workflow scheduling.
 
-Nested commands reuse their ancestor's slot. New invocations register tickets under a short queue
-lock; the oldest live ticket claims the next available slot (FIFO). A later invocation cannot
+Nested commands reuse their ancestor's slot. New invocations register tickets under a short queue lock. The oldest live ticket claims capacity (FIFO). A later invocation cannot
 bypass an older registered waiter. Cancelled or killed waiters release their ticket's kernel lock;
 admission removes unlocked older tickets as the queue advances. Waiting invocations retry admission every 1.5–2.5
 seconds with jitter. Parent exit and cancellation wake them immediately. Slot filenames remain
 compatible with pre-FIFO holders and waiters: they can finish without a restart, but their old
 admission loop cannot participate in FIFO ordering. Update worktrees to get FIFO for new runs.
-A holder waits for process
-events rather than polling `ps`. Process identity and ancestry come from `libproc` on macOS and
+macOS starts a local job when the kernel pressure level is normal. It samples pressure during the
+run and stops its owned process tree at critical pressure (exit 125). The default macOS execution
+deadline is 900 seconds (exit 124), starting after admission. Both exits log the reason and owned
+root PID, and save them in the queue directory as `last-stop.json`. The supervisor waits for process events between samples rather than polling `ps`. Process identity and ancestry come from `libproc` on macOS and
 `/proc` on Linux, without external commands. On macOS, fork events trigger descendant tracking;
 on Linux, the supervisor adopts orphaned descendants as a child subreaper. It closes the slot after
 the command exits and the tracked groups contain no running processes. On interruption, including SIGKILL of the wrapper or a

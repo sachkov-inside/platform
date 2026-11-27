@@ -1,5 +1,6 @@
-"""Machine-wide two-slot admission for local heavy commands (macOS/Linux)."""
+"""Machine-wide admission and supervision for local heavy commands."""
 import fcntl
+import json
 import os
 from pathlib import Path
 import random
@@ -12,9 +13,12 @@ import time
 from processes import adopt_orphans, process_row, process_snapshot, darwin_group_exited
 
 OWNER = 'INSIDE_HEAVY_CHECK_OWNER'
+EXCLUSIVE = 'INSIDE_HEAVY_CHECK_EXCLUSIVE'
 WAIT_SECONDS = 2
 CLEANUP_POLL_SECONDS = 0.25
 STOP_SECONDS = 5
+MAC_DEADLINE_SECONDS = 900
+PRESSURE_POLL_SECONDS = 2
 
 
 def ancestors():
@@ -189,7 +193,7 @@ class AdmissionQueue:
         self.mutex = open(directory / 'queue.lock', 'a')
         self.ticket = None
 
-    def acquire(self, slots):
+    def acquire(self, slots, exclusive, ready):
         try:
             fcntl.flock(self.mutex, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
@@ -211,15 +215,26 @@ class AdmissionQueue:
                         return None
                     # The kernel releases ticket ownership even after supervisor SIGKILL.
                     path.unlink()
+            if not ready():
+                return False
+            acquired = []
             for slot in slots:
                 try:
                     fcntl.flock(slot, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 except BlockingIOError:
+                    if exclusive:
+                        break
                     continue
+                acquired.append(slot)
+                if not exclusive or len(acquired) == len(slots):
+                    break
+            if acquired and (not exclusive or len(acquired) == len(slots)):
                 Path(self.ticket.name).unlink()
                 self.ticket.close()
                 self.ticket = None
-                return slot
+                return acquired
+            for slot in acquired:
+                fcntl.flock(slot, fcntl.LOCK_UN)
             return None
         finally:
             fcntl.flock(self.mutex, fcntl.LOCK_UN)
@@ -231,7 +246,36 @@ class AdmissionQueue:
         self.mutex.close()
 
 
-def supervise(read_fd, command, parents):
+def pressure():
+    if sys.platform != 'darwin':
+        return 1
+    try:
+        result = subprocess.run(
+            ['sysctl', '-n', 'kern.memorystatus_vm_pressure_level'],
+            capture_output=True, text=True, timeout=1, check=True,
+        )
+        # The public sysctl returns NOTE_MEMORYSTATUS_PRESSURE_* masks.
+        return {1: 1, 2: 2, 4: 4}.get(int(result.stdout))
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return None
+
+
+def record_stop(directory, reason, pid, elapsed):
+    print(f'heavy-check: {reason} (elapsed={elapsed}s, pid={pid})',
+          file=sys.stderr, flush=True)
+    try:
+        path = directory / 'last-stop.json'
+        path.write_text(json.dumps({
+            'reason': reason,
+            'pid': pid,
+            'elapsedSeconds': elapsed,
+            'unixSeconds': int(time.time()),
+        }) + '\n')
+    except OSError:
+        print('heavy-check: could not save stop receipt', file=sys.stderr, flush=True)
+
+
+def supervise(read_fd, command, parents, exclusive, timeout):
     directory = Path(os.environ.get(
         'INSIDE_HEAVY_CHECK_DIRECTORY',
         str(Path.home() / '.cache/inside-platform/heavy-check'),
@@ -246,10 +290,11 @@ def supervise(read_fd, command, parents):
     try:
         waiting = False
         while not events.wait(0):
-            slot = admission.acquire(slots)
-            if slot is not None:
-                print(f'heavy-check: acquired {slot.name}', file=sys.stderr, flush=True)
-                environment = dict(os.environ, **{OWNER: str(os.getpid())})
+            admitted = admission.acquire(slots, exclusive, lambda: pressure() == 1)
+            if admitted:
+                names = ', '.join(slot.name for slot in admitted)
+                print(f'heavy-check: acquired {names}', file=sys.stderr, flush=True)
+                environment = dict(os.environ, **{OWNER: str(os.getpid()), EXCLUSIVE: str(int(exclusive))})
                 adopt_orphans()
                 process = subprocess.Popen(
                     command, env=environment, start_new_session=True,
@@ -262,8 +307,23 @@ def supervise(read_fd, command, parents):
                     events.watch(pid, forks=True)
                 # Registration can already report exit. NOTE_EXIT can also precede
                 # waitpid readiness: never wait for a second exit event.
+                started = time.monotonic()
+                sample_at = started + PRESSURE_POLL_SECONDS
+                deadline = started + timeout if timeout else float('inf')
                 while process.pid not in events.dead and process.poll() is None:
-                    if events.wait():
+                    now = time.monotonic()
+                    if now >= deadline:
+                        record_stop(directory, 'deadline exceeded', process.pid, int(now - started))
+                        return 124
+                    if sys.platform == 'darwin' and now >= sample_at:
+                        level = pressure()
+                        if level == 4:
+                            elapsed = int(time.monotonic() - started)
+                            record_stop(directory, 'critical memory pressure', process.pid, elapsed)
+                            return 125
+                        sample_at = time.monotonic() + PRESSURE_POLL_SECONDS
+                    wake = min(deadline, sample_at) if sys.platform == 'darwin' else deadline
+                    if events.wait(None if wake == float('inf') else max(0, wake - time.monotonic())):
                         return 143
                     if events.tree_changed:
                         events.tree_changed = False
@@ -272,9 +332,10 @@ def supervise(read_fd, command, parents):
                             events.watch(pid, forks=True)
                 returncode = process.wait()
                 return returncode if returncode >= 0 else 128 - returncode
-            if not waiting and admission.ticket is not None:
-                print('heavy-check: waiting for one of two local slots', file=sys.stderr, flush=True)
-                waiting = True
+            reason = 'for normal memory pressure' if admitted is False else 'for local capacity'
+            if reason != waiting and admission.ticket is not None:
+                print(f'heavy-check: waiting {reason}', file=sys.stderr, flush=True)
+                waiting = reason
             if events.wait(random.uniform(WAIT_SECONDS * 0.75, WAIT_SECONDS * 1.25)):
                 return 143
         return 143
@@ -290,11 +351,31 @@ def supervise(read_fd, command, parents):
 
 def main():
     command = sys.argv[1:]
+    isolated_test = (
+        os.environ.get('INSIDE_HEAVY_CHECK_TWO_SLOTS') == '1'
+        and 'INSIDE_HEAVY_CHECK_DIRECTORY' in os.environ
+    )
+    exclusive = sys.platform == 'darwin' and not isolated_test
+    timeout = MAC_DEADLINE_SECONDS if exclusive else 0
+    if command and command[0] == '--exclusive':
+        exclusive = True
+        command = command[1:]
+    if command and command[0] == '--timeout':
+        if len(command) < 3 or not command[1].isdecimal() or int(command[1]) < 1:
+            print('heavy-check: --timeout must be a positive number of seconds', file=sys.stderr)
+            return 2
+        timeout = int(command[1])
+        command = command[2:]
+    if command == ['--owns']:
+        return 0 if owner_alive(ancestors()) else 1
     if not command:
-        print('usage: heavy-check.sh COMMAND [ARG ...]', file=sys.stderr)
+        print('usage: heavy-check.sh [--exclusive] [--timeout SECONDS] COMMAND [ARG ...]', file=sys.stderr)
         return 2
     parents = ancestors()
     if owner_alive(parents):
+        if exclusive and os.environ.get(EXCLUSIVE) != '1':
+            print('heavy-check: an exclusive run cannot reuse a shared slot', file=sys.stderr)
+            return 2
         os.execvp(command[0], command)
     read_fd, write_fd = os.pipe()
     interrupted = 0
@@ -319,7 +400,7 @@ def main():
         if write_fd is not None:
             os.close(write_fd)
         try:
-            status = supervise(read_fd, command, parents)
+            status = supervise(read_fd, command, parents, exclusive, timeout)
         except Exception as error:
             print(f'heavy-check: {error}', file=sys.stderr, flush=True)
             status = 1

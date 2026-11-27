@@ -1,8 +1,7 @@
 # Frontend delivery
 
-Storybook is the workshop of `apps/web`: the executable UI review surface, not a second
-application or data path. [Human participation](human-review.md#evidence) owns what proves the
-look a user gets.
+Review the interface on the running application with test data. [Human participation](human-review.md#evidence)
+owns the evidence needed for a pull request.
 
 For Home, Library, Series or Reader changes, read the current
 [product navigation contract](../product/platform-mvp-brief.md#поиск-и-навигация),
@@ -15,14 +14,10 @@ history, not an alternative product model.
 
 ## Review surface
 
-Before frontend implementation or interactive UI review, use Storybook from the task's worktree.
-Reuse its owned preview when the source matches. Otherwise start `pnpm storybook` on a free local
-port; keep another session's listener on `6006` or any other port.
-
-Use the owned preview's `platform-storybook` MCP endpoint when the runtime can reach it: read
-`get-storybook-story-instructions` before editing stories. If the endpoint belongs to another
-worktree, read the local stories and review the owned preview in a browser under the
-[browser rule](../../AGENTS.md#process); report that fallback.
+Use [the local verification procedure](../runbooks/local-stand.md#light-instance-per-agent) to
+drive one representative user scenario. Read the production route and the existing tests before
+editing. Storybook fixtures remain in CI while their unique assertions are moved to the owning
+test suites.
 
 Design critique, audit or polish of a UI uses `impeccable`, which reads `apps/web/PRODUCT.md` and
 `apps/web/DESIGN.md`. A new visual direction still needs the owner's choice from a
@@ -31,8 +26,7 @@ prototype under the delivery contract below.
 ## Prototypes
 
 A prototype stays outside production imports and uses fixtures or in-memory state for mutations.
-UI variants use the existing Storybook foundation, in place of the `prototype` skill's `UI.md`
-sub-shapes A and B on application routes; logic prototypes follow the skill. Open the variants in a
+UI variants use an isolated application route on a prototype branch. Logic prototypes follow the skill. Open the variants in a
 browser, check the relevant viewport sizes and the interaction that answers the design question, and
 share the URL with its limits as soon as it works. Full checks, finish review, an Issue, a PR and
 `ship` are not needed for the preview. Record the proof and the owner's decision on a `prototype/*`
@@ -42,8 +36,7 @@ implementation starts when the owner assigns it.
 ## Delivery contract
 
 Every full-stack feature owns a small presentation interface. A server-only production adapter
-maps the real application result to that interface; a Storybook fixture adapter supplies the same
-states for visual review. Business rules, authorization, transport details, backend DTOs and
+maps the real application result to that interface. Synthetic data and test backend responses supply the review states. Business rules, authorization, transport details, backend DTOs and
 production fallback behaviour stay behind the production adapter; fixtures hold representative
 presentation states only. `.storybook`, `src/storybook`, stories and fixture modules stay in the
 Storybook graph, outside production; the web guardrail and the production build confirm it.
@@ -51,8 +44,7 @@ Storybook graph, outside production; the web guardrail and the production build 
 The owning Specification and child issue state in plain language what the user receives;
 technical delivery details follow that outcome.
 
-One ticket delivers the functional path and its look in a production-owned UI module that the
-route and its stories both import. Choose the source of the look from the catalog you inspected:
+One ticket delivers the functional path and its look through the production route:
 
 1. Reuse a production-owned UI module when it already covers the required states.
 2. For a new visual direction, the owner chooses it from a [prototype](#prototypes). The
@@ -80,22 +72,13 @@ decisions 2, 8 and 13 of the [admin redesign specification](../specifications/au
 (#1717): it replaces the public navigation and always links back to the public Library and site.
 Another shell variant needs a new owner decision.
 
-## Stories
+## Existing UI fixtures
 
-Storybook holds the stories that do work the running application cannot do cheaply:
-
-- **Component story**: every shared module that a page uses has one. `storybook-catalog.test.ts`
-  checks `src/shared/ui`; a helper with nothing to show is listed with its reason in
-  `apps/web/src/storybook/catalog.json`.
-- **Page story**: for a state that is hard to reach in the running application (an error, loading,
-  denied access, a payment outcome, long text), or to test the page's behaviour with a `play`
-  scenario. A route needs no page story otherwise.
-
-A pull request that changes a surface keeps its stories true in the same pull request: a new
-hard-to-reach state gets a story, and a removed surface or state takes its stories and fixtures
-with it. `src/storybook` holds story support (the route environments, fetch mocks and fixtures)
-and the stories of modules that live outside `apps/web`, such as the Telegram sign-in page of the
-identity service.
+New components and pages use the [owning test seam](testing.md#choosing-the-kind) for the behavior
+they introduce. When removing a Storybook fixture, record which remaining check proves each
+distinct assertion. Move missing assertions to navigation, full-stack, browser-engine or module
+tests according to the actual behavior. Remove purely demonstrative variants when the application
+can show them with test data.
 
 ## Interface evidence
 
@@ -109,11 +92,3 @@ owns where a run writes snapshots. Two recurring traps affect what a snapshot sh
   from [`apps/web/test/support/whole-page-screenshot.mjs`](../../apps/web/test/support/whole-page-screenshot.mjs)
   in place of `page.screenshot({ fullPage: true })`; its JSDoc explains the viewport stretch,
   retries and budgets. Look at the image before attaching it.
-- A single component state needs no live stack: build Storybook with `pnpm build:storybook`, serve
-  `apps/web/storybook-static`, and capture
-  `iframe.html?id=<kebab-title>--<kebab-export>&viewMode=story` at 390 and 1440 wide. Put the
-  capture script inside `apps/web` and import `chromium` from `@playwright/test`, which is the
-  installed package. Assert `scrollWidth === clientWidth` before capturing to prove there is no
-  horizontal overflow. Serve the build from a small `node:http` server inside that script:
-  `python3 -m http.server` drops the parallel module requests and stories fail at random with
-  "Failed to fetch dynamically imported module".

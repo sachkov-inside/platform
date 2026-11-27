@@ -5,10 +5,11 @@
 // changes an instance.
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, lstatSync, statSync } from "node:fs";
+import { appendFileSync, existsSync, lstatSync, statSync } from "node:fs";
 import { mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { z } from "zod";
 import {
@@ -362,12 +363,27 @@ async function address(context) {
 
 /** @param {Context} context */
 function browser(context) {
+  const role = verifyRoleSchema.parse(values.role ?? "owner");
   const invocation = browserInvocation({
     worktree: context.worktree,
-    role: verifyRoleSchema.parse(values.role ?? "owner"),
+    role,
     args: passed.length > 0 ? passed : positionals.slice(1),
     environment: process.env,
   });
+  const receipt = process.env["INSIDE_LIGHT_VERIFICATION"];
+  if (process.platform === "darwin" && !receipt)
+    throw new Error("Drive a light instance on Mac through pnpm verify:light");
+  if (receipt) {
+    if (process.env["INSIDE_LIGHT_VERIFICATION_WORKTREE"] !== context.worktree)
+      throw new Error(
+        "The verification session belongs to a different worktree",
+      );
+    execFileSync("python3", [
+      fileURLToPath(new URL("./heavy-check/lock.py", import.meta.url)),
+      "--owns",
+    ]);
+    appendFileSync(join(receipt, "roles"), `${role}\n`);
+  }
   const result = spawnSync(invocation.command, invocation.args, {
     env: invocation.environment,
     stdio: "inherit",

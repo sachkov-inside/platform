@@ -209,8 +209,14 @@ jobs:
         uses: ./.github/actions/setup-platform
         with:
           browsers: chromium webkit
-      - name: Run Storybook and browser-engine checks
-        run: pnpm check:ui
+      - name: Test Telegram widget
+        run: pnpm --filter @inside/telegram test:widget
+      - name: Test browser engines
+        run: pnpm --filter @inside/web test:browser-engines
+      - name: Test legacy UI fixtures
+        run: pnpm test:storybook
+      - name: Build legacy UI catalog
+        run: pnpm build:storybook
       - name: Upload browser diagnostics
         if: ${{ failure() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
