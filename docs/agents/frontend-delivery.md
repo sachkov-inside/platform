@@ -16,8 +16,7 @@ history, not an alternative product model.
 
 Use [the local verification procedure](../runbooks/local-stand.md#light-instance-per-agent) to
 drive one representative user scenario. Read the production route and the existing tests before
-editing. Storybook fixtures remain in CI while their unique assertions are moved to the owning
-test suites.
+editing. Choose the test seam according to the behaviour under review.
 
 Design critique, audit or polish of a UI uses `impeccable`, which reads `apps/web/PRODUCT.md` and
 `apps/web/DESIGN.md`. A new visual direction still needs the owner's choice from a
@@ -38,8 +37,7 @@ implementation starts when the owner assigns it.
 Every full-stack feature owns a small presentation interface. A server-only production adapter
 maps the real application result to that interface. Synthetic data and test backend responses supply the review states. Business rules, authorization, transport details, backend DTOs and
 production fallback behaviour stay behind the production adapter; fixtures hold representative
-presentation states only. `.storybook`, `src/storybook`, stories and fixture modules stay in the
-Storybook graph, outside production; the web guardrail and the production build confirm it.
+presentation states only. Keep test fixtures in `apps/web/test`, outside the production graph.
 
 The owning Specification and child issue state in plain language what the user receives;
 technical delivery details follow that outcome.
@@ -65,20 +63,12 @@ that #2229 retired. New work adds none; a remaining marker is removed under its 
 
 ## Production foundation
 
-Keep one token system and one navigation system. Production and Storybook import the same tokens
+Keep one token system and one navigation system. The application imports shared tokens
 from `apps/web/app/globals.css`; a feature stylesheet keeps no copy of their values. Public routes use
 `@/widgets/application-shell`; authoring routes use `@/widgets/authoring-shell`, which follows owner
 decisions 2, 8 and 13 of the [admin redesign specification](../specifications/authoring-admin-redesign-v1.md)
 (#1717): it replaces the public navigation and always links back to the public Library and site.
 Another shell variant needs a new owner decision.
-
-## Existing UI fixtures
-
-New components and pages use the [owning test seam](testing.md#choosing-the-kind) for the behavior
-they introduce. When removing a Storybook fixture, record which remaining check proves each
-distinct assertion. Move missing assertions to navigation, full-stack, browser-engine or module
-tests according to the actual behavior. Remove purely demonstrative variants when the application
-can show them with test data.
 
 ## Interface evidence
 

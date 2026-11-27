@@ -183,7 +183,7 @@ export interface MaterialVideoAuthoringViewProps {
   readonly recovered: boolean;
 }
 
-/** Production presentation boundary shared with Storybook state fixtures. */
+/** Editor presentation for the current video state. */
 export function MaterialVideoAuthoringView({
   access,
   activeVideo,

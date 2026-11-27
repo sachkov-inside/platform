@@ -42,7 +42,7 @@ export const lessonInteractions: {
       }[];
     }[];
   };
-  readonly storybook: {
+  readonly reader: {
     readonly ratings: RatingCounts;
     readonly versions: readonly {
       readonly fingerprint: string;

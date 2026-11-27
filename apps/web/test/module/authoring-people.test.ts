@@ -27,7 +27,7 @@ import {
   searchGroupNote,
   searchGroupSchema,
 } from "@/features/authoring-search/model/authoring-search";
-import { annaCard, annaRow, storyProducts } from "@/storybook/people.fixtures";
+import { annaCard, annaRow, storyProducts } from "../fixtures/people.fixtures";
 
 const productId = storyProducts[0].productId;
 

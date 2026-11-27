@@ -332,7 +332,7 @@
       {
         "name": "duration-fast",
         "value": "160ms",
-        "purpose": "Control and navigation state transitions; Storybook exercises their reduced-motion contract in a real browser context."
+        "purpose": "Control and navigation state transitions; Browser checks exercise their reduced-motion contract."
       },
       {
         "name": "duration-shell",
@@ -505,7 +505,7 @@
       "Do use Manrope for product copy and JetBrains Mono for exact technical facts.",
       "Do preserve the same semantic information order from narrow mobile to desktop.",
       "Do expose save, conflict, authorization and exact-revision truth with text as well as color.",
-      "Do use the accepted shared primitives and Storybook proofs before introducing a new visual dialect."
+      "Do reuse the accepted shared primitives before introducing a new visual dialect."
     ],
     "donts": [
       "Don't turn reading or authoring into a generic dashboard of decorative cards.",

@@ -10,7 +10,7 @@ import {
   commerceFixtureFacts,
 } from "../../../../scenarios/commerce.mjs";
 import type { PublishedProductResult } from "@/features/library-discovery";
-import { productWithSupportOffer } from "@/storybook/billing.fixtures";
+import { productWithSupportOffer } from "../fixtures/billing.fixtures";
 
 import {
   PersonalCohortCall,

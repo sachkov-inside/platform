@@ -9,7 +9,7 @@ import {
 import {
   blackFridayPromotion,
   productWithSupportOffer,
-} from "@/storybook/billing.fixtures";
+} from "../fixtures/billing.fixtures";
 
 const cohort: ProductSalesState = {
   productId: "00000000-0000-4000-8000-000000000814",

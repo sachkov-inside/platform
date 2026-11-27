@@ -334,7 +334,7 @@ communications поставку и не переписывает историч�
    сохраняющаяся content authorization; sent/click/read/purchase не смешиваются.
 
 Для приложения: repository-local full checks, representative/negative seam fixtures и Standards/Spec
-review с dispositions. Для UI: Storybook и live desktop/mobile/keyboard evidence. Соблюдать local
+review с dispositions. Для UI проверяются живой маршрут на телефоне и компьютере и работа с клавиатуры. Соблюдать local
 runtime ownership; не запускать общий Docker без его правил. Реальные Telegram smoke только для
 явно согласованного test recipient. Production marketing enablement, review из Telegram brief,
 релиз и каждый merge остаются отдельными действиями владельца/его явно уполномоченной сессии.

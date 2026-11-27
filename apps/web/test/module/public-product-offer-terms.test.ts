@@ -1,5 +1,5 @@
 import { beforeEach, expect, it } from "vitest";
-import { productWithSupportOffer } from "@/storybook/billing.fixtures";
+import { productWithSupportOffer } from "../fixtures/billing.fixtures";
 
 import { catalogBackend } from "../support/catalog-backend";
 let catalog: ReturnType<typeof catalogBackend>;

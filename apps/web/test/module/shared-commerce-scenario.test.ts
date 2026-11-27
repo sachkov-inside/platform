@@ -7,7 +7,7 @@ import {
   commerceIdentity,
   commercePayment,
   commercePeople,
-} from "@/storybook/commerce.fixtures";
+} from "../fixtures/commerce.fixtures";
 import {
   paymentsOutcomeSchema,
   paymentViewSchema,

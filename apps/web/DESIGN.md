@@ -447,7 +447,7 @@ a visual-system rule; ordinary query freshness and explicitly self-refreshing re
 - **Responsive and type:** на 390 px сохраняется порядок сведений из композиции на 1440 px.
   Локальные размеры унаследованы от proof: заголовок 32 px на компьютере, текст отчёта 16 px,
   подписи 12–13 px. Поверхность использует существующие шрифты и токены.
-- **Evidence:** [Storybook и рабочий маршрут](../../docs/evidence/issue-1351/README.md)
+- **Evidence:** [История проверки интерфейса](../../docs/evidence/issue-1351/README.md)
   показывают один production-модуль на 390 и 1440 px.
 
 ### Candidate Authoring Workbench
@@ -470,7 +470,7 @@ approved global mandate. Global adoption needs an owner choice under the
 - **Do** use Manrope for product copy and JetBrains Mono for exact technical facts.
 - **Do** preserve the same semantic information order from narrow mobile to desktop.
 - **Do** expose save, conflict, authorization and publication truth with text as well as color.
-- **Do** use the accepted shared primitives and Storybook proofs before introducing a new visual dialect.
+- **Do** reuse the accepted shared primitives before introducing a new visual dialect.
 - **Do** show state and the next step through the interface itself on every surface: a locked step carries a lock, a free item carries its badge, a price appears as a price, an action is a button. Text names content, actions and facts the person needs to decide.
 
 ### Don't:

@@ -33,8 +33,7 @@ export interface PublicApplicationFrameProps {
 
 /**
  * Состав публичной оболочки при известном статусе входа: шапка с напоминанием о Telegram и
- * контролом аккаунта и навигация по правам. Его надевает `AppShell` на
- * маршруте и окружение Storybook, поэтому каталог показывает ту же оболочку.
+ * контролом аккаунта и навигация по правам.
  */
 export function PublicApplicationFrame({
   authState,

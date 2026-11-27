@@ -26,6 +26,8 @@ const fixtureName = z.enum([
   "material-order",
   "account-avatar",
   "autosave",
+  "render-error",
+  "live-search",
   "authoring-shell",
 ]);
 const budget = z.number().int().positive().max(30_000);

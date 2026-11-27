@@ -7,7 +7,7 @@ import { withNextNavigation } from "../support/next-navigation";
 
 import { ProductJourney } from "@/_pages/library-discovery/ui/product-journey";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
-import { productJourneyCorpus } from "@/storybook/product-journey-corpus.fixtures";
+import { productJourneyCorpus } from "../fixtures/product-journey-corpus.fixtures";
 
 let navigationSearch: string;
 

@@ -481,24 +481,13 @@ function isServerInterface(specifier) {
 }
 
 /** @param {string} sourcePath */
-function isStorybookModule(sourcePath) {
-  return (
-    /(?:^|\/)src\/storybook\//u.test(sourcePath) ||
-    /\.(?:stories|fixtures)\.[cm]?tsx?$/u.test(sourcePath) ||
-    /\.test\.[cm]?tsx?$/u.test(sourcePath)
-  );
+function isTestModule(sourcePath) {
+  return /\.(?:test|fixtures)\.[cm]?tsx?$/u.test(sourcePath);
 }
 
-/**
- * Каталог Storybook: его пакеты, его конфигурация, `src/storybook`, истории и fixtures. Импорт
- * типа тоже связывает производственный код с каталогом.
- *
- * @param {string} specifier
- */
-function namesStorybookModule(specifier) {
-  return /^(?:@storybook\/|storybook(?:\/|$))|(?:^|\/)\.?storybook(?:\/|$)|\.(?:stories|fixtures)$/u.test(
-    specifier,
-  );
+/** @param {string} specifier */
+function namesTestModule(specifier) {
+  return /(?:^|\/)test(?:\/|$)|\.fixtures(?:\.[cm]?tsx?)?$/u.test(specifier);
 }
 
 /**
@@ -1423,9 +1412,9 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
       `${sourcePath}: browser code cannot import a server-only interface; it would ship server code and secrets to the browser`,
     );
   }
-  if (!isStorybookModule(sourcePath) && specifiers.some(namesStorybookModule)) {
+  if (!isTestModule(sourcePath) && specifiers.some(namesTestModule)) {
     findingsForFile.push(
-      `${sourcePath}: Storybook proofs and fixtures stay outside the production graph, or the catalog ships with the application`,
+      `${sourcePath}: test fixtures stay outside the production graph`,
     );
   }
   const staleTime = dynamicStaleTimeDeclaration(program);
@@ -1495,7 +1484,7 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
   }
   if (
     !/(?:^|\/)src\/shared\/lib\/shell-scroll\.ts$/u.test(sourcePath) &&
-    !isStorybookModule(sourcePath) &&
+    !isTestModule(sourcePath) &&
     stringLiterals(program).some(
       (value) =>
         value.includes("data-application-content") ||
@@ -1558,7 +1547,6 @@ const substituteRoots =
         "proxy.ts",
         "scripts",
         "test",
-        ".storybook",
         "vitest.config.mts",
         "vitest.smoke.config.mts",
         "file-preview/next-navigation.ts",

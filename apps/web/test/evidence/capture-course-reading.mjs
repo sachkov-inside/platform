@@ -1,17 +1,14 @@
 // @ts-check
 /// <reference lib="dom" />
-/** #1414: bounded evidence from the production module, Storybook and real Content routes. */
+/** #1414: bounded evidence from the production module and real Content routes. */
 import { execFileSync } from "node:child_process";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { AxeBuilder } from "@axe-core/playwright";
 import { chromium, expect } from "@playwright/test";
-import { z } from "zod";
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 
 const live = process.env["COURSE_LIVE_ORIGIN"] ?? "http://localhost:3107";
-const storybook =
-  process.env["COURSE_STORYBOOK_ORIGIN"] ?? "http://localhost:6207";
 const directory = resolve("../../docs/evidence/issue-1414/production");
 const guide =
   "/materials/inside-content-aie-ch1-project-setup?from=%2Fproducts%2Fai-engineering%2Fprogramme";
@@ -30,18 +27,8 @@ const context = await browser.newContext({
   reducedMotion: "reduce",
 });
 const page = await context.newPage();
-const storiesOnly = process.env["COURSE_EVIDENCE_STORIES_ONLY"] === "1";
 /** @type {Record<string, unknown>[]} */
-const results = storiesOnly
-  ? z
-      .object({
-        results: z.array(z.object({ name: z.string() }).passthrough()),
-      })
-      .parse(
-        JSON.parse(await readFile(resolve(directory, "metrics.json"), "utf8")),
-      )
-      .results.filter((entry) => !entry.name.startsWith("story-"))
-  : [];
+const results = [];
 
 /** @param {string} url */
 async function visit(url) {
@@ -185,101 +172,82 @@ async function pipelineLines() {
 }
 
 try {
-  if (!storiesOnly) {
+  await visit(`${live}${task}`);
+  const before = await pipelineLines();
+  await page
+    .locator(
+      `[data-course-reading]:visible aside [data-course-step="${pipeline}"]`,
+    )
+    .click();
+  await expect(
+    page.locator(
+      `[data-course-reading]:visible aside [data-course-step="${pipeline}"]`,
+    ),
+  ).toHaveAttribute("aria-current", "step");
+  await page.evaluate(() => document.fonts.ready.then(() => undefined));
+  const selected = await pipelineLines();
+  await page
+    .locator(
+      '[data-course-reading]:visible aside [data-course-step="task:aie-ch1-harness"]',
+    )
+    .click();
+  await expect(
+    page.locator(
+      '[data-course-reading]:visible aside [data-course-step="task:aie-ch1-harness"]',
+    ),
+  ).toHaveAttribute("aria-current", "step");
+  await page.evaluate(() => document.fonts.ready.then(() => undefined));
+  const returned = await pipelineLines();
+  expect(selected).toEqual(before);
+  expect(returned).toEqual(before);
+  results.push({
+    name: "pipeline-line-wrap-task-pipeline-task",
+    before,
+    selected,
+    returned,
+  });
+
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await visit(`${live}${guide}`);
+    await capture(`live-guide-${width}`);
     await visit(`${live}${task}`);
-    const before = await pipelineLines();
-    await page
-      .locator(
-        `[data-course-reading]:visible aside [data-course-step="${pipeline}"]`,
-      )
-      .click();
-    await expect(
-      page.locator(
-        `[data-course-reading]:visible aside [data-course-step="${pipeline}"]`,
-      ),
-    ).toHaveAttribute("aria-current", "step");
-    await page.evaluate(() => document.fonts.ready.then(() => undefined));
-    const selected = await pipelineLines();
-    await page
-      .locator(
-        '[data-course-reading]:visible aside [data-course-step="task:aie-ch1-harness"]',
-      )
-      .click();
-    await expect(
-      page.locator(
-        '[data-course-reading]:visible aside [data-course-step="task:aie-ch1-harness"]',
-      ),
-    ).toHaveAttribute("aria-current", "step");
-    await page.evaluate(() => document.fonts.ready.then(() => undefined));
-    const returned = await pipelineLines();
-    expect(selected).toEqual(before);
-    expect(returned).toEqual(before);
-    results.push({
-      name: "pipeline-line-wrap-task-pipeline-task",
-      before,
-      selected,
-      returned,
-    });
-
-    for (const width of [1440, 390]) {
-      await page.setViewportSize({ width, height: 1000 });
-      await visit(`${live}${guide}`);
-      await capture(`live-guide-${width}`);
-      await visit(`${live}${task}`);
-      await capture(`live-task-${width}`);
-    }
-    await page.setViewportSize({ width: 320, height: 1000 });
-    await visit(`${live}${guide}`);
-    await capture("live-guide-320", { whole: false });
-    await visit(`${live}${task}`);
-    await capture("live-task-320", { whole: false });
-    await page
-      .getByRole("button", { name: "Вся программа", exact: true })
-      .click();
-    await expect(page.getByRole("dialog")).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(page.getByRole("dialog")).not.toBeVisible();
-
-    await page.setViewportSize({ width: 1440, height: 1000 });
-    await visit(`${live}${guide}`);
-    const selector = page.getByRole("button", { name: /^Глава \d+ из/ });
-    await selector.focus();
-    await page.keyboard.press("Enter");
-    const chapters = page.getByRole("navigation", { name: "Главы курса" });
-    await expect(chapters.getByRole("button").first()).toBeVisible();
-    await capture("live-chapter-keyboard", { whole: false, a11y: false });
-    await page.keyboard.press("Tab");
-    await page.keyboard.press("Enter");
-    await expect(selector).toHaveAttribute("aria-expanded", "false");
-    await expect(selector).toBeFocused();
-
-    await page.setViewportSize({ width: 390, height: 1000 });
-    await visit(`${live}${guide}`);
-    await page.evaluate(() => {
-      document.documentElement.style.fontSize = "200%";
-    });
-    await capture("live-guide-390-text-200", { whole: false });
-    await page.evaluate(() => {
-      document.documentElement.style.fontSize = "";
-    });
+    await capture(`live-task-${width}`);
   }
-  for (const [name, story, width] of [
-    ["story-pending-320", "pages-material-reader--course-pending", 320],
-    ["story-access-320", "pages-material-reader--course-locked", 320],
-    ["story-task-submitted-1440", "pages-product-task--submitted", 1440],
-    ["story-task-only-1440", "pages-product-task--course-task-only", 1440],
-    [
-      "story-task-fallback-390",
-      "pages-product-task--course-navigation-unavailable",
-      390,
-    ],
-  ]) {
-    await page.setViewportSize({ width: Number(width), height: 1000 });
-    await visit(
-      `${storybook}/iframe.html?id=${story}&viewMode=story&globals=a11y.manual:!true`,
-    );
-    await capture(String(name));
-  }
+  await page.setViewportSize({ width: 320, height: 1000 });
+  await visit(`${live}${guide}`);
+  await capture("live-guide-320", { whole: false });
+  await visit(`${live}${task}`);
+  await capture("live-task-320", { whole: false });
+  await page
+    .getByRole("button", { name: "Вся программа", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).not.toBeVisible();
+
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await visit(`${live}${guide}`);
+  const selector = page.getByRole("button", { name: /^Глава \d+ из/ });
+  await selector.focus();
+  await page.keyboard.press("Enter");
+  const chapters = page.getByRole("navigation", { name: "Главы курса" });
+  await expect(chapters.getByRole("button").first()).toBeVisible();
+  await capture("live-chapter-keyboard", { whole: false, a11y: false });
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Enter");
+  await expect(selector).toHaveAttribute("aria-expanded", "false");
+  await expect(selector).toBeFocused();
+
+  await page.setViewportSize({ width: 390, height: 1000 });
+  await visit(`${live}${guide}`);
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = "200%";
+  });
+  await capture("live-guide-390-text-200", { whole: false });
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = "";
+  });
   await writeFile(
     resolve(directory, "metrics.json"),
     `${JSON.stringify({ sourceSha, sourceTree, results }, null, 2)}\n`,

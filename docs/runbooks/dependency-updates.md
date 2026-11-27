@@ -12,7 +12,7 @@ The isolated Logto proof keeps its own digest-pinned provenance contract.
 ## Automated updates
 
 Dependabot checks the pnpm workspace, Docker sources and GitHub Actions weekly. Patch and minor
-updates are grouped, with Next, Tiptap, Storybook and React families kept atomic. Major updates stay
+updates are grouped, with Next, Tiptap and React families kept atomic. Major updates stay
 in separate pull requests. Security patch/minor updates use their own groups; security majors are
 also separate pull requests. No dependency pull request is auto-merged. Every dependency pull
 request must pass the application `CI Gate` and then the merge queue; merge remains
@@ -56,7 +56,6 @@ allowed set, so a new override is a reviewed change of both. Current overrides (
 | Package | Pinned by | Remove when |
 |---|---|---|
 | `archiver-utils>glob` 14.0.3 | archiver-utils 5 (Testcontainers archive creation) | stable parent admits glob >=14.0.2 |
-| `@joshwooding/vite-plugin-react-docgen-typescript>glob` 14.0.3 | inactive Storybook TypeScript docgen dependency | stable parent admits glob >=14.0.2 |
 | `@ts-morph/common>minimatch` 11.0.1 | shadcn CLI | stable parent admits minimatch >=11.0.1 |
 
 Prisma 7.10.1 now pins the fixed mysql2/deepmerge-ts releases; @fastify/static 10.1.10 admits
@@ -90,15 +89,11 @@ pnpm list -r typescript --depth 30
 The list must report one installed version, `7.0.2`. Next uses its TypeScript CLI path, lint uses
 Oxlint's native type-aware engine, and architecture scripts use `oxc-parser`; no tool imports the
 removed TypeScript JavaScript API. OpenAPI generation uses `openapi-typescript-codegen`, whose
-template implementation has no TypeScript dependency. Storybook uses `@storybook/react-vite` and
-`react-docgen`, so its active build path also avoids the compiler API.
+template implementation has no TypeScript dependency.
 
 Keep strict peer dependencies enabled and do not add peer overrides to force an incompatible tool
 onto TypeScript 7. A dependency that requires the removed API must be replaced, disabled until it
-publishes a compatible stable release, or rejected. Storybook MCP `10.6.7` is part of the baseline
-(#871, #987): its stable dependency graph installs without an additional peer override, and
-`pnpm peers check` passes. Its component manifest uses the existing `react-docgen` path;
-`scripts/toolchain-contract.test.mjs` keeps that path and the matching MCP/framework versions.
+publishes a compatible stable release, or rejected.
 
 The one peer allowance is `@nestjs/swagger>typescript: 7` in `pnpm-workspace.yaml`. Swagger 12
 declares an optional TypeScript 5/6 peer only for its CLI compiler plugin, which is the sole part of
@@ -115,8 +110,6 @@ these explicit replacements:
 - TanStack Query factories keep typed `queryOptions`/`infiniteQueryOptions`, request-isolated server
   clients and one browser singleton. Focused query/hydration tests plus route E2E own behaviour that
   used to receive additional syntax-only plugin checks.
-- Storybook's browser project runs every story interaction and configured accessibility check;
-  `pnpm test:storybook` and `pnpm build:storybook` replace the plugin's static story conventions.
 - Next navigation uses native Oxlint rules and production `next/link`; Playwright owns route
   behaviour that has no native equivalent rule.
 

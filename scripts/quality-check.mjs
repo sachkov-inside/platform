@@ -167,16 +167,10 @@ async function docker() {
 }
 
 function agents() {
-  const config = z
-    .object({ mcpServers: z.record(z.string(), z.unknown()) })
-    .parse(JSON.parse(readFileSync(".mcp.json", "utf8")));
-  const codex = readFileSync(".codex/config.toml", "utf8");
-  if (
-    Object.hasOwn(config.mcpServers, "platform-storybook") ||
-    /^\s*\[mcp_servers\.platform-storybook\]/mu.test(codex)
-  )
-    throw new Error("Remove the legacy Storybook MCP registration");
-  console.log("Agent configuration keeps Storybook off MCP.");
+  z.object({ mcpServers: z.record(z.string(), z.unknown()) }).parse(
+    JSON.parse(readFileSync(".mcp.json", "utf8")),
+  );
+  console.log("Agent MCP configuration is valid.");
   return 0;
 }
 

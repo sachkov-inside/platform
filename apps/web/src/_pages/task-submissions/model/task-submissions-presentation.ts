@@ -15,7 +15,7 @@ import {
 export type SubmissionFeedbackState =
   "submission.awaiting" | "submission.commented";
 
-/** Client-safe state shared by the production route and the Storybook fixture adapter. */
+/** Client-safe state for task submissions. */
 export interface TaskSubmissionsPresentation {
   readonly pageHref: string;
   readonly submissionId: string | undefined;

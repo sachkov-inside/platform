@@ -40,9 +40,7 @@ web
   Правила переноса и обратных правок задаёт
   [content boundary](../../docs/product/platform-mvp-brief.md#контент). Telegram остаётся местом
   community и анонсов. Автоматический импорт и двусторонняя синхронизация пока не реализованы.
-- Storybook служит мастерской: в нём живут истории компонентов и те состояния страниц, которые
-  трудно получить в приложении. Вид для пользователя показывает запущенное приложение.
-  Fixtures и `src/storybook` не входят в production dependency graph.
+- Интерфейс проверяют в работающем приложении с тестовыми данными.
 
 ## Capabilities and Constraints
 
@@ -74,11 +72,9 @@ web
 - Owner-taste constraints and accepted UI-laboratory direction:
   `docs/product/platform-v1-visual-brief.md`.
 - Application vocabulary: `GLOSSARY.md`.
-- Storybook contains component stories, page stories of hard-to-reach states and representative
-  sanitized content fixtures; proofs stay on their `prototype/*` branches. No testimonials, customer logos, commercial benchmarks or other
-  marketing proof may be invented.
+- Design prototypes stay on their `prototype/*` branches.
 - Accepted production evidence для Account и Account Profile: `docs/evidence/issue-189/README.md` с
-  desktop и 390 × 844 mobile captures из Storybook и full-stack smoke.
+  desktop и 390 × 844 mobile captures.
 
 ## Product Principles
 
@@ -88,7 +84,7 @@ web
 3. Reading surfaces recede around content; authoring surfaces expose the controls and recovery
    information needed to work safely.
 4. Mobile authoring is a primary capability, not a reduced preview mode.
-5. Storybook records reusable design and behavior before production integration.
+
 ## Accessibility & Inclusion
 
 Critical journeys support semantic landmarks and headings, keyboard operation, visible focus,

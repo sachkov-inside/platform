@@ -24,7 +24,7 @@ import {
   pendingPurchase,
   savedQuote,
   supportOffer,
-} from "@/storybook/billing.fixtures";
+} from "../fixtures/billing.fixtures";
 
 const origin = "https://inside.example.test";
 const operationId = "20000000-0000-4000-8000-000000000001";

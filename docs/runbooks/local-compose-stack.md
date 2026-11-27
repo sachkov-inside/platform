@@ -54,8 +54,7 @@ and dependency recovery behavior, verifies one local `Account` and no Platform s
 removes only its disposable volumes.
 
 API and web expose real healthchecks. API, MCP and capability workers wait for healthy PostgreSQL
-and a successful seed; web waits for healthy API. Storybook is
-an optional profile on <http://127.0.0.1:6006>. Integration tests continue to use their own
+and a successful seed; web waits for healthy API. Integration tests use their own
 temporary PostgreSQL and RustFS through Testcontainers and never share the Compose data services.
 
 The production API exposes health, OpenAPI, the published catalog and the Material Reader endpoint.
@@ -127,16 +126,6 @@ response is empty because Billing assembly requires approved Product terms for `
 the current legal edition does not provide that approval. The retired `/billing/offers` route
 returns 404. These smoke facts complement the buyer contracts for actual purchase admission. Repeating `docker compose down` and the detached startup preserves the database volume
 and proves the development seed remains stable.
-
-## Optional Storybook profile
-
-Start the default stack plus Storybook:
-
-```bash
-docker compose --profile storybook up --build
-```
-
-The profile uses the same frozen container dependencies as the default stack.
 
 The local RustFS service and its API, MCP and worker clients use `us-east-1`. Local client env
 files and the host fallback `.env.example` set `OBJECT_STORAGE_REGION` explicitly, so the production default `ru-central1` cannot

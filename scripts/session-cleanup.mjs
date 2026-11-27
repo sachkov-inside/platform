@@ -65,10 +65,6 @@ export const temporaryRules = [
     source: "scripts/quality-tool-proofs.mjs",
   },
   {
-    prefix: "inside-vitest-deps-",
-    source: "apps/web/test/support/run-scoped-vite-cache.mjs",
-  },
-  {
     prefix: "inside-production-host-",
     source: "scripts/contracts/production-deployment.test.mjs",
   },

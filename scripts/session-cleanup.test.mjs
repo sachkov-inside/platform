@@ -445,7 +445,7 @@ test(
     context.pull("feat/13-done2", { state: "OPEN", commits: [sibling.head] });
     const gone = join(context.root, "platform.worktrees", "deleted-task");
     context.processes.push(
-      proc(601, "node storybook dev -p 6006", join(done.path, "apps"), {
+      proc(601, "node fixture-server --port 6006", join(done.path, "apps"), {
         ports: [6006],
       }),
       proc(602, "node next dev", sibling.path, { ports: [3005] }),
@@ -459,7 +459,7 @@ test(
 
     assert.match(
       context.output,
-      /stop\s+PID 601 node storybook dev -p 6006 .*ports 6006\): its worktree is removed/u,
+      /stop\s+PID 601 node fixture-server --port 6006 .*ports 6006\): its worktree is removed/u,
     );
     assert.match(context.output, /keep\s+PID 602 .*: its worktree is kept/u);
     assert.match(
@@ -575,7 +575,7 @@ test(
     git(plain.path, ["add", "."]);
     git(plain.path, ["stash", "push", "-q", "-m", "safety"]);
     context.processes.push(
-      proc(701, "node storybook", plain.path, { ports: [6006] }),
+      proc(701, "node fixture-server", plain.path, { ports: [6006] }),
     );
 
     const status = await context.run(["--apply"]);
@@ -705,7 +705,9 @@ test(
     const current = context.worktree("feat/22-current");
     writeFileSync(join(current.path, "notes.txt"), "unsaved");
     context.processes.push(
-      proc(1001, "node storybook dev -p 6006", current.path, { ports: [6006] }),
+      proc(1001, "node fixture-server --port 6006", current.path, {
+        ports: [6006],
+      }),
     );
 
     const status = await context.run(["--session-end"], { cwd: current.path });
@@ -721,7 +723,7 @@ test(
     );
     assert.match(
       context.output,
-      /1 process\(es\) still run in this worktree:\n {2}PID 1001 node storybook/u,
+      /1 process\(es\) still run in this worktree:\n {2}PID 1001 node fixture-server/u,
     );
     assert.match(
       context.output,
@@ -779,8 +781,10 @@ test(
         ppid: 20,
       }),
       proc(21, "cut -c1-80", context.primary, { ppid: 20 }),
-      proc(30, "/bin/zsh -c pnpm storybook", context.primary, { ppid: 10 }),
-      proc(31, "node storybook dev -p 6006", context.primary, {
+      proc(30, "/bin/zsh -c pnpm fixture-server", context.primary, {
+        ppid: 10,
+      }),
+      proc(31, "node fixture-server --port 6006", context.primary, {
         ppid: 30,
         ports: [6006],
       }),
@@ -790,7 +794,7 @@ test(
 
     assert.match(
       context.output,
-      /keep\s+PID 31 node storybook dev -p 6006 .*: runs in the current worktree/u,
+      /keep\s+PID 31 node fixture-server --port 6006 .*: runs in the current worktree/u,
     );
     assert.doesNotMatch(context.output, /PID (10|20|21|30|999999) /u);
   },

@@ -59,7 +59,7 @@ export type OrderEmailState =
   | { readonly kind: "hidden" }
   | { readonly kind: "loading" };
 
-/** Вид блока по готовому состоянию: его показывают и страница, и Storybook. */
+/** Вид блока по готовому состоянию. */
 export function OrderEmailView({
   state,
   onShow,

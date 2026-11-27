@@ -17,7 +17,7 @@ Repository launchers preserve the pinned pnpm CLI from `npm_execpath`: pnpm 12 r
 executable, while JavaScript CLI entrypoints run through the selected Node.js.
 
 This covers formatting, lint, strict typecheck, backend architecture guardrails,
-unit/module/local contract/Storybook tests, Playwright, production builds and the Storybook build without
+unit, module, local contract and Playwright tests, and production builds without
 claiming a real database. It runs the four stages `pnpm check:static`, `check:unit`, `check:ui` and
 `check:web-e2e` in order; CI runs each stage as its own job, so run the one stage that matches a CI
 failure to reproduce it. Local contracts have separate selections under
@@ -30,48 +30,6 @@ A full run takes about ten minutes. `check:static` rebuilds the `packages/*/dist
 import, so leave the tree alone while it runs: an edit or package rebuild in the middle fails an
 unrelated test.
 
-Legacy Storybook checks run in CI. A focused local invocation uses
-[heavy-check admission](local-heavy-checks.md). Each legacy Vitest process keeps its own Vite
-dependency cache in `$TMPDIR` and deletes it on exit. This prevents simultaneous processes in
-different configurations from replacing each other's browser imports (#1004).
-
-Storybook import failures retain primary evidence in
-`apps/web/test-results/storybook-imports/run-<pid>-<process-start>/imports.jsonl`. The Node-side provider observes
-failed script HTTP responses and transport failures before any setup import. Vite records the
-original error response body and server error, even when Chromium discards the failed body.
-Premature response closure retains the partial body with `complete: false`; browser transport
-errors retain an already observed HTTP status. Server messages and stacks identify truncation too.
-No request is replayed. Successful script responses are not recorded. Each process retains up to
-1 MiB of events, with at most 64 KiB per response body; truncation is explicit. Logs retain the
-request path and Vite cache/import query values, but omit arbitrary URL query values and authentication headers.
-Error bodies and server messages can contain local source, so inspect them before sharing.
-The UI CI job uploads this directory with browser-engine diagnostics on failure for seven days.
-A later successful run does not establish the cause of an earlier import failure (#1429).
-
-Vitest opens every story file in a new iframe and loads its modules again from the Vite server of
-the run. Storybook loads two large modules lazily: the React renderer imports
-`@storybook/react-dom-shim` with `react-dom/client` (3.1 MB) on the first render, and `addon-a11y`
-imports `axe-core` (4 MB) on the first accessibility check. The setup file
-`apps/web/test/support/storybook-preload.ts` loads both before the tests of each file, so the
-15-second budget of a story measures the story itself. Without it, the first story of a file paid
-for that load. When parallel heavy checks slowed the Vite server, the load alone took several
-seconds, and first stories exceeded the budget (#1095, #1128). The preload does not make the run
-shorter: a slow Vite server now shows in the `setup` and `import` times of the Vitest `Duration`
-line, not as a failed story. The pinned versions of `axe-core` and `@storybook/react-dom-shim` in
-`apps/web/package.json` must match the versions that `addon-a11y` and Storybook use; update them
-together. `apps/web/test/module/storybook-preload.test.ts` fails when they differ or when the
-`storybook` project loses the setup file.
-
-The pinned `@storybook/addon-vitest@10.6.7` has a local pnpm patch (#1023). Its Execa child
-process disables `ipcOutput` buffering: live listeners already consume every message, while the
-buffer kept all successive full test-state snapshots until Vitest exited. A full MCP `test-run`
-therefore exhausted the Storybook heap after the tests had passed. The patch also makes Vitest exit
-when its IPC connection closes, including a parent's OOM abort or SIGKILL. Test results and a11y
-reports remain complete; the heap limit is unchanged. `scripts/storybook-runner.test.mjs` exercises
-the installed addon's launch options and disconnect handler. Remove the patch only when an upstream
-version passes both regression cases and the full MCP run. Every Docker dependency stage copies
-`patches/` before the workspace's frozen install.
-
 The inline SVG browser contract retains its unfinished phase, completed-step durations and resource
 snapshot in `apps/web/test-results/browser-engines/inline-svg/<engine>/failure.json`. WebKit also
 retains a bounded protocol/browser log in `webkit-log.json`. The failure hook runs after cleanup,
@@ -79,17 +37,6 @@ so a timeout in `browser.close()` gets diagnostics too. The existing UI failure 
 `browser-engines-playwright-<attempt>` includes this directory. Download it before another local run,
 which clears this test's previous output. These files contain the test's synthetic SVG fixture;
 they do not observe an authenticated application session.
-
-The pinned `@vitest/browser-playwright@5.1.0` also has a local pnpm patch (#1160).
-Its trace command leaves the internal chunk name to Playwright: story names such as `Mobile`
-repeat across files, while the browser's contexts share one temporary trace directory. Passing
-that repeated name mixed the files and could fail `tracing.stopChunk` while it built an archive.
-The final archive paths and trace titles keep their readable story names.
-`apps/web/test/browser-engines/vitest-tracing.test.ts` creates two real Chromium contexts,
-starts their chunks with the installed Vitest command and checks that each archive contains
-only its own file's marker.
-The fixture uses `unzip`, available on the macOS development host and Ubuntu CI runner.
-Remove the patch when the upstream provider passes this regression without it.
 
 Page transitions are checked on a production build, because development mode has no link prefetch
 and no route cache:
@@ -172,8 +119,6 @@ production launcher as `test:e2e`, with test Logto settings, a temporary release
 `EVIDENCE_STORAGE_STATE` supplies the browser session for authenticated evidence.
 
 `scripts/evidence-path.mjs` owns this rule, and `scripts/evidence-path.test.mjs` keeps it honest.
-Evidence that a run reads rather than writes stays in the tree: the Storybook cover fixtures come
-from `docs/evidence/issue-271/covers`.
 
 Run only the real-PostgreSQL backend suite with:
 

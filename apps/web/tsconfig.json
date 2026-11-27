@@ -7,8 +7,6 @@
     }
   },
   "include": [
-    ".storybook/**/*.ts",
-    ".storybook/**/*.tsx",
     "next-env.d.ts",
     ".next/types/**/*.ts",
     "**/*.ts",

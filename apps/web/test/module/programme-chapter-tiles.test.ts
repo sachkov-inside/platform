@@ -8,7 +8,7 @@ import { chapterTileArt } from "@/_pages/library-discovery/model/chapter-tile-ar
 import { ProductJourney } from "@/_pages/library-discovery/ui/product-journey";
 import type { ProductChapter } from "@/features/library-discovery";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
-import { productJourneyCorpus } from "@/storybook/product-journey-corpus.fixtures";
+import { productJourneyCorpus } from "../fixtures/product-journey-corpus.fixtures";
 
 const ids = (from: number, to: number) =>
   Array.from(

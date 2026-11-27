@@ -655,15 +655,12 @@ function sourceFiles(dir: string, root: string): string[] {
     const name = join(dir, entry.name);
     if (entry.isDirectory()) {
       const path = relative(root, name).split(sep).join("/");
-      return [
-        "apps/web/src/storybook",
-        "apps/web/src/shared/api/backend/generated",
-      ].includes(path)
+      return ["apps/web/src/shared/api/backend/generated"].includes(path)
         ? []
         : sourceFiles(name, root);
     }
     return /\.[cm]?[jt]sx?$/u.test(name) &&
-      !/\.(stories|test|fixtures)\.[cm]?[jt]sx?$/u.test(entry.name)
+      !/\.(?:test|fixtures)\.[cm]?[jt]sx?$/u.test(entry.name)
       ? [name]
       : [];
   });
@@ -730,7 +727,7 @@ if (
       if (
         !test.startsWith("apps/web/") ||
         relative(root, target).split(sep).join("/") !== test ||
-        !/\.(stories|spec|test)\.[cm]?[jt]sx?$/u.test(test) ||
+        !/\.(?:spec|test)\.[cm]?[jt]sx?$/u.test(test) ||
         statSync(target, { throwIfNoEntry: false })?.isFile() !== true
       )
         findings.push({

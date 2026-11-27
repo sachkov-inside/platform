@@ -13,8 +13,7 @@ const choices = ["owner", "learner-with-access", "learner", "guest"];
 const choiceCookie = "inside.local-account";
 const choiceCookieMaxAgeSeconds = 365 * 24 * 60 * 60;
 const choiceFormBodyLimitBytes = 2048;
-// Serve the foundation's exact token declarations, not a second local palette. Storybook
-// already imports this same authority; the standalone gateway page loads these declarations.
+// Serve the foundation's token declarations in the standalone gateway.
 const theme = readFileSync(
   new URL("../apps/web/app/globals.css", import.meta.url),
   "utf8",

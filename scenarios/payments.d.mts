@@ -5,7 +5,7 @@ interface ScenarioPaymentProduct {
 }
 export const paymentScenario: {
   readonly products: readonly ScenarioPaymentProduct[];
-  readonly storybook: { readonly priceRevision: number };
+  readonly module: { readonly priceRevision: number };
   readonly navigation: {
     readonly priceRevision: number;
     readonly count: number;
@@ -29,7 +29,7 @@ export const paymentScenario: {
 export const navigationPaymentProducts: readonly ScenarioPaymentProduct[];
 export function paymentFacts(
   index: number,
-  variant: "storybook" | "navigation",
+  variant: "module" | "navigation",
 ): {
   readonly product: ScenarioPaymentProduct;
   readonly amountKopecks: number;

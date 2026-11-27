@@ -174,16 +174,14 @@ Fork revision `inside.6` keeps the Telegram action slot centered with Flexbox. S
 Fork revision `inside.5` bounds each browser status request to eight seconds and retries interrupted loading; Chromium and narrow WebKit exercise the same presentation. The timeout includes response-body reading.
 
 Fork revision `inside.4` integrates the Telegram confirmation screen from #303. The identity-owned
-presentation in `fork/packages/core/src/routes/inside-telegram-view.ts` renders both the Logto route
-and the Storybook fixture adapter (`Patterns/Identity/Telegram sign-in`). Polling, connector
+presentation in `fork/packages/core/src/routes/inside-telegram-view.ts` renders the Logto route. Polling, connector
 sessions and the callback remain on the existing identity origin.
 
 The generated `inside-telegram-theme.ts` embeds the current Platform light tokens and the pinned
 Manrope Latin/Cyrillic fonts so the identity origin needs no third-party font request. After a
 foundation or font update run `node scripts/telegram-sign-in-theme.mjs`; the tooling test rejects
 drift. Its inputs are `apps/web/app/globals.css` and the installed, lockfile-pinned font package.
-Regenerate before building the isolated Logto Docker context. The Storybook adapter imports this
-same presentation, while production has no dependency on the Storybook fixture.
+Regenerate before building the isolated Logto Docker context.
 
 Other appearance stays provider-configured. The Management API bootstrap owns the empty logo,
 forced Russian language, Platform accent and light-mode settings; this keeps the source delta small

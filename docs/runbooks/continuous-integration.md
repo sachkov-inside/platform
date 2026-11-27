@@ -157,7 +157,7 @@ commands, permissions and source/tree/attempt evidence bindings are unchanged.
 | `fullstack` | Stable aggregate over desktop/mobile `fullstack-browser` matrix jobs; each runs `pnpm smoke:fullstack` with isolated infrastructure and unconditional Compose cleanup |
 | `static` | `pnpm check:static`: documentation contract, Prettier formatting, workspace packages and Prisma client, OpenAPI drift, lint, typecheck, guardrails |
 | `unit` | Three isolated `unit-checks` parts run `pnpm check:unit:tooling`, `pnpm check:unit:modules` and `pnpm check:contracts`. Together these execute the complete local `pnpm check:unit` sequence |
-| `ui` | `pnpm check:ui`: browser-engine checks (Chromium and WebKit), Storybook tests and the Storybook build |
+| `ui` | `pnpm check:ui`: Telegram widget and web browser-engine checks (Chromium and WebKit) |
 | `web-e2e` | Two isolated `web-e2e-browser` profiles run `pnpm check:web-e2e --project=<profile>`. Each builds once, checks prerendered/standalone output, then runs its complete e2e and navigation profile on that build. Local execution without arguments retains both profiles |
 | `telegram` | `pnpm --filter @inside/telegram check:full` с изолированными PostgreSQL 18.7 и RabbitMQ, synthetic non-guest user |
 | `integration` | Three isolated `integration-checks` parts: production SQL and restore cleanup contracts plus `pnpm test:integration:parallel`; `pnpm smoke:enrollments`; `pnpm smoke:buyer-journey`. Each owns its data and processes. Failed parts upload their own browser results and `next dev` log |
@@ -757,7 +757,7 @@ and the inventory of probes outside the pull-request gate.
 after a failed sample; Playwright and Vitest retries are explicitly zero. A failed sample keeps
 the matrix job red even when the next four pass. This is detection, not recovery of a failed gate.
 
-The matrix covers Web E2E and navigation on one production build, Storybook, browser-engines,
+The matrix covers Web E2E and navigation on one production build, browser-engines,
 both backend integration projects, and the unit and local contract commands from `check:unit`: backend, Web module,
 Telegram, legal, access-capabilities, Node tooling, authoring, practice-review, backend/Web contracts and release/deploy shell contracts. It does not repeat
 build/static checks, live production probes, or the separate manual full-stack smoke.
@@ -765,7 +765,7 @@ build/static checks, live production probes, or the separate manual full-stack s
 Each matrix job uploads `flake-<suite>-<run_attempt>` for seven days, including successful samples.
 Each command and iteration has its own JSON reporter output, normalized observations, exit status
 and log. Web E2E/navigation retain failed traces, screenshots and the existing per-test videos.
-Storybook retains failed browser traces and screenshots; browser-engines copies its existing
+Browser-engines copies its existing
 diagnostics before the next invocation can replace them. A setup error or absent/malformed report
 keeps the job red; missing samples never count as passes. The job summary shows observed failures
 over executed samples and skipped samples for each test identity (suite, file, command/project and
@@ -793,12 +793,11 @@ Cost and duration are bounded by the matrix timeouts, not measured production ba
 | Suite | Runner-minute ceiling per manual run, including setup |
 |---|---:|
 | Web E2E and navigation | 90 |
-| Storybook | 60 |
 | Browser-engines | 60 |
 | Integration | 120 |
 | Unit | 90 |
 | Reporting | 5 |
-| Total | 425 |
+| Total | 365 |
 
 At most two test jobs run together. The sum above is also a conservative wall-time ceiling after
 runner allocation, excluding GitHub queue time. Manual runs and reruns consume the repository's GitHub Actions allowance and artifact storage.

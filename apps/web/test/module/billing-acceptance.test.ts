@@ -4,7 +4,7 @@ import {
   checkoutActionName,
   moscowDay,
 } from "@/entities/subscription";
-import { productQuote } from "@/storybook/billing.fixtures";
+import { productQuote } from "../fixtures/billing.fixtures";
 it("records the exact Product purchase button, without recurring authority", () => {
   expect(checkoutButtonLabel(productQuote.snapshot)).toMatch(/^Оплатить /u);
   expect(checkoutActionName(productQuote.snapshot)).toBe("Оплатить");

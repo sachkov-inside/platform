@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { productWithSupportOffer } from "@/storybook/billing.fixtures";
+import { productWithSupportOffer } from "../fixtures/billing.fixtures";
 import { productIdFromCapability } from "@inside/access-capabilities";
 import { checkoutProductSlug } from "@/_pages/subscription/model/checkout-product";
 

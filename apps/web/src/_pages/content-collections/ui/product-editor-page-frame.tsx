@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 
 /**
  * Рамка страницы редактора руководства: прокручиваемое содержимое маршрута и его ширина.
- * Приложение и Storybook берут её отсюда, поэтому разделы редактора видны в одном кадре.
  */
 export function ProductEditorPageFrame({
   children,

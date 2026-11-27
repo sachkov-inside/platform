@@ -247,7 +247,7 @@ describe("document references", () => {
         "[queue](target.md#merge-queue) [self](#guide)",
         "Use `scripts/tool.mjs`, `scripts/tool` and `ghcr.io/org/image`.",
         "Run `pnpm docs:check` and `pnpm --filter @inside/web dev`.",
-        "Generated `apps/web/storybook-static/index.html` is not committed.",
+        "Generated `apps/web/.next/server/index.html` is not committed.",
       ].join("\n");
       writeFileSync(join(root, "docs/agents/guide.md"), valid);
       const documents = ["docs/agents/guide.md"];

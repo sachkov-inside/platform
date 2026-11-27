@@ -2,7 +2,7 @@ import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
 
 import type { ApplicationNavigationItem } from "../ui/application-shell.client";
 
-/** Разделы публичной шапки. Один источник для приложения и для Storybook. */
+/** Разделы публичной шапки. */
 export const publicNavigationItems = [
   { href: "/", icon: "home", label: "Главная" },
   { href: "/bookmarks", icon: "bookmark", label: "Закладки" },

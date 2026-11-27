@@ -1,7 +1,7 @@
 import { createServer, type RequestListener } from "node:http";
 import type { Socket } from "node:net";
 import { expect, test, vi, type TestContext } from "vitest";
-import { productWithSupportOffer } from "@/storybook/billing.fixtures";
+import { productWithSupportOffer } from "../fixtures/billing.fixtures";
 import { loadProductOffers } from "@/entities/subscription/api/billing-catalog.server";
 
 const productId = "17100000-0000-4000-8000-000000000010";

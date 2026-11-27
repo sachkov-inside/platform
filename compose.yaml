@@ -402,30 +402,6 @@ services:
     init: true
     stop_grace_period: 10s
 
-  storybook:
-    profiles: [storybook]
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
-      target: storybook
-    env_file:
-      - ./config/compose/local/storybook.env
-    ports:
-      - "127.0.0.1:${STORYBOOK_HOST_PORT:-6006}:6006"
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "node",
-          "-e",
-          "fetch('http://127.0.0.1:6006').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
-        ]
-      interval: 2s
-      timeout: 5s
-      retries: 45
-    init: true
-    stop_grace_period: 10s
-
 volumes:
   bank-double-data:
   logto-postgres-data:

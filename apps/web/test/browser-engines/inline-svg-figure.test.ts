@@ -25,7 +25,7 @@ declare global {
 const fixture = (name: string) => {
   const checked = checkInlineSvgMarkup(
     readFileSync(
-      new URL(`../../.storybook/fixtures/svg-figures/${name}`, import.meta.url),
+      new URL(`../fixtures/svg-figures/${name}`, import.meta.url),
       "utf8",
     ),
   );

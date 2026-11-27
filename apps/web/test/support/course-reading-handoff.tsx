@@ -7,7 +7,7 @@ import {
   CourseReadingLayout,
   ProgrammeDialog,
 } from "../../src/features/library-discovery/ui/course-reading.client";
-import { courseGuide } from "../../src/storybook/course-reading.fixtures";
+import { courseGuide } from "../fixtures/course-reading.fixtures";
 import { releaseLocation } from "./course-reading-router";
 import "../../app/globals.css";
 

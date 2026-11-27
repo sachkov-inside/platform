@@ -8,14 +8,7 @@ import { parseSync, Visitor } from "oxc-parser";
 
 const root = path.resolve(process.argv[2] ?? ".");
 const authority = path.join(root, "docs/contracts");
-const ignored = new Set([
-  "node_modules",
-  "dist",
-  ".next",
-  "coverage",
-  "storybook-static",
-  ".git",
-]);
+const ignored = new Set(["node_modules", "dist", ".next", "coverage", ".git"]);
 const schemaIdentity = z.object({ $id: z.string() }).passthrough();
 /** @param {string} directory @returns {string[]} */
 function files(directory) {

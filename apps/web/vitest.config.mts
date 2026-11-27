@@ -1,14 +1,6 @@
 import { fileURLToPath } from "node:url";
 
-import { storybookTest } from "@storybook/addon-vitest/vitest-plugin";
 import { defineConfig } from "vitest/config";
-
-import { storybookImportDiagnostics } from "./test/support/storybook-import-diagnostics.mjs";
-import { runScopedViteCache } from "./test/support/run-scoped-vite-cache.mjs";
-
-const importDiagnostics = storybookImportDiagnostics(
-  fileURLToPath(new URL("./test-results/storybook-imports", import.meta.url)),
-);
 
 export default defineConfig({
   optimizeDeps: {
@@ -59,7 +51,7 @@ export default defineConfig({
       },
       {
         // Проверки, которые сами запускают настоящие движки браузеров (Chromium и WebKit): им нужны
-        // установленные браузеры, поэтому они идут рядом со Storybook, а не с модульными.
+        // установленные браузеры и отдельный запуск.
         extends: true,
         test: {
           name: "browser-engines",
@@ -69,27 +61,6 @@ export default defineConfig({
           restoreMocks: true,
           unstubEnvs: true,
           unstubGlobals: true,
-        },
-      },
-      {
-        extends: true,
-        plugins: [
-          storybookTest({
-            configDir: fileURLToPath(new URL("./.storybook", import.meta.url)),
-          }),
-          runScopedViteCache(),
-          importDiagnostics.plugin,
-        ],
-        test: {
-          name: "storybook",
-          maxWorkers: 2,
-          setupFiles: ["./test/support/storybook-preload.ts"],
-          browser: {
-            enabled: true,
-            headless: true,
-            provider: importDiagnostics.provider,
-            instances: [{ browser: "chromium" }],
-          },
         },
       },
     ],

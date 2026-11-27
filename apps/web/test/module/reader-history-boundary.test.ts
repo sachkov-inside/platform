@@ -20,7 +20,7 @@ import {
 import { MaterialReaderView } from "@/_pages/material-reader/ui/material-reader-view";
 import { resolveProductReaderContext } from "@/_pages/material-reader/model/product-reader-context";
 import { parseMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
-import { courseSource } from "@/storybook/course-reading.fixtures";
+import { courseSource } from "../fixtures/course-reading.fixtures";
 
 let track: MockInstance<typeof readerHistory.ReaderHistoryTracker>;
 beforeEach(() => {

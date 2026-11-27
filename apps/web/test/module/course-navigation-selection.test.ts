@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { courseGuide, courseNext } from "@/storybook/course-reading.fixtures";
+import { courseGuide, courseNext } from "../fixtures/course-reading.fixtures";
 import { currentStepId, originatingStepId } from "@/features/library-discovery";
 import {
   reconcileCourseNavigation,

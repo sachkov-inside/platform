@@ -59,4 +59,4 @@ Backend-тесты проверяют реальный PostgreSQL: идемпо�
 отказ при отсутствии доступа, снятие после потери доступа, скрытие unpublished и возврат после
 republish, порядок и пагинацию, границы batch, валидацию входа. Web-тесты проверяют BFF-границу,
 маппинг в безопасные material previews и отсутствие публичного раскрытия. Пользовательская
-вертикаль проверяется Playwright и Storybook; merge/deploy остаются owner gates.
+вертикаль проверяется Playwright; merge/deploy остаются owner gates.

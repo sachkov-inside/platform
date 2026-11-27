@@ -29,7 +29,7 @@ export const paymentScenario = /** @type {const} */ ({
       shortName: "Код-ревью с агентом: практикум",
     },
   ],
-  storybook: { priceRevision: 3 },
+  module: { priceRevision: 3 },
   navigation: { priceRevision: 2, count: 60 },
   orderEmail: "buyer.order@example.test",
   currency: "RUB",
@@ -77,7 +77,7 @@ const storyAccesses = /** @type {const} */ ([
  * Shared fictional payment facts. The variants preserve two existing state matrices,
  * date windows and amounts; adapters only project them into their own contracts.
  * @param {number} index
- * @param {"storybook" | "navigation"} variant
+ * @param {"module" | "navigation"} variant
  */
 export function paymentFacts(index, variant) {
   const navigation = variant === "navigation";
@@ -118,7 +118,7 @@ export function paymentFacts(index, variant) {
     terminalRef: navigation ? "1700000000001DEMO" : "1700000000001",
     priceRevision: navigation
       ? paymentScenario.navigation.priceRevision
-      : paymentScenario.storybook.priceRevision,
+      : paymentScenario.module.priceRevision,
     bankPaymentId: String((navigation ? 7_200_000_000 : 7_100_000_000) + index),
     refundedKopecks: navigation && state === "unknown" ? null : 0,
     refundableKopecks:

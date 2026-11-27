@@ -49,7 +49,7 @@ export const people = [
   ...person,
 }));
 
-/** Contract IDs differ from Storybook; the Product facts are shared. */
+/** Contract IDs differ from the module fixtures. Product facts are shared. */
 export const peopleProducts = peopleScenario.products.map((product, index) => ({
   productId: `c0110000-0000-4000-8000-${String(index + 101).padStart(12, "0")}`,
   name: product.name,

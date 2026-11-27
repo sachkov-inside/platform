@@ -132,8 +132,8 @@
       "kind": "useEffect",
       "fingerprint": "7986e61f66f2b4cbf41acfb6ceb727a46a0a56762391018b2f25d9802ba9ebbe",
       "reason": "Для привязки открытого маршрута к двум объявлениям биллинга оставить подписку у оболочки. Оба источника после снятия и возврата проверяет постоянная история.",
-      "test": "apps/web/src/_app/ui/use-access-change-refresh.stories.tsx",
-      "authority": "Delivered in #2503 at 0c0bcda8a55a4160012fda3e075c1082472d6b64. RouteLifetime checks billing and enrollment announcements across unmount and return."
+      "test": "apps/web/test/e2e/subscription.spec.ts",
+      "authority": "A purchase in a second tab refreshes the open page. Remount and enrollment variants were fixture-only."
     },
     {
       "id": "D04",
@@ -143,8 +143,8 @@
       "kind": "useEffect",
       "fingerprint": "70acaae11d395ccbc0b3bbeebf06a2093f9eb48a816545b5d6fa135f4844ffe7",
       "reason": "Штатный тест проверяет подписку открытого маршрута только для разрешённого Account, с заменой A на B и потерей known. Счётчик смены аккаунта D05 отделить.",
-      "test": "apps/web/src/_app/ui/use-access-change-refresh.stories.tsx",
-      "authority": "Delivered in #2503 at 0c0bcda8a55a4160012fda3e075c1082472d6b64. RouteLifetime checks known account progress, identity changes and subscription release."
+      "test": "apps/web/test/browser-engines/browser-facts.test.ts",
+      "authority": "Cross-tab reading announcements update reading state and Account switching isolates cached bookmarks. Subscription cleanup during unresolved identity was fixture-only."
     },
     {
       "id": "D05",
@@ -154,8 +154,8 @@
       "kind": "useEffect",
       "fingerprint": "730b0265fb496817aef18666672674309af7ec55f40e9929692e4f5e332edee6",
       "reason": "The first resolved identity establishes the baseline. An unavailable session preserves the last known identity. Each subsequent change between known accounts or guest requests one route refresh.",
-      "test": "apps/web/src/_app/ui/use-access-change-refresh.stories.tsx",
-      "authority": "#2244. KnownAccountChanges delivered in #2493 at 2bfd30f70dd36332e0f6819603416f6ea19f9f9f. Observes the router command, with five targeted mutation controls."
+      "test": "apps/web/test/e2e/mobile-navigation.spec.ts",
+      "authority": "The application discards the previous Account navigation and private contact. The exact number of router refresh commands was fixture-only."
     },
     {
       "id": "D06",
@@ -164,10 +164,9 @@
       "owner": "useMobileNavigation",
       "kind": "useEffect",
       "fingerprint": "dd1e6611cc45cabaa67967b15853629b67a86e0757bc83750ec6c777f949a675",
-      "test": "apps/web/src/_app/ui/mobile-navigation-restore.stories.tsx",
+      "test": "apps/web/test/e2e/mobile-navigation.spec.ts",
       "reason": "Capture an ordinary link before bubbling and retain the scroll position for the matching destination.",
-      "authority": "Delivered in #2500 at 411b9211d82d2dd7e0d34aeceb30bd61817b3710. Removing click capture or moving it to bubble leaves the destination at 0 instead of 500. The mobile Back scenario also distinguishes missing scroll capture. Modifier and download combinations are outside this verification.",
-      "additionalTests": ["apps/web/test/e2e/mobile-navigation.spec.ts"]
+      "authority": "Native Back retains the latest URL and scroll position."
     },
     {
       "id": "D07",
@@ -177,12 +176,11 @@
       "kind": "useLayoutEffect",
       "fingerprint": "1af822aad5e48b571d2d89f4765359eb7c363f2d9d5e25413b732a26f22b60b9",
       "reason": "Commit the shell's known identity to its model before restoring the accepted route's scroll. When the model requests a reset, release the previous restoration, navigation state and the two private query families.",
-      "test": "apps/web/src/_app/ui/mobile-navigation-restore.stories.tsx",
+      "test": "apps/web/test/e2e/mobile-navigation.spec.ts",
       "additionalTests": [
-        "apps/web/test/e2e/mobile-navigation.spec.ts",
         "apps/web/test/module/mobile-navigation-identity.test.ts"
       ],
-      "authority": "#2244. The #2502 scenarios distinguish saved positions, pending navigation, active restoration and selective cache resets after accepting B. Clearing the shared cache while Activity is disconnected for a concurrent visible consumer is outside this contract."
+      "authority": "Account changes clear remembered routes and the old contact. The module check retains the identity policy."
     },
     {
       "id": "D08",
@@ -202,10 +200,9 @@
       "owner": "useMobileNavigation",
       "kind": "useLayoutEffect",
       "fingerprint": "ddf6d3e94cb514b0efcae0a65968a612ef559eadd99019d57c9e138d55da154a",
-      "test": "apps/web/src/_app/ui/mobile-navigation-restore.stories.tsx",
+      "test": "apps/web/test/e2e/mobile-navigation.spec.ts",
       "reason": "Restore the saved position for the committed destination and stop that attempt when another route commits.",
-      "authority": "Delivered in #2500 at 411b9211d82d2dd7e0d34aeceb30bd61817b3710. The Story detects a missing release of the pending timer. The mobile navigation checks distinguish a zero destination from the saved scroll position. Activity hide is outside this verification.",
-      "additionalTests": ["apps/web/test/e2e/mobile-navigation.spec.ts"]
+      "authority": "Mobile navigation restores the saved scroll position. The pending restoration timer cancellation was fixture-only."
     },
     {
       "id": "D10",
@@ -215,8 +212,8 @@
       "kind": "useEffect",
       "fingerprint": "f0a401d283ff923536f55fc9d7d7b10de4e4457cf12884ce40d4c0acf67b28fb",
       "reason": "Open the current Account section on a matching initial fragment or hashchange. Manual closing survives unrelated fragment changes; hidden and previous section identities release the listener.",
-      "test": "apps/web/src/_pages/account-access/ui/account-disclosure.stories.tsx",
-      "authority": "Delivered in #2461 at 04c980b73f5158af981e85a777bd0c81098b1155. SectionFollowsItsCurrentFragment checks hide, return and replacement of the section ID. The Account route covers direct entry and manual closing."
+      "test": "apps/web/test/navigation/account-access-lifetimes.spec.ts",
+      "authority": "The Account follows its initial and changed fragments while allowing manual closing."
     },
     {
       "id": "D11",
@@ -226,8 +223,8 @@
       "kind": "useEffect",
       "fingerprint": "8762fd31219945d727cfa6bc05092bb4df334522c4ec7e681f95e86f14c80ce5",
       "reason": "The typed product tab adapter follows popstate only for its own pathname while active. It releases the listener when hidden and resumes for the same product on return.",
-      "test": "apps/web/src/_pages/content-collections/model/product-page-tab.stories.tsx",
-      "authority": "#2244. ActiveHistoryOwner delivered in #2486 at 7b9fef9de2327aad909625f62ff7b1f2a9f9a2c2. Independent targeted mutation verified."
+      "test": "apps/web/test/navigation/content-collections.spec.ts",
+      "authority": "Native Back restores the product tab and a retained Product ignores the tab of another route."
     },
     {
       "id": "D12",
@@ -238,9 +235,6 @@
       "fingerprint": "8e2c1d3bd6d19b38cb6ddeb0e3042ad2f979cca91b0ed8f120c7fceeb1c1c4ce",
       "reason": "Focus the committed topic heading on entry and the visible link for the previous topic in this list on return.",
       "test": "apps/web/test/navigation/content-collections.spec.ts",
-      "additionalTests": [
-        "apps/web/src/_pages/content-collections/ui/content-collections-page.stories.tsx"
-      ],
       "authority": "Verified on 566b32bf9; fast Back on desktop and mobile, scoped focus stories, heading and link-identity negative controls. Rechecked with #2466 on c7735aaf1. Delivered in #2471 on 6e8bf19a8."
     },
     {
@@ -274,8 +268,8 @@
       "kind": "useEffect",
       "fingerprint": "4298bfa17b58cb657f0240ee34a365f5403d21d5776fbe86ef3f2daa3d6ddcd4",
       "reason": "Record the purchase row shown for the committed account and product pair, preserving it when another render suspends or a different account or product commits.",
-      "test": "apps/web/src/_pages/library-discovery/ui/product-journey.stories.tsx",
-      "authority": "Delivered in #2503 at 0c0bcda8a55a4160012fda3e075c1082472d6b64. D16CommitProof checks suspended and committed updates for distinct account and product pairs."
+      "test": "apps/web/test/navigation/product-reader-state.spec.ts",
+      "authority": "The Next route restores a purchase and isolates guest and holder requests. Suspended replacement of the committed row was fixture-only."
     },
     {
       "id": "D17",
@@ -308,11 +302,8 @@
       "kind": "useLayoutEffect",
       "fingerprint": "18ea115fc86950c4f143bc13a46789542893ce7c0b4e7dd6414593abb2e67fde",
       "reason": "Publish the matching waitlist view and commands to both slots during layout; suspended updates must leave the committed product and its actions available.",
-      "test": "apps/web/src/_pages/library-discovery/ui/product-journey.stories.tsx",
-      "authority": "Delivered in #2503 at 0c0bcda8a55a4160012fda3e075c1082472d6b64. WaitlistPublishesCommittedProduct checks the suspended and committed link. The separate production Next test checks retry through both slots for one product.",
-      "additionalTests": [
-        "apps/web/test/navigation/product-reader-state.spec.ts"
-      ]
+      "test": "apps/web/test/navigation/product-reader-state.spec.ts",
+      "authority": "Both production route slots retry the committed join. Suspended replacement timing was fixture-only."
     },
     {
       "id": "D20",
@@ -344,8 +335,9 @@
       "kind": "useEffect",
       "fingerprint": "ae4bf259a8dde27d7ef18050c86e8c42fd7db7643f8d40f847766431ca7331d7",
       "reason": "Commit each accepted feedback baseline to the draft for that submission. A later stale read preserves the newer feedback and local edits.",
-      "test": "apps/web/src/_pages/task-submissions/ui/task-submissions-view.stories.tsx",
-      "authority": "Delivered source and FreshFeedbackSurvivesStaleRead on 1af998f4; deletion and stale-dependency controls recorded separately."
+      "test": "apps/web/test/navigation/task-submissions.spec.ts",
+      "authority": "The route preserves drafts across navigation. Feedback baseline ordering remains covered by the module test.",
+      "additionalTests": ["apps/web/test/module/feedback-draft.test.ts"]
     },
     {
       "id": "D23",
@@ -366,8 +358,8 @@
       "kind": "useEffect",
       "fingerprint": "5896295a1d68f8415c44a73fca9280f2e9918d592a49e8873199c5002d4a7c0a",
       "reason": "Deliver an exercise answer to the committed listener. A suspended replacement cannot receive it, and committing a new listener does not replay the preceding answer.",
-      "test": "apps/web/src/entities/material/ui/material-blocks/material-quiz.stories.tsx",
-      "authority": "Delivered in #2467 on d105f5052. AnswersReachCommittedListener separates the committed A and C listeners from suspended B; render-write and stale-listener controls failed."
+      "test": "apps/web/test/navigation/exercise-owner.spec.ts",
+      "authority": "The pending answer belongs only to its resolved Account. Suspended listener replacement and replay counts were fixture-only."
     },
     {
       "id": "D25",
@@ -377,8 +369,8 @@
       "kind": "useEffect",
       "fingerprint": "75c56791505c25e644f93b10b9fec2daa6f7949142f7598fa47f4f1c9ca7fd6d",
       "reason": "Report the restored answer for the current exercise when its identity changes even if the answered state is unchanged.",
-      "test": "apps/web/src/entities/material/ui/material-blocks/material-quiz.stories.tsx",
-      "authority": "Delivered in #2478 on 90c5aa4df335bab227c5d6837631fe90f3f9389b. RestoredAnswerFollowsExercise lost the second notification when exerciseId was removed from the dependencies."
+      "test": "apps/web/test/local/material-quiz.spec.ts",
+      "authority": "Quiz interaction and reload are covered by the editor/Reader acceptance scenario. Restored answer callbacks across same-state identities were fixture-only."
     },
     {
       "id": "D26",
@@ -388,10 +380,9 @@
       "kind": "useEffect",
       "fingerprint": "568085eace1893344098e978adcbdc6e3e4e1fd6366d60ee1dac6a8f8611a46b",
       "reason": "A browser action uses the committed lesson parts and progress command. A suspended edition cannot receive a save, and committing its replacement exposes the new parts and command. An intermediate render preserves an admitted part count until the DOM catches up.",
-      "authority": "Delivered in #2472 on df6399a71b2fb08fb1b7bdb41a884edeac0cffd0. OpenWhileEditionChanges distinguishes a render write, stale parts and a stale progress command. #2495 on c702e8d1d00be5af0a1c0d181f6f2a985d05a635 preserves the admitted fourth part across an intermediate render and a later saved count of three.",
-      "test": "apps/web/src/entities/material/ui/lesson-steps-progress.stories.tsx",
+      "authority": "A lesson fragment survives an intermediate render before saved progress. Suspended replacement of the progress command was fixture-only.",
+      "test": "apps/web/test/browser-engines/body-fragments.test.ts",
       "additionalTests": [
-        "apps/web/test/browser-engines/body-fragments.test.ts",
         "apps/web/test/navigation/reader-initial-fragment.spec.ts"
       ]
     },
@@ -403,8 +394,8 @@
       "kind": "useEffect",
       "fingerprint": "8e2700298d49358bddfbc8176f14be0960c5dc77c75d51403ba7b10c8940ee88",
       "reason": "Apply the first available saved count within the current edition once, retaining parts already opened when a later progress value arrives.",
-      "authority": "Delivered in #2472 on df6399a71b2fb08fb1b7bdb41a884edeac0cffd0. RestoreWithinCurrentEdition and OpenWhileEditionChanges distinguish replay, an unclamped saved count and a decrease.",
-      "test": "apps/web/src/entities/material/ui/lesson-steps-progress.stories.tsx"
+      "authority": "The browser keeps an admitted lesson section across saved progress delivery. The edition-specific restoration bounds were fixture-only.",
+      "test": "apps/web/test/browser-engines/body-fragments.test.ts"
     },
     {
       "id": "D28",
@@ -414,8 +405,8 @@
       "kind": "useEffect",
       "fingerprint": "0c70049734c368e68996f1056514d00254152248a65129a2eb3dd1fa4129b454",
       "reason": "After the saved opened count commits, scroll once to its mounted lesson boundary. First visits stay at the top and subsequent progress delivery preserves manual scroll.",
-      "test": "apps/web/src/_pages/material-reader/ui/material-reader-steps.stories.tsx",
-      "authority": "Delivered in #2481 at cbc5d52861064874f026b014eede1f8b61575963. RestoredGateScrollsOnce and its mobile variant cover one-shot restoration. Independent Reader verification at 1440x900 and 390x844 covers feed entry and manual scroll after progress delivery. Direct fragment entry and desktop Back are tracked in #2479 and #2480."
+      "test": "apps/web/test/navigation/reader-initial-fragment.spec.ts",
+      "authority": "A direct heading survives guest progress delivery. The one-shot saved-count scroll across later delivery was fixture-only."
     },
     {
       "id": "D29",
@@ -427,8 +418,7 @@
       "reason": "On initial entry the adapter asks the lesson to reveal the part containing the fragment target and schedules a scroll if it opened that part. It follows same-page fragment clicks and hash changes. Hiding or unmounting the lesson releases both subscriptions.",
       "test": "apps/web/test/browser-engines/body-fragments.test.ts",
       "additionalTests": [
-        "apps/web/test/navigation/reader-initial-fragment.spec.ts",
-        "apps/web/src/entities/material/ui/lesson-steps-progress.stories.tsx"
+        "apps/web/test/navigation/reader-initial-fragment.spec.ts"
       ],
       "authority": "Both lesson fragment link and subscription lifetime checks delivered in #2501 on c9c28a095cfe5b2d610760e67e62b8edb21c1145. Removing each cleanup leaves an active subscription. The ordinary click reveals earlier with capture but ends with the same heading in view, one progress save and the same next Tab stop without capture. Direct entry and initial scroll target are independently covered by #2495. Adapter independently verified on 257a4e8365ce478cc5391fb7056507c7a704345c and delivered in #2506 at 5b8f1ae884d09ec89b73f7243073fe02a2818209."
     },
@@ -440,8 +430,8 @@
       "kind": "useLayoutEffect",
       "fingerprint": "b4e42ef36633902d24e594dd1ff9f1176212cd2d7e0274b820f6468d7aaaddef",
       "reason": "The React external-store adapter publishes committed values to hydrated readers in layout while delayed hydration reuses the initial snapshot and its server DOM.",
-      "test": "apps/web/src/entities/material/model/reading-context.stories.tsx",
-      "authority": "Delivered in #2463 at 923741c168a3c2a277e6f1b0eaacb03df20b449e. Public scenarios and independent verification documented in the PR."
+      "test": "apps/web/test/navigation/reader-initial-fragment.spec.ts",
+      "authority": "The Reader keeps its heading through hydration and progress delivery. Snapshot reuse under delayed hydration was fixture-only."
     },
     {
       "id": "D31",
@@ -451,8 +441,8 @@
       "kind": "useEffect",
       "fingerprint": "31c49ca8583f8866856cee780e946e29e2cdc3821ddee7fdbee48a21b6283e0e",
       "reason": "An active consumer of a material acquires demand from the current register function even before any visible marker exists; release follows consumer, material and registration owner.",
-      "test": "apps/web/src/entities/material/model/reading-context.stories.tsx",
-      "authority": "Delivered in #2463 at 923741c168a3c2a277e6f1b0eaacb03df20b449e. Public scenarios and independent verification documented in the PR."
+      "test": "apps/web/test/navigation/programme-query-owner.spec.ts",
+      "authority": "The current programme reveals after its materials replace the rows. Direct observation of demand release was fixture-only."
     },
     {
       "id": "D33",
@@ -473,8 +463,8 @@
       "kind": "useEffect",
       "fingerprint": "b62b2574838bace0fb04379f9d3f6be3c8de937ac2aba1af5e1b4c4217d2bce5",
       "reason": "An email-attached announcement invalidates the current query client without cancelling a pending read. Replacing the client or unmounting releases the subscription.",
-      "test": "apps/web/src/features/account-email/ui/account-email-panel.stories.tsx",
-      "authority": "Delivered in #2461 at 04c980b73f5158af981e85a777bd0c81098b1155. AnAnnouncementJoinsThePendingRead checks pending reads, client replacement and unmount. The panel is exercised in isolation."
+      "test": "apps/web/test/browser-engines/account-fact-announcements.test.ts",
+      "authority": "Own Account observers read a new email fact after an announced write. Exact subscription release across QueryClient replacement was fixture-only."
     },
     {
       "id": "D35",
@@ -484,9 +474,9 @@
       "kind": "useEffect",
       "fingerprint": "a48f64ae629f2d58cc456527386b86bcb02a8828da6cfcd44f7a73108c09ba66",
       "reason": "Start the quote for the committed selection and prevent a late quote for the previous selection from enabling payment.",
-      "test": "apps/web/src/features/billing-checkout/ui/checkout-recovery.stories.tsx",
+      "test": "apps/web/test/navigation/product-reader-state.spec.ts",
       "additionalTests": ["apps/web/test/module/billing-checkout-bff.test.ts"],
-      "authority": "6d313b55: LateQuoteCannotRestorePreviousSelection observes the initial quote, product change and stale response with controlled HTTP. The real quote handler separately forwards operationId, productId and priceRevision. No bank payment is exercised."
+      "authority": "Restored checkout rereads its own payment link. A late quote for a replaced selection was fixture-only."
     },
     {
       "id": "D36",
@@ -507,8 +497,8 @@
       "kind": "useEffect",
       "fingerprint": "f8d7aa289a00e059643a63e49ec4289580087f48e6764e37a5e7e1ceabce4b92",
       "reason": "The named render-error adapter reports an error to the telemetry transport when the Next fallback commits. The same error in the same mounted boundary does not resend on ordinary rerender.",
-      "test": "apps/web/src/_app/ui/render-error-report.stories.tsx",
-      "authority": "#2244. CommittedFallback delivered in #2486 at 7b9fef9de2327aad909625f62ff7b1f2a9f9a2c2. Independent targeted mutation verified."
+      "test": "apps/web/test/browser-engines/render-error.test.ts",
+      "authority": "The real error-report adapter sends browser requests for the committed boundary and error and deduplicates an ordinary rerender."
     },
     {
       "id": "D38",
@@ -562,9 +552,9 @@
       "owner": "CourseTaskSubmissionStatuses",
       "kind": "useEffect",
       "fingerprint": "c3dcccbe32014dc51844218f9f8360a64d3b5a74bef0b2c9d90f91c277baa7f7",
-      "test": "apps/web/src/features/library-discovery/ui/course-status-lifetimes.stories.tsx",
+      "test": "apps/web/test/navigation/learning-scenario.spec.ts",
       "reason": "One CourseTaskSubmissionStatuses publishes current submitted tasks to its own Layout, checks course identity and releases the overlay when removed. Concurrent Layouts keep independent status.",
-      "authority": "#2244. PrivateTaskStatusBelongsToItsLayout delivered in #2487 at e07bb54403c12240ced6ba27af1e1e3fca9b6bf2."
+      "authority": "The production learning journey shows recorded task state. Parallel layout isolation and overlay removal were fixture-only."
     },
     {
       "id": "D45",
@@ -584,9 +574,9 @@
       "owner": "CourseRail",
       "kind": "useEffect",
       "fingerprint": "9c9751f6494af1130835f25f81600f08164daf63c6e9154658f182efdb11a420",
-      "test": "apps/web/src/features/library-discovery/ui/course-rail-history.stories.tsx",
+      "test": "apps/web/test/browser-engines/reader-history.test.ts",
       "reason": "The active rail registers available chapters for Reader history and restores valid chapter selection. Releasing an older rail preserves the replacement registration. The dialog sheet listens for selection while the rail owns availability.",
-      "authority": "#2244. ReplacedRailOwnsAvailableChapters delivered in #2488 at 59df5ddc466a461f4b3134c17b9cdfd2cab96d21."
+      "authority": "The browser waits for the requested chapter and delivers pending restoration to a newly connected rail."
     },
     {
       "id": "D47",
@@ -595,9 +585,9 @@
       "owner": "CourseRail",
       "kind": "useLayoutEffect",
       "fingerprint": "2cc83a0b6c8a18e3ddf4ec9826fb70658f30435a5a3a885fbb9bb1f0bbc5c8e6",
-      "test": "apps/web/src/features/library-discovery/ui/course-reading.stories.tsx",
+      "test": "apps/web/test/browser-engines/course-reading-handoff.test.ts",
       "reason": "CourseRail centers an offscreen selected step or the origin of an extra material in its own list. Selecting a fully visible neighbor preserves the current scroll position.",
-      "authority": "#2244. RevealsOnlyOffscreenSteps delivered in #2488 at 59df5ddc466a461f4b3134c17b9cdfd2cab96d21."
+      "authority": "The visible rail and current chapter retain their scroll through activation. Offscreen selection and an already-visible neighbour were fixture-only."
     },
     {
       "id": "D48",
@@ -606,9 +596,9 @@
       "owner": "useCourseReadMarks",
       "kind": "useEffect",
       "fingerprint": "cb0c383fb6cfacadc85a2cf3eff142fcdb4b08b42e98ae02bd34addcbac0f033",
-      "test": "apps/web/src/features/library-discovery/ui/course-status-lifetimes.stories.tsx",
+      "test": "apps/web/test/navigation/course-navigation-frame.spec.ts",
       "reason": "Each CourseRail registers unique materials from all chapters with the current provider. Changing the provider or material set releases the previous demand, while an overlapping rail retains its own registration.",
-      "authority": "#2244. ReadingDemandFollowsTheCurrentProvider delivered in #2487 at e07bb54403c12240ced6ba27af1e1e3fca9b6bf2."
+      "authority": "The same production sidebar stays mounted as the selected material changes. Dependency replacement and overlapping demand were fixture-only."
     },
     {
       "id": "D49",
@@ -629,8 +619,8 @@
       "owner": "MaterialImageViewer",
       "kind": "useEffect",
       "fingerprint": "fd5b80500482e22351d9bb090c8e59da0208d5585c729ae0607184c6fb3e31ab",
-      "test": "apps/web/src/_pages/material-reader/ui/material-reader.stories.tsx",
-      "authority": "approved-A-native-modal-boundary: Home msg_32c76dbb8c84, msg_50d046a200d7; actual merge msg_26583899107e"
+      "test": "apps/web/test/browser-engines/native-dialog.test.ts",
+      "authority": "The real dialog adapter releases its native layer while hidden and on removal. Reader-specific wheel cleanup was fixture-only."
     },
     {
       "id": "D51",
@@ -673,8 +663,8 @@
       "kind": "useEffect",
       "fingerprint": "97c0c396330f656cfda7c870f916693c140060f52357c26ef903fbcd1caa187d",
       "reason": "Only a resolved account admits cache cleanup. An obsolete reading batch may settle after cancellation but cannot refill its former cache entry.",
-      "test": "apps/web/src/features/reading-progress/ui/reading-cache-lifetimes.stories.tsx",
-      "authority": "Delivered in #2463 at 923741c168a3c2a277e6f1b0eaacb03df20b449e. Public scenarios and independent verification documented in the PR."
+      "test": "apps/web/test/module/reading-cache.test.ts",
+      "authority": "A late response cannot refill the cancelled prior Account cache; the exact Reader provider transition was fixture-only."
     },
     {
       "id": "D55",
@@ -684,8 +674,8 @@
       "kind": "useEffect",
       "fingerprint": "19462c59fa1629d05c4dd90cfd919b9f0ffbf1552035541928911497ec049a3a",
       "reason": "The active account cache intercepts sign-out form submission in document capture, disables private reads and clears the matching QueryClient. Replacement and unmount release that listener.",
-      "test": "apps/web/src/features/reading-progress/ui/reading-cache-lifetimes.stories.tsx",
-      "authority": "Delivered in #2463 at 923741c168a3c2a277e6f1b0eaacb03df20b449e. Public scenarios and independent verification documented in the PR."
+      "test": "apps/web/test/fullstack/reading-progress.spec.ts",
+      "authority": "The full-stack Reader signs out and clears private progress from view. Checking capture order and listener ownership was fixture-only."
     },
     {
       "id": "D56",
@@ -695,8 +685,8 @@
       "kind": "useEffect",
       "fingerprint": "588dedc0802605c36b4d94993d3faacc02702b815f18100bedecbbbcee21cb46",
       "reason": "When a resolved action regains marking rights, remove only completed denied mutations for the exact command key. Keep pending and failed commands, other results and accounts, and subsequent denials.",
-      "test": "apps/web/src/features/reading-progress/ui/reading-cache-lifetimes.stories.tsx",
-      "authority": "Delivered in #2463 at 923741c168a3c2a277e6f1b0eaacb03df20b449e. Public scenarios and independent verification documented in the PR."
+      "test": "apps/web/test/module/reading-cache.test.ts",
+      "authority": "Private reading mutations are cleared selectively on Account exit. Selective cleanup of completed denials when rights return was fixture-only."
     },
     {
       "id": "D57",
@@ -706,8 +696,8 @@
       "kind": "useEffect",
       "fingerprint": "b3ba63e446d209aaf2965cd625185553f12ee340a12a255444c5deb066b6d294",
       "reason": "Именованный адаптер связывает источник факта с конкретным QueryClient и ключом, принимает null и отдаёт release подписчика. Публичный тест меняет все три входа независимо и снимает активного потребителя.",
-      "test": "apps/web/src/shared/api/use-announced-refresh.stories.tsx",
-      "authority": "#2244. QueryLifetime delivered in #2486 at 7b9fef9de2327aad909625f62ff7b1f2a9f9a2c2. Independent targeted mutation verified."
+      "test": "apps/web/test/browser-engines/owner-fact-announcements.test.ts",
+      "authority": "An announced write refreshes real query observers across independent caches. Replacing all three hook inputs independently was fixture-only."
     },
     {
       "id": "D58",
@@ -739,8 +729,8 @@
       "kind": "useLayoutEffect",
       "fingerprint": "58a76a137e49832b89c0d4368c44bb2605b9bc9df8e3446a61ca34df62ed21d5",
       "reason": "Protect beforeunload during active autosave work, including a pending upload or failed save. Remove the listener in the layout phase of the commit that shows the saved state.",
-      "test": "apps/web/src/_pages/content-collections/ui/product-editor-page.stories.tsx",
-      "authority": "Merged #2458 at 4863d547d13af12563984c1dfc3a47384f884b0f. BeforeUnloadFollowsActivity covers the visible transition; Chromium navigation verified in the PR."
+      "test": "apps/web/test/navigation/content-collections.spec.ts",
+      "authority": "The product editor saves before navigation without an unload prompt. Exact listener removal at the saved commit was fixture-only."
     },
     {
       "id": "D61",
@@ -775,8 +765,8 @@
       "kind": "useEffect",
       "fingerprint": "6965ff401219f70dcabf0b336659dcd9ff213cff4b174d425212b1d784408391",
       "reason": "Именованный shared hook владеет задержкой поиска 250 мс. Начальное значение доступно сразу; изменение заменяет срок, hide/unmount снимают его. HTTP, нормализацию и разрешения определяют потребители.",
-      "test": "apps/web/src/shared/lib/use-live-search-value.stories.tsx",
-      "authority": "#2244. ReplacementAndRelease delivered in #2486 at 7b9fef9de2327aad909625f62ff7b1f2a9f9a2c2. Independent targeted mutation verified."
+      "test": "apps/web/test/browser-engines/live-search.test.ts",
+      "authority": "A controlled browser clock checks the 250 ms delay, deadline replacement and hide/show; removal leaves no visible output."
     },
     {
       "id": "D66",
@@ -786,8 +776,8 @@
       "kind": "useEffect",
       "fingerprint": "6069835bd7ac13ca2e2590cecad4e9c52398efd7461718f4e2fcdf5da1309078",
       "reason": "The matching active Reader entry owns capture listeners, its reader root, a coalesced scroll frame and pending restoration. Cleanup cancels the frame so the previous visible chapter and position survive return.",
-      "test": "apps/web/src/features/library-discovery/ui/reader-history-tracker.stories.tsx",
-      "authority": "#2244. RestoresOwnVisibleEntry delivered in #2486 at 7b9fef9de2327aad909625f62ff7b1f2a9f9a2c2. Tracker cleanup updated in #2489 at d789fd2a072b908c885372a40f04d03629a9074e with the Reader-to-Home Back scenario in reader-history-position.spec.ts."
+      "test": "apps/web/test/browser-engines/reader-history.test.ts",
+      "authority": "The reader restores its own position after pending layout and yields to current native input."
     },
     {
       "id": "D70",
@@ -819,8 +809,8 @@
       "owner": "useMaterialBlockControls",
       "kind": "useEffect",
       "fingerprint": "1494d2236c82dcd5ccedc24fd185b4dd00b75205a388a192521d98e992ac89f6",
-      "test": "apps/web/src/_pages/material-authoring/ui/material-authoring-page.stories.tsx",
-      "authority": "#2398"
+      "test": "apps/web/test/browser-engines/material-authoring-lifetimes.test.ts",
+      "authority": "Removing the real editor rejects late operations. Direct block-control observer and frame cleanup was fixture-only."
     },
     {
       "id": "T01",

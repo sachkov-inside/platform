@@ -710,10 +710,9 @@ describe("application CI workflow contract", () => {
     for (const command of [
       "--filter @inside/telegram test:widget",
       "--filter @inside/web test:browser-engines",
-      "test:storybook",
-      "build:storybook",
     ])
       assert.match(ui, new RegExp(`run: pnpm ${escapeRegExp(command)}$`, "mu"));
+    assert.doesNotMatch(ui, /storybook/iu);
     assert.match(jobBlock("ui"), /browsers: chromium webkit$/mu);
     assert.match(jobBlock("web-e2e-browser"), /browsers: chromium$/mu);
   });
@@ -926,14 +925,10 @@ describe("application CI workflow contract", () => {
 
     assert.match(
       jobBlock("compose-development"),
-      /docker compose --profile storybook config --quiet/u,
+      /docker compose --profile identity config --quiet/u,
     );
     // The clean-stack smoke reads the published demo; the shared stand keeps it hidden.
     assert.match(jobBlock("compose-development"), /LOCAL_SEED_VIEW: checks/u);
-    assert.match(
-      jobBlock("compose-development"),
-      /docker compose --profile storybook build/u,
-    );
     assert.equal(
       jobBlock("compose-development").match(
         /bash scripts\/compose-stack-smoke\.sh/gu,
@@ -1139,7 +1134,7 @@ describe("application CI workflow contract", () => {
     );
   });
 
-  it("uploads browser-engine and Storybook import diagnostics for each CI attempt", () => {
+  it("uploads browser-engine diagnostics for each CI attempt", () => {
     const job = jobBlock("ui");
     assert.equal(job.match(/uses: actions\/upload-artifact@/gu)?.length, 1);
     assert.match(job, /if: \$\{\{ failure\(\) \}\}/u);
@@ -1148,7 +1143,6 @@ describe("application CI workflow contract", () => {
       /name: browser-engines-playwright-\$\{\{ github.run_attempt \}\}/u,
     );
     assert.match(job, /^ {12}apps\/web\/test-results\/browser-engines$/mu);
-    assert.match(job, /^ {12}apps\/web\/test-results\/storybook-imports$/mu);
     assert.match(job, /if-no-files-found: ignore/u);
     assert.match(job, /retention-days: 7/u);
   });

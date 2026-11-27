@@ -5,7 +5,7 @@ import {
   readProductLandingPage,
   resolveProductPresentation,
 } from "@/entities/product-page";
-import { aiFirstProductPage } from "@/storybook/product-page.fixtures";
+import { aiFirstProductPage } from "../fixtures/product-page.fixtures";
 
 describe("Product product page", () => {
   test("keeps a description this site can draw", () => {

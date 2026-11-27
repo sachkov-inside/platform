@@ -57,7 +57,7 @@ import {
 import {
   storyOverviewReport,
   storyProductOverview,
-} from "@/storybook/admin-overview.fixtures";
+} from "../fixtures/admin-overview.fixtures";
 import { productOverviewSchema } from "@/features/admin-overview/model/product-overview";
 
 function series(...values: number[]): OverviewSeries {
@@ -402,7 +402,7 @@ describe("funnel and events", () => {
     ).toBe(true);
   });
 
-  it("accepts the Storybook fixtures as backend responses", () => {
+  it("accepts representative backend responses", () => {
     expect(overviewReportSchema.safeParse(storyOverviewReport()).success).toBe(
       true,
     );

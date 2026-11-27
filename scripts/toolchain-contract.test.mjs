@@ -157,7 +157,7 @@ describe("supported toolchain contract", () => {
     );
     assert.ok(development);
     assert.match(development, /^ENV NEXT_TELEMETRY_DISABLED=1$/mu);
-    for (const target of ["web", "storybook", "production-build"]) {
+    for (const target of ["web", "production-build"]) {
       assert.ok(
         stages.some((stage) => stage.startsWith(`development AS ${target}\n`)),
       );
@@ -378,7 +378,6 @@ describe("supported toolchain contract", () => {
       "@next/eslint-plugin-next",
       "@tanstack/eslint-plugin-query",
       "eslint-plugin-react-hooks",
-      "eslint-plugin-storybook",
     ]) {
       assert.equal(rootPackage.devDependencies[dependency], undefined);
     }
@@ -649,11 +648,6 @@ describe("supported toolchain contract", () => {
 
   it("keeps TypeScript-API consumers out of active Web tooling", () => {
     assert.equal(
-      webPackage.devDependencies["@storybook/nextjs-vite"],
-      undefined,
-    );
-    assert.equal(webPackage.devDependencies["@storybook/react-vite"], "10.6.7");
-    assert.equal(
       webPackage.devDependencies["openapi-typescript-codegen"],
       "0.31.0",
     );
@@ -663,14 +657,6 @@ describe("supported toolchain contract", () => {
     assert.deepEqual(
       overrideNames(read("pnpm-workspace.yaml")),
       documentedSecurityOverrides,
-    );
-  });
-
-  it("keeps the legacy Storybook preview without an MCP runner", () => {
-    assert.equal(webPackage.devDependencies["@storybook/addon-mcp"], undefined);
-    assert.match(
-      read("apps/web/.storybook/main.ts"),
-      /typescript:\s*\{\s*reactDocgen:\s*"react-docgen"\s*\}/u,
     );
   });
 
@@ -684,7 +670,6 @@ describe("supported toolchain contract", () => {
     for (const widened of [
       `  allowAny: [typescript]\n`,
       `  ignoreMissing: [typescript]\n`,
-      `    storybook>typescript: "7"\n`,
     ]) {
       const rules = peerDependencyRulesBlock(
         workspace.replace(
@@ -845,7 +830,6 @@ describe("supported toolchain contract", () => {
       "config/compose/local/profile-avatars-worker.env",
       "config/compose/local/video-deletions-worker.env",
       "config/compose/local/web.env",
-      "config/compose/local/storybook.env",
       "config/compose/local/bank-double.env",
       "config/compose/local/mailpit.env",
       "config/compose/production/compose.env.example",
@@ -1108,7 +1092,6 @@ describe("supported toolchain contract", () => {
 
 const documentedSecurityOverrides = [
   "archiver-utils>glob",
-  "@joshwooding/vite-plugin-react-docgen-typescript>glob",
   "@ts-morph/common>minimatch",
 ];
 
