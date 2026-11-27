@@ -79,9 +79,10 @@ export const StorageNoticeClearance: Story = {
           storageArea: localStorage,
         }),
       );
-      await expect(
-        await canvas.findByRole("region", { name: "Хранение в браузере" }),
-      ).toBeVisible();
+      const notice = await canvas.findByRole("region", {
+        name: "Хранение в браузере",
+      });
+      await expect(notice).toBeVisible();
       await waitFor(() =>
         expect(
           Number.parseFloat(
@@ -95,6 +96,9 @@ export const StorageNoticeClearance: Story = {
         expect(clearance(), JSON.stringify({ initial, now: geometry() })).toBe(
           12,
         ),
+      );
+      await expect(nav.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+        notice.getBoundingClientRect().top,
       );
     } finally {
       localStorage.setItem(

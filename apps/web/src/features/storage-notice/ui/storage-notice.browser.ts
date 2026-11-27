@@ -60,10 +60,16 @@ export function acknowledgeStorageNotice(edition: number) {
 export function mountStorageNotice(element: HTMLElement | null) {
   if (element === null) return;
   const root = document.documentElement.style;
-  const property = "--storage-notice-space";
+  const space = "--storage-notice-space";
+  const clearance = "--storage-notice-clearance";
   let active = true;
   const measure = () => {
-    if (active) root.setProperty(property, `${String(element.offsetHeight)}px`);
+    if (!active) return;
+    root.setProperty(space, `${String(element.offsetHeight)}px`);
+    root.setProperty(
+      clearance,
+      "calc(var(--storage-notice-space) + var(--storage-notice-inset))",
+    );
   };
   const observer = new ResizeObserver(measure);
   measure();
@@ -71,6 +77,7 @@ export function mountStorageNotice(element: HTMLElement | null) {
   return () => {
     active = false;
     observer.disconnect();
-    root.removeProperty(property);
+    root.removeProperty(clearance);
+    root.removeProperty(space);
   };
 }
