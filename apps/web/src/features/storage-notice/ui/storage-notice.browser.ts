@@ -68,12 +68,12 @@ export function mountStorageNotice(element: HTMLElement | null) {
     root.setProperty(space, `${String(element.offsetHeight)}px`);
     root.setProperty(
       clearance,
-      "calc(var(--storage-notice-space) + var(--storage-notice-inset))",
+      `calc(${String(element.getBoundingClientRect().height)}px + var(--storage-notice-inset))`,
     );
   };
   const observer = new ResizeObserver(measure);
   measure();
-  observer.observe(element);
+  observer.observe(element, { box: "border-box" });
   return () => {
     active = false;
     observer.disconnect();

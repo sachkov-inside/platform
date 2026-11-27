@@ -100,6 +100,14 @@ export const StorageNoticeClearance: Story = {
       await expect(nav.getBoundingClientRect().bottom).toBeLessThanOrEqual(
         notice.getBoundingClientRect().top,
       );
+      const padding = Number.parseFloat(getComputedStyle(notice).paddingBottom);
+      notice.style.paddingBottom = `${String(padding + 0.25)}px`;
+      await waitFor(async () => {
+        await expect(nav.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+          notice.getBoundingClientRect().top,
+        );
+        await expect(clearance()).toBe(12);
+      });
     } finally {
       localStorage.setItem(
         storageNoticeKey,
