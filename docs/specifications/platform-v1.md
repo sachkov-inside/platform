@@ -255,7 +255,7 @@ production trade-off подтверждён evidence, а не заранее д�
 остаются валидными без миграции: `schemaVersion` остаётся 1, а отсутствующее название не пишется
 в документ. Названия видов принадлежат реестру, потому что их печатает и редактор, и читатель.
 
-Упражнения `quiz`, `match` и `order` (#2120, запись content-studio#86) импортируются из Content
+Упражнения `quiz`, `match` и `order` (#2120, запись course-studio#86) импортируются из Content
 `readerBlocks` на своём месте между фрагментами Markdown одной общей схемой с возможностью пакета
 `exercise-v1`; она заменила `quiz-v1` и `quiz-multiple-v1`, прежняя форма квиза отклоняется.
 Сохранённые тела с прежней формой не переводятся: такой материал не открывается в редакторе,
@@ -790,7 +790,7 @@ Optimistic `orderVersion` покрывает и темы, поэтому пра�
 называется `topics`, потому что `topics` той же страницы перечисляет глобальные Topics. Страницы
 Topic и связанных материалов поле не получают.
 
-Темы курса приходят и из Content Studio вместе с релизом (`product-topics-v1`). Product пакета
+Темы курса приходят и из Course Studio вместе с релизом (`product-topics-v1`). Product пакета
 может нести `topics: [{ sourceId, title, summary, materialIds }]` с source IDs материалов своего
 Product. Без поля релиз темы цели не трогает; список, даже пустой, задаёт все темы. Идентификатор
 темы выводится из `sourceNamespace`, Product и `sourceId` темы с частью `topic`, поэтому он не
@@ -804,7 +804,7 @@ Product. Без поля релиз темы цели не трогает; сп�
 уроков `upcomingLessons: [{ title, state }]` с состоянием `writing` («пишется») или `soon`
 («скоро»). `GET` и `PUT /authoring/products/:productId/roadmap` читают и целиком заменяют её,
 `null` удаляет. Запись не входит в `orderVersion` и разрешена для импортированных и архивных
-Products, как темы. Content Studio передаёт её полем `roadmap` в Product пакета
+Products, как темы. Course Studio передаёт её полем `roadmap` в Product пакета
 (`product-roadmap-v1`, главы названы своими `sourceId`); без поля релиз дорожную карту цели не
 трогает. Предпросмотр показывает `roadmapChange`, apply пишет её после состава, только если она
 отличается. Оболочка `product-shell` дорожную карту несёт, пакет `contentOnly` нет. Страница
@@ -852,7 +852,7 @@ REST `GET /authoring/glossary` (`listAuthoringGlossaryTerms`) отдаёт ве�
 нет. Ответ `{ created, updated, unchanged }`. Оба доступны Account с `materials:manage`. Повтор
 `id` или нарушение формы дают `invalid_glossary` (422).
 
-Термины приходят из Content Studio с возможностью `glossary-v1` в форме content-studio#88. Пакет
+Термины приходят из Course Studio с возможностью `glossary-v1` в форме course-studio#88. Пакет
 может нести на верхнем уровне `glossaryTerms: [{ sourceId, title, englishTitle, shortDefinition,
 fullDefinition, introducedInMaterialId }]`: `sourceId` это `id` термина, `introducedInMaterialId`
 это source ID материала (возможно, вне пакета) или `null`. Пакет несёт только термины, которые его
@@ -876,7 +876,7 @@ fullDefinition, introducedInMaterialId }]`: `sourceId` это `id` термин�
 вводный блок `hero` не повторяется, а подстановками считаются только `{access_term}` и
 `{support_term}`. Описание, которое не проходит схему выпуска, читателю не показывается, отмечается
 в редакторском списке как `pageRejected` и заменяется следующим переносом. Оба поля и `slug` меняет только source-scoped
-импорт из Engineering Content (`POST /authoring/import/products/update`); редактор и MCP их не пишут, а
+импорт из Course Studio (`POST /authoring/import/products/update`); редактор и MCP их не пишут, а
 версия `Product` покрывает их вместе с названием и описанием. Публичное чтение отдаёт их в
 `reference.productPage`, Главная в `pinnedProduct.presentation` и `pinnedProduct.card`. Неизвестное
 оформление сайт показывает общим шаблоном и пишет предупреждение в журнал сервера; перенос такой
@@ -904,7 +904,7 @@ fullDefinition, introducedInMaterialId }]`: `sourceId` это `id` термин�
 продаёт доступ: «Доступ к курсу», цена предложения, зачёркнутая цена потока со скидкой, если она
 выше, и «Приобрести доступ» на страницу оплаты. Пока набор идёт через список ожидания, билет
 принимает запись (решение владельца 29.10.2026, #1647). Разделы проявляются при
-прокрутке средствами CSS. Весь текст — ключ `page` в манифесте `guide.yaml` продукта `inside-ai-engineering` в Engineering Content;
+прокрутке средствами CSS. Весь текст хранится в ключе `page` в манифесте `guide.yaml` продукта `inside-ai-engineering` в Course Studio;
 обложка продукта оттуда же показывается в программе и каталоге. Прохождение остаётся на
 странице программы: туда ведут кнопки, кроме первого экрана при заведённом потоке и кнопки оплаты
 в билете нижнего блока ([поток продукта](subscription-billing-v1.md#поток-продукта-814), #814, #1647). Глава без опубликованных уроков показывает там своё описание и
@@ -982,7 +982,7 @@ right-hand group does not fit beside that width, the group wraps to its own line
 `Product` хранит введение для читателя: `outcome` — что читатель сможет, `audience` — для кого,
 `prerequisites` — что нужно знать заранее, `scope` — что разбираем и что остаётся за границами.
 Каждое поле — точная строка после `trim()`, до 4000 UTF-16 code units; пустая строка означает
-ненаписанное поле. Имена полей совпадают с `guide.yaml` авторской базы Engineering Content, поэтому
+ненаписанное поле. Имена полей совпадают с `guide.yaml` авторской базы Course Studio, поэтому
 импорт переносит авторский текст без перевода. У импортированного Product введение меняет
 только источник через `POST /authoring/import/products/update`; редактор/API/MCP его не пишут.
 Content v1/v2 допускает необязательное `products[].introduction` с этими четырьмя полями.

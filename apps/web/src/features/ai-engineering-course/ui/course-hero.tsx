@@ -15,7 +15,7 @@ const pointIcons: readonly CourseIconName[] = ["materials", "check", "pace"];
 /**
  * Первый экран курса AI Engineering: название с меткой, вводная фраза, пункты, кнопка и анимация.
  * Его показывают и страница курса, и большая карточка Главной, поэтому оба места одинаковы.
- * Весь текст приходит из описания продукта в Inside Content.
+ * Весь текст приходит из описания продукта в Course Studio.
  */
 export function CourseHero({
   name,

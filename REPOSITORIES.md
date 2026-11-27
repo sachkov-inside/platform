@@ -10,14 +10,15 @@
 | [platform](https://github.com/sachkov-inside/platform) | Код Platform, приложение Telegram в `apps/telegram`, общие документы, словарь, контракты, процесс, CI и текущие задачи sachkov.dev | Независимые Telegram workflows обслуживают production; выпуск и откат подтверждены в #960 |
 | [inside-telegram](https://github.com/sachkov-inside/inside-telegram) | Исторический код, закрытые задачи и неизменяемые legacy Releases `v1`–`v5` | Архивирован; README направляет в platform, пять открытых задач перенесены; #961 завершён |
 | [workspace](https://github.com/sachkov-inside/workspace) | Исторический источник документов и решений для проверки происхождения и отката | Архивирован; актуальная работа в platform; архивация завершена в #962 |
-| [engineering-content](https://github.com/sachkov-inside/engineering-content) | Закрытые оригиналы инженерных статей, обзоров, уроков, руководств, заданий и программ | Отдельный репозиторий; Platform остаётся одним из направлений доставки |
+| [course-studio](https://github.com/KirillSachkov/course-studio) | Оригиналы курса, уроков, заданий и иллюстраций, экспорт в Platform | Прежнее имя репозитория: `KirillSachkov/content-studio` |
+| [engineering-content](https://github.com/sachkov-inside/engineering-content) | Исторический источник материалов, редакционных правил и решений до переноса в Studio | Сохраняет исходники, задачи и историю выпусков |
 | [workshop-cases](https://github.com/sachkov-inside/workshop-cases) | Исторические Tracks, Laboratories, CaseSpec и авторские решения | Мастерская отменена ADR 0033; репозиторий не входит в runtime Platform |
 | [ai-engineering](https://github.com/sachkov-inside/ai-engineering) | Архивированное направление курса | Не возобновляется этим переездом |
 | [inside-landing](https://github.com/sachkov-inside/inside-landing) | Исторический landing, deprecated с 2026-09-15 | Этот этап его не меняет |
 
 ## Локальное устройство
 
-Канонические каталоги после решения владельца от 2026-10-16
+Текущее размещение продолжает схему каталогов из решения от 2026-10-16
 ([#1520](https://github.com/sachkov-inside/platform/issues/1520)):
 
 ```text
@@ -25,12 +26,14 @@
 ├── Products/
 │   └── inside-platform/       # Platform, включая apps/telegram
 └── Materials/                # общий Obsidian vault
-    ├── content-studio/       # оригиналы уроков, заданий и иллюстраций; канал, посты и продвижение
+    ├── course-studio/        # оригиналы курса
     └── knowledge-base/       # исследования и накопленные знания
 ```
 
-На 2026-10-22 оригиналы курса живут в `content-studio` (`inside-content` указывает на него), а
-каталога `engineering-content` нет; Platform по умолчанию берёт Content оттуда (#1672).
+Platform по умолчанию читает оригиналы из `~/Work/Materials/course-studio`. Прежние пути
+`~/Work/Materials/content-studio` и `~/Work/Materials/inside-content` сохранены для существующих установок.
+Каналом, постами и продвижением занимается Social Production. Рабочий каталог бывшего
+`youtube-montage` находится в `~/Work/Content/social-production/production/montage`.
 
 Каждый репозиторий сохраняет собственные правила. Агент начинает сессию в репозитории
 или назначенном worktree и читает его `AGENTS.md`.
@@ -42,8 +45,7 @@
 Машинная миграция сохраняет workshop-cases, отчёты и исследования платежей в обратимом локальном архиве.
 Пути совместимости и архива учитывает координирующая сессия миграции; эта задача их не перемещает.
 
-Engineering Content использует установленные копии правил письма Content Studio и Knowledge Base.
-Их исходные правила остаются авторитетными в соответствующих репозиториях.
+Исторические снимки и записи происхождения сохраняют имена исходников, включая `sachkov-inside/engineering-content`.
 Переименование сохраняет постоянные ID, включая namespace `inside-content`, и принятые автором материалы.
 Platform сохраняет действующий процесс exporter/preview/apply; переезд не публикует материалы.
 Исторические источники и Releases сохраняются; ссылки на прошлые решения не меняют владельца актуальной работы.

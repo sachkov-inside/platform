@@ -1,13 +1,13 @@
 # Content-only delivery and affected-image evidence
 
-Use this procedure to update selected existing Materials and Tasks from Content Studio on the stand
+Use this procedure to update selected existing Materials and Tasks from Course Studio on the stand
 or in production (#1672). It replaces their content and keeps what the target holds: Material access
 and `draft`/`published` state, Product membership, Task access, publication and placement.
 It does not create rows, archive, change Products or artifacts, approve a new access policy,
 publish, accept content, or touch accounts, grants, submissions and reading progress.
 Creation, archives and Product changes use the full reviewed `pnpm authoring:release`.
 
-Content Studio owns the export, its `content.py deliver` command and its delivery records.
+Course Studio owns the export, its `content.py deliver` command and its delivery records.
 Platform owns this entrypoint and the receiver.
 
 ## Requirements

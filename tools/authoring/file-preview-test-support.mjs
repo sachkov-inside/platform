@@ -61,7 +61,7 @@ const lessonMarkdown = [
 ].join("\n");
 
 /**
- * A course package as Content Studio exports it: one chapter, two lessons and a Task.
+ * A course package as Course Studio exports it: one chapter, two lessons and a Task.
  * @param {{ readonly sha256: string }} scheme
  */
 function manifest(scheme) {

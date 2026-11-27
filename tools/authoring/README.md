@@ -1,4 +1,4 @@
-# Снимки Content Studio
+# Снимки Course Studio
 
 Контракт [platform-package-v2](../../docs/contracts/platform-package-v2.md) задаёт одну доставку
 нескольких guides и самостоятельных статей из одного commit. Команды `authoring:deliver`
@@ -23,7 +23,7 @@
 Сохранение без изменений (preservation) отказывается менять ленту.
 
 Существенное обновление урока (#2125) материал задаёт необязательным полем
-`updateNote: { id, whatChanged }` (форма задана content-studio#89). `id` в виде
+`updateNote: { id, whatChanged }` (форма задана course-studio#89). `id` в виде
 `[a-z0-9]+(-[a-z0-9]+)*`, не длиннее 64 символов (автор берёт дату обновления), называет одно
 обновление: пакет хранит отметку между выгрузками, тот же `id` Platform считает тем же обновлением
 (текст можно поправить, момент остаётся), новый `id` отмечает новое обновление в момент apply.
@@ -70,7 +70,7 @@ Platform под тем же идентификатором, что и в сос�
 journal её не хранит, а повтор безопасен. Оболочка `product-shell` карту нести может: в ней нет
 материалов, только главы. Пакет `contentOnly` с картой отклоняется.
 Термины словаря (#2126) пакет несёт необязательным полем `glossaryTerms` под возможностью
-`glossary-v1`, в форме content-studio#88. Термин: `{ sourceId, title, englishTitle,
+`glossary-v1`, в форме course-studio#88. Термин: `{ sourceId, title, englishTitle,
 shortDefinition, fullDefinition, introducedInMaterialId }`, формат и пределы описаны в разделе
 «Словарь» [platform-v1](../../docs/specifications/platform-v1.md#словарь). Пакет несёт только
 термины, которые его материалы упоминают или вводят; термин вне пакета у цели не меняется и не
