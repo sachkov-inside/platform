@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { learningInterceptionFile } from "../support/learning-interception";
@@ -93,6 +94,11 @@ test("the mobile programme reserves its dock clearance when the storage notice r
       )
       .toBeGreaterThan(originalBottom);
     await expect.poll(clearance).toBe(12);
+    const a11y = await new AxeBuilder({ page })
+      .include('nav[data-layout="sections"]')
+      .include(".storage-notice")
+      .analyze();
+    expect(a11y.violations).toEqual([]);
     await notice.getByRole("button", { name: "Понятно" }).click();
     await expect(notice).toBeHidden();
     await expect
