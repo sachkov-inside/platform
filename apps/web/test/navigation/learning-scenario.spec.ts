@@ -57,7 +57,7 @@ test("the mobile programme reserves its dock clearance when the storage notice r
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/products/synthetic-learning/programme");
   const nav = page.locator(
-    'nav[data-layout="sections"][aria-label="Разделы продукта"]',
+    'nav[data-layout="sections"][aria-label="Разделы продукта"]:visible',
   );
   const notice = page.getByRole("region", { name: "Хранение в браузере" });
   const clearance = () =>
