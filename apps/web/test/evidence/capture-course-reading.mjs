@@ -249,7 +249,7 @@ try {
     document.documentElement.style.fontSize = "";
   });
   await writeFile(
-    resolve(directory, "metrics.json"),
+    resolve(directory, "live-metrics.json"),
     `${JSON.stringify({ sourceSha, sourceTree, results }, null, 2)}\n`,
   );
 } finally {

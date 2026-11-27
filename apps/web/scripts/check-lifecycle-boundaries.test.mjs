@@ -440,12 +440,38 @@ test("a verified named adapter needs the exact call, a reason and a public test"
   ])
     assert.throws(
       () => compareInventory(result, [incomplete], "final"),
-      /reason and a public test/,
+      /reason and evidence/,
     );
   assert.deepEqual(
     compareInventory(
       inspectSource(path, source.replace("[query]", "[]")),
       [adapter],
+      "final",
+    ).map((row) => row.code),
+    ["new-effect", "missing-or-moved"],
+  );
+});
+test("a retired proof pins the former approval without accepting a changed hook", () => {
+  const source =
+    'import {useEffect} from "react";function useSearch(){useEffect(start,[query]);}';
+  const result = inspectSource(path, source);
+  /** @type {InventoryRow} */
+  const retained = {
+    ...onlyCall(result),
+    id: "D",
+    status: "retired-proof",
+    reason: "Cancels an obsolete search delay",
+    authority: "The previous fixture covered cancellation on unmount.",
+  };
+  assert.deepEqual(compareInventory(result, [retained], "final"), []);
+  assert.throws(
+    () => compareInventory(result, [{ ...retained, authority: "" }], "final"),
+    /reason and evidence/,
+  );
+  assert.deepEqual(
+    compareInventory(
+      inspectSource(path, source.replace("[query]", "[]")),
+      [retained],
       "final",
     ).map((row) => row.code),
     ["new-effect", "missing-or-moved"],

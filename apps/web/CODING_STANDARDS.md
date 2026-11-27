@@ -170,7 +170,10 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
   adapter that owns the resource or committed state. Product callers use its domain operation.
   Each exception, including editor and third-party integrations, needs an exact file, owner, hook,
   call fingerprint, reason and public behaviour test in the [lifecycle inventory](scripts/lifecycle-inventory.json).
-  Adding another call in an approved file requires its own review.
+  Adding another call in an approved file requires its own review. During the component catalog
+  retirement, unchanged approved calls whose direct checks were removed keep their exact
+  fingerprints as `retired-proof`. The inventory records the remaining related check and its
+  limits. A change to one of those calls requires a current public behaviour test.
 - Use the event, commit or measurement that makes an operation ready. The reading-state batcher
   uses a zero-delay timeout to collect registrations in one turn. Preserve intentional debounce,
   feedback, polling and deadline timers. When adding or changing one, record the timing purpose

@@ -31,6 +31,7 @@ const manifestSchema = z.object({
         "reviewed-timer",
         "approved-boundary",
         "verified-adapter",
+        "retired-proof",
         "retained-design",
         "frozen-blocked",
       ]),
@@ -39,6 +40,8 @@ const manifestSchema = z.object({
         .optional(),
       next: z.string().min(1).optional(),
       reason: z.string().optional(),
+      authority: z.string().optional(),
+      relatedTest: z.string().optional(),
       test: z.string().optional(),
       additionalTests: z.array(z.string().min(1)).optional(),
     }),
@@ -583,7 +586,9 @@ function key(row: Pick<Call, "owner" | "path" | "kind" | "fingerprint">) {
 
 function isEffectBoundary(row: Row): boolean {
   return (
-    row.status === "approved-boundary" || row.status === "verified-adapter"
+    row.status === "approved-boundary" ||
+    row.status === "verified-adapter" ||
+    row.status === "retired-proof"
   );
 }
 
@@ -622,10 +627,12 @@ export function compareInventory(
     }
     if (
       isEffectBoundary(row) &&
-      ((row.reason ?? "") === "" || (row.test ?? "") === "")
+      ((row.reason ?? "") === "" ||
+        ((row.status === "retired-proof" ? row.authority : row.test) ?? "") ===
+          "")
     )
       throw new Error(
-        "Approved boundary requires a reason and a public test " + row.id,
+        "Approved boundary requires a reason and evidence " + row.id,
       );
     if (
       row.status === "reviewed-batch" &&
@@ -722,7 +729,10 @@ if (
   const findings = compareInventory(result, rows, mode);
   for (const row of rows) {
     if (!isEffectBoundary(row)) continue;
-    for (const test of [row.test ?? "", ...(row.additionalTests ?? [])]) {
+    const primaryProof =
+      row.status === "retired-proof" ? row.relatedTest : (row.test ?? "");
+    const paths = primaryProof === undefined ? [] : [primaryProof];
+    for (const test of [...paths, ...(row.additionalTests ?? [])]) {
       const target = resolve(root, test);
       if (
         !test.startsWith("apps/web/") ||

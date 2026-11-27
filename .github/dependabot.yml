@@ -20,7 +20,6 @@ updates:
       tiptap:
         patterns: ["@tiptap/*"]
         update-types: [minor, patch]
-        update-types: [minor, patch]
       react:
         patterns: [react, react-dom, "@types/react", "@types/react-dom"]
         update-types: [minor, patch]

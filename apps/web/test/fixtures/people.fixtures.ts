@@ -1,14 +1,12 @@
 import {
   peopleScenario,
-  peopleDirectoryScenario,
   peopleHistoryScenario,
   peopleCardScenario,
 } from "../../../../scenarios/people.mjs";
+import { scenarioRoles } from "../../../../scenarios/roles.mjs";
 import type { PersonCard } from "@/_pages/authoring-person/model/person-card";
 import type { PersonRow } from "@/_pages/authoring-people/model/people-list";
 import type { AccessProduct } from "@/features/product-access-actions";
-
-const commandSchema = z.object({ productId: z.string() }).loose();
 
 /**
  * Данные человека и продуктов для модульных проверок (#1721).
@@ -42,16 +40,6 @@ const [ai, architecture, practice] = storyProducts;
 
 export const storyAnnaId = "96000000-0000-4000-8000-000000000401";
 
-const names = [
-  peopleScenario.anna.displayName,
-  peopleScenario.konstantin.displayName,
-  ...peopleScenario.directoryNames.slice(0, 4),
-];
-
-function accountId(index: number): string {
-  return `96000000-0000-4000-8000-${String(index + 401).padStart(12, "0")}`;
-}
-
 export const annaRow: PersonRow = {
   accountId: storyAnnaId,
   displayName: peopleScenario.anna.displayName,
@@ -77,7 +65,13 @@ export const annaRow: PersonRow = {
   ],
 };
 
-/** Без Telegram: только email, подстрока говорит, что связи нет. */
+const owner = {
+  kind: "person" as const,
+  accountId: "96000000-0000-4000-8000-0000000004ff",
+  label: scenarioRoles.owner.name,
+};
+
+/** Карточка Анны: все блоки ответили, один продукт открыт, другой отозван. */
 export const annaCard: PersonCard = {
   person: {
     accountId: storyAnnaId,

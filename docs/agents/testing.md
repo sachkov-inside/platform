@@ -167,16 +167,11 @@ navigation, PPR, prefetch, refresh or framework lifecycle. This alias permits no
 direct adapter import. The existing file preview is unchanged and is not newly scanned as a test
 context; the default checker additionally inspects only this adapter's accepted exports/body.
 
-Keep the counts separate: external non-Node framework aliases are five entries/four adapters/three
-contexts; including the three Node cache/marker aliases gives eight entries/six adapters/five
-contexts. These counts do not include `vi.mock` or observational spy registrations.
-
 These ports do not prove actual Next navigation, history delivery, PPR, prefetch, pending state or
 framework lifecycle. Keep the real production Next/Navigation scenarios. The checker fixes exact
 alias targets, resolved adapter paths and owning contexts, and checks their known exports/body AST
 without comments or source positions. Adding API or behaviour requires updating the owning decision
-and negative fixtures; these are six explicit framework adapters, including the Node cache/marker,
-not an own-module baseline. The handoff shim stays out of production and module contexts. Review
+and negative fixtures. The handoff shim stays out of production and module contexts. Review
 and independent verification still assess the semantic limits; the checker does not infer them.
 
 Any test claiming deferred execution, persistence or framework lifecycle needs the actual callback

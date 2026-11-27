@@ -57,6 +57,7 @@ async function verifyDiagram(
   const dialog = page.getByRole("dialog", {
     name: "Схема вариантов, просмотр крупно",
   });
+  await expect(dialog.getByRole("button", { name: "Закрыть" })).toBeFocused();
   await expect(dialog.getByRole("img")).toHaveAttribute(
     "src",
     new RegExp(narrow ? ids.tallDark : ids.wideDark, "u"),
@@ -174,6 +175,14 @@ async function verifyDiagram(
     await expect
       .poll(() => retainedDialog.evaluate((node) => node.hasAttribute("open")))
       .toBe(false);
+    expect(
+      await capturedStage.evaluate(
+        (node) =>
+          !node.dispatchEvent(
+            new WheelEvent("wheel", { deltaY: -100, cancelable: true }),
+          ),
+      ),
+    ).toBe(false);
     await expect(
       capturedStage.evaluate((node) => node.isConnected),
     ).resolves.toBe(true);
