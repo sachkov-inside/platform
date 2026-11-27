@@ -31,7 +31,8 @@ if [[ "$browser_only" = 1 && "${#options[@]}" -ne 1 ]]; then
 fi
 receipt=$(mktemp -d "${TMPDIR:-/tmp}/platform-verify.XXXXXX")
 export INSIDE_LIGHT_VERIFICATION="$receipt"
-export INSIDE_LIGHT_VERIFICATION_WORKTREE="$(pwd -P)"
+INSIDE_LIGHT_VERIFICATION_WORKTREE="$(pwd -P)"
+export INSIDE_LIGHT_VERIFICATION_WORKTREE
 export AGENT_BROWSER_NAMESPACE="${AGENT_BROWSER_NAMESPACE:-kirill-agents}"
 export INSIDE_LIGHT_VERIFICATION_NAMESPACE="$AGENT_BROWSER_NAMESPACE"
 boot=

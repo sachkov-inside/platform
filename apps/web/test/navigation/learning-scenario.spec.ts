@@ -62,7 +62,7 @@ test("the mobile programme reserves its dock clearance when the storage notice r
   const clearance = () =>
     nav.evaluate((dock) => {
       const spacer = dock.previousElementSibling;
-      if (!spacer?.hasAttribute("data-course-navigation-space"))
+      if (spacer?.hasAttribute("data-course-navigation-space") !== true)
         throw new Error("The programme has no dock spacer");
       return Math.round(
         spacer.getBoundingClientRect().height -
@@ -81,7 +81,9 @@ test("the mobile programme reserves its dock clearance when the storage notice r
   const other = await context.newPage();
   try {
     await other.goto("/legal/terms");
-    await other.evaluate(() => localStorage.clear());
+    await other.evaluate(() => {
+      localStorage.clear();
+    });
     await expect(notice).toBeVisible();
     await expect
       .poll(() =>
