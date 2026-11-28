@@ -161,7 +161,11 @@ const products = [
 ];
 
 /** Изолированный состав #1292 не меняет данные прежних navigation scenarios. */
-const performanceProduct = { cover: null, ...readingProduct };
+const performanceProduct = {
+  cover: null,
+  ...readingProduct,
+  name: "Учебный курс: от идеи к выпуску",
+};
 
 const lessons = [
   {

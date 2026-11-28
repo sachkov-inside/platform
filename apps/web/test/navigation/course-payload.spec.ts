@@ -234,6 +234,44 @@ async function revealProgrammeBatches(page: Page, productSlug: string) {
   ).toEqual(Array.from({ length: 60 }, (_, index) => index + 1));
 }
 
+test("a long course title and its badge fit alongside the hero film (#2528)", async ({
+  page,
+  isMobile,
+}) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/products/performance-course");
+  const hero = page.locator(".aie-hero:visible");
+  await expect(hero.getByRole("heading", { level: 1 })).toContainText(
+    "Учебный курс: от идеи к выпуску",
+  );
+  await expect(hero.getByText("+ менторинг", { exact: true })).toBeVisible();
+
+  const layout = await hero.evaluate(async (node) => {
+    await document.fonts.ready;
+    const title = node.querySelector(".aie-hero-name");
+    const badge = node.querySelector(".aie-hero-badge");
+    const film = node.querySelector(".aie-hero-film");
+    if (title === null || badge === null || film === null)
+      throw new Error("The course hero is missing its title, badge or film");
+    const documentWidth = document.documentElement.clientWidth;
+    const titleRange = document.createRange();
+    titleRange.selectNodeContents(title);
+    return {
+      wraps: titleRange.getClientRects().length > 1,
+      overflows:
+        document.documentElement.scrollWidth > documentWidth ||
+        badge.getBoundingClientRect().right > documentWidth,
+      crossesFilm:
+        Math.max(
+          title.getBoundingClientRect().right,
+          badge.getBoundingClientRect().right,
+        ) > film.getBoundingClientRect().left,
+    };
+  });
+  if (isMobile) expect(layout).toMatchObject({ wraps: true, overflows: false });
+  else expect(layout.crossesFilm).toBe(false);
+});
+
 for (const version of ["v1", "v2", "v3"] as const) {
   test(`course film ${version} draws its selected reduced-motion frame without hydration errors`, async ({
     page,
