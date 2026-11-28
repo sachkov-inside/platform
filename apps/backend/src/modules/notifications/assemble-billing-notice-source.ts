@@ -6,6 +6,10 @@ import type {
   SaleBuyer,
 } from "./ports/notification-sources.js";
 
+// Keep headroom for binding, rights and permit checks inside Telegram's authorization
+// deadline (apps/telegram/src/adapters/platform/http-notification-authorization.adapter.ts).
+const SALE_PROFILE_READ_BUDGET_MS = 1_500;
+
 /**
  * The `billing.notice-ready` source for Nest and framework-free composition. A sale also carries the
  * buyer's current Telegram (#2085): Billing does not know it, so it is read here at every build.
@@ -38,7 +42,10 @@ async function readBuyer(
 ): Promise<SaleBuyer | undefined> {
   if (accountId === undefined) return undefined;
   try {
-    const reading = await telegram.readContacts([accountId]);
+    const reading = await telegram.readContacts(
+      [accountId],
+      AbortSignal.timeout(SALE_PROFILE_READ_BUDGET_MS),
+    );
     if (!reading.ok) return undefined;
     const contact = reading.contacts.get(accountId);
     if (contact === undefined) return undefined;

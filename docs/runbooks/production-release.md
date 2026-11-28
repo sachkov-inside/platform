@@ -56,7 +56,7 @@ sudo env \
 | `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `api.env` | `PLATFORM_ACTIVATION_SECRET` |
 | `TELEGRAM_BOT_START_URL` (база ссылки в бот) | `api.env`, `mcp.env` | нет |
 | `TELEGRAM_SALES_FUNNEL_INGRESS_SECRET` — необязателен; без него вход событий воронки закрыт | `api.env` | секрет воронки на стороне бота ([inside-telegram#118](https://github.com/sachkov-inside/inside-telegram/issues/118)) |
-| `TELEGRAM_LINKING_SECRET` | `api.env` | `PLATFORM_INTEGRATION_SECRET` |
+| `TELEGRAM_LINKING_ENDPOINT`, `TELEGRAM_LINKING_SECRET` | `api.env`, `notifications-worker.env` | `PLATFORM_INTEGRATION_SECRET` |
 | `TELEGRAM_COMMUNICATIONS_SECRET` — своё значение, не равное `TELEGRAM_LINKING_SECRET` | `api.env`, `mcp.env` | `PLATFORM_COMMUNICATIONS_SECRET` |
 | `TELEGRAM_COMMUNICATIONS_ENDPOINT`, `TELEGRAM_COMMUNICATIONS_BOT_IDENTITY`, `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET`, `TELEGRAM_TRACKING_ORIGIN` | `api.env`, `mcp.env` | `PLATFORM_AUTHOR_AUTHORIZATION_SECRET` |
 | Optional `TELEGRAM_COMMUNITY_DISCUSSIONS_ENDPOINT`, `TELEGRAM_COMMUNITY_DISCUSSIONS_SECRET` | `mcp.env` | `PLATFORM_COMMUNITY_DISCUSSIONS_SECRET` |

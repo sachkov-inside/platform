@@ -12,8 +12,10 @@ import {
   PERMIT_LIFETIME_MS,
   type Channel,
   type DispatchResponse,
+  type DeliveryCommand,
 } from "../../domain/notification-wire.js";
 import { renderNotification } from "../../domain/templates.js";
+import type { NotificationSource } from "../../ports/notification-sources.js";
 import {
   salesManagerAccess,
   validSource,
@@ -83,13 +85,7 @@ export async function authorizeDispatch(
       // а не отказ по существу, поэтому попытка повторится.
       if (deps.origin === undefined)
         return { ...request, status: "error", code: "unavailable" };
-      const template = renderNotification(source, deps.origin);
-      if (
-        template.text !== command.text ||
-        template.templateRef !== command.templateRef ||
-        template.templateRevision !== command.templateRevision ||
-        (channel === "email" && template.subject !== command.subject)
-      )
+      if (!matchesDispatchTemplate(source, deps.origin, command))
         return { ...request, status: "denied", reason: "superseded" };
       if (channel === "telegram" && source.telegramManaged === true)
         return { ...request, status: "denied", reason: "superseded" };
@@ -152,6 +148,37 @@ export async function authorizeDispatch(
     });
     return response;
   });
+}
+
+function matchesDispatchTemplate(
+  source: Extract<NotificationSource, { status: "current" }>,
+  origin: string,
+  command: DeliveryCommand,
+): boolean {
+  const template = renderNotification(source, origin);
+  if (
+    template.templateRef !== command.templateRef ||
+    template.templateRevision !== command.templateRevision
+  )
+    return false;
+  if (command.binding.channel === "email")
+    return (
+      template.text === command.text && template.subject === command.subject
+    );
+  if (template.text === command.text) return true;
+
+  // Keep the sale moving when the profile recovers between build and permit.
+  // See docs/specifications/notifications-v1.md#сообщение-о-продаже.
+  if (
+    source.content.kind !== "sale_recorded" ||
+    source.sale?.buyer?.state !== "available"
+  )
+    return false;
+  const fallback = renderNotification(
+    { ...source, sale: { ...source.sale, buyer: { state: "unavailable" } } },
+    origin,
+  );
+  return fallback.text === command.text;
 }
 
 /**

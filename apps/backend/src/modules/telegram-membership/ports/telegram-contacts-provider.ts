@@ -16,6 +16,7 @@ type TelegramContactsV2Failure = {
 export interface TelegramContactsProvider {
   read(
     contacts: readonly TelegramContactQuery[],
+    signal?: AbortSignal,
   ): Promise<
     | { readonly ok: true; readonly contacts: readonly TelegramContact[] }
     | { readonly ok: false }

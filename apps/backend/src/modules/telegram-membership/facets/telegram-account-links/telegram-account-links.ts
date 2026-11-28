@@ -68,8 +68,8 @@ export class TelegramAccountLinks {
   ) {}
 
   /** Current contact for author support; no previous binding or name from an agent report is used. */
-  async readContacts(accountIds: readonly string[]) {
-    const reading = await this.readContactProjection(accountIds, false);
+  async readContacts(accountIds: readonly string[], signal?: AbortSignal) {
+    const reading = await this.readContactProjection(accountIds, false, signal);
     if (!reading.ok) return reading;
     const contacts = new Map<string, Omit<ContactProjection, "marketing">>();
     for (const [
@@ -91,6 +91,7 @@ export class TelegramAccountLinks {
   private async readContactProjection(
     accountIds: readonly string[],
     withMarketing: boolean,
+    signal?: AbortSignal,
   ): Promise<
     | { readonly ok: true; readonly contacts: Map<string, ContactProjection> }
     | { readonly ok: false }
@@ -122,6 +123,7 @@ export class TelegramAccountLinks {
             this.contactsProvider,
             queries,
             withMarketing,
+            signal,
           );
     const profiles = new Map<string, Map<string, TelegramContactV2 | null>>();
     for (const contact of answered ?? []) {
@@ -179,6 +181,7 @@ export class TelegramAccountLinks {
     provider: TelegramContactsProvider,
     queries: readonly TelegramContactQuery[],
     withMarketing: boolean,
+    signal?: AbortSignal,
   ): Promise<readonly TelegramContactV2[] | undefined> {
     if (withMarketing) {
       const response = await provider.readWithMarketing(queries);
@@ -191,7 +194,7 @@ export class TelegramAccountLinks {
       }
       if (response.reason === "unavailable") return undefined;
     }
-    const response = await provider.read(queries);
+    const response = await provider.read(queries, signal);
     const parsed = response.ok
       ? telegramContactsResponseSchema.safeParse({
           contractVersion: "inside.telegram-contact.v1",
