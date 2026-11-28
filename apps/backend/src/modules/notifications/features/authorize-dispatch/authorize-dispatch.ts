@@ -167,8 +167,8 @@ function matchesDispatchTemplate(
     );
   if (template.text === command.text) return true;
 
-  // A recovered profile can enrich future sales. A prepared sale without profile data is
-  // safe to send if its entire text still matches the current sale with the fallback line.
+  // Keep the sale moving when the profile recovers between build and permit.
+  // See docs/specifications/notifications-v1.md#сообщение-о-продаже.
   if (
     source.content.kind !== "sale_recorded" ||
     source.sale?.buyer?.state !== "available"

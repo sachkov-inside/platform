@@ -456,9 +456,27 @@ describe("служебные сообщения подписки (реальны
             command.binding.channel === "telegram" &&
             command.binding.telegramIdentityRef === `identity-${accountId}`,
         );
+    async function salePermitFor(accountId: string) {
+      const stored = await db.prisma.notificationCommand.findFirstOrThrow({
+        where: { delivery: { notification: { accountId } } },
+      });
+      const command = deliverySchema.parse(JSON.parse(stored.payload));
+      const authorize = () =>
+        notifications.authorizeDispatch("telegram", {
+          contractVersion: "inside.notification-dispatch.v1",
+          operationId: randomUUID(),
+          deliveryOperationId: command.operationId,
+          deliveryRef: command.deliveryRef,
+          commandRevision: command.commandRevision,
+          payloadDigest: stored.digest,
+          attemptRef: randomUUID(),
+        });
+      return { command, authorize };
+    }
     return {
       author,
       salesFor,
+      salePermitFor,
       buyer,
       bank,
       payments,
@@ -652,10 +670,7 @@ describe("служебные сообщения подписки (реальны
       telegram.profiles.set(buyerIdentity, profile);
       telegram.mode = profileAtBuild ? "v2" : "down";
       await s.prepare();
-      const stored = await db.prisma.notificationCommand.findFirstOrThrow({
-        where: { delivery: { notification: { accountId: seller } } },
-      });
-      const command = deliverySchema.parse(JSON.parse(stored.payload));
+      const { command, authorize } = await s.salePermitFor(seller);
       expect(command.text).toContain(
         profileAtBuild
           ? "Покупатель: Анна Петрова, @anna_petrova"
@@ -666,16 +681,6 @@ describe("служебные сообщения подписки (реальны
       );
 
       telegram.mode = "v2";
-      const authorize = () =>
-        s.notifications.authorizeDispatch("telegram", {
-          contractVersion: "inside.notification-dispatch.v1",
-          operationId: randomUUID(),
-          deliveryOperationId: command.operationId,
-          deliveryRef: command.deliveryRef,
-          commandRevision: command.commandRevision,
-          payloadDigest: stored.digest,
-          attemptRef: randomUUID(),
-        });
       expect(await authorize()).toMatchObject({ status: "allowed" });
       if (profileAtBuild) {
         telegram.profiles.set(buyerIdentity, {
@@ -688,6 +693,12 @@ describe("служебные сообщения подписки (реальны
         });
         return;
       }
+      telegram.mode = "hang";
+      // Telegram gives the entire authorization request five seconds.
+      const before = performance.now();
+      expect(await authorize()).toMatchObject({ status: "allowed" });
+      expect(performance.now() - before).toBeLessThan(4_500);
+      telegram.mode = "v2";
       await db.prisma.accountPermission.deleteMany({
         where: { accountId: seller },
       });
@@ -705,32 +716,19 @@ describe("служебные сообщения подписки (реальны
     const seller = await s.author("billing:manage");
     await s.buy();
     await s.prepare();
-    const stored = await db.prisma.notificationCommand.findFirstOrThrow({
-      where: { delivery: { notification: { accountId: seller } } },
-    });
-    const command = deliverySchema.parse(JSON.parse(stored.payload));
+    const { command, authorize } = await s.salePermitFor(seller);
     expect(command.content).toEqual({
       category: "subscription",
       kind: "sale_recorded",
     });
-    const request = () => ({
-      contractVersion: "inside.notification-dispatch.v1",
-      operationId: randomUUID(),
-      deliveryOperationId: command.operationId,
-      deliveryRef: command.deliveryRef,
-      commandRevision: command.commandRevision,
-      payloadDigest: stored.digest,
-      attemptRef: randomUUID(),
-    });
-    expect(
-      await s.notifications.authorizeDispatch("telegram", request()),
-    ).toMatchObject({ status: "allowed" });
+    expect(await authorize()).toMatchObject({ status: "allowed" });
     await db.prisma.accountPermission.deleteMany({
       where: { accountId: seller },
     });
-    expect(
-      await s.notifications.authorizeDispatch("telegram", request()),
-    ).toMatchObject({ status: "denied", reason: "access_denied" });
+    expect(await authorize()).toMatchObject({
+      status: "denied",
+      reason: "access_denied",
+    });
   });
 
   // ------------------------------------------------------------- неоплаченный доступ (#909)

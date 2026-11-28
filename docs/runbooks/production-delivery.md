@@ -75,7 +75,7 @@ delivered only to their named processes:
 | `profile-avatars-worker.env` | database and Object Storage |
 | `video-deletions-worker.env` | database and Kinescope |
 | `billing-worker.env` | database, payment terminal, billing contact and community v2 |
-| `notifications-worker.env` | database, four broker principals and CA path, reader origin, dispatch secret and billing contact |
+| `notifications-worker.env` | database, four broker principals and CA path, reader origin, dispatch secret, billing contact and [Telegram profile settings shared with the API](production-release.md#server-owned-configuration) |
 | `web.env` | internal API URL, Logto BFF and the learner MCP public client ID (`LEARNER_MCP_CLIENT_ID`) |
 | `rabbitmq/` | broker TLS (`tls/ca.pem`, `tls/server.pem`, `tls/server-key.pem`) and `definitions.json`, owned `root:101` |
 
