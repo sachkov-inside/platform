@@ -5,14 +5,14 @@
 
 Одна presentation implementation принадлежит Logto:
 `infra/identity/logto/fork/packages/core/src/routes/inside-telegram-view.ts`.
-Storybook импортирует её через fixture adapter `Patterns/Identity/Telegram sign-in`.
+UI catalog импортирует её через fixture adapter `Patterns/Identity/Telegram sign-in`.
 Состояния: ожидание, загрузка, подтверждение, отказ, истечение срока, использованный запрос,
 выключение, недоступность и повтор подключения при потере связи.
 
 ## Проверки
 
 ```bash
-pnpm --filter @inside/web exec vitest run --config vitest.config.mts --project=storybook src/workshop/telegram-sign-in.stories.tsx
+pnpm --filter @inside/web exec vitest run --config vitest.config.mts --project=ui-catalog src/workshop/telegram-sign-in.stories.tsx
 pnpm --filter @inside/web exec vitest run --config vitest.config.mts test/browser-engines/telegram-sign-in.test.ts
 node --test scripts/telegram-sign-in-theme.test.mjs
 ```
@@ -32,18 +32,18 @@ PostgreSQL, без подключения к рабочему стенду и Te
 Сервер самостоятельно отдаёт `unavailable` без interaction. Синтетический callback не создаёт
 Account или сессию.
 
-`storybook-pending-1440.png` и `storybook-pending-320.png` получены из Storybook той же ветки;
+`ui-catalog-pending-1440.png` и `ui-catalog-pending-320.png` получены из UI catalog той же ветки;
 Agentation включён. Для повторения теста с уже запущенными изолированными серверами:
 
 ```bash
-TELEGRAM_UI_ORIGIN=http://localhost:3633 STORYBOOK_UI_ORIGIN=http://localhost:6303 CAPTURE_TELEGRAM_EVIDENCE=1 pnpm --filter @inside/web exec vitest run --config vitest.config.mts test/browser-engines/telegram-sign-in.test.ts
+TELEGRAM_UI_ORIGIN=http://localhost:3633 UI_CATALOG_UI_ORIGIN=http://localhost:6303 CAPTURE_TELEGRAM_EVIDENCE=1 pnpm --filter @inside/web exec vitest run --config vitest.config.mts test/browser-engines/telegram-sign-in.test.ts
 ```
 
-Результат: все 9 stories и 5 browser checks на собранном Logto/Storybook прошли. Standards и Spec
+Результат: все 9 stories и 5 browser checks на собранном Logto/ui-catalog прошли. Standards и Spec
 review от `5447fc6` прошли после исправления возврата при длительной потере связи.
 
 Цвета и локальные Manrope fonts генерируются из принятых Platform foundations; drift проверяет
-tooling test. В production нет импорта Storybook или fixture adapters.
+tooling test. В production нет импорта UI catalog или fixture adapters.
 
 ## Приёмка и границы проверки
 

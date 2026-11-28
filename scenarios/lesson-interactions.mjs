@@ -43,7 +43,7 @@ export const lessonInteractions = /** @type {const} */ ({
       },
     ],
   },
-  storybook: {
+  reader: {
     ratings: { likes: 12, dislikes: 3 },
     versions: [
       {

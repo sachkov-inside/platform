@@ -12,7 +12,7 @@ setup through browser and light-instance cleanup. [Local stand procedure](local-
 
 The wrappers cover root `check`, `check:full`, `check:ui`, `check:web-e2e`, `test`, `test:tooling`,
 `test:integration` (including its parallel and serial commands), `test:e2e`, `test:navigation`,
-`test:storybook`, `evidence:web`, `build:storybook`, `compose:smoke`, `compose:production:smoke`, `release:images:smoke` and root `smoke:*` commands. Web's browser, Playwright and Storybook build commands,
+`evidence:web`, `compose:smoke`, `compose:production:smoke`, `release:images:smoke` and root `smoke:*` commands. Web's browser and Playwright commands,
 and backend's integration and smoke commands also claim slots when called with `pnpm --filter`.
 The local contract commands also claim slots. `lint`, `typecheck` and isolated unit commands do not claim slots. The lightweight web
 `smoke:backend` HTTP probe stays unwrapped: Compose smoke admits the whole run on the host,
@@ -55,8 +55,8 @@ Backend and Telegram unit suites set `maxWorkers: 1`, so the recursive unit stag
 headroom for a second admitted check instead of giving each application a machine-sized worker pool.
 `scripts/heavy-runner-limits.test.mjs` checks their configured limits together with the Web and local
 integration limits.
-Web Vitest projects set `maxWorkers: 2` in each project, including the browser-mode Storybook
-project. Playwright's default suite sets two workers; the other suites inherit or set one.
+Web Vitest projects set `maxWorkers: 2` in each project.
+Playwright's default suite sets two workers; the other suites inherit or set one.
 Local backend integration retains its resource budget with a cap of two workers; its serial project
 sets one worker. CI integration retains the resource-based budget.
 Tooling's Node test runner executes at most two files at once within one invocation.

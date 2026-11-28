@@ -166,7 +166,7 @@ Generic membership для Profile остаётся общим фактом на�
 ## Проверка
 
 `pnpm check`, `pnpm test:integration`, `pnpm smoke:enrollments`, переносимые schema/fixtures и PostgreSQL activation HTTP
-suite обязательны перед handoff. Browser/Storybook доказывают только локальный интерфейс.
+suite обязательны перед handoff. Браузерная проверка охватывает интерфейс локального приложения.
 Synthetic source/provider/bank doubles не доказывают реальное подтверждение курса, delivery в
 Telegram, Tribute backfill или production rollout. Финальные SHA, команды воспроизведения,
 проверки и ограничения фиксируются в PR implementation report.

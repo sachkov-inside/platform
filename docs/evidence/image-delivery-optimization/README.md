@@ -1,7 +1,7 @@
 # Image delivery optimization without CDN
 
 Source: application changes in `fb45a257`, base `bd57af6ea7bd7a5ef42fd60d193fa43b64ebee90`.
-Chromium, 19 October 2026, task-owned Storybook on port 6017, fresh context per sample, DPR 1.
+Chromium, 19 October 2026, task-owned UI catalog on port 6017, fresh context per sample, DPR 1.
 The screenshots show the unchanged Task diagram at 1440 and 390 CSS pixels.
 
 ## Effect discovery check (STD-1)

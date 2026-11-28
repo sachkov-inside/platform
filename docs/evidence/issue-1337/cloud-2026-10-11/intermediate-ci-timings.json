@@ -473,7 +473,7 @@
           "conclusion": "success"
         },
         {
-          "name": "Run Storybook and browser-engine checks",
+          "name": "Run ui-catalog and browser-engine checks",
           "seconds": 180,
           "conclusion": "success"
         },

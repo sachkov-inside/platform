@@ -28,9 +28,9 @@ processing, playback and real Logto authentication are not proven by this runtim
 ## Verification
 
 - Root `pnpm check` passed: documentation/API contracts, lint, types, architecture guardrails,
-  tooling, backend/web tests, browser routes, production build and Storybook build. This refinement
+  tooling, backend/web tests, browser routes, production build and UI catalog build. This refinement
   passed 153 tooling, 424 backend, 491 web (one skipped) and 43 route tests (five skipped).
-  A Storybook scenario checks searching and continuing a list of 45 Series. After the final
+  A UI catalog scenario checks searching and continuing a list of 45 Series. After the final
   focus correction, lint/types, 22 authoring stories and all 10 local regressions passed again.
 - PostgreSQL integration: 34 files, 216 tests passed, including explicit admin permission grant and
   immediate revocation, migration replay and repeated collection metadata receipts.
@@ -103,7 +103,7 @@ geometry, code/table separation, rapid-click Shift+Enter, empty paragraph persis
 1400×900 PNG through upload and responsive Preview delivery, pre-hydration network failure and
 retry, caption/alt preservation, 320 px description-panel bounds and long table-cell text.
 The last two geometric additions passed separately after review fixes. Firefox delivery/failure/
-retry was also checked against the running local stack. The 24 authoring/upload Storybook scenarios
+retry was also checked against the running local stack. The 24 authoring/upload UI catalog scenarios
 passed after retrying one stale Vite dependency-cache load. This iteration changes no backend or
 BFF contract; the earlier integration/full-stack results above are historical, not newly rerun.
 
@@ -117,7 +117,7 @@ Current local screenshots: [metadata above article](../evidence/issue-396/editor
 [loaded Preview](../evidence/issue-396/editor-preview.png). The owner accepted the local UI on 2026-09-08.
 
 Root `pnpm check` passed on this refinement: 153 tooling, 424 backend, 491 web (one skipped),
-43 browser routes (five skipped), production and Storybook builds. Log: `/tmp/396-refinement-check.log`.
+43 browser routes (five skipped), production and UI catalog builds. Log: `/tmp/396-refinement-check.log`.
 The local runtime was restarted after the check.
 
 

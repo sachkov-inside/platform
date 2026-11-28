@@ -4,7 +4,7 @@ Reviewed head: `06b42f5e3d15fb208275e66e3a47ea4f15df6b70`. Fixed point: `bee563b
 
 ### Нарушения документированных правил
 
-- **P3 — обновлённый комментарий неверно называет порог прокрутки.** `apps/web/src/storybook/story-environment.tsx:157` утверждает, что оболочка прокручивается начиная с `48rem`. Правило: корневой `CODING_STANDARDS.md:173`, «Text that describes the system»: утверждение должно совпадать с владельцем факта на reviewed head. Владелец — `apps/web/src/widgets/application-shell/ui/application-shell.client.tsx:111`: контейнер получает `overflow-y-auto` только на `lg`. `apps/web/app/globals.css:293` и `:302` разделяют режимы на `64rem`; актуальный `docs/agents/frontend-delivery.md` тоже называет `lg`. Сценарий: при проверке story шириной 800 px рецензент ожидает прокрутку контейнера, хотя прокручивается документ, и выбирает неверную опору для геометрии. Исправить комментарий на `64rem`; согласовать также сохранившуюся формулировку `48rem` в `apps/web/CODING_STANDARDS.md:33`. Поведение приложения менять не требуется.
+- **P3 – обновлённый комментарий неверно называет порог прокрутки.** `apps/web/src/ui-catalog/story-environment.tsx:157` утверждает, что оболочка прокручивается начиная с `48rem`. Правило: корневой `CODING_STANDARDS.md:173`, «Text that describes the system»: утверждение должно совпадать с владельцем факта на reviewed head. Владелец – `apps/web/src/widgets/application-shell/ui/application-shell.client.tsx:111`: контейнер получает `overflow-y-auto` только на `lg`. `apps/web/app/globals.css:293` и `:302` разделяют режимы на `64rem`; актуальный `docs/agents/frontend-delivery.md` тоже называет `lg`. Сценарий: при проверке story шириной 800 px рецензент ожидает прокрутку контейнера, хотя прокручивается документ, и выбирает неверную опору для геометрии. Исправить комментарий на `64rem`; согласовать также сохранившуюся формулировку `48rem` в `apps/web/CODING_STANDARDS.md:33`. Поведение приложения менять не требуется.
 
 ### Возможные code smells
 
@@ -18,4 +18,4 @@ Reviewed head: `06b42f5e3d15fb208275e66e3a47ea4f15df6b70`. Fixed point: `bee563b
 
 ## Outcome
 
-P3 fixed after this review: the Storybook wrapper comment and Web coding standard now name 64rem, matching the application shell.
+P3 fixed after this review: the UI catalog wrapper comment and Web coding standard now name 64rem, matching the application shell.

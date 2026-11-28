@@ -9,7 +9,7 @@ import {
 import {
   blackFridayPromotion,
   productWithSupportOffer,
-} from "@/storybook/billing.fixtures";
+} from "../fixtures/billing.fixtures";
 
 const productId = facts.product.id;
 const slug = facts.product.slug;

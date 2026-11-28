@@ -128,7 +128,7 @@ function publicShell({
   };
   const root = new FakeElement(scrolled);
   const content = new FakeElement(scrolled, null, true);
-  /** A second shell on the same page, as on a Storybook docs page. */
+  /** A second shell on the same page. */
   const otherContent = new FakeElement(scrolled, null, true);
   const otherPage = new FakeElement(scrolled, otherContent);
   const contents = [content, otherContent];

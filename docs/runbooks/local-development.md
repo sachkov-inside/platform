@@ -12,7 +12,7 @@ procedures; open the one that matches the task.
 ## Stand and stack
 
 - [Compose stack contents](local-compose-stack.md): services, images, configuration, object storage,
-  the Kinescope test provider and the optional Storybook profile.
+  and the Kinescope test provider.
 - [Local stand runtime](local-stand-runtime.md): production web build, memory and disk bounds,
   sign-in callbacks, troubleshooting and the disposable production smoke from owned cache.
 - [Local stand accounts and product view](local-stand-accounts.md): the owner's purchase order,

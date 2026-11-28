@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { z } from "zod";
-import { readerBlocks } from "../../src/storybook/quiz-content";
+import { readerBlocks } from "../fixtures/quiz-content";
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 import { hideDevelopmentFeedback } from "../support/hide-development-feedback";
 import { resolve } from "node:path";

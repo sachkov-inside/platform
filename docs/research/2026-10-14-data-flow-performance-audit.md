@@ -199,7 +199,7 @@ Detailed evidence and the complete callsite inventory:
 [Frontend effects](2026-10-14-performance-audit/frontend-effects.md).
 
 Coverage: 87 production callsites in 58 files: 81 `useEffect`, six
-`useLayoutEffect`. Stories, generated code, fixtures, and Storybook infrastructure
+`useLayoutEffect`. Stories, generated code, fixtures, and UI catalog infrastructure
 are excluded. Most effects own external synchronization; no broad effect-derived
 filter/map state pattern was found.
 

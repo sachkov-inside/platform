@@ -26,6 +26,11 @@ const fixtureName = z.enum([
   "material-order",
   "account-avatar",
   "autosave",
+  "render-error",
+  "live-search",
+  "reading-cache",
+  "account-email",
+  "checkout-selection",
   "authoring-shell",
 ]);
 const budget = z.number().int().positive().max(30_000);
@@ -284,7 +289,9 @@ async function runHost(config: Configuration) {
       cacheDir: `node_modules/.cache/${config.name}-browser`,
       ...(config.name === "body-fragments" ||
       config.name === "cabinet-facts" ||
-      config.name === "course-film"
+      config.name === "course-film" ||
+      config.name === "reading-cache" ||
+      config.name === "checkout-selection"
         ? { define: { "process.env": "{}" } }
         : {}),
       resolve: {

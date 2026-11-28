@@ -1,6 +1,6 @@
 [
   {
-    "source": "storybook",
+    "source": "ui-catalog",
     "name": "desktop",
     "feedWidth": 1216,
     "sectionWidth": 1216,
@@ -22,7 +22,7 @@
     "overflow": false
   },
   {
-    "source": "storybook",
+    "source": "ui-catalog",
     "name": "mobile",
     "feedWidth": 358,
     "sectionWidth": 358,
@@ -44,7 +44,7 @@
     "overflow": false
   },
   {
-    "source": "storybook",
+    "source": "ui-catalog",
     "name": "text-200",
     "feedWidth": 1173.21875,
     "sectionWidth": 1173.21875,

@@ -17,7 +17,7 @@
 MaterialDocumentEditorView: useEffect для menuOpen
   searchInput.current?.focus()
     user-event: patchedFocus → dispatchDOMEvent
-      Storybook: eventWrapper → синхронный React.act
+      ui-catalog: eventWrapper → синхронный React.act
         flushActQueue: повторный вход, isFlushing=true
         очередь остаётся непустой → сообщение о suspended component
 ```
@@ -26,7 +26,7 @@ MaterialDocumentEditorView: useEffect для menuOpen
 
 - `react@19.3.0/cjs/react.development.js`: `flushActQueue` не выполняет очередь при
   `isFlushing=true`; синхронная ветка `act` проверяет `queue.length`, не признак Suspense.
-- `@storybook/react@10.6.1/dist/_browser-chunks/chunk-7HUHAOMV.js`: `eventWrapper`
+- `@ui-catalog/react@10.6.1/dist/_browser-chunks/chunk-7HUHAOMV.js`: `eventWrapper`
   возвращает результат события и не ждёт thenable, который вернул `act`.
 - `widgets/material-authoring/ui/material-document-editor.client.tsx`: эффект `menuOpen`
   фокусирует поиск. Кнопка открытия через `onPointerDown.preventDefault()` сохраняет
@@ -37,7 +37,7 @@ MaterialDocumentEditorView: useEffect для menuOpen
 История активирует настоящую кнопку через `.click()` внутри ожидаемого асинхронного `act`.
 Callback возвращает `Promise.resolve()`, чтобы React использовал асинхронную ветку и
 дождался своей очереди. Для этого собственного `act` история временно включает
-`IS_REACT_ACT_ENVIRONMENT=true`, как обвязка Storybook, затем восстанавливает прежнее
+`IS_REACT_ACT_ENVIRONMENT=true`, как обвязка UI catalog, затем восстанавливает прежнее
 значение. Это включает проверки React.
 
 После вставки «Совета», «Итогов» и «Ресурса» история ждёт фактического фокуса редактора.
@@ -50,7 +50,7 @@ Spy на `console.error` вызывает настоящую консоль. В 
 Проверка в cleanup `beforeEach` была нечувствительной к этой мутации и удалена.
 
 ```bash
-pnpm --filter @inside/web test:storybook \
+pnpm --filter @inside/web test:ui-catalog \
   src/_pages/material-authoring/ui/material-authoring-page.stories.tsx \
   -t 'Редактор · блоки урока'
 ```
@@ -116,7 +116,7 @@ pnpm --filter @inside/web test:storybook \
 - [Первый парный эксперимент](https://github.com/sachkov-inside/platform/actions/runs/37485549965):
   обе измерительные задачи прошли.
 - [Парный эксперимент с последовательным режимом](https://github.com/sachkov-inside/platform/actions/runs/37486433751):
-  все четыре полных прогона Storybook прошли.
+  все четыре полных прогона UI catalog прошли.
 - [Контроль другого окна и CPU](https://github.com/sachkov-inside/platform/actions/runs/37489433034):
   четыре полных прогона по 585 историй и четыре контрольных по 27 историй прошли.
 
@@ -126,7 +126,7 @@ pnpm --filter @inside/web test:storybook \
 
 ## Контроль CPU в отдельном окне
 
-[Диагностический скрипт](https://github.com/sachkov-inside/platform/blob/56450e24ad4f5dd28499e9bdd80f6908fad842d5/scripts/storybook-609-experiment.sh)
+[Диагностический скрипт](https://github.com/sachkov-inside/platform/tree/56450e24ad4f5dd28499e9bdd80f6908fad842d5/scripts)
 возвращает в копии истории три исходных посимвольных ввода из `c2d67be0^`.
 Каждый ввод повторяется 12 раз через `userEvent.clear` и `userEvent.type` с `delay:null`.
 Итоговые значения и проверки сохраняются. Это 564 набранных знака вместо исходных 47;

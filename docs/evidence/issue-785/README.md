@@ -12,13 +12,13 @@ disposable local stand; the owner's checkout and Compose project are untouched.
   visible practice section, setup disclosure and existing production copy-prompt component. These
   are viewport captures, not a full image of both long requests. Companion JSON records the viewport,
   empty serious/critical axe findings and a 2000 ms delayed practice read.
-- [Desktop public lesson](storybook-public-desktop.png),
-  [mobile public lesson](storybook-public-mobile.png): the same production disclosure in Storybook,
+- [Desktop public lesson](ui-catalog-public-desktop.png),
+  [mobile public lesson](ui-catalog-public-mobile.png): the same production disclosure in UI catalog,
   closed after its interaction test. Its reserved row is 44 px; the mobile document and viewport are
   both 390 px wide. No large placeholder or late automatic expansion is used.
-- [Desktop prompt state](storybook-ready-desktop.png),
-  [mobile prompt state](storybook-ready-mobile.png): the production Reader and prompt component in
-  Storybook. Agentation remains available. No owner annotations were present in this session.
+- [Desktop prompt state](ui-catalog-ready-desktop.png),
+  [mobile prompt state](ui-catalog-ready-mobile.png): the production Reader and prompt component in
+  UI catalog. Agentation remains available. No owner annotations were present in this session.
 
 Full-stack assertions cover three scenarios at desktop and mobile sizes: private Reader waits for
 its coherent body/practice result; public Reader shows its cached body while the closed practice row
@@ -29,7 +29,7 @@ the public command guide over HTTP 200. Opening the public disclosure is an expl
 
 After restoring the public cached path, the complete navigation suite passed 26 tests with its two
 existing comparison-only skips. The web end-to-end suite passed 171 tests with 17 project-specific
-skips. Storybook's copy interaction uses a deterministic clipboard adapter; the real browser
+skips. UI catalog's copy interaction uses a deterministic clipboard adapter; the real browser
 clipboard is verified separately by the full-stack test. Five practice stories pass, including the
 closed public disclosure, unavailable result and no assignment.
 

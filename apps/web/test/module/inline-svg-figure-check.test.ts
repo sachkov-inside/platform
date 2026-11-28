@@ -8,7 +8,7 @@ import { describe, expect, test } from "vitest";
 
 const fixture = (path: string) =>
   readFileSync(
-    new URL(`../../.storybook/fixtures/svg-figures/${path}`, import.meta.url),
+    new URL(`../fixtures/svg-figures/${path}`, import.meta.url),
     "utf8",
   );
 

@@ -5,7 +5,7 @@ import {
   aiEngineeringCoursePage,
   aiEngineeringProgrammeLandingPage,
   aiEngineeringPublishedTopics,
-} from "@/storybook/ai-engineering-course.fixtures";
+} from "../fixtures/ai-engineering-course.fixtures";
 
 function topicsOf(page: typeof aiEngineeringCoursePage): string[] {
   const block = page.blocks.find((item) => item.id === "topics");

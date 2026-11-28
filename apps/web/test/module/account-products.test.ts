@@ -4,7 +4,7 @@ import {
   cabinetProduct,
   cabinetProductGround as ground,
   cabinetProductPayment as payment,
-} from "@/storybook/billing.fixtures";
+} from "../fixtures/billing.fixtures";
 
 describe("one cabinet card per product", () => {
   it("joins current access and purchase, retaining all historical purchases", () => {

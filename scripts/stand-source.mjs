@@ -64,7 +64,6 @@ export async function readStandSource(
             ".next",
             "dist",
             "coverage",
-            "storybook-static",
             "test-results",
             "playwright-report",
           ].includes(part),

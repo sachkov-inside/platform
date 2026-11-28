@@ -3,7 +3,7 @@
 Изменённая реализация: `74081ee692e1905c980375b2a6195c120c6d5d19`, база
 `32332bd755e5b73d9c725b9a000f65a7022d4a4b`.
 
-Пять существующих production-owned поверхностей в Storybook проверены при 1440×1024 и
+Пять существующих production-owned поверхностей в UI catalog проверены при 1440×1024 и
 390×844: продукт, закрытый Reader, разовая оплата, покупки в кабинете и список автора.
 В `results.json` — наблюдавшиеся подписи, отсутствие горизонтального переполнения и
 serious/critical нарушений axe WCAG2/2.1 A/AA. Скриншоты сняты после видимого содержимого;
@@ -15,7 +15,7 @@ Inside”» рядом с общим «Продукт» ожидаемо. Авт
 Воспроизведение из корня checkout на pinned Node/pnpm:
 
 ```bash
-pnpm --filter @inside/web exec storybook dev --ci -p 6316
+pnpm --filter @inside/web exec ui-catalog dev --ci -p 6316
 # Во втором терминале; каталог вывода выбирается отдельно от сохранённых доказательств.
 node docs/evidence/issue-631/capture.mjs /tmp/platform631-new-evidence
 ```

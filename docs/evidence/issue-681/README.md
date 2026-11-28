@@ -1,6 +1,6 @@
 # Возврат в «Покупках» — #681
 
-Снимки Storybook-истории `Pages/Account/Purchases → RefundedPurchase` на сборке ветки
+Снимки ui-catalog-истории `Pages/Account/Purchases → RefundedPurchase` на сборке ветки
 `feat/681-refund-notice`. Горизонтального переполнения нет: `scrollWidth − clientWidth = 0` на
 обеих ширинах.
 

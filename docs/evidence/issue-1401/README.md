@@ -5,14 +5,14 @@ The existing production checkout now has an editable Order Email field. A Telegr
 | Surface | Mobile | Desktop |
 | --- | --- | --- |
 | Production route with real Nest/PostgreSQL and synthetic bank/identity provider | [390px](mobile-chromium-checkout.png) | [1440px](desktop-chromium-checkout.png) |
-| Production-owned panel in Storybook | [390px](storybook-mobile.png) | [1440px](storybook-desktop.png) |
+| Production-owned panel in UI catalog | [390px](ui-catalog-mobile.png) | [1440px](ui-catalog-desktop.png) |
 
 The buyer journey asserts inline format errors, focus, no horizontal overflow, payment, material access, community rights, and no email confirmation requests.
 The checkout also receives a WCAG 2 A/AA and WCAG 2.1 AA check with axe.
-All providers and buyer addresses in this evidence are synthetic. The bank fixture uses a 30 RUB payment and six-month support term; Storybook uses its existing catalog fixtures.
+All providers and buyer addresses in this evidence are synthetic. The bank fixture uses a 30 RUB payment and six-month support term; UI catalog uses its existing catalog fixtures.
 
 Reproduce route evidence with `UPDATE_EVIDENCE=issue-1401 pnpm smoke:buyer-journey`.
-Storybook stories: `pages-product-payment--mobile`, `pages-product-payment--desktop`, `pages-product-payment-flow--email-without-code`.
+UI catalog stories: `pages-product-payment--mobile`, `pages-product-payment--desktop`, `pages-product-payment-flow--email-without-code`.
 Snapshots use the shared `screenshotWholePage` helper and contain no real buyer data.
 
 The owner accepted this checkout form and its mobile/desktop evidence in chat on 2026-10-13.

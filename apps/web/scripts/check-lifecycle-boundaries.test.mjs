@@ -189,7 +189,7 @@ test("exact approval binds path, owner, full body, dependencies and multiplicity
     id: "approved-example",
     status: "approved-boundary",
     reason: "Closes the installed dialog",
-    test: "viewer.stories.tsx",
+    test: "viewer.test.tsx",
   };
   /** @param {string} s @param {string} [p] */
   const check = (s, p) =>
@@ -355,12 +355,11 @@ test("CLI scans new production files in app and src, reports moves and preserves
   const root = mkdtempSync(join(tmpdir(), "web-lifecycle-"));
   const sources = [
     "apps/web/app/new/page.tsx",
-    "apps/web/src/features/nested/storybook/production.mts",
+    "apps/web/src/features/nested/fixtures/production.mts",
     "apps/web/src/use.test.production.ts",
     "apps/web/src/nested/generated/customer.ts",
-    "apps/web/src/storybook/helper.ts",
     "apps/web/src/shared/api/backend/generated/model.ts",
-    "apps/web/src/example.stories.tsx",
+    "apps/web/src/example.test.tsx",
   ];
   try {
     for (const file of sources) {
@@ -374,12 +373,9 @@ test("CLI scans new production files in app and src, reports moves and preserves
     const cli = fileURLToPath(
       new URL("./check-lifecycle-boundaries.mts", import.meta.url),
     );
-    const d19Story = join(
-      root,
-      "apps/web/src/_pages/library-discovery/ui/product-journey.stories.tsx",
-    );
-    mkdirSync(dirname(d19Story), { recursive: true });
-    writeFileSync(d19Story, "");
+    const d07Spec = join(root, "apps/web/test/e2e/mobile-navigation.spec.ts");
+    mkdirSync(dirname(d07Spec), { recursive: true });
+    writeFileSync(d07Spec, "");
     const result = spawnSync(process.execPath, [cli, "audit", root], {
       encoding: "utf8",
       timeout: 15_000,
@@ -417,9 +413,9 @@ test("CLI scans new production files in app and src, reports moves and preserves
     assert.ok(report.findings.some((f) => f.code === "missing-or-moved"));
     assert.deepEqual(
       report.findings
-        .filter((f) => f.code === "missing-boundary-test" && f.id === "D19")
+        .filter((f) => f.code === "missing-boundary-test" && f.id === "D07")
         .map((f) => f.testPath),
-      ["apps/web/test/navigation/product-reader-state.spec.ts"],
+      ["apps/web/test/module/mobile-navigation-identity.test.ts"],
     );
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -435,7 +431,7 @@ test("a verified named adapter needs the exact call, a reason and a public test"
     id: "D",
     status: "verified-adapter",
     reason: "Cancels an obsolete search delay",
-    test: "search.stories.tsx",
+    test: "search.test.tsx",
   };
   assert.deepEqual(compareInventory(result, [adapter], "final"), []);
   for (const incomplete of [
@@ -444,12 +440,38 @@ test("a verified named adapter needs the exact call, a reason and a public test"
   ])
     assert.throws(
       () => compareInventory(result, [incomplete], "final"),
-      /reason and a public test/,
+      /reason and evidence/,
     );
   assert.deepEqual(
     compareInventory(
       inspectSource(path, source.replace("[query]", "[]")),
       [adapter],
+      "final",
+    ).map((row) => row.code),
+    ["new-effect", "missing-or-moved"],
+  );
+});
+test("a retired proof pins the former approval without accepting a changed hook", () => {
+  const source =
+    'import {useEffect} from "react";function useSearch(){useEffect(start,[query]);}';
+  const result = inspectSource(path, source);
+  /** @type {InventoryRow} */
+  const retained = {
+    ...onlyCall(result),
+    id: "D",
+    status: "retired-proof",
+    reason: "Cancels an obsolete search delay",
+    authority: "The previous fixture covered cancellation on unmount.",
+  };
+  assert.deepEqual(compareInventory(result, [retained], "final"), []);
+  assert.throws(
+    () => compareInventory(result, [{ ...retained, authority: "" }], "final"),
+    /reason and evidence/,
+  );
+  assert.deepEqual(
+    compareInventory(
+      inspectSource(path, source.replace("[query]", "[]")),
+      [retained],
       "final",
     ).map((row) => row.code),
     ["new-effect", "missing-or-moved"],

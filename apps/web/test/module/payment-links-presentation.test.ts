@@ -5,7 +5,7 @@ import {
   canRevokePaymentLink,
   paymentLinkClosed,
 } from "@/features/payment-links/model/payment-links-presentation";
-import { storyPaymentLinks } from "@/storybook/sales-catalog.fixtures";
+import { storyPaymentLinks } from "../fixtures/sales-catalog.fixtures";
 
 it.each([
   ["active", true, false],

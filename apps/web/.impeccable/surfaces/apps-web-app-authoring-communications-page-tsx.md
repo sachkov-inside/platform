@@ -11,7 +11,7 @@ related_targets: ["apps/web/src/_pages/communications/ui/communications-workspac
 
 С #419 маршрут отключён: layout `apps/web/app/authoring/communications/layout.tsx` вызывает
 `notFound()` по решению [#396](https://github.com/sachkov-inside/platform/issues/396), и воронками
-управляет Telegram-бот. Поверхность живёт только в Storybook; ниже описано её состояние до
+управляет Telegram-бот. Ниже описано историческое состояние поверхности до
 отключения.
 
 Режим: **Operate**. Подтверждённый автор управляет знакомством, воронками и историей доставки на
@@ -19,7 +19,7 @@ related_targets: ["apps/web/src/_pages/communications/ui/communications-workspac
 по default path из `docs/agents/frontend-delivery.md`.
 
 Finish review: `ship` только в функциональном семантическом scope. Окончательное визуальное
-принятие владельцем, Storybook proof и замена временного модуля принадлежат
+принятие владельцем и замена временного модуля принадлежат
 [#316](https://github.com/sachkov-inside/platform/issues/316). Маркер #308 → #316 остаётся на
 интерфейсе `CommunicationsWorkspace` до этой интеграции. Новых принятых визуальных решений нет.
 
@@ -32,7 +32,7 @@ Finish review: `ship` только в функциональном семант�
 далее идут раскрываемое общее знакомство и выбранный редактор. На узком экране сохраняется тот же
 порядок, группы действий переносятся, связанные поля используют доступную ширину.
 
-Production route и Storybook используют один feature-owned компонент с интерфейсом
+Рабочий маршрут использовал компонент с интерфейсом
 `CommunicationsActions`; fixtures не становятся production data path.
 
 ## Действия и состояния
@@ -59,7 +59,7 @@ fieldset/legend, видимый фокус и текстовые состоян�
 
 `docs/evidence/issue-308/README.md` фиксирует сквозную проверку реального маршрута на desktop
 1440×1024 и mobile 390×844, проверку axe, отсутствия горизонтального переполнения и перехода фокуса.
-Там же находятся четыре PNG: Storybook и live route на обоих размерах. Снимки покрывают верх страницы;
+Там же находятся четыре PNG: UI catalog и live route на обоих размерах. Снимки покрывают верх страницы;
 сценарии дальнейших действий и ошибок проверяются сквозным тестом. Credentials и реальные Telegram
 sends в эту browser-проверку не входят; итоговый общий сценарий относится к #310.
 

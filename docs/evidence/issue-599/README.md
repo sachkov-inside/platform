@@ -1,11 +1,11 @@
 # #599 — мобильные истории подборки идут на настоящих 390
 
-Четыре истории подборки просили размер `mobile360`, которого нет в `apps/web/.storybook/preview.tsx`.
+Четыре истории подборки просили размер `mobile360`, которого нет в `apps/web/.ui-catalog/preview.tsx`.
 Прогон историй в таком случае молча берёт холст по умолчанию 1200 × 900, поэтому «мобильные» истории
 проверяли настольную ширину. Теперь они на `mobile390`.
 
 Измерения и снимки сняты одним прогоном в том же исполнителе, что и `pnpm test`
-(`@storybook/addon-vitest`, chromium). Для сравнения каждая история снята ещё и без объявленного
+(`@ui-catalog/addon-vitest`, chromium). Для сравнения каждая история снята ещё и без объявленного
 размера — туда и уходил `mobile360`. Полные числа — в `measurements.json`.
 
 | История | Ширина окна до | Ширина окна после | Вынос вбок после | Каркас подборки после |
@@ -30,7 +30,7 @@
 
 ## Сторож роняет `pnpm test`
 
-`beforeEach` в `.storybook/preview.tsx` сверяет запрошенное имя с `parameters.viewport.options`.
+`beforeEach` в `.ui-catalog/preview.tsx` сверяет запрошенное имя с `parameters.viewport.options`.
 Подделка: в `account-section-nav.stories.tsx` имя `mobile390` заменено на `mobile999`, затем
 запущен `pnpm test src/widgets/account-cabinet/ui/account-section-nav.stories.tsx` из `apps/web`.
 Прогон упал, подделка откачена:

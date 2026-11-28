@@ -1,6 +1,6 @@
 # Mobile-first design resources for Platform
 
-Status: research note, 2026-09-03. This is input for the throwaway mobile-first Storybook
+Status: research note, 2026-09-03. This is input for the throwaway mobile-first UI catalog
 prototype, not a dependency or visual-system decision.
 
 ## Question
@@ -12,14 +12,14 @@ a second component system or copying another product's identity?
 ## Current boundary
 
 Platform already uses React 19, Next.js 16, Tailwind CSS 4, local shadcn-style components, Radix,
-Lucide and Storybook. Production and Storybook share the same tokens. A new design-system package
+Lucide and UI catalog. Production and UI catalog share the same tokens. A new design-system package
 must therefore solve a missing interaction, not just offer another default look.
 
 ## Recommendation
 
 Use the sources in four different roles:
 
-1. Keep **Storybook + current shadcn/Radix primitives** as the implementation and review base.
+1. Keep **UI catalog + current shadcn/Radix primitives** as the implementation and review base.
 2. Use **tweakcn** only as a token exploration tool.
 3. Trial **3dicons** for a small set of cover directions and **Morphicons** for one navigation
    transition after the static hierarchy is accepted.
@@ -32,17 +32,17 @@ settled.
 
 ## Implement or trial
 
-### Storybook
+### UI catalog
 
-The official documentation defines Storybook as a workshop for components and pages in isolation,
+The official documentation defines UI catalog as a workshop for components and pages in isolation,
 including hard-to-reach states. It also provides viewport and accessibility testing facilities.
 This is exactly the existing Platform review path, so no new tool is needed.
 
 - Use now: mobile 320/390 and desktop viewports, interactive prototype states and owner annotations.
 - Apply to: shell/navigation, Library, Topics and Material reader.
-- Sources: [Storybook overview](https://storybook.js.org/docs),
-  [viewport](https://storybook.js.org/docs/essentials/viewport),
-  [accessibility testing](https://storybook.js.org/docs/writing-tests/accessibility-testing).
+- Sources: UI catalog overview,
+  viewport,
+  accessibility testing.
 
 ### shadcn/ui and existing Radix primitives
 
@@ -71,7 +71,7 @@ The official site currently separates open-source and premium work. It says the 
 version is CC0 and lists more than 1,400 renders across 200 icons, including notebook, folder,
 shield, tools and play concepts.
 
-- Trial now: two or three representative Library covers in Storybook, using only assets explicitly
+- Trial now: two or three representative Library covers in UI catalog, using only assets explicitly
   belonging to the CC0 set.
 - Useful for testing whether authored cover art materially improves scanning on mobile.
 - Do not require a 3D icon on every Material. Covers must also support diagrams, screenshots,
@@ -172,7 +172,7 @@ change the product's visual identity rather than merely improve mobile usability
 
 ## Concrete next steps
 
-1. Review the three code-native Storybook variants without adding dependencies.
+1. Review the three code-native UI catalog variants without adding dependencies.
 2. Pick the winning information hierarchy and navigation behavior.
 3. Replace two prototype covers with verified CC0 3dicons assets and compare them with Inside's
    technical diagram covers.

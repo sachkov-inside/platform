@@ -5,7 +5,7 @@ proof: [#328](https://github.com/sachkov-inside/platform/issues/328).
 Реальные transport, cache invalidation и сквозная приёмка поставляются в
 [#329](https://github.com/sachkov-inside/platform/issues/329).
 
-Storybook `Pages/Reading progress` использует production-owned ReadingAction, MaterialReadingStatus
+UI catalog `Pages/Reading progress` использует production-owned ReadingAction, MaterialReadingStatus
 и SeriesProgress; fixture меняет состояние только внутри stories. Reader получает один slot для компактного переключателя «Прочитано» / «Просмотрено» /
 «Изучено», карточки всех четырёх вариантов — один status slot. В Reader нет отдельной плашки,
 заголовка «Ваш прогресс» и обычных пояснений. Кнопка повторяет принятый в #321 вид: пустой
@@ -22,12 +22,12 @@ unavailable, loading, pending, failure/retry, stale conflict, keyboard mark/unma
 `playwright.reading-proof.config.ts` удалены в #952, каталог показывает только production):
 
 ```bash
-pnpm --filter @inside/web exec storybook dev -p 6006 --no-open --ci
+pnpm --filter @inside/web exec ui-catalog dev -p 6006 --no-open --ci
 pnpm --filter @inside/web exec playwright test --config playwright.reading-proof.config.ts
 ```
 
 Автоматическая проверка снимает 390×844 и 1440×1024, проверяет отсутствие горизонтального
-переполнения, accessibility через Axe, устойчивый размер кнопки при loading/ready/pending. Всего 18 browser-проверок и 19 Storybook-сценариев. Agentation скрыт
-только в автоматических снимках; интерактивный Storybook оставляет overlay включённым.
+переполнения, accessibility через Axe, устойчивый размер кнопки при loading/ready/pending. Всего 18 browser-проверок и 19 ui-catalog-сценариев. Agentation скрыт
+только в автоматических снимках; интерактивный UI catalog оставляет overlay включённым.
 
 Owner visual GO: ожидается. Эти снимки не означают завершение production integration #329.

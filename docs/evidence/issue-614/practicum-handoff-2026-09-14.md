@@ -106,7 +106,7 @@ deploy, включение продаж или признание всей пл�
 
 ## Проверки и сохранность рабочего дерева
 
-Последние проверки страницы: 3 AI-first Storybook tests, `docs:check`, `git diff --check`;
+Последние проверки страницы: 3 AI-first UI catalog tests, `docs:check`, `git diff --check`;
 предшествующие итерации — web typecheck, live 1440/390 без overflow, порядок hero на mobile,
 reduced motion у бейджей. Источники и пределы записаны в practicum-access/README.md.
 Полный `pnpm check`, сквозная оплата и итоговые Standards/Spec ревью всего WIP этим отчётом

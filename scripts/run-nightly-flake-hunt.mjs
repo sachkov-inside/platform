@@ -2,12 +2,10 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import {
   closeSync,
-  cpSync,
   globSync,
   mkdirSync,
   openSync,
   readFileSync,
-  rmSync,
   writeFileSync,
 } from "node:fs";
 import { resolve } from "node:path";
@@ -154,8 +152,6 @@ export function planSuite(suite) {
           args: ["run", "test:navigation"],
         },
       ];
-    case "storybook":
-      return [vitest("storybook", "apps/web", "test:storybook")];
     case "browser-engines":
       return [vitest("browser-engines", "apps/web", "test:browser-engines")];
     case "integration":
@@ -208,8 +204,6 @@ export function runSuite(suite, output) {
           "--reporter=json",
           `--outputFile=${raw}`,
         ];
-      if (suite === "storybook")
-        args = [...args, "--browser.trace=retain-on-failure"];
       if (command.engine === "playwright") {
         args = [
           ...args,
@@ -285,20 +279,6 @@ export function runSuite(suite, output) {
           console.error(
             "No browser-engine diagnostic directory; inspect run.log",
           );
-      }
-      if (suite === "storybook") {
-        for (const path of globSync(
-          ["apps/web/src/**/__traces__", "apps/web/src/**/__screenshots__"],
-          { cwd: root },
-        )) {
-          cpSync(
-            resolve(root, path),
-            resolve(directory, "browser-diagnostics", path),
-            { recursive: true },
-          );
-          if (path.endsWith("/__traces__"))
-            rmSync(resolve(root, path), { recursive: true, force: true });
-        }
       }
     }
   return failed ? 1 : 0;

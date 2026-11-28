@@ -5,7 +5,7 @@ import type {
   HomeResult,
 } from "@/_pages/home/model/home-view";
 
-import { productWithSupportOffer } from "@/storybook/billing.fixtures";
+import { productWithSupportOffer } from "../fixtures/billing.fixtures";
 import { catalogBackend } from "../support/catalog-backend";
 let catalog: ReturnType<typeof catalogBackend>;
 

@@ -8,7 +8,7 @@ The accepted proof and decision are preserved on `prototype/1504-submission-mono
 Promote the three numbered sections: MCP connection, review start, and results with feedback.
 Use a white surface and an explicit labelled setup button. Keep the review request and results visible.
 The learner starts the review in a fresh agent session in the completed project's directory.
-Keep Storybook states alongside the production component. Prototype acceptance does not replace production visual acceptance.
+Review the production route with test data after any prototype acceptance.
 
 ## Responsibilities
 
@@ -80,5 +80,5 @@ Author comments and viewed marks are independent. The page presents either, both
 Verify Account isolation, access checks, version conflicts, identical retries, stale progress writes and linked submission closure against PostgreSQL.
 Verify that public task/history HTTP responses omit `reviewGuidance` and that complete MCP context includes it.
 Verify first use, returning learner, progress, report with gaps, submitted history, manual fallback, guest, closed submissions and read/write failures.
-Check the production component in Storybook and the live task route at desktop and narrow mobile sizes.
+Check the live task route at desktop and narrow mobile sizes.
 Record owner feedback, independent review, focused checks, full required checks and local application separately in #1504.

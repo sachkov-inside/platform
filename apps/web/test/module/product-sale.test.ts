@@ -6,7 +6,7 @@ import {
   vi,
   type MockInstance,
 } from "vitest";
-import { productWithSupportOffer } from "@/storybook/billing.fixtures";
+import { productWithSupportOffer } from "../fixtures/billing.fixtures";
 
 import * as optionalSession from "@/shared/auth/optional-platform-access-token.server";
 let sessionReads: MockInstance<

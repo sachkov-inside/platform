@@ -48,7 +48,7 @@ choice should override later accepted main behaviour. No production or sales act
 ## Verification after review
 
 Both Standards and Spec reviews pass against main `4c84a549` after closing the findings.
-The lesson card reserves the continuation caption while progress loads; the Storybook
+The lesson card reserves the continuation caption while progress loads; the UI catalog
 regression verifies stable card height and following-card position at desktop, mobile and
 tablet widths. All 51 focused scenarios pass. Full `pnpm check`, follow-up lint and
 `pnpm docs:check` pass locally. The screenshots above show the final card geometry.

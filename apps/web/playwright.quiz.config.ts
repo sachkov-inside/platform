@@ -3,7 +3,7 @@ import { defineConfig } from "@playwright/test";
 /** Owned isolated editor runtime; never starts or resets the shared Compose stand. */
 export default defineConfig({
   testDir: "./test/local",
-  testMatch: ["material-quiz.spec.ts", "storybook-quiz.spec.ts"],
+  testMatch: ["material-quiz.spec.ts"],
   fullyParallel: false,
   workers: 1,
   retries: 0,

@@ -1,6 +1,6 @@
 # Evidence: sales funnel report (#816)
 
-Captured from the built Storybook (`pnpm build:storybook`, served locally) for the production module
+Captured from the built UI catalog (`pnpm build:ui-catalog`, served locally) for the production module
 `apps/web/src/_pages/sales-funnel-report/ui/sales-funnel-report-view.tsx`, stories
 `Pages/Authoring/Sales funnel report`. Each capture asserted `scrollWidth === clientWidth`.
 

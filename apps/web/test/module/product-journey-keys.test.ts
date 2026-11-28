@@ -14,7 +14,7 @@ import type { ProductJourneyControls } from "@/_pages/library-discovery/ui/produ
 import type { ProductChapterTask } from "@/entities/product-task";
 import type { ProductChapter } from "@/features/library-discovery";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
-import { productJourneyCorpus } from "@/storybook/product-journey-corpus.fixtures";
+import { productJourneyCorpus } from "../fixtures/product-journey-corpus.fixtures";
 
 function task(
   code: string,

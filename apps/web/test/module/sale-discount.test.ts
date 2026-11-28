@@ -4,7 +4,7 @@ import { saleDiscount, type PriceSnapshot } from "@/entities/subscription";
 import {
   blackFridayPromotion,
   productWithSupportOffer,
-} from "@/storybook/billing.fixtures";
+} from "../fixtures/billing.fixtures";
 
 const promotion = blackFridayPromotion;
 const offer = (value: PriceSnapshot["promotion"]): PriceSnapshot => ({

@@ -113,4 +113,4 @@ Checks cover old-package compatibility; feature admission before writes; binding
 membership; transactional revision/idempotency/concurrency; direct legacy routes; independent access;
 MCP context/version guards; the eleven-step programme; workspace reuse and Account cache isolation.
 Run required backend integration and full product checks, independent Standards/Spec reviews, and
-responsive Storybook/live Reader checks on the final source before completing delivery.
+responsive checks on the running Reader on the final source before completing delivery.

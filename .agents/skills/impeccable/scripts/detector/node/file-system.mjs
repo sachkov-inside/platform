@@ -19,9 +19,8 @@ const SKIP_DIRS = new Set([
 // The exceptions to the hidden-dir rule: hidden directories that
 // conventionally hold real UI source rather than tooling or vendored code.
 // VitePress and VuePress keep custom theme components in
-// .vitepress/theme/*.vue / .vuepress/theme/, and Storybook keeps preview
-// decorators/styles in .storybook/.
-const HIDDEN_SOURCE_DIRS = new Set(['.vitepress', '.vuepress', '.storybook']);
+// .vitepress/theme/*.vue / .vuepress/theme/.
+const HIDDEN_SOURCE_DIRS = new Set(['.vitepress', '.vuepress']);
 
 const SCANNABLE_EXTENSIONS = new Set([
   '.html', '.htm', '.css', '.scss', '.sass', '.less',

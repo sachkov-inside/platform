@@ -1,10 +1,11 @@
 # Selected Agent Kit skills
 
 Shared source: [KirillSachkov/agent-kit](https://github.com/KirillSachkov/agent-kit).
-The [manifest](../skills-manifest.json) selects the existing 25 engineering skills at two pins:
+The [manifest](../skills-manifest.json) selects 25 engineering skills:
 `implement`, `implement-spec`, `ship` and `pr` use approved revision
-`1d4415445e3686b53110fd10a013fae6344e95cb` (#2289, Home22 plan 4.4); the other 21
-retain `c66fb95e097380806262888dac95f9c63048aae3`. The [lock](../skills-lock.json)
+`1d4415445e3686b53110fd10a013fae6344e95cb` (#2289, Home22 plan 4.4). The `prototype` skill uses
+`efa305061e1e2c981e6abb105949748142ebaf54`. The other 20 retain
+`c66fb95e097380806262888dac95f9c63048aae3`. The [lock](../skills-lock.json)
 records whole-folder identities, including notices. `recap` remains unselected.
 
 Selected skills: `code-review`, `codebase-design`, `diagnosing-bugs`, `domain-modeling`, `grill-with-docs`, `grilling`, `handoff`, `implement`, `implement-spec`, `improve-codebase-architecture`, `pr`, `prototype`, `research`, `retro`, `setup-matt-pocock-skills`, `ship`, `tdd`, `to-questionnaire`, `to-spec`, `to-tickets`, `triage`, `wait-what`, `wayfinder`, `wizard`, `writing-for-agents`.

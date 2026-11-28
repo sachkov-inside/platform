@@ -35,7 +35,7 @@ import {
   authoringPersonHref,
 } from "@/shared/routing/authoring";
 import { adminStates } from "@/shared/ui/admin";
-import { ownerPayment } from "@/storybook/owner-payments.fixtures";
+import { ownerPayment } from "../fixtures/owner-payments.fixtures";
 import {
   authoringLocation,
   authoringMobileTabs,

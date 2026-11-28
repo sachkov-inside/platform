@@ -16,7 +16,7 @@ import {
 import {
   productOnlyOffer,
   productWithSupportOffer,
-} from "@/storybook/billing.fixtures";
+} from "../fixtures/billing.fixtures";
 
 /** Intl ставит неразрывные пробелы: сравниваем с текстом таблицы обычными. */
 function plain(text: string): string {

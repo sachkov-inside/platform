@@ -2,7 +2,7 @@
 import { z } from "zod";
 /** @type {unknown} */
 const fixtureModule = await import(
-  new URL("../../src/storybook/product-task.fixtures.ts", import.meta.url).href
+  new URL("../fixtures/product-task.fixtures.ts", import.meta.url).href
 );
 
 const { openProductTask, closedProductTask } = z

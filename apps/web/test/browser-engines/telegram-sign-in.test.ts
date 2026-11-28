@@ -555,39 +555,6 @@ it("offers a keyboard-accessible return during persistent connection failure, in
   await page.close();
 });
 
-it.runIf(Boolean(process.env["STORYBOOK_UI_ORIGIN"]))(
-  "captures the exact Storybook presentation on desktop and mobile",
-  async () => {
-    for (const width of [1440, 320]) {
-      const context = await browser.newContext({
-        viewport: { width, height: 900 },
-        reducedMotion: "reduce",
-      });
-      const page = await context.newPage();
-      await page.goto(
-        `${process.env["STORYBOOK_UI_ORIGIN"] ?? ""}/iframe.html?id=patterns-identity-telegram-sign-in--pending&viewMode=story`,
-      );
-      await page
-        .getByRole("heading", { name: "Вход через Telegram" })
-        .waitFor();
-      await page.evaluate(() => document.fonts.ready);
-      expect(
-        (
-          await new AxeBuilder({ page })
-            .include(".inside-telegram")
-            .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
-            .analyze()
-        ).violations,
-      ).toEqual([]);
-      await prepareEvidenceDirectory("issue-303");
-      await screenshotWholePage(page, {
-        path: `${evidence}/storybook-pending-${String(width)}.png`,
-      });
-      await context.close();
-    }
-  },
-);
-
 it("keeps the complete Telegram button geometry on narrow WebKit after loading", async ({
   task,
   onTestFinished,

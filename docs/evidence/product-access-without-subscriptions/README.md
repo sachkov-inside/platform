@@ -6,7 +6,7 @@
 
 ## Предпросмотр
 
-[Кабинет в Storybook](http://localhost:6017/?path=/story/pages-account-live-cabinet--with-products).
+[Кабинет в UI catalog](http://localhost:6017/?path=/story/pages-account-live-cabinet--with-products).
 Данные синтетические; это тот же production UI, что использует `/account`.
 
 - [1440 px](account-1440.png), [390 px](account-390.png).
@@ -17,7 +17,7 @@
 
 Preview принадлежит этой сессии: порт 6017, PID 24388, cwd
 `/Users/dev/orca/workspaces/inside-platform/snapper`. Запуск:
-`pnpm --filter @inside/web exec storybook dev -p 6017`. Для остановки только этого preview:
+`pnpm --filter @inside/web exec ui-catalog dev -p 6017`. Для остановки только этого preview:
 `kill 24388`. Сервер оставлен для просмотра владельцем.
 
 ## Проверенные сценарии

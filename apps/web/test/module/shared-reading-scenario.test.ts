@@ -4,7 +4,7 @@ import {
   publishedMaterialProjectionSchema,
   toMaterialPreview,
 } from "@/entities/material.model";
-import { productJourneyCorpus } from "@/storybook/product-journey-corpus.fixtures";
+import { productJourneyCorpus } from "../fixtures/product-journey-corpus.fixtures";
 
 describe("shared reading scenario adapters", () => {
   test("keeps independently authored wire facts compatible with the real web mapper", () => {

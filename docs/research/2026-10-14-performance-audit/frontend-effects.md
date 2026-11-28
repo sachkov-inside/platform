@@ -12,7 +12,7 @@ Three source-confirmed improvement opportunities are recorded below. Two are sma
 Most effects have a real external owner: DOM, timers, player, editor, query cache, session storage or browser events.
 No broad pattern of filtering or mapping props into effect-managed state was found.
 
-The scan excluded stories, tests, generated code, fixtures and `src/storybook`. Imports and effect calls were cross-checked with `rg`.
+The scan excluded stories, tests, generated code, fixtures and `src/ui-catalog`. Imports and effect calls were cross-checked with `rg`.
 Every production callsite appears in the coverage table. Caller and cache ownership were inspected for suspected problems.
 
 ## Confirmed findings
@@ -57,7 +57,7 @@ Therefore the effect currently performs no parent update in production.
 Consequence: dead callback API and effect scheduling add maintenance cost. There is no evidence of an extra production render from this effect.
 Proposed direction: remove the unused callback contract and effect after checking intended public consumers.
 If a real consumer is introduced, let that consumer read the existing feature hook rather than mirror child state upward.
-Verification criterion: production and Storybook consumers compile; account purchases and contact verification remain unchanged.
+Verification criterion: production and UI catalog consumers compile; account purchases and contact verification remain unchanged.
 
 ### EF-3 — Material authoring duplicates an already synchronous draft-ref update
 

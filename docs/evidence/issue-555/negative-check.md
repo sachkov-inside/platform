@@ -5,7 +5,7 @@
 и в CI. Ниже — две подделки, которыми она проверена на укус. Обе прогнаны командой
 
 ```
-pnpm --filter @inside/web exec vitest run --config vitest.config.mts --project=storybook \
+pnpm --filter @inside/web exec vitest run --config vitest.config.mts --project=ui-catalog \
   src/_pages/home/ui/guest-home.stories.tsx
 ```
 

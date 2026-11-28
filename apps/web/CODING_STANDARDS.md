@@ -21,22 +21,6 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
 - Mark backend adapters, BFF handlers, and server query options `server-only`; use `*.client.tsx`
   for the interactive boundary.
 
-## Storybook catalog
-
-- A story renders the production module in its production environment. A page-level story wraps the
-  module in the shell its route uses; a component story uses the containers its real page gives it.
-  A story never re-creates page markup, a shell, or navigation of its own.
-- `src/storybook/story-environment` owns those wrappers and `@/widgets/application-shell` owns the
-  navigation items. A story that copies navigation or rebuilds a header drifts from the application
-  as soon as either changes; extract the real frame into a module both sides import instead.
-- Scrolling in a story matches the product: the document scrolls below 64rem, and above it the
-  shell owns scrolling. A page-level story that cannot scroll on desktop is a defect, not a fixture.
-- The application is the reference. When a story and its route disagree on tokens, spacing,
-  typography, or states, the story changes.
-- A retired proof leaves the catalog; Git history and the issue keep the decision.
-- Owner decision 2026-09-11: these rules stay prose and are checked in review. Do not add a
-  Storybook-specific automated check for them.
-
 ## Transport and validation
 
 - The Node web process configures Undici for HTTP/1.1 in `instrumentation.ts` before serving
@@ -80,9 +64,7 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
 - A loading state is built from the frame of its own page — the same column, return row and
   header — and is at least a screen tall, so the footer waits below the fold instead of jumping
   when the page arrives. A page with a different layout gets its own skeleton instead of borrowing
-  one. Every such page has `LoadsInPlace` stories for 1440 and 390 that compare the geometry of
-  the skeleton, the shared part and the ready page; `src/storybook/loads-in-place.ts` owns their
-  shared helpers.
+  one. For changed loading geometry, compare the loading and ready route at 1440 and 390 pixels.
 - Review cached reads for closed Material bodies, per-viewer availability, progress, guide mode
   and offers: they never enter the cache or link prefetch. Only guest offer month counts for
   description placeholders may be cached (ADR 0027), never prices. The cache guardrail rejects
@@ -188,7 +170,10 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
   adapter that owns the resource or committed state. Product callers use its domain operation.
   Each exception, including editor and third-party integrations, needs an exact file, owner, hook,
   call fingerprint, reason and public behaviour test in the [lifecycle inventory](scripts/lifecycle-inventory.json).
-  Adding another call in an approved file requires its own review.
+  Adding another call in an approved file requires its own review. During the component catalog
+  retirement, unchanged approved calls whose direct checks were removed keep their exact
+  fingerprints as `retired-proof`. The inventory records the remaining related check and its
+  limits. A change to one of those calls requires a current public behaviour test.
 - Use the event, commit or measurement that makes an operation ready. The reading-state batcher
   uses a zero-delay timeout to collect registrations in one turn. Preserve intentional debounce,
   feedback, polling and deadline timers. When adding or changing one, record the timing purpose
@@ -243,7 +228,7 @@ for each boundary and its behaviour through the named tests.
   enforce concrete substitute forms; [Testing → Substitutes](../../docs/agents/testing.md#substitutes)
   owns required callback ports, named wire faults and the exact API/context platform seams.
 - Keep Web guardrails and negative fixtures aligned. [Testing](../../docs/agents/testing.md)
-  owns the choice between module tests, Storybook and Playwright.
+  owns the choice between module tests and Playwright.
 
 ## Web platform guidance
 

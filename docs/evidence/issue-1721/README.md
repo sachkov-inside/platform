@@ -3,7 +3,7 @@
 Задача [#1721](https://github.com/sachkov-inside/platform/issues/1721) спецификации
 [#1717](https://github.com/sachkov-inside/platform/issues/1717), веб-часть (список людей, карточка,
 выдача, отзыв, восстановление, группа «Люди» в общем поиске). Production visual gate по разделу
-«Визуальная приёмка»: Storybook и живой маршрут на 390 и 1440 px, доступность, отсутствие
+«Визуальная приёмка»: UI catalog и живой маршрут на 390 и 1440 px, доступность, отсутствие
 горизонтальной прокрутки. Visual GO владелец даёт по итоговому интегрированному результату.
 
 Снимки сделаны на коде `86397ec3757f7646e5f8fd64998160ee8f0abc48`. После них по ревью менялись
@@ -39,27 +39,27 @@ Production-сборка web (`next build`) против тестового HTTP-
 (`PRODUCTION_WEB_SKIP_BUILD=1 npx playwright test --config playwright.navigation.config.ts
 test/navigation/authoring-people.spec.ts`).
 
-## Storybook
+## UI catalog
 
-Собранный Storybook (`pnpm build-storybook`), история после её `play`. Снимки и проверки делает
+Собранный UI catalog (`pnpm build-ui-catalog`), история после её `play`. Снимки и проверки делает
 `apps/web/test/evidence/capture-people.mjs` (`UPDATE_EVIDENCE=issue-1721`): для каждой ширины
 `scrollWidth === clientWidth` и Axe внутри `main` страницы, корня истории для окон и всего документа
-для поиска; нарушений 0 ([проверки](storybook-checks.json)). Storybook и маршрут импортируют одни и
+для поиска; нарушений 0 ([проверки](ui-catalog-checks.json)). UI catalog и маршрут импортируют одни и
 те же модули.
 
 | История | 1440 px | 390 px |
 | --- | --- | --- |
-| `pages-authoring-люди--mobile` (имя, без Telegram, неизвестные контакты) | [Снимок](storybook-people--list-1440.png) | [Снимок](storybook-people--list-390.png) |
-| `pages-authoring-люди--long-list` (длинные имена, курсор) | [Снимок](storybook-people--long-list-1440.png) | [Снимок](storybook-people--long-list-390.png) |
-| `pages-authoring-люди--name-search-unavailable` | [Снимок](storybook-people--name-search-unavailable-1440.png) | [Снимок](storybook-people--name-search-unavailable-390.png) |
-| `pages-authoring-люди--empty` | [Снимок](storybook-people--empty-1440.png) | [Снимок](storybook-people--empty-390.png) |
-| `pages-authoring-карточка-человека--all-blocks` (отозванный продукт, история) | [Снимок](storybook-card--all-blocks-1440.png) | [Снимок](storybook-card--all-blocks-390.png) |
-| `pages-authoring-карточка-человека--unavailable-blocks` (сдачи без права) | [Снимок](storybook-card--unavailable-blocks-1440.png) | [Снимок](storybook-card--unavailable-blocks-390.png) |
-| `pages-authoring-карточка-человека--revoke-product-mobile` (окно отзыва) | [Снимок](storybook-card--revoke-dialog-1440.png) | [Снимок](storybook-card--revoke-dialog-390.png) |
-| `pages-authoring-карточка-человека--revision-conflict-mobile` | [Снимок](storybook-card--revision-conflict-1440.png) | [Снимок](storybook-card--revision-conflict-390.png) |
-| `components-админка-действия-с-доступом--grant-active` | [Снимок](storybook-dialog--grant-1440.png) | [Снимок](storybook-dialog--grant-390.png) |
-| `components-админка-действия-с-доступом--restore` | [Снимок](storybook-dialog--restore-1440.png) | [Снимок](storybook-dialog--restore-390.png) |
-| `patterns-каркас-админки--search-people-mobile` (группа «Люди») | [Снимок](storybook-search--people-1440.png) | [Снимок](storybook-search--people-390.png) |
+| `pages-authoring-люди--mobile` (имя, без Telegram, неизвестные контакты) | [Снимок](ui-catalog-people--list-1440.png) | [Снимок](ui-catalog-people--list-390.png) |
+| `pages-authoring-люди--long-list` (длинные имена, курсор) | [Снимок](ui-catalog-people--long-list-1440.png) | [Снимок](ui-catalog-people--long-list-390.png) |
+| `pages-authoring-люди--name-search-unavailable` | [Снимок](ui-catalog-people--name-search-unavailable-1440.png) | [Снимок](ui-catalog-people--name-search-unavailable-390.png) |
+| `pages-authoring-люди--empty` | [Снимок](ui-catalog-people--empty-1440.png) | [Снимок](ui-catalog-people--empty-390.png) |
+| `pages-authoring-карточка-человека--all-blocks` (отозванный продукт, история) | [Снимок](ui-catalog-card--all-blocks-1440.png) | [Снимок](ui-catalog-card--all-blocks-390.png) |
+| `pages-authoring-карточка-человека--unavailable-blocks` (сдачи без права) | [Снимок](ui-catalog-card--unavailable-blocks-1440.png) | [Снимок](ui-catalog-card--unavailable-blocks-390.png) |
+| `pages-authoring-карточка-человека--revoke-product-mobile` (окно отзыва) | [Снимок](ui-catalog-card--revoke-dialog-1440.png) | [Снимок](ui-catalog-card--revoke-dialog-390.png) |
+| `pages-authoring-карточка-человека--revision-conflict-mobile` | [Снимок](ui-catalog-card--revision-conflict-1440.png) | [Снимок](ui-catalog-card--revision-conflict-390.png) |
+| `components-админка-действия-с-доступом--grant-active` | [Снимок](ui-catalog-dialog--grant-1440.png) | [Снимок](ui-catalog-dialog--grant-390.png) |
+| `components-админка-действия-с-доступом--restore` | [Снимок](ui-catalog-dialog--restore-1440.png) | [Снимок](ui-catalog-dialog--restore-390.png) |
+| `patterns-каркас-админки--search-people-mobile` (группа «Люди») | [Снимок](ui-catalog-search--people-1440.png) | [Снимок](ui-catalog-search--people-390.png) |
 
 ## Клавиатура, фокус и роли
 

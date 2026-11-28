@@ -1521,7 +1521,6 @@ owns editor and source-authoring instructions.
 
 Публичная шапка, название и вход следуют текущему
 [контракту навигации](../product/platform-mvp-brief.md#поиск-и-навигация), принятому в #311/#313.
-Storybook и реальные маршруты используют один production-компонент шапки.
 
 - Save transaction обновляет public search projection из title, description и current metadata;
   body/headings/asset labels остаются отдельным server-side protected index;
@@ -1745,7 +1744,7 @@ The following bullets describe the **authoring** surface:
    Library #90 продвигают принятые presentation modules и real backend data каждый в одном
    production vertical slice; #91 и #93 расширяют уже работающий Library journey. Для authoring
    [#38](https://github.com/sachkov-inside/platform/issues/38) сначала получает отдельный
-   owner-accepted Storybook proof Editor/current-state Preview; после proof и working Account #49
+   owner-accepted UI catalog proof Editor/current-state Preview; после proof и working Account #49
    [#94](https://github.com/sachkov-inside/platform/issues/94) поставил production create + saved
    Draft Preview через PR #142, а [#95](https://github.com/sachkov-inside/platform/issues/95) —
    full-state Save и conflict recovery через PR #143. Каждый production ticket использует принятые
@@ -1884,7 +1883,7 @@ The old `learning_practice_read`, `GET /library/materials/:slug/practices` and
 existing immutable receipt. It neither executes Practice nor supplies current learner context. Both public and private Material
 routes use only the explicit Material-bound Task descriptor and the existing Task workspace, even
 when the historical Practice row still exists. Current setup instructions direct learners to Task
-reads and submissions; legacy protocol tests remain separate from current UI/Storybook claims.
+reads and submissions; legacy protocol tests remain separate from current UI verification.
 The production access pass uses Task reads for
 positive assignment coverage and retains an explicitly named retired-Practice denial probe. Its
 unpublished free-Task case stays deferred rather than republishing a retired source as a fixture.
@@ -1974,8 +1973,7 @@ Callout signs survive Markdown import into Materials and Task c pages (#1196). `
 The optional document attribute accepts null or absence for old blocks; the rendered block omits
 it in both cases. The editor preserves it through serialization and clipboard HTML. Titles and
 nested Markdown bodies remain in the block; fenced examples stay code. Reader, Task c and author
-preview use native disclosure controls for signed callouts. Temporary semantic UI awaits the
-Storybook visual integration in #1278.
+preview use native disclosure controls for signed callouts. The history of visual review is recorded in #1278.
 
 Definition v1 keeps its `situation`, `result`, `freedom` and `requirement` fields. Definition v2 adds
 `format: c`, `intro`, `freedom` and criteria with `id`, `level`, `task`, `explanation`, optional

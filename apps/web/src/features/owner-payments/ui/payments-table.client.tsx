@@ -101,7 +101,7 @@ export function PaymentsTable({ query, onQueryChange }: PaymentsTableProps) {
 export type PaymentsListState =
   OwnerReadState<PaymentsPage> | { readonly kind: "loading" };
 
-/** Таблица платежей по готовому состоянию: её показывают и маршрут, и Storybook. */
+/** Таблица платежей по готовому состоянию. */
 export function PaymentsTableView({
   isRefreshing = false,
   onQueryChange,

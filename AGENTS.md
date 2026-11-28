@@ -30,7 +30,7 @@ commit/review order and the no-ticket acceptance record. [PIPELINE.md](.agents/s
 - Issues, specifications, sub-issues, blocking or Wayfinder: [issue tracker](docs/agents/issue-tracker.md).
   Readiness labels: [triage labels](docs/agents/triage-labels.md).
 - Product context, terminology or ADR placement: [domain](docs/agents/domain.md).
-- Frontend delivery, Storybook review or a prototype: [frontend delivery](docs/agents/frontend-delivery.md).
+- Frontend delivery or a prototype: [frontend delivery](docs/agents/frontend-delivery.md).
 - Local application review, the shared stand or a light per-agent instance:
   `.agents/skills/local-stand/SKILL.md`.
 - Interactive browser work: `agent-browser`, headless, in a session named for the task; never the

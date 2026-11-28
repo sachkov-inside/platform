@@ -8,10 +8,10 @@ behaviour is proved by the checked-in full-stack Playwright test and `pnpm smoke
 | Historical surface | Desktop | Mobile |
 | --- | --- | --- |
 | Pre-continuation live route | [`live-desktop.png`](./live-desktop.png) | [`live-mobile.png`](./live-mobile.png) |
-| Pre-continuation Storybook component | [`storybook-desktop.png`](./storybook-desktop.png) | [`storybook-mobile.png`](./storybook-mobile.png) |
+| Pre-continuation UI catalog component | [`ui-catalog-desktop.png`](./ui-catalog-desktop.png) | [`ui-catalog-mobile.png`](./ui-catalog-mobile.png) |
 
 - Live route: `/library`
-- Storybook: `Pages/Library/Production` (`Ready · desktop` and `Ready · mobile`)
+- ui-catalog: `Pages/Library/Production` (`Ready · desktop` and `Ready · mobile`)
 - Desktop viewport: `1440 × 1024`
 - Mobile viewport: `390 × 844`
 - At capture time, the local seed published 13 Materials through the application interface. The
@@ -26,7 +26,7 @@ behaviour is proved by the checked-in full-stack Playwright test and `pnpm smoke
 - Operational stories cover ready, continuation, loading, empty, controlled infrastructure error
   and unexpected error. Every route-level state preserves the Library page heading and recovery
   path.
-- Agentation is enabled on the exact Storybook surface for interactive owner review.
+- Agentation is enabled on the exact UI catalog surface for interactive owner review.
 - Owner production visual GO: accepted after iterative review of the Library, sidebar, card click
   target and copy.
 - Owner merge GO: given separately with the instruction to synchronize and push `main`.

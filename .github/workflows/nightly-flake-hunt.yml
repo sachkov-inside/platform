@@ -27,7 +27,7 @@ jobs:
       fail-fast: false
       max-parallel: 2
       matrix:
-        include: ${{ fromJSON(inputs.fixture && '[{"suite":"fixture","minutes":10}]' || '[{"suite":"web-e2e","minutes":90},{"suite":"storybook","minutes":60},{"suite":"browser-engines","minutes":60},{"suite":"integration","minutes":120},{"suite":"unit","minutes":90}]') }}
+        include: ${{ fromJSON(inputs.fixture && '[{"suite":"fixture","minutes":10}]' || '[{"suite":"web-e2e","minutes":90},{"suite":"browser-engines","minutes":60},{"suite":"integration","minutes":120},{"suite":"unit","minutes":90}]') }}
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -36,7 +36,7 @@ jobs:
       - name: Set up Platform
         uses: ./.github/actions/setup-platform
         with:
-          browsers: ${{ (matrix.suite == 'web-e2e' || matrix.suite == 'storybook' || matrix.suite == 'browser-engines') && 'chromium webkit' || '' }}
+          browsers: ${{ (matrix.suite == 'web-e2e' || matrix.suite == 'browser-engines') && 'chromium webkit' || '' }}
       - name: Build production applications once
         if: ${{ matrix.suite == 'web-e2e' }}
         run: pnpm build

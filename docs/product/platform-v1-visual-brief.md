@@ -319,7 +319,7 @@ Rendered review в [Platform #45](https://github.com/sachkov-inside/platform/iss
 - `Hybrid Catalog` является принятым composition proof для этих cards, но не финальным layout
   Библиотеки.
 
-Текущие rendered proofs находятся в Storybook stories `Navigation/Application shell` и
+При раннем ревью rendered proofs находились в UI catalog stories `Navigation/Application shell` и
 `Compositions/Material cards`. Laboratory использует Tailwind CSS, shadcn-compatible shared UI
 structure; overlay Agentation снят 09.10.2026 по решению владельца. Production routes пока не импортируют workshop
 runtime или fixtures.
@@ -365,8 +365,7 @@ rendered visual/component GO остаётся отдельным от PR и merg
 - accepted component foundation состоит из реально используемых `Button`, `Select` и
   surface patterns `ApplicationShell`, `MaterialCard`, `LibraryFilters`; story-only `Sheet`,
   неподтверждённая header topology и внешний avatar dependency в baseline не сохраняются;
-- Storybook stories являются читаемыми responsive proofs и исполняемыми interaction/accessibility
-  contracts; overlay Agentation снят 09.10.2026 по решению владельца.
+- Overlay Agentation снят 09.10.2026 по решению владельца. Интерфейс проверяется по [правилам frontend delivery](../agents/frontend-delivery.md).
 
 Reader proof остаётся отделён от production route, backend/client integration, video player,
 closed-access acquisition flow и author editor. Video и closed-access states проходят собственные
@@ -377,7 +376,7 @@ surface reviews.
 
 ### Integrated mobile-first public baseline
 
-Owner review 2026-09-04 выбрал Storybook proof `Pages/Mobile-first Platform/Prototype` как
+Owner review 2026-09-04 выбрал UI catalog proof `Pages/Mobile-first Platform/Prototype` как
 canonical visual baseline для public Home, Library, Topic, Playlist and Reader. Versioned sources:
 
 - `apps/web/src/workshop/mobile-first-platform.prototype.tsx`;
@@ -386,9 +385,7 @@ canonical visual baseline для public Home, Library, Topic, Playlist and Reade
 
 Baseline authority включает composition, hierarchy, typography, spacing, colour, cover geometry,
 card presentation, desktop Sidebar, mobile floating navigation и responsive behaviour на
-`390 × 844` и `1440 × 1024`. Production routes и production Storybook stories используют одну
-production-owned implementation этих решений; story fixtures поставляют только representative
-presentation state.
+`390 × 844` и `1440 × 1024`. Эти решения применяются в рабочих маршрутах.
 
 Prototype fixtures, button-owned navigation, hardcoded audience decisions, personalised
 Выдуманная `Продолжить`/history и несогласованный порядок секций не являются product
@@ -463,5 +460,5 @@ specification; отменённые concept/component gates #22/#23 и supersede
 [Personal Home](../specifications/personal-home.md) от 2026-09-06 добавляют реальные отметки и
 продолжение незавершённого поверх принятого хаба. Это уточняет ранний запрет Home history/Continue,
 но не разрешает fake progress. Конкретная композиция, тексты и состояния проходят отдельный
-Storybook proof и production visual GO. [Аналитика автора](author-analytics-plan.md) имеет собственные
+production visual GO. [Аналитика автора](author-analytics-plan.md) имеет собственные
 measurement/proof/integration задачи и не вводит dashboard-стиль в пользовательскую главную.

@@ -28,7 +28,7 @@ interface MaterialPreviewProps {
   readonly preview: MaterialPreviewPresentation;
 }
 
-/** Current-Material reading surface shared by Storybook and future production adapters. */
+/** Reading surface for the current saved Material. */
 export function MaterialPreview({ preview }: MaterialPreviewProps) {
   const exerciseNumbers = materialExerciseNumbers(preview.blocks);
   return (

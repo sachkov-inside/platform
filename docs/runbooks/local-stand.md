@@ -54,7 +54,7 @@ and survive session completion. A reservation whose worktree directory no longer
 by the next `show`, `refresh`, `release` or `upgrade` from any worktree, which reports it; `status`
 only reads and marks such a reservation. `status` shows the reserved worktree and how long ago it
 was reserved, from `reservation-times.json` beside the state; reservations taken before this file
-existed show an unknown age. Ordinary editing, Storybook and isolated tests do not reserve it.
+existed show an unknown age. Ordinary editing and isolated tests do not reserve it.
 
 A mutation that finds another stand operation running waits in a first-come queue instead of
 failing, and prints its position and the running operation to stderr. `status` lists the queue.

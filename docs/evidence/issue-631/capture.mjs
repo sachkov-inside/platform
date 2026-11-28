@@ -18,7 +18,7 @@ for(const [name,width,height] of [['desktop',1440,1024],['mobile',390,844]]){
  ['product','pages-mobile-first-platform-collections--series-product-desktop','Что внутри продукта'],
  ['reader','pages-mobile-first-platform-reader--access-guide-purchase','Купить продукт']
  ]){
-  await page.goto(`${process.env.STORYBOOK_URL ?? "http://127.0.0.1:6316"}/iframe.html?id=${encodeURIComponent(id)}&viewMode=story`,{waitUntil:'domcontentloaded'});
+  await page.goto(`${process.env.UI_CATALOG_URL ?? "http://127.0.0.1:6316"}/iframe.html?id=${encodeURIComponent(id)}&viewMode=story`,{waitUntil:'domcontentloaded'});
   await expect(surface==='authoring' ? page.getByRole('heading',{level:1,name:/Продукты/}) : page.getByText(label,{exact:true}).first()).toBeVisible({timeout:30000});
   await page.addStyleTag({content:'[data-agentation-root] { display: none !important; }'});
   await page.screenshot({path:`${out}/${surface}-${name}.png`,fullPage:true});

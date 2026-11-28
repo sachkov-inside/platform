@@ -11,7 +11,7 @@ The declared-response test fixture was subsequently aligned with the required du
 
 ## Visual evidence
 
-All images in this directory were inspected. Storybook uses production components and private synthetic fixtures.
+All images in this directory were inspected. UI catalog uses production components and private synthetic fixtures.
 The `onboarding`, `checkout`, `purchases`, and `completed` images cover 1440 and 390 widths.
 The capture asserted no horizontal overflow and used the repository whole-page helper.
 Completed images show that Onboarding disappears from desktop and mobile navigation.
@@ -31,7 +31,7 @@ The Next development indicator is visible in these live captures.
 - Whole Product revocation with scoped and whole-platform grants: 2 passed.
 - Local bank double: 11 passed, including the exact purchase-specific return URL.
 - Declared response contract: 9 passed after updating the fixture for `started`.
-- Focused Storybook tests covered checkout, onboarding, purchases, Product revocation and group configuration.
+- Focused UI catalog tests covered checkout, onboarding, purchases, Product revocation and group configuration.
 - Buyer journey: 2 passed on desktop/mobile against real Next/Nest/PostgreSQL. Owned smoke processes and database were stopped.
 - Full `pnpm check` and current-head CI remain pending. Earlier aggregate attempts exposed lint, guardrail and stale fixture failures; those were corrected.
 
@@ -41,7 +41,7 @@ Production visual GO remains pending under `docs/agents/frontend-delivery.md`.
 
 ## Owner preview resource
 
-Storybook: http://localhost:6006
+ui-catalog: http://localhost:6006
 
 - Onboarding: http://localhost:6006/?path=/story/pages-product-onboarding--link-telegram
 - Checkout: http://localhost:6006/?path=/story/pages-product-purchase--for-sale
@@ -50,6 +50,6 @@ Storybook: http://localhost:6006
 Owned process: PID `72035`, root pnpm PID `71998`, port `6006`.
 Working directory: `/Users/dev/.herdr/worktrees/platform/worktree-silver-river-2547/apps/web`.
 Source: the `feat/1442-buyer-journey` writing worktree. The server follows local edits.
-Restart from the worktree root with `pnpm storybook`.
+Restart from the worktree root with `pnpm ui-catalog`.
 Before stopping, verify the PID, command and working directory still belong to this preview; then stop root PID `71998`.
 Keep this preview running while the owner reviews the implementation. Owner Chrome tabs remain open.

@@ -17,7 +17,7 @@ PostgreSQL → Nest HTTP → generated client → Next RSC path.
 - Related Materials are deterministic: explicit author pins lead, followed by public metadata
   scoring. The first seeded related card proves the pin order.
 - Missing Topic/Series, empty, loading, dependency outage and unexpected error states have
-  controlled production presentations. Storybook covers ready Topic/Series, related
+  controlled production presentations. UI catalog covers ready Topic/Series, related
   ready/empty/unavailable and route operational states.
 - Full-stack Playwright verifies the complete Library → Topic → Series → Reader navigation on
   desktop and mobile Chromium, with no serious/critical axe findings or horizontal overflow.

@@ -22,7 +22,7 @@
     },
     {
       "provider": "agent-kit",
-      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
+      "ref": "efa305061e1e2c981e6abb105949748142ebaf54",
       "skill": "prototype",
       "destination": ".agents/skills/prototype"
     },

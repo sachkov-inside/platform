@@ -5,32 +5,32 @@
 `origin/main` (`e00efc1c9ee53462462e6eb6eff734a2d17fb827`); прототип не объединялся с ней.
 
 Снимки показывают production-owned модуль `apps/web/src/_pages/task-submissions`,
-общий для Storybook и `/authoring/submissions`. Последнее изменение production Source:
+общий для UI catalog и `/authoring/submissions`. Последнее изменение production Source:
 `4b4e33bbe2d0b438f29472a14ee49a7cc79792b6`. Последующие commits до передачи добавляют
-инструмент снимков и evidence; production Source остаётся тем же. Commit прогона Storybook
-записан в [storybook-checks.json](storybook-checks.json). Точный передаваемый HEAD — в PR #1344.
+инструмент снимков и evidence; production Source остаётся тем же. Commit прогона UI catalog
+записан в [ui-catalog-checks.json](ui-catalog-checks.json). Точный передаваемый HEAD – в PR #1344.
 
 Финальный **production visual GO владельца ещё требуется**. Принятие прототипа не заменяет его.
 
 ## Снимки для приёмки
 
-| Состояние | Storybook 390 | Storybook 1440 | Live route 390 | Live route 1440 |
+| Состояние | UI catalog 390 | UI catalog 1440 | Live route 390 | Live route 1440 |
 | --- | --- | --- | --- | --- |
-| Очередь и полный отчёт | [PNG](storybook-report-is-text-390.png) | [PNG](storybook-report-is-text-1440.png) | [PNG](live-ready-mobile-chromium.png) | [PNG](live-ready-desktop-chromium.png) |
-| Историческая версия | [PNG](storybook-submissions-390.png) | [PNG](storybook-submissions-1440.png) | [PNG](live-historical-version-mobile-chromium.png) | [PNG](live-historical-version-desktop-chromium.png) |
-| Сохранённый отзыв | [PNG](storybook-feedback-saves-390.png) | [PNG](storybook-feedback-saves-1440.png) | [PNG](live-saved-feedback-mobile-chromium.png) | [PNG](live-saved-feedback-desktop-chromium.png) |
-| Ошибка сохранения и черновик | [PNG](storybook-feedback-save-fails-390.png) | [PNG](storybook-feedback-save-fails-1440.png) | [PNG](live-save-error-mobile-chromium.png) | [PNG](live-save-error-desktop-chromium.png) |
-| Loading | [PNG](storybook-loading-390.png) | [PNG](storybook-loading-1440.png) | [PNG](live-loading-mobile-chromium.png) | [PNG](live-loading-desktop-chromium.png) |
-| Empty | [PNG](storybook-empty-390.png) | [PNG](storybook-empty-1440.png) | [PNG](live-empty-mobile-chromium.png) | [PNG](live-empty-desktop-chromium.png) |
-| Empty filter | [PNG](storybook-empty-filter-390.png) | [PNG](storybook-empty-filter-1440.png) | — | — |
-| Access denied | [PNG](storybook-forbidden-390.png) | [PNG](storybook-forbidden-1440.png) | [PNG](live-denied-mobile-chromium.png) | [PNG](live-denied-desktop-chromium.png) |
-| Нужен вход | [PNG](storybook-unauthorized-390.png) | [PNG](storybook-unauthorized-1440.png) | [PNG](live-expired-mobile-chromium.png) | [PNG](live-expired-desktop-chromium.png) |
-| Ошибка загрузки | [PNG](storybook-unavailable-390.png) | [PNG](storybook-unavailable-1440.png) | [PNG](live-load-error-mobile-chromium.png) | [PNG](live-load-error-desktop-chromium.png) |
-| Сессия истекла во время сохранения | [PNG](storybook-expired-session-390.png) | [PNG](storybook-expired-session-1440.png) | — | — |
+| Очередь и полный отчёт | [PNG](ui-catalog-report-is-text-390.png) | [PNG](ui-catalog-report-is-text-1440.png) | [PNG](live-ready-mobile-chromium.png) | [PNG](live-ready-desktop-chromium.png) |
+| Историческая версия | [PNG](ui-catalog-submissions-390.png) | [PNG](ui-catalog-submissions-1440.png) | [PNG](live-historical-version-mobile-chromium.png) | [PNG](live-historical-version-desktop-chromium.png) |
+| Сохранённый отзыв | [PNG](ui-catalog-feedback-saves-390.png) | [PNG](ui-catalog-feedback-saves-1440.png) | [PNG](live-saved-feedback-mobile-chromium.png) | [PNG](live-saved-feedback-desktop-chromium.png) |
+| Ошибка сохранения и черновик | [PNG](ui-catalog-feedback-save-fails-390.png) | [PNG](ui-catalog-feedback-save-fails-1440.png) | [PNG](live-save-error-mobile-chromium.png) | [PNG](live-save-error-desktop-chromium.png) |
+| Loading | [PNG](ui-catalog-loading-390.png) | [PNG](ui-catalog-loading-1440.png) | [PNG](live-loading-mobile-chromium.png) | [PNG](live-loading-desktop-chromium.png) |
+| Empty | [PNG](ui-catalog-empty-390.png) | [PNG](ui-catalog-empty-1440.png) | [PNG](live-empty-mobile-chromium.png) | [PNG](live-empty-desktop-chromium.png) |
+| Empty filter | [PNG](ui-catalog-empty-filter-390.png) | [PNG](ui-catalog-empty-filter-1440.png) | – | – |
+| Access denied | [PNG](ui-catalog-forbidden-390.png) | [PNG](ui-catalog-forbidden-1440.png) | [PNG](live-denied-mobile-chromium.png) | [PNG](live-denied-desktop-chromium.png) |
+| Нужен вход | [PNG](ui-catalog-unauthorized-390.png) | [PNG](ui-catalog-unauthorized-1440.png) | [PNG](live-expired-mobile-chromium.png) | [PNG](live-expired-desktop-chromium.png) |
+| Ошибка загрузки | [PNG](ui-catalog-unavailable-390.png) | [PNG](ui-catalog-unavailable-1440.png) | [PNG](live-load-error-mobile-chromium.png) | [PNG](live-load-error-desktop-chromium.png) |
+| Сессия истекла во время сохранения | [PNG](ui-catalog-expired-session-390.png) | [PNG](ui-catalog-expired-session-1440.png) | – | – |
 
 ## Что доказывают прогоны
 
-- Storybook: 17 interaction/a11y-сценариев, включая сохранность разных черновиков,
+- ui-catalog: 17 interaction/a11y-сценариев, включая сохранность разных черновиков,
   текст без исполняемой разметки, mutation, ошибки, зависимые фильтры, ссылки пагинации,
   `LoadsInPlace` на 390/1440 и свежий серверный отзыв после запоздалого ответа.
 - Модульные проверки: 18 тестов loader/presentation/guide/reconciliation. Проверены
@@ -41,7 +41,7 @@
   Проверены фильтры, пагинация и selection, сохранение при смене выбранной сдачи,
   повторное сохранение, сохранность черновиков, загрузка и ошибки. Данные и сессии
   синтетические; HTTP fixture выбирает исходы, а не проверяет права реального backend.
-- Все 22 Storybook-снимка и 18 live-снимков: `scrollWidth === clientWidth`, Axe по `main`
+- Все 22 ui-catalog-снимка и 18 live-снимков: `scrollWidth === clientWidth`, Axe по `main`
   без нарушений. Десктопная очередь находится слева от отчёта, мобильная — над ним.
   Полная страница снята штатным `screenshotWholePage`, включая прокручиваемую область.
 
@@ -70,7 +70,7 @@ Node `26.10.0`, pnpm `11.27.1`, Playwright `1.63.0`. В Cloud браузеры �
 ```bash
 pnpm docs:check
 pnpm check
-pnpm build:storybook
+pnpm build:ui-catalog
 UPDATE_EVIDENCE=issue-967 bash scripts/heavy-check.sh \
   pnpm --filter @inside/web exec node test/evidence/capture-task-submissions.mjs
 PRODUCTION_WEB_SKIP_BUILD=1 CAPTURE_SUBMISSIONS_EVIDENCE=1 UPDATE_EVIDENCE=issue-967 \
@@ -78,9 +78,9 @@ PRODUCTION_WEB_SKIP_BUILD=1 CAPTURE_SUBMISSIONS_EVIDENCE=1 UPDATE_EVIDENCE=issue
 ```
 
 Последняя команда использует production-сборку из `pnpm check`. Для interactive preview:
-`pnpm storybook` и
+`pnpm ui-catalog` и
 [Submissions](http://localhost:6006/?path=/story/pages-authoring-task-submissions--submissions).
-Это адрес локального Storybook, а не опубликованный Cloud-сайт; доступные снимки находятся выше.
+Это адрес локального UI catalog, а не опубликованный Cloud-сайт; доступные снимки находятся выше.
 
 ## Оставшаяся приёмка
 

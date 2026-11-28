@@ -249,7 +249,7 @@ oxlint), сделайте один коммит форматирования, д
   `material-asset-node-view.client.tsx:180`: `outline-none` без стиля фокуса (WCAG 2.4.7).
 - Override для web в `.oxlintrc.json` подключает только плагины `nextjs` и `react`; `jsx-a11y` нет.
 
-**Что уже хорошо.** Storybook a11y работает в режиме `test: "error"`. axe есть в 18 спеках. 162
+**Что уже хорошо.** UI catalog a11y работает в режиме `test: "error"`. axe есть в 18 спеках. 162
 `aria-live`/`role=status|alert`. `prefers-reduced-motion` учитывается в 65 местах. Есть ссылка «Перейти
 к содержанию» (`application-shell.client.tsx:69`). Положительных `tabIndex` и `div onClick` нет.
 
@@ -319,7 +319,7 @@ CDN.
 
 **Effort:** S.
 
-### L8. Пробелы в Storybook — Low
+### L8. Пробелы в UI catalog : Low
 
 **Evidence.** Всего 59 файлов и 551 story. Нет stories для страниц:
 - `account-notifications`, `account-purchases`, `account-subscription`;

@@ -7,7 +7,7 @@ import { AuthoringShell } from "@/widgets/authoring-shell";
 
 /**
  * Продакшен-адаптер каркаса админки: подставляет в `AuthoringShell` счётчик сдач без
- * комментария из чтения браузера. Storybook передаёт каркасу число сам.
+ * комментария из чтения браузера.
  */
 export function AuthoringApplicationShell({
   children,

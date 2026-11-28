@@ -55,6 +55,6 @@ background so a tool timeout does not end the wait. A reservation whose worktree
 released by the next mutation, which reports it.
 
 Inspect command options with `pnpm stand --help`. Use `--production-web` for navigation-speed
-checks; it retains the existing clean-source requirement. Run isolated tests and Storybook without
+checks; it retains the existing clean-source requirement. Run isolated tests without
 occupying the singleton. The controller governs cooperating local sessions; direct Docker commands
 and old checkouts can bypass it, so route shared-stand mutations through the registered controller.

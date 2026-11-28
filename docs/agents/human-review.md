@@ -98,8 +98,7 @@ Choose the kind of evidence for each scenario; one PR mixes them:
 - **Numbers before and after**: speed, size, reliability.
 - **One line**: nothing changes for the user.
 
-Tests protect against regressions and are not the evidence the owner accepts from. Storybook is a
-workshop: the running application proves the look a user gets.
+Tests protect against regressions. Show the owner the running application for visual acceptance.
 
 The verifier puts the files and one `manifest.json` into `.evidence/` at the worktree's root,
 outside Git; `verify-platform` owns the folder and the manifest. For each scenario the manifest

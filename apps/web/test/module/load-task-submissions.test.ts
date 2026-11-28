@@ -11,7 +11,7 @@ import {
   reviewedSubmissions,
   submissionsProductId,
   submissionsSecondChapter,
-} from "@/storybook/task-submissions.fixtures";
+} from "../fixtures/task-submissions.fixtures";
 
 const loadTaskSubmissions = (
   ...args: Parameters<typeof realLoadTaskSubmissions>

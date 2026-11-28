@@ -23,7 +23,7 @@ beforeAll(async () => {
       alias: {
         "@": `${root}/src`,
         "next/navigation": `${root}/test/support/course-reading-router.ts`,
-        "next/link": `${root}/.storybook/mocks/next-link.tsx`,
+        "next/link": `${root}/test/support/next-link.tsx`,
       },
     },
     // This immutable fixture must not reload when a concurrent production build writes HTML.

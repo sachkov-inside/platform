@@ -21,8 +21,7 @@ export interface BillingContactPanelProps {
 }
 
 /**
- * Производственный путь контакта: собственный BFF, повторяемые команды и один presentation
- * interface с Storybook. Повтор той же попытки использует прежнюю ссылку на операцию.
+ * Панель контакта использует собственный BFF. Повтор той же попытки сохраняет ссылку на операцию.
  */
 export function BillingContactPanel({
   headingLevel,

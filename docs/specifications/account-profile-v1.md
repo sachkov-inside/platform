@@ -75,10 +75,10 @@ starts disposable Logto, PostgreSQL, Mailpit and a synthetic Telegram provider w
 shared stand. It checks registration through Telegram, the email fallback and access pass, record
 ownership, wrong/expired codes, occupied addresses, the same provider subject, retry and competing
 attachments. It removes its containers and network on completion. Browser evidence and name edits
-use the production modules and their Storybook states.
+use the running application with synthetic Account states.
 
 The functional delivery is tracked in #1586 under specification #1585. The owner accepted the
-functional result and Storybook/live-route presentation at `f4205481f252f46af5884667a4fb4e7302974d2e`
+functional result and ui-catalog/live-route presentation at `f4205481f252f46af5884667a4fb4e7302974d2e`
 on 20 October 2026 and explicitly requested merge. This completes the visual gate tracked in
 #1587; the temporary marker at `AccountAccessView` is removed. Both adapters import the same
 accepted production modules. No new shared visual system is introduced.

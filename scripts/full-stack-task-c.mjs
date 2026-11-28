@@ -19,7 +19,7 @@ export async function seedFullStackTaskC(origin, accessToken) {
   const directory = await mkdtemp(join(tmpdir(), "inside-task-c-"));
   try {
     const imageBytes = await readFile(
-      resolve("apps/web/.storybook/fixtures/reader-images/960"),
+      resolve("apps/web/test/fixtures/reader-images/960"),
     );
     await writeFile(join(directory, "diagram.png"), imageBytes);
     const imageVariants = {
@@ -31,7 +31,7 @@ export async function seedFullStackTaskC(origin, accessToken) {
     const sceneAssets = [];
     for (const [variant, sourceId] of Object.entries(imageVariants)) {
       const bytes = await readFile(
-        resolve(`apps/web/.storybook/fixtures/image-variants/${variant}.png`),
+        resolve(`apps/web/test/fixtures/image-variants/${variant}.png`),
       );
       const path = `${sourceId}.png`;
       await writeFile(join(directory, path), bytes);

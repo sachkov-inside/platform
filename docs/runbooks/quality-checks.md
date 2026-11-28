@@ -1,7 +1,7 @@
 # Quality checks
 
 `pnpm check:static` includes `pnpm quality:check`: real positive/negative tool proofs,
-workflow lint, shell lint, Dockerfile lint, dependency usage and the shared Storybook MCP endpoint.
+workflow lint, shell lint, Dockerfile lint, dependency usage and agent configuration.
 `pnpm quality:security` separately checks source secrets and production dependency advisories.
 Application CI requires security for every candidate, including documentation-only changes.
 Its failed, cancelled, missing or skipped result prevents `CI Gate` success.
@@ -16,8 +16,8 @@ Its failed, cancelled, missing or skipped result prevents `CI Gate` success.
 | `pnpm quality:workflows` | jactionlint default profile, strict exit, offline checks of workflows, composite actions and Dependabot. Workflow ShellCheck checks warning/error levels. Expiring, scoped exceptions are in `.github/jactionlint.yaml` |
 | `pnpm quality:shell` | ShellCheck on repository shell scripts and hooks, including informational/style diagnostics. Imported skills and negative fixtures keep their source bytes |
 | `pnpm quality:docker` | Hadolint warnings/errors fail. Informational findings remain visible. File-specific upstream/package-install exceptions are in `scripts/quality-check.mjs`; Docker runtime/image/provenance contracts remain required |
-| `pnpm quality:unused` | Knip checks unused and undeclared dependencies with explicit workspace entries. Guardrail fixtures and generated outputs are excluded. Prisma's generated runtime requires the explicit `@prisma/client` exception in `knip.json` |
-| `pnpm quality:agents` | JSON shape and absence of the legacy Storybook MCP server in both agent configs |
+| `pnpm quality:unused` | Knip checks unused and undeclared dependencies with explicit workspace entries. Guardrail fixtures and generated outputs are excluded. Explicit exceptions cover Prisma's generated runtime and font binaries loaded through literal `next/font/local` paths |
+| `pnpm quality:agents` | Claude MCP JSON shape validation |
 
 The pinned external binaries and archive SHA-256 digests for macOS/Linux, arm64/x64, live in
 `scripts/quality-tools.json`. First use downloads only those assets into the worktree's
@@ -98,5 +98,4 @@ Next 16.4.1 also changes how a static App Shell can be delivered. Navigation tes
 both completed RuntimeShell responses and completed static page segments. Route trees, layout
 segments and per-link PPR data do not satisfy that barrier. The shared classifier and its negative
 cases live in `apps/web/test/support/app-shell-prefetch.ts`; user-visible navigation, payload and
-private-data assertions remain required. Storybook imports the same read-only search-params class
-from Next's shared leaf module to avoid importing server rendering internals into the browser.
+private-data assertions remain required.

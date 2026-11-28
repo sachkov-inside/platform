@@ -92,7 +92,7 @@ The 9 October cached-stand estimate rounded up 3 GiB for source/web/export growt
 snapshots of at most 2.261 GB each to a provisional 8 GiB ceiling. On 10 October, the c0 image-only
 attempt stopped at the cumulative global margin while building Web dependencies; that estimate did
 not prove the whole matrix fits. Backend and Web now declare identical toolchain/dependency inputs.
-Web disables Next telemetry in its development stage, inherited by Web, Storybook and production-build,
+Web disables Next telemetry in its development stage, inherited by Web and production-build,
 so this Web setting does not separate the dependency cache. Native reuse still needs verification;
 a matching source graph is not measured capacity. Production Web keeps its separate image and build,
 while development Web reuses API's workspace. The historical estimate uses retained layer/cache

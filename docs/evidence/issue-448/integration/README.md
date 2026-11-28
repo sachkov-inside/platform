@@ -23,8 +23,8 @@ Material не принимается как объект закрепа. Наз�
 Все итоговые команды выполнены на Node 24.19.0, pnpm 11.22.0.
 
 - `WATCHPACK_POLLING=true PLAYWRIGHT_PORT=3449 pnpm check` — успешно: docs/API drift,
-  lint, types, guardrails, tooling/Go, 512 backend tests, 577 Web/Storybook tests (1 предусмотренный
-  skip), E2E 52 passed / 14 viewport skips, production build, standalone и Storybook build.
+  lint, types, guardrails, tooling/Go, 512 backend tests, 577 Web/ui-catalog tests (1 предусмотренный
+  skip), E2E 52 passed / 14 viewport skips, production build, standalone и UI catalog build.
 - `pnpm --filter @inside/backend test:integration --maxWorkers=4` — 42 файла, 274 теста успешно.
   Включены неизменный prefix/checksum миграций, canonical/legacy Guide, чтение/прогресс,
   singleton закрепа, запрет Material UUID, права, CAS-конкуренция, archive/empty fallback,
@@ -33,8 +33,8 @@ Material не принимается как объект закрепа. Наз�
   10 сценариев успешно на desktop/mobile, реальные BFF/API/PostgreSQL и MCP. У smoke обновлён
   ожидаемый discovery-контракт двумя ранее добавленными `guide_*` инструментами.
 - После review-исправления повторены `pnpm typecheck`, `pnpm --filter @inside/web test`,
-  `pnpm build:storybook` и весь указанный full-stack smoke — успешно.
-- Storybook Docs и production-owned страницы проверены на 390×844 и 1440×1024.
+  `pnpm build:ui-catalog` и весь указанный full-stack smoke – успешно.
+- UI catalog Docs и production-owned страницы проверены на 390×844 и 1440×1024.
   Browser smoke проверяет отсутствие overflow при text 200%, axe, состояние loading/error/retry
   без сдвига списка, сохранение/замену/снятие закрепа и отказ участнику без author permission.
 
@@ -53,8 +53,8 @@ journey smoke и подсказка уже сохранённого закреп
 
 | Поверхность | Desktop | Mobile |
 | --- | --- | --- |
-| Список, Storybook | [PNG](storybook-list-desktop.png) | [PNG](storybook-list-mobile.png) |
-| Редактор, Storybook | [PNG](storybook-editor-desktop.png) | [PNG](storybook-editor-mobile.png) |
+| Список, UI catalog | [PNG](ui-catalog-list-desktop.png) | [PNG](ui-catalog-list-mobile.png) |
+| Редактор, UI catalog | [PNG](ui-catalog-editor-desktop.png) | [PNG](ui-catalog-editor-mobile.png) |
 | Сохранённый закреп в списке, full-stack | [PNG](live-desktop-authoring-pin.png) | [PNG](live-mobile-authoring-pin.png) |
 | Редактор по старому адресу, full-stack | [PNG](live-desktop-guide-editor.png) | [PNG](live-mobile-guide-editor.png) |
 | Редактор, text 200% | [PNG](live-desktop-guide-editor-text-200.png) | [PNG](live-mobile-guide-editor-text-200.png) |

@@ -6,7 +6,7 @@ import {
   formatDaysUntilStart,
   preorderDiscount,
 } from "@/entities/subscription";
-import { productWithSupportOffer } from "@/storybook/billing.fixtures";
+import { productWithSupportOffer } from "../fixtures/billing.fixtures";
 
 const cohort: ProductSalesState = {
   productId: "00000000-0000-4000-8000-000000000814",

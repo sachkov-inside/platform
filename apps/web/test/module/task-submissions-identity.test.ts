@@ -1,6 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { reviewedSubmissions } from "@/storybook/task-submissions.fixtures";
+import { reviewedSubmissions } from "../fixtures/task-submissions.fixtures";
 import { configureWebRuntime } from "../support/web-runtime";
 import {
   interceptBackendHttp,

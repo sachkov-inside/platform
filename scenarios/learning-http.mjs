@@ -82,7 +82,7 @@ export function learningHttpProduct(role) {
   };
 }
 
-/** Reader HTTP adapter; the wire body is independent of the Storybook projection.
+/** Reader HTTP adapter; the wire body is independent of the module-test projection.
  * @param {string} slug @param {"holder" | "learner"} role
  */
 export function learningHttpReader(slug, role) {

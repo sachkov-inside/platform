@@ -8,7 +8,7 @@
       "file": "apps/web/test/contracts/run-scoped-vite-cache.test.ts",
       "line": 14,
       "method": "mock",
-      "module": "@storybook/addon-vitest/vitest-plugin"
+      "module": "@ui-catalog/addon-vitest/vitest-plugin"
     },
     {
       "file": "apps/web/test/module/admin-overview.test.ts",

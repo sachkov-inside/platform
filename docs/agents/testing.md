@@ -19,9 +19,7 @@ a new test from the sample of its kind.
 | Backend integration | Application behaviour through capability interfaces: persistence, transactions, constraints, rollback, idempotency, concurrency; real Nest HTTP and MCP transport | PostgreSQL through Testcontainers, migrations, Prisma; RustFS and RabbitMQ in the files that own them | Time; other applications and providers through owned doubles such as `apps/backend/test/support/telegram-contacts-double.ts` | [`account-profiles.test.ts`](../../apps/backend/test/integration/account-profiles.test.ts) | `pnpm test:integration` |
 | Backend contract | Compiled entrypoints and processes: worker startup, SMTP, bank double over HTTP | Built entrypoints, subprocesses, owned loopback servers, temporary files | External providers as owned loopback responders | [`smtp-transport.test.ts`](../../apps/backend/test/contracts/smtp-transport.test.ts) | `pnpm --filter @inside/backend test:contracts` |
 | Web module | Presentation mapping, query behaviour, BFF route modules, mutation operations | Own modules, session, SDK, adapters and schemas in Node | Time; external backend and identity over HTTP | [`billing-subscription-presentation.test.ts`](../../apps/web/test/module/billing-subscription-presentation.test.ts) | `pnpm --filter @inside/web test:module` |
-| Web contract | Web tooling lifecycles, such as the run-scoped Vite cache | Subprocesses, temporary files | External services | [`run-scoped-vite-cache.test.ts`](../../apps/web/test/contracts/run-scoped-vite-cache.test.ts) | `pnpm --filter @inside/web test:contracts` |
 | Browser engine | Browser behaviour that a Node module test cannot see: caches between documents, history, SVG and sign-in in a real engine | Vite dev server or a fixture page, Chromium and, where a test asks for it, WebKit | Time; backend answers from the test | [`reader-history.test.ts`](../../apps/web/test/browser-engines/reader-history.test.ts) | `pnpm --filter @inside/web test:browser-engines` |
-| Existing Storybook fixtures | A UI state still covered by the legacy fixture suite | Chromium through the Vitest browser project | Fetch mocks and fixtures in `apps/web/src/storybook` | [`public-shell.stories.tsx`](../../apps/web/src/_app/ui/public-shell.stories.tsx) | `pnpm test:storybook` |
 | Web E2E | Route behaviour and accessibility on the production build | Production Next.js build, Playwright browser | Backend absent or answered by Playwright route interception | [`routes.spec.ts`](../../apps/web/test/e2e/routes.spec.ts) | `pnpm test:e2e` after `pnpm build` |
 | Navigation | Page transitions, prefetch and loading states on the production build | Production Next.js build, Playwright browser | Backend as `apps/web/test/navigation/fake-backend.mjs` or a per-spec backend | [`authoring-shell.spec.ts`](../../apps/web/test/navigation/authoring-shell.spec.ts) | `pnpm test:navigation` after `pnpm build` |
 | Full-stack | Web/BFF, backend contract and production data flow together | Built Web, backend API and MCP, PostgreSQL, object storage | Synthetic sign-in provider, local bank double | [`material-reader.spec.ts`](../../apps/web/test/fullstack/material-reader.spec.ts) | `pnpm smoke:fullstack`; `pnpm smoke:enrollments` and `pnpm smoke:buyer-journey` for their specs |
@@ -51,7 +49,6 @@ the highest public seam that reaches the behaviour.
   acceptance.
 - A subprocess, compiled entrypoint or owned loopback provider gets a contract test.
 - Web presentation mapping, query behaviour and mutation operations get Web module tests.
-- Select the owning seam for new UI checks. Preserve unique assertions from [existing UI fixtures](frontend-delivery.md#existing-ui-fixtures) during migration.
 - Route behaviour and accessibility get a Web E2E test; page transitions and prefetch get a
   navigation test.
 - A change to a backend contract the Web uses, to a BFF route, to query ownership or to a
@@ -150,16 +147,13 @@ Paths below are relative to `apps/web`.
 | `next/server.after`, `test/module/client-report-limits.test.ts` and `test/module/client-telemetry-bff.test.ts` | Drops deferred work only for immediate protocol, rate and log assertions. These fixtures prove no deferred write or lifecycle outcome. |
 | `next/server.after`, `test/module/web-telemetry-forwarding.test.ts` | Retains and executes the actual callback and backend HTTP. Returns-before-persistence, no identity forwarding and errors remain asserted. It does not prove the Next scheduler. |
 | `server-only`, `test/module/logto-sdk-callback.test.ts`; the environment alias `test/support/server-only.ts` in the module and smoke Vitest configs | Supplies the conditional import marker in Node. Production browser import restrictions remain enforced. |
-| `@storybook/addon-vitest/vitest-plugin.storybookTest`, `test/contracts/run-scoped-vite-cache.test.ts` | Suppresses only vendor import-time side effects while the actual Vite/cache contract runs. It proves no addon, UI, preset or Storybook lifecycle behaviour. |
 
-A new coordinator supplement on 2026-11-17 (`msg_c1b30d246cd4`, under #2292) accepts four
-existing external Next alias entries to three adapters in two fixture contexts. These were not in
-the earlier table. Keep their inventory separate from `vi.mock` registrations.
+A new coordinator supplement on 2026-11-17 (`msg_c1b30d246cd4`, under #2292) accepts framework aliases for this browser fixture. Keep their inventory separate from
+`vi.mock` registrations.
 
 | Exact alias context | Accepted framework input and limit |
 |---|---|
-| `.storybook/main.ts`: `next/link` → `.storybook/mocks/next-link.tsx`, `next/navigation` → `.storybook/mocks/next-navigation.ts` | The anchor retains href/children/anchor props/ref, drops prefetch/scroll/onNavigate, and reports pending:false. Stories configure pathname/params/query and router callback receipts while actual own UI/hooks render. |
-| `test/browser-engines/course-reading-handoff.test.ts`: `next/link` → the same anchor, `next/navigation` → `test/support/course-reading-router.ts` | Own UI runs with actual window/popstate and a controlled ready promise as its framework input. |
+| `test/browser-engines/course-reading-handoff.test.ts`: `next/link` → `test/support/next-link.tsx`, `next/navigation` → `test/support/course-reading-router.ts` | The link adapter renders an anchor and reports `pending: false`. Own UI runs with actual window/popstate and a controlled ready promise as its framework input. |
 
 The coordinator's integration decision on 2026-11-17 (`msg_712cfa4e643a`, under #2292) adds
 exactly one existing alias from merged PR #2296: `test/browser-engines/owner-fact-announcements.test.ts`
@@ -173,16 +167,11 @@ navigation, PPR, prefetch, refresh or framework lifecycle. This alias permits no
 direct adapter import. The existing file preview is unchanged and is not newly scanned as a test
 context; the default checker additionally inspects only this adapter's accepted exports/body.
 
-Keep the counts separate: external non-Node framework aliases are five entries/four adapters/three
-contexts; including the three Node cache/marker aliases gives eight entries/six adapters/five
-contexts. These counts do not include `vi.mock` or observational spy registrations.
-
 These ports do not prove actual Next navigation, history delivery, PPR, prefetch, pending state or
 framework lifecycle. Keep the real production Next/Navigation scenarios. The checker fixes exact
 alias targets, resolved adapter paths and owning contexts, and checks their known exports/body AST
 without comments or source positions. Adding API or behaviour requires updating the owning decision
-and negative fixtures; these are six explicit framework adapters, including the Node cache/marker,
-not an own-module baseline. The handoff shim stays out of production and module contexts. Review
+and negative fixtures. The handoff shim stays out of production and module contexts. Review
 and independent verification still assess the semantic limits; the checker does not infer them.
 
 Any test claiming deferred execution, persistence or framework lifecycle needs the actual callback
@@ -206,8 +195,8 @@ There is no coverage threshold. Add a test because a behaviour needs it.
 
 The Vitest and Playwright configurations of each application define which directory holds which
 kind. Backend unit and adapter tests live in `apps/backend/test/unit`, `apps/backend/test/adapters`
-and directly in `apps/backend/test`; Storybook stories live next to their module in
-`apps/web/src`. `test/support` holds shared helpers, and backend integration setup lives in
+and directly in `apps/backend/test`. `test/fixtures` holds test data, `test/support` holds shared
+helpers, and backend integration setup lives in
 `apps/backend/test/integration/setup`. Application standards name their own helpers and barriers:
 [backend](../../apps/backend/CODING_STANDARDS.md#tests-against-real-infrastructure),
 [Web](../../apps/web/CODING_STANDARDS.md#interaction-and-enforcement) and

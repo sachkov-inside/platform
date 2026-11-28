@@ -3,7 +3,7 @@
 Задача [#1719](https://github.com/sachkov-inside/platform/issues/1719) спецификации
 [#1717](https://github.com/sachkov-inside/platform/issues/1717). Production visual gate по разделу
 «Визуальная приёмка» для ключевых страниц всей спецификации на интегрированном коде: Обзор,
-люди, карточка человека, вкладки страницы продукта, платежи, материалы и сдачи. Storybook и живой
+люди, карточка человека, вкладки страницы продукта, платежи, материалы и сдачи. UI catalog и живой
 маршрут на 390 и 1440 px, доступность, отсутствие горизонтальной прокрутки. Visual GO владелец
 даёт по итоговому интегрированному результату. Названия, имена, email, суммы и даты вымышлены.
 
@@ -68,11 +68,11 @@ CAPTURE_ADMIN_SPEC_EVIDENCE=1 UPDATE_EVIDENCE=issue-1719 pnpm --filter @inside/w
 | Сдачи (`/authoring/submissions`, фильтр «Без комментария») | [Снимок](live-submissions-desktop-chromium.png) | [Снимок](live-submissions-mobile-chromium.png) |
 | Обзор в окне 390 × 844 без растяжения, прокручен до конца: нижняя панель вплотную к краю окна | нет снимка для этой ширины | [Снимок](live-overview-bottom-viewport-mobile-chromium.png) |
 
-## Storybook
+## UI catalog
 
 Код: `8852218987d941d05878b2d9f63f3516a13f9c95`, 28 октября 2026 года.
 
-Собранный Storybook (`pnpm --filter @inside/web build-storybook`), история после завершения её
+Собранный UI catalog (`pnpm --filter @inside/web build-ui-catalog`), история после завершения её
 `play`:
 
 ```bash
@@ -80,39 +80,39 @@ UPDATE_EVIDENCE=issue-1719 node apps/web/test/evidence/capture-admin-spec.mjs
 ```
 
 Парные истории `…Desktop`/`…Mobile` задают свою ширину и сняты на ней; история без пары снята на
-обеих. Для каждого снимка проверены `scrollWidth === clientWidth` и Axe внутри `#storybook-root` и
-открытых им диалогов: нарушений 0, `play` без ошибок ([проверки](storybook-checks.json)). Правило
-`region` выключено, как в addon a11y Storybook: история показывает часть страницы, а целые
+обеих. Для каждого снимка проверены `scrollWidth === clientWidth` и Axe внутри `#ui-catalog-root` и
+открытых им диалогов: нарушений 0, `play` без ошибок ([проверки](ui-catalog-checks.json)). Правило
+`region` выключено, как в addon a11y ui-catalog: история показывает часть страницы, а целые
 страницы проверены на живом маршруте. Оранжевая рамка на части снимков (кнопка периода, вкладка,
-меню строки, поле графика) показывает фокус, который оставил `play` истории. Storybook и маршрут
+меню строки, поле графика) показывает фокус, который оставил `play` истории. UI catalog и маршрут
 импортируют одни и те же модули.
 
 | История | 1440 px | 390 px |
 | --- | --- | --- |
-| `Pages/Authoring/Обзор` › `Owner` / `OwnerMobile` | [Снимок](storybook-pages-authoring-overview--owner-1440.png) | [Снимок](storybook-pages-authoring-overview--owner-mobile-390.png) |
-| `Pages/Authoring/Обзор` › `EmptyPeriod` / `EmptyPeriodMobile` | [Снимок](storybook-pages-authoring-overview--empty-period-1440.png) | [Снимок](storybook-pages-authoring-overview--empty-period-mobile-390.png) |
-| `Pages/Authoring/Обзор` › `OneSale` / `OneSaleMobile` | [Снимок](storybook-pages-authoring-overview--one-sale-1440.png) | [Снимок](storybook-pages-authoring-overview--one-sale-mobile-390.png) |
-| `Pages/Authoring/Обзор` › `LongLists` / `LongListsMobile` | [Снимок](storybook-pages-authoring-overview--long-lists-1440.png) | [Снимок](storybook-pages-authoring-overview--long-lists-mobile-390.png) |
-| `Pages/Authoring/Обзор` › `MaterialsOnly` / `MaterialsOnlyMobile` | [Снимок](storybook-pages-authoring-overview--materials-only-1440.png) | [Снимок](storybook-pages-authoring-overview--materials-only-mobile-390.png) |
-| `Pages/Authoring/Обзор` › `Unavailable` / `UnavailableMobile` | [Снимок](storybook-pages-authoring-overview--unavailable-1440.png) | [Снимок](storybook-pages-authoring-overview--unavailable-mobile-390.png) |
-| `Pages/Authoring/Обзор` › `AllClear` / `AllClearMobile` | [Снимок](storybook-pages-authoring-overview--all-clear-1440.png) | [Снимок](storybook-pages-authoring-overview--all-clear-mobile-390.png) |
-| `Pages/Authoring/Обзор продукта` › `Ready` / `ReadyMobile` | [Снимок](storybook-pages-authoring-product-overview--ready-1440.png) | [Снимок](storybook-pages-authoring-product-overview--ready-mobile-390.png) |
-| `Pages/Authoring/Обзор продукта` › `Empty` / `EmptyMobile` | [Снимок](storybook-pages-authoring-product-overview--empty-1440.png) | [Снимок](storybook-pages-authoring-product-overview--empty-mobile-390.png) |
-| `Pages/Authoring/Обзор продукта` › `Unavailable` / `UnavailableMobile` | [Снимок](storybook-pages-authoring-product-overview--unavailable-1440.png) | [Снимок](storybook-pages-authoring-product-overview--unavailable-mobile-390.png) |
-| `Pages/Authoring/Обзор продукта` › `MaterialsOnly` / `MaterialsOnlyMobile` | [Снимок](storybook-pages-authoring-product-overview--materials-only-1440.png) | [Снимок](storybook-pages-authoring-product-overview--materials-only-mobile-390.png) |
-| `Pages/Authoring/Редактор продукта` › `Desktop` / `Mobile` | [Снимок](storybook-pages-authoring-product-editor--desktop-1440.png) | [Снимок](storybook-pages-authoring-product-editor--mobile-390.png) |
-| `Pages/Authoring/Редактор продукта` › `SaleTabDesktop` / `SaleTabMobile` | [Снимок](storybook-pages-authoring-product-editor--sale-tab-desktop-1440.png) | [Снимок](storybook-pages-authoring-product-editor--sale-tab-mobile-390.png) |
-| `Pages/Authoring/Редактор продукта` › `LearnersTabDesktop` / `LearnersTabMobile` | [Снимок](storybook-pages-authoring-product-editor--learners-tab-desktop-1440.png) | [Снимок](storybook-pages-authoring-product-editor--learners-tab-mobile-390.png) |
-| `Pages/Authoring/Люди` › `Populated` / `Mobile` | [Снимок](storybook-pages-authoring-people--populated-1440.png) | [Снимок](storybook-pages-authoring-people--mobile-390.png) |
-| `Pages/Authoring/Карточка человека` › `AllBlocks` / `AllBlocksMobile` | [Снимок](storybook-pages-authoring-person--all-blocks-1440.png) | [Снимок](storybook-pages-authoring-person--all-blocks-mobile-390.png) |
-| `Pages/Authoring/Платежи` › `OneSale` / `OneSaleMobile` | [Снимок](storybook-pages-authoring-payments--one-sale-1440.png) | [Снимок](storybook-pages-authoring-payments--one-sale-mobile-390.png) |
-| `Pages/Authoring/Материалы` › `Populated` / `Mobile` | [Снимок](storybook-pages-authoring-materials--populated-1440.png) | [Снимок](storybook-pages-authoring-materials--mobile-390.png) |
-| `Pages/Authoring/Task submissions` › `Submissions` / `SubmissionsMobile` | [Снимок](storybook-pages-authoring-task-submissions--submissions-1440.png) | [Снимок](storybook-pages-authoring-task-submissions--submissions-mobile-390.png) |
-| `Components/Админка/MetricCard` › `OverviewRowDesktop` / `OverviewRowMobile` | [Снимок](storybook-components-admin-metric-card--overview-row-desktop-1440.png) | [Снимок](storybook-components-admin-metric-card--overview-row-mobile-390.png) |
-| `Components/Админка/MetricCard` › `WithDetailDesktop` / `UnavailableMobile` | [Снимок](storybook-components-admin-metric-card--with-detail-desktop-1440.png) | [Снимок](storybook-components-admin-metric-card--unavailable-mobile-390.png) |
-| `Components/Админка/TrendChart` › `ThirtyDaysDesktop` / `ThirtyDaysMobile` | [Снимок](storybook-components-admin-trend-chart--thirty-days-desktop-1440.png) | [Снимок](storybook-components-admin-trend-chart--thirty-days-mobile-390.png) |
-| `Components/Админка/TrendChart` › `NegativeDayDesktop` / `NegativeDayMobile` | [Снимок](storybook-components-admin-trend-chart--negative-day-desktop-1440.png) | [Снимок](storybook-components-admin-trend-chart--negative-day-mobile-390.png) |
-| `Components/Админка/TrendChart` › `EmptyDesktop` / `EmptyMobile` | [Снимок](storybook-components-admin-trend-chart--empty-desktop-1440.png) | [Снимок](storybook-components-admin-trend-chart--empty-mobile-390.png) |
+| `Pages/Authoring/Обзор` › `Owner` / `OwnerMobile` | [Снимок](ui-catalog-pages-authoring-overview--owner-1440.png) | [Снимок](ui-catalog-pages-authoring-overview--owner-mobile-390.png) |
+| `Pages/Authoring/Обзор` › `EmptyPeriod` / `EmptyPeriodMobile` | [Снимок](ui-catalog-pages-authoring-overview--empty-period-1440.png) | [Снимок](ui-catalog-pages-authoring-overview--empty-period-mobile-390.png) |
+| `Pages/Authoring/Обзор` › `OneSale` / `OneSaleMobile` | [Снимок](ui-catalog-pages-authoring-overview--one-sale-1440.png) | [Снимок](ui-catalog-pages-authoring-overview--one-sale-mobile-390.png) |
+| `Pages/Authoring/Обзор` › `LongLists` / `LongListsMobile` | [Снимок](ui-catalog-pages-authoring-overview--long-lists-1440.png) | [Снимок](ui-catalog-pages-authoring-overview--long-lists-mobile-390.png) |
+| `Pages/Authoring/Обзор` › `MaterialsOnly` / `MaterialsOnlyMobile` | [Снимок](ui-catalog-pages-authoring-overview--materials-only-1440.png) | [Снимок](ui-catalog-pages-authoring-overview--materials-only-mobile-390.png) |
+| `Pages/Authoring/Обзор` › `Unavailable` / `UnavailableMobile` | [Снимок](ui-catalog-pages-authoring-overview--unavailable-1440.png) | [Снимок](ui-catalog-pages-authoring-overview--unavailable-mobile-390.png) |
+| `Pages/Authoring/Обзор` › `AllClear` / `AllClearMobile` | [Снимок](ui-catalog-pages-authoring-overview--all-clear-1440.png) | [Снимок](ui-catalog-pages-authoring-overview--all-clear-mobile-390.png) |
+| `Pages/Authoring/Обзор продукта` › `Ready` / `ReadyMobile` | [Снимок](ui-catalog-pages-authoring-product-overview--ready-1440.png) | [Снимок](ui-catalog-pages-authoring-product-overview--ready-mobile-390.png) |
+| `Pages/Authoring/Обзор продукта` › `Empty` / `EmptyMobile` | [Снимок](ui-catalog-pages-authoring-product-overview--empty-1440.png) | [Снимок](ui-catalog-pages-authoring-product-overview--empty-mobile-390.png) |
+| `Pages/Authoring/Обзор продукта` › `Unavailable` / `UnavailableMobile` | [Снимок](ui-catalog-pages-authoring-product-overview--unavailable-1440.png) | [Снимок](ui-catalog-pages-authoring-product-overview--unavailable-mobile-390.png) |
+| `Pages/Authoring/Обзор продукта` › `MaterialsOnly` / `MaterialsOnlyMobile` | [Снимок](ui-catalog-pages-authoring-product-overview--materials-only-1440.png) | [Снимок](ui-catalog-pages-authoring-product-overview--materials-only-mobile-390.png) |
+| `Pages/Authoring/Редактор продукта` › `Desktop` / `Mobile` | [Снимок](ui-catalog-pages-authoring-product-editor--desktop-1440.png) | [Снимок](ui-catalog-pages-authoring-product-editor--mobile-390.png) |
+| `Pages/Authoring/Редактор продукта` › `SaleTabDesktop` / `SaleTabMobile` | [Снимок](ui-catalog-pages-authoring-product-editor--sale-tab-desktop-1440.png) | [Снимок](ui-catalog-pages-authoring-product-editor--sale-tab-mobile-390.png) |
+| `Pages/Authoring/Редактор продукта` › `LearnersTabDesktop` / `LearnersTabMobile` | [Снимок](ui-catalog-pages-authoring-product-editor--learners-tab-desktop-1440.png) | [Снимок](ui-catalog-pages-authoring-product-editor--learners-tab-mobile-390.png) |
+| `Pages/Authoring/Люди` › `Populated` / `Mobile` | [Снимок](ui-catalog-pages-authoring-people--populated-1440.png) | [Снимок](ui-catalog-pages-authoring-people--mobile-390.png) |
+| `Pages/Authoring/Карточка человека` › `AllBlocks` / `AllBlocksMobile` | [Снимок](ui-catalog-pages-authoring-person--all-blocks-1440.png) | [Снимок](ui-catalog-pages-authoring-person--all-blocks-mobile-390.png) |
+| `Pages/Authoring/Платежи` › `OneSale` / `OneSaleMobile` | [Снимок](ui-catalog-pages-authoring-payments--one-sale-1440.png) | [Снимок](ui-catalog-pages-authoring-payments--one-sale-mobile-390.png) |
+| `Pages/Authoring/Материалы` › `Populated` / `Mobile` | [Снимок](ui-catalog-pages-authoring-materials--populated-1440.png) | [Снимок](ui-catalog-pages-authoring-materials--mobile-390.png) |
+| `Pages/Authoring/Task submissions` › `Submissions` / `SubmissionsMobile` | [Снимок](ui-catalog-pages-authoring-task-submissions--submissions-1440.png) | [Снимок](ui-catalog-pages-authoring-task-submissions--submissions-mobile-390.png) |
+| `Components/Админка/MetricCard` › `OverviewRowDesktop` / `OverviewRowMobile` | [Снимок](ui-catalog-components-admin-metric-card--overview-row-desktop-1440.png) | [Снимок](ui-catalog-components-admin-metric-card--overview-row-mobile-390.png) |
+| `Components/Админка/MetricCard` › `WithDetailDesktop` / `UnavailableMobile` | [Снимок](ui-catalog-components-admin-metric-card--with-detail-desktop-1440.png) | [Снимок](ui-catalog-components-admin-metric-card--unavailable-mobile-390.png) |
+| `Components/Админка/TrendChart` › `ThirtyDaysDesktop` / `ThirtyDaysMobile` | [Снимок](ui-catalog-components-admin-trend-chart--thirty-days-desktop-1440.png) | [Снимок](ui-catalog-components-admin-trend-chart--thirty-days-mobile-390.png) |
+| `Components/Админка/TrendChart` › `NegativeDayDesktop` / `NegativeDayMobile` | [Снимок](ui-catalog-components-admin-trend-chart--negative-day-desktop-1440.png) | [Снимок](ui-catalog-components-admin-trend-chart--negative-day-mobile-390.png) |
+| `Components/Админка/TrendChart` › `EmptyDesktop` / `EmptyMobile` | [Снимок](ui-catalog-components-admin-trend-chart--empty-desktop-1440.png) | [Снимок](ui-catalog-components-admin-trend-chart--empty-mobile-390.png) |
 
 ## Найдено при съёмке
 

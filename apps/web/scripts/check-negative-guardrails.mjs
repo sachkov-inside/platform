@@ -135,13 +135,11 @@ const fixtures = [
     accepted: ["known.ts"],
   },
   {
-    root: "test/guardrails/fixtures/architecture/storybook-graph",
+    root: "test/guardrails/fixtures/architecture/test-graph",
     diagnostics: [
-      "reading-panel.tsx: Storybook proofs and fixtures stay outside the production graph",
-      "reading-theme.ts: Storybook proofs and fixtures stay outside the production graph",
-      "reading-preview.ts: Storybook proofs and fixtures stay outside the production graph",
+      "reading-panel.tsx: test fixtures stay outside the production graph",
     ],
-    accepted: ["reading-panel.stories.tsx", "reading.fixtures.ts"],
+    accepted: ["reading-panel.test.tsx"],
   },
   {
     root: "test/guardrails/fixtures/architecture/server-interface",
@@ -187,7 +185,7 @@ const fixtures = [
     ],
     accepted: [
       "src/shared/lib/shell-scroll.ts",
-      "src/widgets/shell.stories.tsx",
+      "src/widgets/shell.test.tsx",
       "src/widgets/wide-layout.ts",
     ],
   },

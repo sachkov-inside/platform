@@ -55,9 +55,6 @@ RUN node packages/runtime-identity/write-release-identity.mjs \
 FROM development AS web
 CMD ["pnpm", "--filter", "@inside/web", "dev", "--hostname", "0.0.0.0", "--port", "3000"]
 
-FROM development AS storybook
-CMD ["pnpm", "--filter", "@inside/web", "storybook", "--host", "0.0.0.0"]
-
 FROM development AS production-build
 
 ARG CSP_LOCAL_OBJECT_STORAGE_ORIGIN=""

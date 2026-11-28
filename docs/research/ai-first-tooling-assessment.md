@@ -10,7 +10,7 @@ tracker и production code не изменялись.
 **Не добавлять Graphify, Serena или другой code-graph/indexing tool в обязательный Platform
 foundation сейчас.** Текущий repository-owned контур уже даёт агенту canonical product/domain
 docs, корневые и app-level `AGENTS.md`, маленькие capability public interfaces, import guardrails,
-Storybook catalog + MCP documentation и воспроизводимые `pnpm`/Docker commands. Репозиторий пока
+UI catalog catalog + MCP documentation и воспроизводимые `pnpm`/Docker commands. Репозиторий пока
 достаточно мал, а доказанного navigation failure, который новый runtime исправляет, в #80 нет.
 
 Что это означает на практике:
@@ -48,13 +48,12 @@ git ls-files 'apps/**/*.ts' 'apps/**/*.tsx' 'apps/**/*.css' | xargs wc -l
   запрещает обязательные machine-local/user-level dependencies;
 - [`apps/backend/AGENTS.md`](../../apps/backend/AGENTS.md) отправляет caller к capability
   `index.ts`, запрещает raw persistence imports и задаёт точную verification command;
-- [`docs/agents/frontend-delivery.md`](../agents/frontend-delivery.md) задаёт production/Storybook
+- [`docs/agents/frontend-delivery.md`](../agents/frontend-delivery.md) задаёт production/ui-catalog
   ownership, presentation interface и запрет параллельного fake data path;
-- [`apps/web/src/storybook/overview.mdx`](../../apps/web/src/storybook/overview.mdx)
-  делает Storybook manifest и локальный `/mcp` catalog executable UI interface для людей и агентов;
+- На момент исследования каталог публиковал manifest и локальный `/mcp` для людей и агентов. [Исходные ссылки в снимке до удаления](https://github.com/sachkov-inside/platform/blob/6ffac6ab6efcc03e67daa607a4315b3a52671842/docs/research/ai-first-tooling-assessment.md).
 - [`apps/backend/scripts/check-backend-architecture.mjs`](../../apps/backend/scripts/check-backend-architecture.mjs)
   и negative fixtures проверяют dependency direction, а не только объясняют её prose;
-- TypeScript compiler, ESLint, tests, Playwright/Storybook и production builds входят в
+- TypeScript compiler, ESLint, tests, Playwright/ui-catalog и production builds входят в
   repository-owned `pnpm check`.
 
 Поэтому реальный остаточный use case узок:
@@ -144,7 +143,7 @@ Graphify имеет отдельные TypeScript и TSX grammars и извле�
 открытый upstream issue прямо фиксирует отсутствие resolution для `compilerOptions.paths`
 ([#147](https://github.com/Graphify-Labs/graphify/issues/147)). Platform frontend определяет
 `"@/*": ["./src/*"]` в [`apps/web/tsconfig.json`](../../apps/web/tsconfig.json) и уже использует
-этот alias в production, tests и Storybook. Следовательно, import/impact graph на текущем checkout
+этот alias в production, tests и UI catalog. Следовательно, import/impact graph на текущем checkout
 может быть неполным именно на frontend seam, который #80 хочет усилить.
 
 Official benchmark пока не снимает этот риск: опубликованный code-intelligence result использует
@@ -295,7 +294,7 @@ Pilot не запускать автоматически из #80. Создат�
 2. пройти от Next route к server-only adapter и backend boundary;
 3. найти все callers выбранного shared UI/public interface;
 4. оценить rename/contract-change impact и назвать tests;
-5. отличить Storybook/workshop-only consumers от production graph.
+5. отличить ui-catalog/workshop-only consumers от production graph.
 
 Для каждого answer записать correctness (проверенный `rg`/TypeScript/tests), false negatives,
 stale results, tool calls, elapsed time и context tokens. Нужна не demo visualization, а меньшая

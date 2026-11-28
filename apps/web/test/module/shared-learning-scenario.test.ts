@@ -8,7 +8,7 @@ import { mapLibraryDiscoveryResult } from "@/features/library-discovery/api/map-
 import { renderedMaterialBodySchema } from "@/entities/material.model";
 import { readInlineArtifactReference } from "@/features/product-artifacts.reader";
 import { readerProductArtifactListSchema } from "@/features/product-artifacts/model/reader-product-artifacts";
-import { learningReferenceReader } from "@/storybook/learning.fixtures";
+import { learningReferenceReader } from "../fixtures/learning.fixtures";
 import { learningInterceptionFile } from "../support/learning-interception";
 import { z } from "zod";
 

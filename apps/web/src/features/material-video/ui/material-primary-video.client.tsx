@@ -570,7 +570,7 @@ export interface MaterialVideoPlayerViewProps {
   readonly watchedDisabled?: boolean;
 }
 
-/** Production player shell shared with Storybook state fixtures. */
+/** Player shell for the current playback state. */
 export function MaterialVideoPlayerView({
   cover,
   showPoster = false,

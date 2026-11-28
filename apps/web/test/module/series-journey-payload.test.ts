@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { ProductJourney } from "@/_pages/library-discovery/ui/product-journey";
 import type { ProductJourneyControls } from "@/_pages/library-discovery/ui/product-journey-controls.client";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
-import { productJourneyCorpus } from "@/storybook/product-journey-corpus.fixtures";
+import { productJourneyCorpus } from "../fixtures/product-journey-corpus.fixtures";
 
 describe("Product programme presentation payload", () => {
   it("keeps the complete programme without sending a second rendered catalogue for 120 Materials", () => {

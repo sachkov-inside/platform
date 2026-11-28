@@ -5,7 +5,7 @@
 Замена части явная и сохраняет выбранную цель при перестановке. Аудитория, расписание,
 запуск и аналитика остаются в общей странице `/authoring/communications/broadcasts`.
 
-Production и Storybook используют одни `PostLibrary`, `BroadcastEditor`, `BroadcastList`,
+Production и UI catalog используют одни `PostLibrary`, `BroadcastEditor`, `BroadcastList`,
 `AnalyticsPanel` и `EntryHistory`. Текст в веб-админке доступен для чтения; настоящий вид
 форматирования проверяется образцом в Telegram.
 
@@ -16,21 +16,21 @@ Production и Storybook используют одни `PostLibrary`, `BroadcastE
 
 | Поверхность | Desktop | Mobile |
 |---|---|---|
-| Выбор поста и настройка кнопок в Storybook | [Полная страница](telegram-posts-desktop.png) | [390 px](telegram-posts-390.png), [320 px](telegram-posts-320.png) |
+| Выбор поста и настройка кнопок в UI catalog | [Полная страница](telegram-posts-desktop.png) | [390 px](telegram-posts-390.png), [320 px](telegram-posts-320.png) |
 | Редактор в приложении | [Начало](desktop-chromium-editor-top.png), [настройки](desktop-chromium-editor-settings.png) | [Начало](mobile-chromium-editor-top.png), [настройки](mobile-chromium-editor-settings.png) |
 | Аналитика в приложении | [Счётчики](desktop-chromium-analytics.png), [контакты](desktop-chromium-contacts.png) | [Счётчики](mobile-chromium-analytics.png), [контакты](mobile-chromium-contacts.png) |
 
-Storybook использует синтетические посты. Приложение работает через настоящий Next BFF,
+UI catalog использует синтетические посты. Приложение работает через настоящий Next BFF,
 Nest и PostgreSQL; только внешний Telegram provider заменён тестовым транспортом.
-Снимки `editor-*.png`, `list-*.png`, `analytics-*.png` и `storybook-checks.json` сохранены
+Снимки `editor-*.png`, `list-*.png`, `analytics-*.png` и `ui-catalog-checks.json` сохранены
 как история первоначального оформления на `1844e810`; они не подтверждают новый выбор постов.
 
 ## Проверка и воспроизведение
 
 - `pnpm check`: документация, контракты, lint, types, guardrails, tests, browser routes,
-  production build, standalone runtime config и Storybook build.
-- Focused Storybook: `pnpm --filter @inside/web exec vitest run --config vitest.config.mts
-  --project=storybook src/_pages/communications/ui/broadcast-editor.stories.tsx
+  production build, standalone runtime config и UI catalog build.
+- Focused ui-catalog: `pnpm --filter @inside/web exec vitest run --config vitest.config.mts
+  --project=ui-catalog src/_pages/communications/ui/broadcast-editor.stories.tsx
   src/_pages/communications/ui/post-library.stories.tsx` — 27 сценариев. Включены состояния
   библиотеки, кнопки, образец, выбор поста, readonly source, замена после перестановки/удаления,
   клавиатура и светлая/тёмная темы.
@@ -44,7 +44,7 @@ Nest и PostgreSQL; только внешний Telegram provider заменён
 - Standards и Spec review от `2980d4663a3b66abd5b588d546cb090ed09183d9` до `7246d011` —
   оба пройдены. Результаты финального полного check и CI записаны в PR #338.
 
-Для просмотра: `pnpm storybook`, `Pages/Communications/Рассылка` → `Telegram Posts` или
+Для просмотра: `pnpm ui-catalog`, `Pages/Communications/Рассылка` → `Telegram Posts` или
 `Telegram Posts Mobile`; отдельные состояния — `Посты из Telegram`. Agentation доступен
 для замечаний владельца.
 

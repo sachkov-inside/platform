@@ -39,7 +39,7 @@ test("the common attempt and statistics snapshots fit the real frontend contract
     likes: 3,
     dislikes: 1,
   });
-  expect(lessonRatingCountsSchema.parse(facts.storybook.ratings)).toEqual({
+  expect(lessonRatingCountsSchema.parse(facts.reader.ratings)).toEqual({
     likes: 12,
     dislikes: 3,
   });

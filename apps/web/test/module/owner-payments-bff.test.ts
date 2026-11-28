@@ -12,7 +12,7 @@ import {
   handleOwnerPaymentRequest,
   handleOwnerPaymentsRequest,
 } from "@/features/owner-payments.server";
-import { ownerPayment } from "@/storybook/owner-payments.fixtures";
+import { ownerPayment } from "../fixtures/owner-payments.fixtures";
 
 const origin = "https://inside.example.test";
 const operationRef = "77000000-0000-4000-8000-000000000001";

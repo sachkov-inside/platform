@@ -52,7 +52,7 @@
 | platform `apps/backend` | integration (Testcontainers PG, RabbitMQ, MinIO) | 73 | 487 | **638** | 29 803 | vitest |
 | platform `apps/backend` | smoke (`*.smoke.test.ts`) | 3 | 3 | вне CI | 194 | vitest |
 | platform `apps/web` | «module» (unit/BFF, `test/module`) | 72 | 433 | **475** | 10 523 | vitest node |
-| platform `apps/web` | Storybook stories как тесты (browser) | 59 файлов, 551 story | — | **551** | — | vitest browser (chromium) |
+| platform `apps/web` | UI catalog stories как тесты (browser) | 59 файлов, 551 story | – | **551** | – | vitest browser (chromium) |
 | platform `apps/web` | e2e Playwright, подставной backend, `next dev` | 10 (9 в testMatch + evidence) | 106 | **172** (155 pass, 17 skip по проекту) | 3 740 | Playwright ×2 проекта |
 | platform `apps/web` | navigation (prod build + fake backend) | 1 | 11 | **22** (20 pass, 2 skip) | 590 | Playwright |
 | platform `apps/web` | fullstack (реальный API) | 14 (13 nightly + enrollment) | 64 | nightly; enrollment — 2 в Integration | 3 767 | Playwright |
@@ -75,7 +75,7 @@
 |---|---:|---:|---|
 | `.only` | 0 | 0 | Playwright держит `forbidOnly` в CI |
 | `.skip` / `.todo` / `.fixme` | 13 `test.skip(...)`, все условные по проекту desktop/mobile или стадии evidence | 0 | Условный skip по имени проекта удваивает число «skipped» (17 в каждом прогоне); вместо него лучше `grep`/tag на проекте |
-| Snapshot / `toHaveScreenshot` | 0 | 0 | Визуальные регрессии не ловятся; для UI есть только Storybook-взаимодействия и axe |
+| Snapshot / `toHaveScreenshot` | 0 | 0 | Визуальные регрессии не ловятся; для UI есть только ui-catalog-взаимодействия и axe |
 | Ожидание по времени (`waitForTimeout`, `setTimeout`-sleep) | 13 мест: fullstack `material-reader.spec.ts:218,762,774,780`, `personal-home.spec.ts:192` (1,2 с), navigation 150/300 мс, integration `setTimeout(5–10)` в 5 файлах | 2 | Противоречит `CODING_STANDARDS.md` §«Waiting in tests»; часть обоснованно доказывает отсутствие события |
 | Fake timers | 3 файла | 6 | В integration часы реальные: `new Date()`/`Date.now()` встречаются в 54 местах |
 | Retries | Playwright e2e и navigation: `retries: 1` в CI; vitest — 0 | 0 | В 4 проверенных успешных логах flaky не было |
@@ -88,7 +88,7 @@
 | `apps/backend/vitest.config.mts` | один, pool по умолчанию | по умолчанию 5 с | include `test/**/*.test.ts` минус smoke и integration |
 | `apps/backend/vitest.integration.config.mts` | `fileParallelism: true`, `globalSetup` с одним PG-контейнером | **по умолчанию: test 5 с, hook 10 с** | Тяжёлые тесты ставят свои таймауты (15–180 с), остальные живут с 5 с |
 | `apps/backend/vitest.smoke.config.mts` | — | 20 с | вне CI |
-| `apps/web/vitest.config.mts` | 2 projects: node module и storybook browser | по умолчанию | `restoreMocks`, `unstubEnvs`, `unstubGlobals` включены — хорошо |
+| `apps/web/vitest.config.mts` | 2 projects: node module и ui-catalog browser | по умолчанию | `restoreMocks`, `unstubEnvs`, `unstubGlobals` включены – хорошо |
 | `packages/legal`, `access-capabilities` | без config | — | |
 | telegram `vitest.integration.config.ts` | `fileParallelism: false`, `sequence.concurrent: false` | по умолчанию | Медленнее, зато стабильно: 4 падения на 100 runs, из них 1 flake |
 
@@ -196,9 +196,9 @@ Runner-минуты platform CI: **4 195 мин за 11 дней (~381/день)
 
 | Категория | Упавших jobs | Runs | Примеры |
 |---|---:|---:|---|
-| Dependabot: реальная несовместимость, повторяется на каждом rebase | 67 | 31 | tiptap `TS2322` в `material-blocks` postinstall (8 runs, [35321467154](https://github.com/sachkov-inside/platform/actions/runs/35321467154)); storybook: контракт toolchain (8, [35321269110](https://github.com/sachkov-inside/platform/actions/runs/35321269110)); npm-patch-minor: OpenAPI drift и `fastify-multipart TS2345` ([35557488857](https://github.com/sachkov-inside/platform/actions/runs/35557488857)); upload-artifact-7: контракт pinning (4) |
+| Dependabot: реальная несовместимость, повторяется на каждом rebase | 67 | 31 | tiptap `TS2322` в `material-blocks` postinstall (8 runs, [35321467154](https://github.com/sachkov-inside/platform/actions/runs/35321467154)); ui-catalog: контракт toolchain (8, [35321269110](https://github.com/sachkov-inside/platform/actions/runs/35321269110)); npm-patch-minor: OpenAPI drift и `fastify-multipart TS2345` ([35557488857](https://github.com/sachkov-inside/platform/actions/runs/35557488857)); upload-artifact-7: контракт pinning (4) |
 | **FLAKE `notification-transport.test.ts`** (SIGKILL ×5, «mandatory return and queue saturation», «broker node outage») | **16** на всех ветках (11 — не Dependabot) | 16 | [34950519116](https://github.com/sachkov-inside/platform/actions/runs/34950519116), [35273287671](https://github.com/sachkov-inside/platform/actions/runs/35273287671), [35849906891](https://github.com/sachkov-inside/platform/actions/runs/35849906891); даты: 09-12 ×2, 09-14 ×6, 09-15 ×4, 09-17, 09-18, 09-23 ×2 |
-| **FLAKE Storybook `src/workshop/material-authoring.stories.tsx`, таймаут 15 с** | 7 | 6 | [34699844794](https://github.com/sachkov-inside/platform/actions/runs/34699844794) (оба attempt), [34950821346](https://github.com/sachkov-inside/platform/actions/runs/34950821346); 09-12…09-15, 5 веток |
+| **FLAKE UI catalog `src/workshop/material-authoring.stories.tsx`, таймаут 15 с** | 7 | 6 | [34699844794](https://github.com/sachkov-inside/platform/actions/runs/34699844794) (оба attempt), [34950821346](https://github.com/sachkov-inside/platform/actions/runs/34950821346); 09-12…09-15, 5 веток |
 | **FLAKE integration: таймаут 5 с по умолчанию** (`material-formats`, `local-development-seed`, `billing-sale-configuration`) | 2 | 2 | [34965997273](https://github.com/sachkov-inside/platform/actions/runs/34965997273) attempt 2, [34700026315](https://github.com/sachkov-inside/platform/actions/runs/34700026315) |
 | Enrollment browser smoke (Integration) | 4 | 4 | `feat/468`, `feat/648` ×2 — вероятно реальные, но подтверждения нет |
 | PgBoss в Production Compose | **0 в окне** | — | Заметка владельца от 09-12 в окно не попала; за 12 дней Production Compose вне Dependabot упал 1 раз, и это была не PgBoss |
@@ -227,7 +227,7 @@ Run [35997284774](https://github.com/sachkov-inside/platform/actions/runs/359972
 | `playwright test` e2e на **`next dev`**, 2 workers, 172 теста | **192 с** (от 2,7 до 4,4 мин в 4 runs) |
 | `pnpm -r build` (Next build) | 28 с |
 | navigation (prod build + fake backend, 1 worker, 22 теста) | ~100 с |
-| build-storybook | 9 с |
+| build-ui-catalog | 9 с |
 
 Самые медленные файлы:
 
@@ -359,7 +359,7 @@ Quality без общего composite action. Шаги checkout, pnpm, node, ins
 Рекомендация:
 1. Ввести составные скрипты, которые одинаково работают локально и в CI: `check:static` (docs, api,
    lint, typecheck, guardrails, генераторы; ~1,5 мин), `check:unit` (vitest node-проекты, packages,
-   `node:test`, Go; ~2 мин), `check:ui` (Storybook-тесты и `build-storybook`; ~2 мин),
+   `node:test`, Go; ~2 мин), `check:ui` (ui-catalog-тесты и `build-ui-catalog`; ~2 мин),
    `check:web-e2e` (`next build`, prerendered, standalone, e2e и navigation на prod-сборке; ~4 мин).
 2. `pnpm check` оставить агрегатом этих скриптов.
 3. В `ci.yml` сделать 4 параллельных jobs вместо `quality`, `CI Gate` не менять (имя в ruleset
@@ -522,7 +522,7 @@ TS project references. Это же уберёт эксклюзивность л�
 |---|---|---|---|
 | Static / fitness (lint, typecheck, guardrails, генераторы контрактов, docs) | ~40 с, в Quality | без изменений; YAML-контракты по смыслу (L1) | PR: `static` |
 | Unit (без IO): backend, web, packages, tooling, Go | 695 + 475 + 98 + 250 + Go; `telegram-sign-in` ошибочно здесь | **основание пирамиды**: новые правила домена сначала получают unit-тест (M7); цель — backend unit ≥ integration по числу проверок доменных решений | PR: `unit` (< 2 мин) |
-| Component (Storybook, browser) | 551 story | оставить; тяжёлые сценарии авторинга — в Playwright; каждая новая UI-фича получает story с play и axe | PR: `ui` |
+| Component (UI catalog, browser) | 551 story | оставить; тяжёлые сценарии авторинга – в Playwright; каждая новая UI-фича получает story с play и axe | PR: `ui` |
 | Integration DB (Testcontainers PG) | 638 тестов вместе с broker | template DB, явные таймауты, общие builders; только швы с БД | PR: `integration-db` |
 | Integration broker / crash (RabbitMQ, SIGKILL) | 4–6 файлов, источник flakes | отдельный последовательный project и job, собранный worker, изоляция по vhost | PR: `integration-broker` |
 | Web E2E с подставным backend | 172 + 22 на `next dev` + prod | одна prod-сборка, e2e и navigation на `next start`, shards | PR: `web-e2e` |
@@ -540,7 +540,7 @@ setup-platform (composite): checkout · pnpm · node(.node-version) · install �
 
 static             ~1.5m   pnpm check:static
 unit               ~2m     pnpm check:unit            (vitest node projects, packages, node:test, go -race)
-ui                 ~2.5m   pnpm check:ui              (storybook vitest + build-storybook)
+ui                 ~2.5m   pnpm check:ui              (ui-catalog vitest + build-ui-catalog)
 web-e2e [2 shards] ~3-4m   pnpm check:web-e2e         (next build → prerendered/standalone → e2e + navigation на next start)
 integration-db     ~3m     vitest --project integration-db   (template DB)
 integration-broker ~3m     vitest --project integration-broker (serial) + smoke:enrollments

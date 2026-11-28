@@ -16,7 +16,7 @@ for(const [name,width,height] of [['desktop',1440,1024],['mobile',390,844]]){
  ['product','pages-guide-ai-first--desktop','Моя помощь в сообществе'],
  ['offer','pages-legal-документ--purchase-offer','Что входит в сопровождение']
  ]){
-  await page.goto(`${process.env.STORYBOOK_URL ?? "http://127.0.0.1:3401"}/iframe.html?id=${encodeURIComponent(id)}&viewMode=story`,{waitUntil:'domcontentloaded'});
+  await page.goto(`${process.env.UI_CATALOG_URL ?? "http://127.0.0.1:3401"}/iframe.html?id=${encodeURIComponent(id)}&viewMode=story`,{waitUntil:'domcontentloaded'});
   await expect(page.getByText(label,{exact:true}).first()).toBeVisible({timeout:30000});
   await page.addStyleTag({content:'[data-agentation-root] { display: none !important; }'});
   await page.screenshot({path:`${out}/${surface}-${name}.png`,fullPage:true});

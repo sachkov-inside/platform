@@ -24,10 +24,10 @@
     },
     ".agents/skills/prototype": {
       "provider": "agent-kit",
-      "ref": "c66fb95e097380806262888dac95f9c63048aae3",
+      "ref": "efa305061e1e2c981e6abb105949748142ebaf54",
       "skill": "prototype",
       "destination": ".agents/skills/prototype",
-      "sha256": "c7c83cafc1d790fe2b0845871d5072237853e4e16a10f0a0596fbd837763e30f"
+      "sha256": "d01a3346061374bb6dd8f71c0da3589eeec7dffa2f50538a2c2060df5f18b9cc"
     },
     ".agents/skills/research": {
       "provider": "agent-kit",

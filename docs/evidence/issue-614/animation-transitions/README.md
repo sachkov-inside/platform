@@ -22,7 +22,7 @@ Reduced motion проверен отдельно: статичная сцена 
 
 ## Проверки
 
-16 Storybook tests анимации и страницы, docs:check и diff check прошли. Корневой check прошёл
+16 UI catalog tests анимации и страницы, docs:check и diff check прошли. Корневой check прошёл
 lint/typecheck/guardrails и unit tests; E2E не стартовал из-за lock существующего next dev.
 Полный check, последующие build и standalone checks не объявляются пройденными.
 Проверки относятся к локальному WIP. Существующий dev-сервер не перезапускался.

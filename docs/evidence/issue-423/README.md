@@ -6,9 +6,9 @@
 
 ## Исполнимая проверка
 
-- `PLAYWRIGHT_PORT=3423 pnpm check` — passed: документация, API drift, lint, typecheck, guardrails, tooling/backend/web/Storybook tests, Playwright, production и Storybook builds.
+- `PLAYWRIGHT_PORT=3423 pnpm check` – passed: документация, API drift, lint, typecheck, guardrails, tooling/backend/web/ui-catalog tests, Playwright, production и UI catalog builds.
 - Standards и Spec review относительно `b8b0e050` — pass, findings отсутствуют.
-- Storybook `Pages/Home/Guest/Ready` и живой маршрут `/` с development seed: 1440×1024, 390×844, 1280×1024 с root font-size 200%.
+- UI catalog `Pages/Home/Guest/Ready` и живой маршрут `/` с development seed: 1440×1024, 390×844, 1280×1024 с root font-size 200%.
 - [Измерения DOM](geometry.json): лента равна ширине секции; на desktop две колонки, на mobile и при увеличенном тексте одна; верхние margin контейнера текста и первого абзаца плашки равны нулю; горизонтального overflow нет.
 - Скан Impeccable layout — findings отсутствуют.
 
@@ -18,9 +18,9 @@
 
 [Плашка desktop](live-invitation-desktop.png) · [Плашка mobile](live-invitation-mobile.png)
 
-## Изображения Storybook
+## Изображения UI catalog
 
-[Заметки desktop](storybook-notes-desktop.png) · [Плашка mobile](storybook-invitation-mobile.png)
+[Заметки desktop](ui-catalog-notes-desktop.png) · [Плашка mobile](ui-catalog-invitation-mobile.png)
 
 ## Границы результата
 

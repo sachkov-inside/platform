@@ -15,14 +15,14 @@ pull request [#1353](https://github.com/sachkov-inside/platform/pull/1353).
 
 | Состояние | Компьютер, 1440 px | Телефон, 390 px |
 | --- | --- | --- |
-| Список в Storybook, выбран результат «Нужны исправления» | [Снимок](storybook-submissions-1440.png) | [Снимок](storybook-submissions-390.png) |
-| Раскрытая сдача в Storybook | [Снимок](storybook-expanded-submission-1440.png) | [Снимок](storybook-expanded-submission-390.png) |
-| Первая успешная самопроверка в Storybook | [Снимок](storybook-passed-1440.png) | [Снимок](storybook-passed-390.png) |
+| Список в UI catalog, выбран результат «Нужны исправления» | [Снимок](ui-catalog-submissions-1440.png) | [Снимок](ui-catalog-submissions-390.png) |
+| Раскрытая сдача в UI catalog | [Снимок](ui-catalog-expanded-submission-1440.png) | [Снимок](ui-catalog-expanded-submission-390.png) |
+| Первая успешная самопроверка в UI catalog | [Снимок](ui-catalog-passed-1440.png) | [Снимок](ui-catalog-passed-390.png) |
 | Список на маршруте сайта с тестовым HTTP-ответом | [Снимок](live-list-desktop-chromium.png) | [Снимок](live-list-mobile-chromium.png) |
 | Раскрытая сдача на маршруте сайта с тестовым HTTP-ответом | [Снимок](live-expanded-desktop-chromium.png) | [Снимок](live-expanded-mobile-chromium.png) |
 | Отчёт сохранён через MCP, комментарий прочитан из базы | [Снимок](submissions-desktop-chromium.png) | [Снимок](submissions-mobile-chromium.png) |
 
-Storybook и маршрут сайта используют один модуль `_pages/task-submissions`.
+UI catalog и маршрут сайта используют один модуль `_pages/task-submissions`.
 Последняя строка проверена с настоящими API, MCP и PostgreSQL на отдельном локальном стенде.
 Вход выполнялся через тестовый сервис идентификации.
 
@@ -45,8 +45,8 @@ Storybook и маршрут сайта используют один модул�
 
 ## Проверки и пределы
 
-- Скрипт `apps/web/test/evidence/capture-task-submissions.mjs` снял 14 состояний Storybook на двух ширинах, всего 28 снимков.
-  Переполнения по горизонтали и нарушений Axe нет. Результаты находятся в `storybook-checks.json`.
+- Скрипт `apps/web/test/evidence/capture-task-submissions.mjs` снял 14 состояний UI catalog на двух ширинах, всего 28 снимков.
+  Переполнения по горизонтали и нарушений Axe нет. Результаты находятся в `ui-catalog-checks.json`.
 - Проверки навигации с тестовыми HTTP-ответами прошли на компьютере и телефоне: 16 сценариев. Они охватывают историю,
   возврат, черновики, сохранение, ошибки, отсутствие сдачи и ограничение доступа.
 - Четыре сценария проверили сохранение отчёта через MCP и передачу комментария автора на сайт и в MCP ученика.

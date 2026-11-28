@@ -15,7 +15,6 @@ config/production/foundation/*.env
 **/dist
 **/node_modules
 **/playwright-report
-**/storybook-static
 **/test-results
 *.log
 **/*.tsbuildinfo

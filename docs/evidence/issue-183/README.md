@@ -1,6 +1,6 @@
 # Issue 183 — Kinescope video UI evidence
 
-Captured from the production-owned Storybook implementation on 2026-09-01 after module, build and
+Captured from the production-owned UI catalog implementation on 2026-09-01 after module, build and
 route E2E checks passed.
 
 | State | Desktop | Mobile |

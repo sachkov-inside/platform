@@ -99,7 +99,7 @@ export interface MaterialReaderViewProps {
   readonly updateNotice?: ReactNode;
 }
 
-/** Client-safe presentation shared by the production RSC route and Storybook. */
+/** Client-safe presentation of the Reader state. */
 export function MaterialReaderView({
   renderLink,
   body,

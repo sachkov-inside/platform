@@ -55,7 +55,7 @@ The navigation marker follows the blocks, preserving `first:mt-0`. Shared naviga
 outside the document body remain addressable.
 
 The focused suite passed 48 Reader/Task/body stories, 15 whole-page screenshot browser-engine tests
-and 10 package-v2 tests. Five Storybook MCP source-anchor scenarios passed with accessibility checks.
+and 10 package-v2 tests. Five UI catalog MCP source-anchor scenarios passed with accessibility checks.
 
 ## Initial Material-only import proof
 
@@ -64,8 +64,8 @@ It checked cross-page Unicode links, duplicate suffixes, a same-page keyboard li
 fragments. Local `#fragment` links initially failed body validation as `unsafe_link`; backend and
 importer regression tests retain this case.
 
-[Imported Reader on mobile](imported-reader-mobile.png), [Reader desktop](storybook-desktop.png),
-[Reader mobile](storybook-mobile.png).
+[Imported Reader on mobile](imported-reader-mobile.png), [Reader desktop](ui-catalog-desktop.png),
+[Reader mobile](ui-catalog-mobile.png).
 
 Initial `pnpm check` passed on `dda846ba`. Final aggregate verification, independent review and CI
 are recorded in [PR #1221](https://github.com/sachkov-inside/platform/pull/1221).

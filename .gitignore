@@ -25,6 +25,4 @@ next-env.d.ts
 apps/backend/src/infrastructure/prisma/generated/
 apps/web/release-identity.json
 
-*storybook.log
-storybook-static
 production-access-report/

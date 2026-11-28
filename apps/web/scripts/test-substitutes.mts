@@ -46,26 +46,11 @@ const frameworkAdapters = new Map([
     },
   ],
   [
-    ".storybook/mocks/next-link.tsx",
+    "test/support/next-link.tsx",
     {
       exports: ["default", "useLinkStatus"],
       fingerprint:
-        "2f8ed79726f4ddc0bcb24d6b658520c8ce5f862267b6d574b912f70ded3680fa",
-    },
-  ],
-  [
-    ".storybook/mocks/next-navigation.ts",
-    {
-      exports: [
-        "ReadonlyURLSearchParams",
-        "getStoryRouter",
-        "useParams",
-        "usePathname",
-        "useRouter",
-        "useSearchParams",
-      ],
-      fingerprint:
-        "101564407702be9a80e02a0c3c4693efdce682bab3a054433a4a81e51c01ad6a",
+        "b7398d9bfb7948c6b9e51153f90fb3f8ed6d781b9c4b0d6f0878ba4a1c9bc1cf",
     },
   ],
   [
@@ -99,16 +84,9 @@ const frameworkAliasContexts = new Map([
     new Map([["next/navigation", "file-preview/next-navigation.ts"]]),
   ],
   [
-    ".storybook/main.ts",
-    new Map([
-      ["next/link", ".storybook/mocks/next-link.tsx"],
-      ["next/navigation", ".storybook/mocks/next-navigation.ts"],
-    ]),
-  ],
-  [
     "test/browser-engines/course-reading-handoff.test.ts",
     new Map([
-      ["next/link", ".storybook/mocks/next-link.tsx"],
+      ["next/link", "test/support/next-link.tsx"],
       ["next/navigation", "test/support/course-reading-router.ts"],
     ]),
   ],
@@ -123,13 +101,6 @@ const frameworkAliasContexts = new Map([
     "vitest.smoke.config.mts",
     new Map([["server-only", "test/support/server-only.ts"]]),
   ],
-]);
-const storyRouterConsumers = new Set([
-  "src/shared/ui/admin/admin.fixtures.tsx",
-  "src/shared/ui/retry-page-button.stories.tsx",
-  "src/_app/ui/use-access-change-refresh.stories.tsx",
-  "src/_pages/task-submissions/ui/task-submissions-view.stories.tsx",
-  "src/_pages/product-purchase/ui/product-purchase.stories.tsx",
 ]);
 const extensions = [
   ".ts",
@@ -582,17 +553,15 @@ export function testSubstituteViolations(
     if (
       frameworkAdapters.has(target) &&
       !(
-        (target === ".storybook/mocks/next-navigation.ts" &&
-          storyRouterConsumers.has(sourcePath)) ||
-        (target === "test/support/course-reading-router.ts" &&
-          sourcePath === "test/support/course-reading-handoff.tsx")
+        target === "test/support/course-reading-router.ts" &&
+        sourcePath === "test/support/course-reading-handoff.tsx"
       )
     )
       violations.add(
         "framework adapters stay in their approved fixture contexts",
       );
   }
-  const apis = new Set(["vi", "sb"]);
+  const apis = new Set(["vi"]);
   const methods = new Map<string, string>();
   const constants = new Map<string, string>();
   const owned = new Set<string>();
@@ -600,17 +569,8 @@ export function testSubstituteViolations(
   const mockedViews = new Set<string>();
   for (const [symbol, value] of info.imports) {
     if (protectedImport(value.source)) owned.add(symbol);
-    if (
-      (value.source === "vitest" && value.name === "vi") ||
-      (value.source === "storybook/test" && value.name === "sb")
-    )
-      apis.add(symbol);
-    if (value.source === "storybook/test" && value.name === "spyOn")
-      methods.set(symbol, "spyOn");
-    if (
-      ["vitest", "storybook/test"].includes(value.source) &&
-      value.name === "mocked"
-    )
+    if (value.source === "vitest" && value.name === "vi") apis.add(symbol);
+    if (value.source === "vitest" && value.name === "mocked")
       mockedViews.add(symbol);
   }
   const rootOwn = (node: Node | null | undefined): boolean => {
@@ -820,15 +780,6 @@ export function testSubstituteViolations(
         sourcePath === "test/module/logto-sdk-callback.test.ts" &&
         properties?.size === 0
       );
-    if (target === "@storybook/addon-vitest/vitest-plugin") {
-      const body = returned(properties?.get("storybookTest"));
-      return (
-        sourcePath === "test/contracts/run-scoped-vite-cache.test.ts" &&
-        properties?.size === 1 &&
-        body?.type === "ArrayExpression" &&
-        body.elements.length === 0
-      );
-    }
     if (target === "next/cache")
       return (
         [
@@ -975,10 +926,9 @@ export function testSubstituteViolations(
         rootOwn(node.arguments[0])
       )
         violations.add("tests cannot overwrite imported own or SDK members");
-      const resolved =
-        /^(?:test\/|\.storybook\/)|\.stories\.[cm]?[jt]sx?$/u.test(sourcePath)
-          ? calledBinding(info, node.callee)
-          : undefined;
+      const resolved = sourcePath.startsWith("test/")
+        ? calledBinding(info, node.callee)
+        : undefined;
       if (
         resolved &&
         /[/\\](?:src|app)[/\\]/u.test(resolved.module.file) &&

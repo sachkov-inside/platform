@@ -1,13 +1,13 @@
 # Issue 189 — simplified Account and Member Profile evidence
 
 Captured from the implementation branch on 2026-09-01 after focused integration, module and
-Storybook checks passed.
+UI catalog checks passed.
 
 | Surface | Desktop | Mobile |
 | --- | --- | --- |
 | Live authenticated `/account` route | [`desktop.png`](./desktop.png) | [`mobile.png`](./mobile.png) |
-| Account production Storybook state | [`account-desktop.png`](./account-desktop.png) | [`account-mobile.png`](./account-mobile.png) |
-| Member Profile production Storybook state | [`member-profile-desktop.png`](./member-profile-desktop.png) | [`member-profile-mobile.png`](./member-profile-mobile.png) |
+| Account production UI catalog state | [`account-desktop.png`](./account-desktop.png) | [`account-mobile.png`](./account-mobile.png) |
+| Member Profile production UI catalog state | [`member-profile-desktop.png`](./member-profile-desktop.png) | [`member-profile-mobile.png`](./member-profile-mobile.png) |
 
 - Desktop viewport: `1440 × 1024`; mobile viewport: `390 × 844`.
 - The Account surface contains only create/edit, the member preview and its opaque link. Complaints,

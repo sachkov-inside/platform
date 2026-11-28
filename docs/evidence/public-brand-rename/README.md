@@ -8,8 +8,8 @@ Published legal editions retain their original names; a separate site note expla
 
 ## Browser evidence
 
-Task-owned Storybook at port 6123 uses production presentation modules. The runtime did not
-expose a configured Storybook MCP endpoint, so the local catalog and browser were used.
+Task-owned UI catalog at port 6123 uses production presentation modules. The runtime did not
+expose a configured UI catalog MCP endpoint, so the local catalog and browser were used.
 
 | Surface | Story | Widths checked | Capture |
 | --- | --- | --- | --- |

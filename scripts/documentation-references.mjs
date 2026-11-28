@@ -184,7 +184,6 @@ const generatedSegments = new Set([
   "dist",
   "node_modules",
   "playwright-report",
-  "storybook-static",
   "test-results",
 ]);
 const moduleSuffixes = ["", ".ts", ".tsx", ".mjs", ".js", "/index.ts"];

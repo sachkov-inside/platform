@@ -44,7 +44,7 @@ failure handling и E2E proof. Новые библиотеки добавляю�
 ## 2. Фактический baseline Platform
 
 На момент исследования [`apps/web/package.json`](../../apps/web/package.json) содержит Next.js
-16.3.1, React 19.2.8, strict TypeScript, Storybook 10, Vitest 4, Playwright 1.62 и
+16.3.1, React 19.2.8, strict TypeScript, UI catalog 10, Vitest 4, Playwright 1.62 и
 `@axe-core/playwright`. TanStack Query, Zod и form-state library во frontend package отсутствуют.
 [`next.config.ts`](../../apps/web/next.config.ts) включает typed routes, но не включает
 `cacheComponents`.
@@ -343,11 +343,11 @@ Next.js официально предупреждает: Vitest/Jest пока н
 | Boundary | Test | Обязательные proofs для vertical slice |
 |---|---|---|
 | Pure mapper/schema | Vitest unit | valid DTO -> presentation; malformed DTO; exhaustive status/error mapping |
-| Client island | Vitest browser/Storybook interaction | keyboard behavior, pending/disabled semantics, retry, optimistic rollback where applicable |
-| Presentation interface | Storybook stories + a11y addon | representative ready, empty/access/error states; responsive visual review |
+| Client island | Vitest browser/ui-catalog interaction | keyboard behavior, pending/disabled semantics, retry, optimistic rollback where applicable |
+| Presentation interface | UI catalog stories + a11y addon | representative ready, empty/access/error states; responsive visual review |
 | Async RSC + Next special files | Playwright against running production-like Next | initial HTML, navigation, `loading`, `not-found`, `error`, hydration interaction |
 | Full stack | Playwright + real Nest/PostgreSQL test setup | published Material is read from real DB; missing/inaccessible/failure cases |
-| Production graph | `next build` and architecture checks | no Storybook/workshop/fixture/server-only leak into wrong graph; typed routes compile |
+| Production graph | `next build` and architecture checks | no ui-catalog/workshop/fixture/server-only leak into wrong graph; typed routes compile |
 
 ### Route-state scenarios
 
@@ -369,7 +369,7 @@ Next.js официально предупреждает: Vitest/Jest пока н
 
 ### Accessibility
 
-- Запускать axe как на accepted Storybook states, так и на живом route после meaningful
+- Запускать axe как на accepted UI catalog states, так и на живом route после meaningful
   interactions.
 - E2E selectors/assertions строить по roles/names, отдельно пройти keyboard-only navigation,
   focus order, visible focus и error announcement.
@@ -403,7 +403,7 @@ Next.js официально предупреждает: Vitest/Jest пока н
    Route Handler round trip и без backend DTO в client graph.
 3. Presentation contract runtime-validated и покрыт mapper/error unit tests.
 4. Route имеет проверенные loading/not-found/unexpected-error/access states.
-5. Accepted Storybook module и production route импортируют одну presentation implementation;
+5. Accepted UI catalog module и production route импортируют одну presentation implementation;
    fixtures отсутствуют в production graph.
 6. Playwright доказывает initial SSR content, hydration interaction и full-stack failure states.
 7. Axe gate проходит; keyboard/manual accessibility review зафиксирован отдельно.
