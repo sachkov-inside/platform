@@ -71,6 +71,16 @@ test("the mobile programme reserves its dock clearance when the storage notice r
           Number.parseFloat(getComputedStyle(dock).bottom),
       );
     });
+  const overlap = () =>
+    nav.evaluate((dock) => {
+      const notice = document.querySelector(
+        '[aria-label="Хранение в браузере"]',
+      );
+      if (notice === null) throw new Error("The storage notice is missing");
+      return (
+        dock.getBoundingClientRect().bottom - notice.getBoundingClientRect().top
+      );
+    });
   await expect(nav).toBeVisible();
   await notice.getByRole("button", { name: "Понятно" }).click();
   await expect(notice).toBeHidden();
@@ -93,6 +103,14 @@ test("the mobile programme reserves its dock clearance when the storage notice r
         ),
       )
       .toBeGreaterThan(originalBottom);
+    await expect.poll(clearance).toBe(12);
+    await expect.poll(overlap).toBeLessThanOrEqual(0);
+    // The notice must keep the dock clear even when its rendered height rounds down.
+    await notice.evaluate((node) => {
+      const padding = Number.parseFloat(getComputedStyle(node).paddingBottom);
+      node.style.paddingBottom = `${String(padding + 0.25)}px`;
+    });
+    await expect.poll(overlap).toBeLessThanOrEqual(0);
     await expect.poll(clearance).toBe(12);
     const a11y = await new AxeBuilder({ page })
       .include('nav[data-layout="sections"]')

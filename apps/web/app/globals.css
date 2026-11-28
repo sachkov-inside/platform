@@ -22,6 +22,7 @@
 }
 
 :root {
+  --storage-notice-inset: calc(1rem + env(safe-area-inset-bottom, 0px));
   --background: oklch(0.965 0.008 112);
   --foreground: oklch(0.205 0.014 129);
   --card: oklch(0.99 0.004 112);
@@ -458,6 +459,9 @@ html:not(.dark) body:has([data-public-shell]) {
 }
 
 @media (width >= 64rem) {
+  :root {
+    --storage-notice-inset: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+  }
   [data-public-shell] [data-application-content] {
     scroll-padding-bottom: calc(
       2.5rem + env(safe-area-inset-bottom, 0px) +
