@@ -88,3 +88,9 @@
   font-weight: 600;
   line-height: 1.5;
 }
+.content :global(.ProseMirror) {
+  scroll-margin-block-start: calc(
+    var(--material-authoring-header-height, 0px) +
+      var(--material-editor-toolbar-height, 0px) + 5px
+  );
+}
