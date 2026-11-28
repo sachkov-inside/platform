@@ -2,8 +2,8 @@ import { createServer, type Server } from "node:http";
 
 import { z } from "zod";
 
-/** How the Telegram double answers: a v2 release, a release before v2 (404), or no answer (503). */
-export type TelegramDoubleMode = "v2" | "v1_only" | "down";
+/** How the Telegram double answers: a v2 release, a release before v2 (404), an outage (503), or an open connection without a response. */
+export type TelegramDoubleMode = "v2" | "v1_only" | "down" | "hang";
 
 /** One stored Telegram profile of a current link, keyed by its pair. */
 export interface TelegramDoubleProfile {
@@ -45,6 +45,7 @@ export async function startTelegramContactsDouble(secret: string): Promise<{
       if (request.headers.authorization !== `Bearer ${secret}`)
         return void response.writeHead(401).end();
       if (state.mode === "down") return void response.writeHead(503).end();
+      if (state.mode === "hang") return;
       const v2 = path.startsWith("/integrations/platform/v2/");
       if (v2 && state.mode === "v1_only")
         return void response.writeHead(404).end();

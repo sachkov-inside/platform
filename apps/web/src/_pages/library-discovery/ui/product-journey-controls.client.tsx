@@ -57,6 +57,7 @@ interface ProgrammeQuery {
   readonly at: string | null;
   readonly atPlacement: string | null;
   readonly catalogue: boolean;
+  readonly shelf: string | null;
 }
 
 /** Activity retains this Programme while the global router displays a different document. */
@@ -70,6 +71,7 @@ function useProgrammeQuery(owner: Route): ProgrammeQuery {
         hasPage: search.has("page"),
         at: search.get("at"),
         atPlacement: search.get("atPlacement"),
+        shelf: search.get("shelf"),
         catalogue: search.get("part") === "materials",
       }
     : {
@@ -77,6 +79,7 @@ function useProgrammeQuery(owner: Route): ProgrammeQuery {
         hasPage: false,
         at: null,
         atPlacement: null,
+        shelf: null,
         catalogue: false,
       };
   const [accepted, setAccepted] = useState({ owner, query: incoming });
@@ -87,6 +90,7 @@ function useProgrammeQuery(owner: Route): ProgrammeQuery {
         accepted.query.hasPage !== incoming.hasPage ||
         accepted.query.at !== incoming.at ||
         accepted.query.atPlacement !== incoming.atPlacement ||
+        accepted.query.shelf !== incoming.shelf ||
         accepted.query.catalogue !== incoming.catalogue));
   if (changed) {
     setAccepted({ owner, query: incoming });
@@ -486,9 +490,12 @@ export function ProductJourneyControls({
           part.panel
         ) : part?.kind === "catalog" ? (
           <ProductMaterialCatalog
+            key={query.shelf}
+            initialShelf={query.shelf}
             accessPending={part.accessPending}
             currentHref={currentHref}
             entries={part.entries}
+            returnSlug={returnSlug}
             topics={part.topics}
           />
         ) : (

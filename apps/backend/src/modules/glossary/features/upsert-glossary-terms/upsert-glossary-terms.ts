@@ -29,7 +29,7 @@ const sameTerm = (left: GlossaryTerm, right: GlossaryTerm): boolean =>
 
 /**
  * Creates or updates each listed term by its identifier. A package carries only the terms its
- * Materials need, so a term missing from the list stays as it is (content-studio#88).
+ * Materials need, so a term missing from the list stays as it is (course-studio#88).
  */
 export async function upsertGlossaryTerms(
   dependencies: GlossaryOperationDependencies,

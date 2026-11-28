@@ -1,6 +1,6 @@
 # Перенос Content в production
 
-Инструкция для автора и агента (#805). Выбранная версия оригиналов из Content Studio попадает на
+Инструкция для автора и агента (#805). Выбранная версия оригиналов из Course Studio попадает на
 `https://sachkov.dev` тем же путём, что и на локальный стенд: предпросмотр, отпечаток, точное
 применение и журнал. Агент выполняет те же команды, поэтому их можно запустить и вручную.
 
@@ -57,12 +57,12 @@ Keychain, и следующие переносы входа не требуют.
 В нём лежат журнал, экспортированные пакеты и предпросмотры. Его нельзя смешивать с каталогом
 стенда: инструмент откажется работать с журналом другой цели.
 
-1. Закоммитьте изменения в Content Studio: переносится только закоммиченная версия.
+1. Закоммитьте изменения в Course Studio: переносится только закоммиченная версия.
 2. Предпросмотр. Команда ничего не пишет на сайт:
 
    ```bash
    pnpm authoring:release preview --target production \
-     --content ~/Work/Materials/content-studio --product inside-ai-engineering [--ref COMMIT] \
+     --content ~/Work/Materials/course-studio --product inside-ai-engineering [--ref COMMIT] \
      --state ~/.inside-authoring/production [--publish SOURCE_ID]... \
      [--task-access CODE=free|closed]... [--confirm-product-removal PRODUCT_UUID]...
    ```
@@ -109,7 +109,7 @@ Keychain, и следующие переносы входа не требуют.
 
 ## Обновление существующего содержания
 
-Новый текст уже перенесённых Materials и Tasks Content Studio доставляет командой
+Новый текст уже перенесённых Materials и Tasks Course Studio доставляет командой
 `pnpm --silent authoring:deliver` (#1672), той же, что и на стенд. Она сохраняет доступ, публикацию,
 членство в Product и размещение заданий, а создание, архив и изменения Product отклоняет: для них
 остаётся полный выпуск выше. Сохраняемое состояние приходит из авторизованного API production, а не из
@@ -118,7 +118,7 @@ Keychain, и следующие переносы входа не требуют.
 
 ```bash
 pnpm --silent authoring:deliver preview --target production --package PACKAGE_JSON \
-  --commit CONTENT_SHA --content-repository ~/Work/Materials/content-studio \
+  --commit CONTENT_SHA --content-repository ~/Work/Materials/course-studio \
   --state ~/.inside-authoring/production --material SOURCE_ID [--task SOURCE_ID]...
 pnpm --silent authoring:deliver apply --receipt RECEIPT_JSON --state ~/.inside-authoring/production
 ```
@@ -247,7 +247,7 @@ pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY
 
 Для очередного текста новый выпуск приложения не нужен (#806).
 
-1. **Коммит в Content.** Закоммитьте урок в Content Studio.
+1. **Коммит в Content.** Закоммитьте урок в Course Studio.
 2. **Перенос черновиком.** Выполните `preview` и `apply` из раздела выше без `--publish`: урок
    попадёт на сайт закрытым черновиком.
 3. **Просмотр точной версии.** Откройте `https://sachkov.dev/authoring/materials`, найдите
@@ -266,7 +266,7 @@ pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY
 
 Замените поля в угловых скобках и передайте агенту этот текст:
 
-> Из Platform подготовь перенос курса `<PRODUCT_ID>` из Content Studio. Используй только
+> Из Platform подготовь перенос курса `<PRODUCT_ID>` из Course Studio. Используй только
 > commit `<CONTENT_SHA>` и штатный `authoring:release`. Проверь исходники и экспорт: главы,
 > порядок, уроки, квизы, задания, медиа и постоянные source ID. Оригиналы меняет сессия Content.
 > Публиковать можно только `<SOURCE_ID_LIST>`; пустой список означает перенос черновиками.

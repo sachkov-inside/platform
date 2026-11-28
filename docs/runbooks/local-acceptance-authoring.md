@@ -1,14 +1,14 @@
 # Local authoring preview
 
-One-shot import of Engineering Content originals into a local target.
+One-shot import of Course Studio originals into a local target.
 
 ## Local Obsidian authoring preview (#468)
 
-For content-only updates of existing Materials and Tasks on the stand or in production, Content Studio calls
+For content-only updates of existing Materials and Tasks on the stand or in production, Course Studio calls
 `pnpm authoring:deliver` under [the content-only delivery procedure](authoring-preservation.md). It owns the stand
 gateway for its run, preserves target access, publication, membership and placement, and proves affected images.
 
-Originals from Content Studio reach a local Platform through a one-shot import of one Git commit.
+Originals from Course Studio reach a local Platform through a one-shot import of one Git commit.
 Two loopback targets exist, each with its own state directory:
 
 | Target | Runtime | Gateway |
@@ -73,7 +73,7 @@ What the transfer applies:
   page description before the transfer's first write, and its refusal names the product.
   The optional `products[].introduction` imports all four introduction fields; omitting it preserves
   the stored introduction. The source owns this text for imported Products (#845).
-  Editing the page text is a commit in Engineering Content plus a transfer, with no web rebuild.
+  Editing the page text is a commit in Course Studio plus a transfer, with no web rebuild.
 
 Publication is an explicit owner decision (#804). By default every original is transferred as a
 private draft: its author previews it through the authoring preview, while guests, other accounts,

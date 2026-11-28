@@ -5,7 +5,7 @@ renders it, and reloads the page when the package changes (#2221). It needs no b
 Docker, stand or sign-in, and starts in a few seconds. The shared stand stays the place for checks
 before a release: access, navigation, video and the release itself.
 
-Content Studio's `studio preview` (content-studio#127) consumes the contract below.
+Course Studio's `studio preview` (course-studio#127) consumes the contract below.
 
 ## Run it
 
@@ -22,7 +22,7 @@ nothing outside the Vite dependency cache of `apps/web`.
 
 | Argument | Meaning |
 |---|---|
-| `--package <path>` | Required. A `package.json`, a package directory, or the folder Content Studio exports packages into. In a folder, the package whose `package.json` was written last wins. A relative path is resolved from the directory the command was started in. |
+| `--package <path>` | Required. A `package.json`, a package directory, or the folder Course Studio exports packages into. In a folder, the package whose `package.json` was written last wins. A relative path is resolved from the directory the command was started in. |
 | `--port <n>` | The port. Without it the preview takes 4400 or the next free port. `0` takes any free port. An explicit busy port is an error. |
 
 The preview listens on `127.0.0.1` only: it serves the package files and signs the reader in as an
@@ -30,7 +30,7 @@ author.
 
 ## Input
 
-The input is a package exactly as `python3 tools/content.py export-platform` in Content Studio
+The input is a package exactly as `python3 tools/content.py export-platform` in Course Studio
 writes it: `package.json` in canonical JSON (schema version 1, 2 or 3) and the asset files it names
 beside it. The preview loads it with the same checks as `authoring:release`, so a package the stand
 would refuse shows the reason in place of the page.
@@ -63,7 +63,7 @@ Any other address, including the programme and pages outside the package, shows 
 
 The preview watches `--package`. When a file under it changes, it reloads the package and every
 open page reloads itself. The preview reads packages, not the authored Markdown: the caller
-re-exports when a source file changes. Content Studio writes each export into a new directory, so
+re-exports when a source file changes. Course Studio writes each export into a new directory, so
 `studio preview` exports into one folder on every save and passes that folder; each new export
 replaces the shown package.
 

@@ -26,7 +26,7 @@ export class HttpTelegramContactsProvider implements TelegramContactsProvider {
     private readonly fetcher: typeof fetch = fetch,
   ) {}
 
-  async read(contacts: readonly TelegramContactQuery[]) {
+  async read(contacts: readonly TelegramContactQuery[], signal?: AbortSignal) {
     const scope = {
       module: "telegram-membership",
       operation: "readTelegramContacts",
@@ -36,6 +36,7 @@ export class HttpTelegramContactsProvider implements TelegramContactsProvider {
       { contractVersion: "inside.telegram-contact.v1", contacts },
       CONTACT_READ_TIMEOUT_MILLISECONDS,
       scope,
+      signal,
     );
     if (!answer.ok) return { ok: false } as const;
     const parsed = telegramContactsResponseSchema.safeParse(answer.body);
@@ -116,16 +117,19 @@ export class HttpTelegramContactsProvider implements TelegramContactsProvider {
     body: unknown,
     timeoutMilliseconds: number,
     scope: { readonly module: string; readonly operation: string },
+    signal?: AbortSignal,
   ): Promise<
     | { readonly ok: true; readonly body: unknown }
     | { readonly ok: false; readonly notFound: boolean }
   > {
     if (!hasText(this.secret)) return { ok: false, notFound: false };
     try {
+      const timeout = AbortSignal.timeout(timeoutMilliseconds);
       const response = await this.fetcher(new URL(path, this.linkingEndpoint), {
         method: "POST",
         redirect: "error",
-        signal: AbortSignal.timeout(timeoutMilliseconds),
+        signal:
+          signal === undefined ? timeout : AbortSignal.any([signal, timeout]),
         headers: {
           authorization: `Bearer ${this.secret}`,
           "content-type": "application/json",

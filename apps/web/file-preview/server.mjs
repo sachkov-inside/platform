@@ -23,7 +23,7 @@ import {
 const usage = `Usage: pnpm preview:files --package PATH [--port N]
 
 Shows lessons and Task pages of a Content package as sachkov.dev renders them, and reloads the page
-when the package changes. PATH is a package.json, a package directory, or the folder Content Studio
+when the package changes. PATH is a package.json, a package directory, or the folder Course Studio
 exports packages into; in a folder the most recently written package wins.
 
 --port  Port on 127.0.0.1; 0 takes any free port. Without it the preview takes 4400 or the
@@ -294,7 +294,7 @@ async function startFilePreview({ packagePath, port }) {
   const changed = (/** @type {string} */ path) => {
     if (path !== watched && !path.startsWith(`${watched}/`)) return;
     clearTimeout(pending);
-    // Content Studio writes a package as several files and a rename: reload once it settles.
+    // Course Studio writes a package as several files and a rename: reload once it settles.
     pending = setTimeout(() => {
       void source.reload().then((next) => {
         if ("error" in next) process.stderr.write(`Preview: ${next.error}\n`);

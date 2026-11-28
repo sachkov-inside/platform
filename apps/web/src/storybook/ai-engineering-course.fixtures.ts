@@ -11,7 +11,7 @@ const card = (title: string, text: string, detailLabel = "", detail = "") => ({
 /**
  * Представительное состояние страницы курса для Storybook: описание лендинга, принятое владельцем
  * 31.10.2026 (#1909, прототип `prototype/ai-engineering-landing-v2`). Оригинал текста живёт в
- * Inside Content (`guide.yaml`); снимок нужен, чтобы видеть оформление.
+ * Course Studio (`guide.yaml`); снимок нужен, чтобы видеть оформление.
  */
 export const aiEngineeringCoursePage: ProductPage = {
   card: {
@@ -294,7 +294,7 @@ export const aiEngineeringCoursePage: ProductPage = {
 /**
  * Описание лендинга по новой программе курса, принятое владельцем 23.11.2026: темы по пути курса,
  * сообщения автора (`contact-audience`, `contact-mentoring`) и блок «Курс развивается»
- * (`publication`) без счётчиков глав. Оригинал текста живёт в Inside Content (`guide.yaml`).
+ * (`publication`) без счётчиков глав. Оригинал текста живёт в Course Studio (`guide.yaml`).
  */
 export const aiEngineeringProgrammeLandingPage: ProductPage = {
   card: {

@@ -7,7 +7,7 @@ export type ProductArtifactAccess = z.infer<typeof productArtifactAccessSchema>;
 
 /**
  * Where the artifact record was first authored. `platform` records are owned by
- * the Platform editor; `authoring` records are owned by the Inside Content
+ * the Platform editor; `authoring` records are owned by the Course Studio
  * authoring base and are the only ones an import may create or change.
  */
 export type ProductArtifactOrigin = "authoring" | "platform";

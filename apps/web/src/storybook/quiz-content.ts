@@ -1,4 +1,4 @@
-/** Synthetic Content v2 input in the content-studio#86 `exercise-v1` shape. */
+/** Synthetic Content v2 input in the course-studio#86 `exercise-v1` shape. */
 export const readerBlocks = [
   {
     kind: "markdown",

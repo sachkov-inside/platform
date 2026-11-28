@@ -100,9 +100,11 @@ delivery v1 and the existing Telegram subscription lane. Its event `accountRef` 
 the recipients are the Accounts that manage sales, so the email channel is never staged.
 The text names the buyer's current Telegram (name and `@username`, or that Telegram is not linked or
 not readable) by the owner's decision of 2026-11-13 (#2085), and the payment card link identifies
-the purchase. Template revision 2 adds that line. A Telegram change between issue and send makes the
-rebuilt text differ: the command is superseded and replaced, not lost. Telegram checks neither the
-text nor `templateRevision`, so this revision needs only a Platform release.
+the purchase. Template revision 2 adds that line. Platform can authorize an already prepared
+"profile unavailable" message when the buyer is still linked and the other sale details match,
+even if the profile has recovered. Commands carrying outdated buyer details are denied as
+superseded and follow the existing replacement rules. Telegram accepts the text and template
+revision as opaque command fields.
 Platform authorization also denies a recipient who lost the sales permission (`access_denied`).
 An older Telegram rejects the new kind. Release Telegram before Platform for this change.
 

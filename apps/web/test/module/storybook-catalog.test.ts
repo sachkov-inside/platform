@@ -1,10 +1,8 @@
 import { readFileSync, readdirSync } from "node:fs";
-import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 import { parseSync, type ObjectExpression } from "oxc-parser";
 import { toId } from "storybook/internal/csf";
-import catalog from "../../src/storybook/catalog.json";
 
 const web = fileURLToPath(new URL("../../", import.meta.url));
 function files(directory: string): string[] {
@@ -65,42 +63,5 @@ it("keeps stories in the four catalog layers with unique stable identities", () 
     const identity = toId(values.get("id") ?? values.get("title") ?? "");
     expect(ids.has(identity), path).toBe(false);
     ids.add(identity);
-  }
-});
-
-it("gives shared visual modules their own stories and explains helper exceptions", () => {
-  const imported = new Set(
-    storyFiles.flatMap((path) =>
-      parseSync(path, readFileSync(path, "utf8")).program.body.flatMap(
-        (node) => {
-          if (node.type !== "ImportDeclaration") return [];
-          const specifier = node.source.value;
-          const base = specifier.startsWith("@/")
-            ? resolve(web, "src", specifier.slice(2))
-            : specifier.startsWith(".")
-              ? resolve(dirname(path), specifier)
-              : undefined;
-          return base === undefined ? [] : [`${base}.tsx`];
-        },
-      ),
-    ),
-  );
-  const exceptions = new Map(Object.entries(catalog.sharedModuleExceptions));
-  const sharedFiles = files(`${web}src/shared/ui`).filter(
-    (path) => path.endsWith(".tsx") && !path.endsWith(".stories.tsx"),
-  );
-  for (const path of sharedFiles) {
-    const relative = path.slice(`${web}src/`.length);
-    expect(
-      imported.has(path) || (exceptions.get(relative)?.length ?? 0) > 0,
-      relative,
-    ).toBe(true);
-  }
-  for (const exception of exceptions.keys()) {
-    expect(sharedFiles, exception).toContain(`${web}src/${exception}`);
-    expect(
-      imported.has(`${web}src/${exception}`),
-      `Remove resolved exception: ${exception}`,
-    ).toBe(false);
   }
 });

@@ -7,11 +7,12 @@ description: Prepare or update the shared local application for an owner-request
 
 Read the [stand runbook](../../../docs/runbooks/local-stand.md) before runtime operations.
 
-For your own browser check of a change, without the owner's review, start a light instance:
-`pnpm stand:light up` (add `--mcp` when the scenario needs MCP; `--dev` only when you edit Web
-and need reload, at about twice the memory), sign in through the printed
-sign-in address, and run `pnpm stand:light down` when the check ends. It needs no reservation and
-runs beside other agents' instances. Use the shared stand below for an owner review, real Logto
+For your own browser check, open one admitted session with
+`pnpm verify:light -- bash`. Add `--mcp` before `--` for MCP or `--dev` for reloads after source
+edits. Sign in through the printed address and drive the browser from that shell. The command
+closes the verification sessions and stops its instance when the shell exits. For a verdict with
+evidence, follow [verify-platform](../verify-platform/SKILL.md).
+Use the shared stand below for an owner review, real Logto
 sign-in, mail codes, payment confirmation and fulfillment, workers or production-web speed. The
 light instance owns the pending-purchase and synthetic Telegram scenarios documented in the runbook.
 The runbook's light instance section

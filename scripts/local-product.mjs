@@ -1,5 +1,5 @@
 // @ts-check
-// Restores the production-like product view on the local stand from the committed Engineering Content
+// Restores the production-like product view on the local stand from the committed Course Studio
 // originals: the AI Engineering product with its page, programme, files and videos, featured on Home. It is
 // safe to repeat on any branch; the stand data lives in the shared Compose volumes.
 import { execFileSync } from "node:child_process";
@@ -31,6 +31,23 @@ export function grantStandProductAccess(pnpmPath) {
   });
 }
 
+/** @param {string} materials @param {string} [override] */
+export function resolveContentCheckout(materials, override) {
+  const current = resolve(materials, "course-studio");
+  const candidates =
+    override === undefined
+      ? [current, resolve(materials, "content-studio")]
+      : [resolve(override)];
+  const checkout = candidates.find((path) =>
+    existsSync(resolve(path, "tools/content.py")),
+  );
+  if (checkout === undefined)
+    throw new Error(
+      `Course Studio is not at ${candidates.join(" or ")}; pass --content PATH`,
+    );
+  return checkout;
+}
+
 async function main() {
   // The stand's journal of transferred originals; keep it between runs.
   const standStateDirectory = "_local/platform-468/local-stand";
@@ -46,11 +63,10 @@ async function main() {
   });
   const { email } = await standIdentity(values["owner-email"]);
   // Authoring lives in Materials independently of the primary checkout or assigned worktree.
-  const content = resolve(
-    values.content ?? resolve(homedir(), "Work", "Materials", "content-studio"),
+  const content = resolveContentCheckout(
+    resolve(homedir(), "Work", "Materials"),
+    values.content,
   );
-  if (!existsSync(resolve(content, "tools/content.py")))
-    throw new Error(`Content Studio is not at ${content}; pass --content PATH`);
   const receipt = await withStandGateway(email, (origin) =>
     syncGitLocal(
       content,

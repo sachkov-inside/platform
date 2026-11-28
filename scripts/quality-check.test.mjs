@@ -9,21 +9,16 @@ import { it } from "node:test";
 
 const cli = fileURLToPath(new URL("./quality-check.mjs", import.meta.url));
 
-it("accepts the shared MCP endpoint and rejects disagreement or malformed JSON", () => {
+it("keeps the Storybook MCP server out of both agent configs", () => {
   const directory = mkdtempSync(join(tmpdir(), "quality-agent-config-"));
   try {
     mkdirSync(join(directory, ".codex"));
-    writeFileSync(
-      join(directory, ".codex/config.toml"),
-      '[mcp_servers.platform-storybook]\nurl = "http://localhost:6006/mcp"\n',
-    );
-    /** @param {string} url @param {number} expected */
-    const check = (url, expected) => {
+    /** @param {Record<string, unknown>} servers @param {string} codex @param {number} expected */
+    const check = (servers, codex, expected) => {
+      writeFileSync(join(directory, ".codex/config.toml"), codex);
       writeFileSync(
         join(directory, ".mcp.json"),
-        JSON.stringify({
-          mcpServers: { "platform-storybook": { type: "http", url } },
-        }),
+        JSON.stringify({ mcpServers: servers }),
       );
       const result = spawnSync(process.execPath, [cli, "agents"], {
         cwd: directory,
@@ -32,9 +27,17 @@ it("accepts the shared MCP endpoint and rejects disagreement or malformed JSON",
       });
       assert.equal(result.status, expected, result.stderr);
     };
-    check("http://localhost:6006/mcp", 0);
-    check("http://localhost:6007/mcp", 1);
-    check("invalid", 1);
+    check({}, "", 0);
+    check(
+      { "platform-storybook": { url: "http://localhost:6006/mcp" } },
+      "",
+      1,
+    );
+    check(
+      {},
+      '[mcp_servers.platform-storybook]\nurl = "http://localhost:6006/mcp"\n',
+      1,
+    );
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

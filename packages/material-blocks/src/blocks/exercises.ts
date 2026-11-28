@@ -264,7 +264,7 @@ const kindLabels: Readonly<Record<ExerciseKind, string>> = {
 };
 
 /**
- * One Lesson Exercise kind as an atom node. Content (`content-studio`) owns the exercise: the
+ * One Lesson Exercise kind as an atom node. Content (`course-studio`) owns the exercise: the
  * whole rendered value lives in the `exercise` attribute and the editor shows it read-only.
  */
 function exerciseBlock<Kind extends ExerciseKind>(

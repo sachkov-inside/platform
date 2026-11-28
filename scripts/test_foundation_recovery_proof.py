@@ -28,14 +28,17 @@ class PreviousWriterFixture(unittest.TestCase):
         writer = importlib.util.module_from_spec(module_spec)
         module_spec.loader.exec_module(writer)
         pins = ["openssl-dev=3.5.9-r0", "libcrypto3=3.5.9-r0", "libssl3=3.5.9-r0",
+                "libxml2-dev=2.13.9-r1", "libxml2=2.13.9-r1",
                 "zstd-libs=1.5.7-r2", "untouched=1.0", "zstd-dev=1.5.7-r2"]
         source = (" " + '\\' + "\n").join("    " + pin for pin in pins) + "\n"
         updated = writer.prepare(source)
         self.assertIn("zstd=1.6.0-r1 zstd-libs=1.6.0-r1 zstd-dev=1.6.0-r1", updated)
         self.assertIn("    zstd-libs=1.6.0-r1 \\", updated.splitlines())
         self.assertIn("libcrypto3=3.5.9-r1 libssl3=3.5.9-r1", updated)
+        self.assertIn("libxml2-dev=2.13.9-r2 libxml2=2.13.9-r2", updated)
+        self.assertIn("    libxml2=2.13.9-r2 \\", updated.splitlines())
         self.assertIn("untouched=1.0", updated)
-        for old in pins[:4] + pins[-1:]:
+        for old in (pin for pin in pins if pin != "untouched=1.0"):
             with self.subTest(pin=old), self.assertRaisesRegex(ValueError, "exactly one"):
                 writer.prepare(source.replace(old, "changed=2"))
         with self.assertRaisesRegex(ValueError, "exactly one"):

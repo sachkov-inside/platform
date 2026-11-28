@@ -110,8 +110,11 @@ const browserNamespaceVariable = "AGENT_BROWSER_NAMESPACE";
  * learner stay signed in side by side and two worktrees never share a page.
  * @param {string} worktree the real path of the worktree
  * @param {VerifyRole} role
+ * @param {string} [runId] the identity of one admitted verification
  */
-export function verifySessionName(worktree, role) {
+export function verifySessionName(worktree, role, runId) {
+  if (runId !== undefined)
+    return `verify-${lightInstanceName(worktree).id}-${runId}-${role}`;
   const name =
     worktree
       .split("/")
@@ -128,11 +131,18 @@ export function verifySessionName(worktree, role) {
  * @param {object} input
  * @param {string} input.worktree
  * @param {VerifyRole} input.role
+ * @param {string} [input.runId]
  * @param {readonly string[]} input.args the agent-browser command and its arguments
  * @param {NodeJS.Dict<string>} input.environment
  * @returns {{ command: string; args: string[]; environment: Record<string, string> }}
  */
-export function browserInvocation({ worktree, role, args, environment }) {
+export function browserInvocation({
+  worktree,
+  role,
+  runId,
+  args,
+  environment,
+}) {
   const command = args[0];
   if (command === undefined || !browserCommands.has(command))
     throw new Error(
@@ -143,7 +153,7 @@ export function browserInvocation({ worktree, role, args, environment }) {
   );
   if (foreign !== undefined)
     throw new Error(
-      `${foreign} leaves this worktree's own session; the helper drives only ${verifySessionName(worktree, role)}`,
+      `${foreign} leaves this worktree's own session; the helper drives only ${verifySessionName(worktree, role, runId)}`,
     );
   const namespace = environment[browserNamespaceVariable]?.trim();
   /** @type {Record<string, string>} */
@@ -161,7 +171,7 @@ export function browserInvocation({ worktree, role, args, environment }) {
     args: [
       ...(namespace ? ["--namespace", namespace] : []),
       "--session",
-      verifySessionName(worktree, role),
+      verifySessionName(worktree, role, runId),
       "--args",
       browserLaunchArguments,
       ...args,

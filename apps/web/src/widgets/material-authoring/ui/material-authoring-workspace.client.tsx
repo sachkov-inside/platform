@@ -80,9 +80,9 @@ function MaterialAuthoringWorkspaceView({
       </div>
       {presentation.draft.sourcePath === undefined ? null : (
         <p className="mx-auto max-w-[60rem] px-4 pt-4 text-sm text-muted-foreground sm:px-8">
-          Материал редактируется в Content Studio:{" "}
+          Материал редактируется в Course Studio:{" "}
           <span className="break-all">{presentation.draft.sourcePath}</span>.
-          Сохраните оригинал в Obsidian, создайте коммит в Content Studio и
+          Сохраните оригинал в Obsidian, создайте коммит в Course Studio и
           выполните локальную синхронизацию из Git.
         </p>
       )}

@@ -6,7 +6,7 @@ import {
   applySnapshot,
 } from "./snapshot.mjs";
 import { loadTaskPackage as loadPackage } from "./legacy-practice-tasks.mjs";
-// The supported content-only delivery from Content Studio (#1672): one entrypoint for the stand and
+// The supported content-only delivery from Course Studio (#1672): one entrypoint for the stand and
 // production. It previews first, applies exactly the reviewed receipt, preserves the target's
 // access, publication, Product membership and Task placement, and prints JSON for the caller.
 import { execFile } from "node:child_process";

@@ -694,7 +694,7 @@ describe("application CI workflow contract", () => {
       `bash scripts/heavy-check.sh bash -c '${checkStages.map(([, script]) => `pnpm ${script}`).join(" && ")} "$@"' --`,
     );
     for (const [job, script] of checkStages.filter(
-      ([id]) => !["unit", "web-e2e"].includes(id),
+      ([id]) => !["unit", "ui", "web-e2e"].includes(id),
     )) {
       assert.match(
         jobBlock(job),
@@ -706,6 +706,14 @@ describe("application CI workflow contract", () => {
       );
     }
     assert.doesNotMatch(workflow, /run: pnpm check$/mu);
+    const ui = jobBlock("ui");
+    for (const command of [
+      "--filter @inside/telegram test:widget",
+      "--filter @inside/web test:browser-engines",
+      "test:storybook",
+      "build:storybook",
+    ])
+      assert.match(ui, new RegExp(`run: pnpm ${escapeRegExp(command)}$`, "mu"));
     assert.match(jobBlock("ui"), /browsers: chromium webkit$/mu);
     assert.match(jobBlock("web-e2e-browser"), /browsers: chromium$/mu);
   });

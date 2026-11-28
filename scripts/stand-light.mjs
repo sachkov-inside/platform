@@ -1,7 +1,14 @@
 // @ts-check
 import { execFileSync, spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, open, readFile, realpath, rm } from "node:fs/promises";
+import {
+  mkdir,
+  open,
+  readFile,
+  realpath,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -45,7 +52,7 @@ if (values.help) {
     .write(`Usage: pnpm stand:light [up|status|down] [--worktree PATH] [--mcp] [--dev] [--infrastructure PROJECT] [--json]
 
 up      Start this worktree's web and API on free ports with their own database in the stand
-        PostgreSQL and the synthetic sign-in. Several worktrees run instances side by side.
+        PostgreSQL and the synthetic sign-in. On Mac, use pnpm verify:light.
 status  List the light instances of this repository with their addresses, age and memory.
 down    Stop this worktree's instance and drop its database; nothing else is touched.
 
@@ -98,6 +105,19 @@ async function up(directory, worktree) {
   const pnpmPath = process.env["npm_execpath"];
   if (!pnpmPath)
     throw new Error("Run the light instance through pnpm stand:light");
+  const receipt = process.env["INSIDE_LIGHT_VERIFICATION"];
+  if (process.platform === "darwin" && !receipt)
+    throw new Error("Start a light instance on Mac through pnpm verify:light");
+  if (receipt) {
+    if (process.env["INSIDE_LIGHT_VERIFICATION_WORKTREE"] !== worktree)
+      throw new Error(
+        "The verification session belongs to a different worktree",
+      );
+    execFileSync("python3", [
+      join(dirname(fileURLToPath(import.meta.url)), "heavy-check/lock.py"),
+      "--owns",
+    ]);
+  }
   const composeProject = values.infrastructure ?? "inside-platform";
   const postgres = publishedPort(composeProject, "postgres", 5432);
   const storage = publishedPort(composeProject, "object-storage", 9000);
@@ -109,6 +129,7 @@ async function up(directory, worktree) {
     );
   if (previous) await removeLeftovers(directory, previous);
   await mkdir(directory, { recursive: true, mode: 0o700 });
+  if (receipt) await writeFile(join(receipt, "started"), "", { flag: "wx" });
   const logPath = join(directory, `${id}.log`);
   const log = await open(logPath, "w", 0o600);
   const started = performance.now();
@@ -118,7 +139,7 @@ async function up(directory, worktree) {
     [join(dirname(fileURLToPath(import.meta.url)), "stand-light-instance.mjs")],
     {
       cwd: worktree,
-      detached: true,
+      detached: !receipt,
       stdio: ["ignore", log.fd, log.fd],
       env: {
         ...process.env,
@@ -136,12 +157,16 @@ async function up(directory, worktree) {
       },
     },
   );
-  // The launched process hands over to a detached copy and exits 0; another status is a crash.
+  // In an admitted session the startup command stays alive as the supervisor's ancestor.
+  // The legacy Linux launcher instead hands off to a detached copy and exits 0.
   let crashed = false;
-  supervisor.once("exit", (code) => {
-    crashed = code !== 0;
+  const supervisorExit = new Promise((finish) => {
+    supervisor.once("exit", (code) => {
+      crashed = code !== 0;
+      finish(code ?? 1);
+    });
   });
-  supervisor.unref();
+  if (!receipt) supervisor.unref();
   await log.close();
   const deadline = Date.now() + startupBudgetMilliseconds;
   for (;;) {
@@ -166,6 +191,10 @@ async function up(directory, worktree) {
             "",
           ].join("\n"),
         );
+      if (receipt) {
+        await writeFile(join(receipt, "ready"), "", { flag: "wx" });
+        if ((await supervisorExit) !== 0) process.exitCode = 1;
+      }
       return;
     }
     if (state?.phase === "failed" || crashed || Date.now() > deadline) {

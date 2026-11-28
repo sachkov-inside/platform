@@ -118,7 +118,7 @@ export function currentEnvironment(mode) {
 }
 
 /**
- * Reader blocks exactly as the Content exporter emits them (content-studio#86 `exercise-v1`,
+ * Reader blocks exactly as the Content exporter emits them (course-studio#86 `exercise-v1`,
  * #87 `step-breaks-v1`): Markdown fragments with a quiz, a match and an order in place, and a
  * step break between two parts. The narrative carries the heading `## Раздел`.
  *

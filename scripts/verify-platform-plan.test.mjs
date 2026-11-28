@@ -39,6 +39,24 @@ test("each worktree and role drives its own browser session", () => {
   assert.equal(verifySessionName("/work/a", "owner"), owner);
 });
 
+test("admitted verification commands and cleanup use a name private to their run", () => {
+  /** @param {string} runId @param {string[]} args */
+  const launch = (runId, args) =>
+    browserInvocation({
+      worktree: "/work/a",
+      role: "owner",
+      runId,
+      args,
+      environment: { AGENT_BROWSER_NAMESPACE: "kirill-agents" },
+    }).args;
+  const first = launch("12345678", ["open", "http://localhost:8000"]);
+  const close = launch("12345678", ["close"]);
+  const next = launch("87654321", ["open", "http://localhost:8000"]);
+  assert.deepEqual(first.slice(0, 4), close.slice(0, 4));
+  assert.notEqual(first[3], next[3]);
+  assert.notEqual(close[3], verifySessionName("/work/a", "owner"));
+});
+
 test("the browser command names the session and drops the proxy for loopback", () => {
   const invocation = browserInvocation({
     worktree: "/work/a",

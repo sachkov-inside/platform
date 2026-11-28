@@ -55,7 +55,7 @@ export interface OrderContent extends ExerciseContentCommon {
   }[];
 }
 
-/** A Lesson Exercise as the Content package carries it (`exercise-v1`, content-studio#86). */
+/** A Lesson Exercise as the Content package carries it (`exercise-v1`, course-studio#86). */
 export type ExerciseContent = QuizContent | MatchContent | OrderContent;
 
 /** One element of a package Material's `readerBlocks`. */
@@ -175,7 +175,7 @@ function structure(exercise: ExerciseContent): ExerciseStructure {
 
 /**
  * The reader body of a Material in a Content package: Markdown fragments with exercises
- * (`exercise-v1`) and step breaks (`step-breaks-v1`, content-studio#87) in place between them.
+ * (`exercise-v1`) and step breaks (`step-breaks-v1`, course-studio#87) in place between them.
  * Exercise ids are unique in the material; a step break stands between two parts.
  */
 export const readerBlocksSchema: z.ZodType<readonly ContentReaderBlock[]> = z

@@ -1,12 +1,21 @@
 // @ts-check
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
+
+import { resolveContentCheckout } from "./local-product.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const script = fileURLToPath(new URL("local-product.mjs", import.meta.url));
@@ -54,4 +63,23 @@ test("the access grant runs the account bootstrap from the repository root, its 
 test("a failed account bootstrap fails the access grant", async () => {
   const { child } = await grantWith(1);
   assert.notEqual(child.status, 0);
+});
+
+test("checkout selection supports both studio names and honours an explicit path", async (t) => {
+  const materials = await mkdtemp(join(tmpdir(), "studio-materials-"));
+  t.after(() => rm(materials, { recursive: true, force: true }));
+  const current = join(materials, "course-studio");
+  const legacy = join(materials, "content-studio");
+  assert.throws(() => resolveContentCheckout(materials), /course-studio/u);
+  await mkdir(join(legacy, "tools"), { recursive: true });
+  await writeFile(join(legacy, "tools/content.py"), "");
+  assert.equal(resolveContentCheckout(materials), legacy);
+  await mkdir(join(current, "tools"), { recursive: true });
+  await writeFile(join(current, "tools/content.py"), "");
+  assert.equal(resolveContentCheckout(materials), current);
+  assert.equal(resolveContentCheckout(materials, legacy), legacy);
+  assert.throws(
+    () => resolveContentCheckout(materials, join(materials, "missing")),
+    /missing/u,
+  );
 });
