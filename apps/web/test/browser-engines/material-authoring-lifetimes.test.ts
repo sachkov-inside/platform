@@ -16,6 +16,96 @@ beforeAll(async () => {
 }, 30_000);
 afterAll(() => fixture.close(), 30_000);
 
+test("chromium: text and caret stay below the editor toolbar in a short window (#2233)", async () => {
+  const browser = browsers.get("chromium");
+  if (browser === undefined) throw new Error("Missing chromium");
+  const page = await browser.newPage({
+    viewport: { width: 1280, height: 577 },
+  });
+  try {
+    await page.goto(url);
+    // Supply the viewport-sized scrollport that the authoring route provides.
+    await page.addStyleTag({
+      content: `
+        #root > :not([data-material-authoring]) { display: none; }
+        #root > [data-material-authoring] { height: 100dvh; }
+      `,
+    });
+    const editor = page.getByRole("textbox", { name: "Содержимое материала" });
+    await browserExpect(editor).toBeVisible();
+    await editor.press("End");
+    for (let index = 0; index < 12; index += 1) {
+      await editor.press("Enter");
+      await page.keyboard.insertText("Строка для прокрутки");
+    }
+
+    await editor.evaluate((node) => {
+      node.scrollIntoView({ block: "start" });
+    });
+    const readPosition = () =>
+      editor.evaluate((node) => {
+        const toolbar = document.querySelector(
+          "[data-material-editor-toolbar]",
+        );
+        const line = node.firstElementChild;
+        if (toolbar === null || line === null)
+          throw new Error("Editor toolbar or first line is missing");
+        const toolbarBottom = toolbar.getBoundingClientRect().bottom;
+        const lineTop = line.getBoundingClientRect().top;
+        const selection = window.getSelection();
+        const caret =
+          selection !== null &&
+          selection.isCollapsed &&
+          selection.anchorNode === line.firstChild &&
+          selection.anchorOffset === 2
+            ? selection.getRangeAt(0).getBoundingClientRect()
+            : null;
+        return {
+          lineAboveToolbarBottom: lineTop < toolbarBottom,
+          caretVisible:
+            caret !== null &&
+            caret.top >= toolbarBottom &&
+            caret.bottom <= window.innerHeight,
+        };
+      });
+    await browserExpect.poll(readPosition).toMatchObject({
+      lineAboveToolbarBottom: false,
+    });
+
+    await editor.evaluate((node) => {
+      const scroller = node.closest("[data-material-authoring]");
+      const toolbar = scroller?.querySelector("[data-material-editor-toolbar]");
+      const line = node.firstElementChild;
+      const selection = window.getSelection();
+      const text = line?.firstChild;
+      if (
+        scroller === null ||
+        !toolbar ||
+        !line ||
+        selection === null ||
+        text?.nodeType !== Node.TEXT_NODE
+      )
+        throw new Error("Cannot place the caret on the first line");
+      const overlapPx = 24;
+      node.focus({ preventScroll: true });
+      selection.collapse(text, 1);
+      scroller.scrollTop +=
+        line.getBoundingClientRect().top -
+        toolbar.getBoundingClientRect().bottom +
+        overlapPx;
+    });
+    await browserExpect.poll(readPosition).toMatchObject({
+      lineAboveToolbarBottom: true,
+    });
+    await page.keyboard.press("ArrowRight");
+    await browserExpect.poll(readPosition).toMatchObject({
+      caretVisible: true,
+    });
+  } finally {
+    await page.close();
+  }
+}, 15_000);
+
 async function selectImage(page: Page) {
   await page
     .getByRole("button", { name: "Добавить блок", exact: true })
