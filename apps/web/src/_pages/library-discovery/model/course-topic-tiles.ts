@@ -11,6 +11,7 @@ export type CourseTopicArt =
   | "domain"
   | "engineering"
   | "evals"
+  | "factory"
   | "flow"
   | "guard"
   | "harness"
@@ -19,6 +20,8 @@ export type CourseTopicArt =
   | "memory"
   | "modules"
   | "pipeline"
+  | "production"
+  | "proof"
   | "rag"
   | "release"
   | "sdd"
@@ -45,18 +48,20 @@ const tile = (
 
 const tiles: Readonly<Record<string, CourseTopicTile>> = {
   // Темы лендинга по программе с 23.11.2026: путь курса от harness до software factory,
-  // ряды по четыре колонки (широкая плитка занимает две).
+  // ряды по четыре колонки (широкая плитка занимает две). У каждой темы свой рисунок по форме:
+  // слои, шкала, переписка, документ, схема, терминал, запись, аватары, орбита, лог, доска
+  // (23.11.2026).
   "Свой harness": tile("harness", "wide", "ink"),
   "Пайплайн разработки": tile("flow", "narrow", "example"),
   "Проектирование с агентом": tile("story", "narrow", "sand"),
   "Domain-Driven Design": tile("domain", "narrow", "lavender"),
   "Модули и архитектура": tile("modules", "narrow", "good"),
-  "Proof of work": tile("team", "wide", "lavender"),
+  "Proof of work": tile("proof", "wide", "lavender"),
   "Ревью и Human in the loop": tile("human", "narrow", "sand"),
   "Улучшение harness": tile("evals", "wide", "coral"),
   "Разработка собственных агентов": tile("agent", "wide", "ink"),
-  "Агенты в продакшене": tile("release", "wide", "example"),
-  "Software factory": tile("pipeline", "wide", "good"),
+  "Агенты в продакшене": tile("production", "wide", "example"),
+  "Software factory": tile("factory", "wide", "good"),
   // Темы лендинга с 31.10.2026: инженерные и AI-темы чередуются, ряды по четыре колонки.
   "Инженерная работа": tile("engineering", "wide", "ink"),
   "Harness и пайплайн разработки": tile("flow", "narrow", "example"),

@@ -60,6 +60,17 @@ describe("Course topic tiles", () => {
     );
   });
 
+  test("draws each topic of the new programme landing in its own illustration", () => {
+    const arts = topicsOf(aiEngineeringProgrammeLandingPage).map(
+      (title) => courseTopicTile(title)?.art,
+    );
+    expect(new Set(arts).size).toBe(arts.length);
+    // Эти темы больше не берут рисунки прежнего описания: они рассказывают о другом.
+    expect(courseTopicTile("Proof of work")?.art).toBe("proof");
+    expect(courseTopicTile("Агенты в продакшене")?.art).toBe("production");
+    expect(courseTopicTile("Software factory")?.art).toBe("factory");
+  });
+
   test("leaves an unknown topic without an illustration", () => {
     expect(courseTopicTile("Тема, которой нет")).toBeUndefined();
   });

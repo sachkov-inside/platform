@@ -10,7 +10,6 @@ import {
   Code2,
   Coins,
   Database,
-  FileCode2,
   FileText,
   FolderGit2,
   GitPullRequest,
@@ -26,6 +25,7 @@ import {
   Sparkles,
   UserRound,
   Wrench,
+  X,
 } from "lucide-react";
 import type { Route } from "next";
 import type { CSSProperties, ReactNode } from "react";
@@ -325,35 +325,35 @@ function Mentoring({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
  */
 const topicArt: Readonly<Record<CourseTopicArt, ReactNode>> = {
   agent: (
-    <div className="aie-art-agent">
-      <span className="aie-art-agent-end">
-        <FileText />
-        Задача
-      </span>
-      <ArrowRight className="aie-art-agent-arrow" />
-      <span className="aie-art-agent-core">
+    <div className="aie-art-orbit" data-art="">
+      <span className="aie-art-orbit-core">
         <Bot />
         Агент
       </span>
-      <ArrowRight className="aie-art-agent-arrow" />
-      <span className="aie-art-agent-end">
-        <Check />
-        Результат
-      </span>
-      <div className="aie-art-agent-tools">
-        <span>
+      <span data-pos="n">
+        <i>
           <Plug />
-          MCP
-        </span>
-        <span>
+        </i>
+        MCP
+      </span>
+      <span data-pos="e">
+        <i>
+          <Database />
+        </i>
+        Память
+      </span>
+      <span data-pos="s">
+        <i>
+          <Lock />
+        </i>
+        Права
+      </span>
+      <span data-pos="w">
+        <i>
           <Search />
-          RAG
-        </span>
-        <span>
-          <Wrench />
-          Инструменты
-        </span>
-      </div>
+        </i>
+        RAG
+      </span>
     </div>
   ),
   budget: (
@@ -376,14 +376,26 @@ const topicArt: Readonly<Record<CourseTopicArt, ReactNode>> = {
     </div>
   ),
   checks: (
-    <div className="aie-art-checks">
-      {["Тесты поведения", "Границы модулей", "Типы и линтер", "CI"].map(
-        (label) => (
-          <span key={label}>
-            <Check /> {label}
-          </span>
-        ),
-      )}
+    <div className="aie-art-term" data-art="">
+      <span className="aie-art-term-bar">
+        <i />
+        <i />
+        <i />
+      </span>
+      <code>$ pnpm check</code>
+      {(
+        [
+          [true, "тесты поведения"],
+          [true, "границы модулей"],
+          [false, "типы: 1 ошибка"],
+          [true, "линтер"],
+        ] as const
+      ).map(([ok, label]) => (
+        <span data-ok={ok} key={label}>
+          {ok ? <Check /> : <X />}
+          {label}
+        </span>
+      ))}
     </div>
   ),
   context: (
@@ -456,29 +468,52 @@ const topicArt: Readonly<Record<CourseTopicArt, ReactNode>> = {
       </span>
     </div>
   ),
-  flow: (
-    <div className="aie-art-pipeline">
-      <span>
-        <FileText />
-        Задача
-      </span>
-      <span>
-        <Bot />
-        Агент пишет код
-      </span>
-      <span>
-        <Wrench />
-        Хук: линтер
-      </span>
-      <span>
-        <ShieldCheck />
-        Ревью агентом
-      </span>
-      <span>
-        <GitPullRequest />
-        Pull request
-      </span>
+  factory: (
+    <div className="aie-art-board" data-art="">
+      {(
+        [
+          [
+            "Задачи",
+            [
+              ["Поиск", null],
+              ["Экспорт", null],
+            ],
+          ],
+          ["В работе", [["Оплата", "agent"]]],
+          ["Ревью", [["Профиль", "agent"]]],
+          ["Merge", [["Вход", "done"]]],
+        ] as const
+      ).map(([column, cards]) => (
+        <div key={column}>
+          <b>{column}</b>
+          {cards.map(([card, state]) => (
+            <span data-state={state ?? "todo"} key={card}>
+              {state === "agent" ? <Bot /> : null}
+              {state === "done" ? <Check /> : null}
+              {card}
+            </span>
+          ))}
+        </div>
+      ))}
     </div>
+  ),
+  flow: (
+    <ol className="aie-art-steps" data-art="">
+      {(
+        [
+          ["done", "Обсуждение"],
+          ["done", "Спецификация"],
+          ["current", "Реализация"],
+          ["next", "Ревью"],
+          ["next", "Pull request"],
+        ] as const
+      ).map(([state, label]) => (
+        <li data-state={state} key={label}>
+          <i>{state === "done" ? <Check /> : null}</i>
+          {label}
+        </li>
+      ))}
+    </ol>
   ),
   guard: (
     <div className="aie-art-guard">
@@ -500,41 +535,42 @@ const topicArt: Readonly<Record<CourseTopicArt, ReactNode>> = {
     </div>
   ),
   harness: (
-    <div className="aie-art-tree">
-      <span>
-        <FolderGit2 />
-        repo
-      </span>
-      <span>
-        <FileCode2 />
-        AGENTS.md
-      </span>
-      <span>
-        <FileCode2 />
-        skills/
-      </span>
-      <span>
-        <FileCode2 />
-        hooks/
-      </span>
+    <div className="aie-art-harness" data-art="">
+      <div>
+        <code>hooks/</code>
+        <div>
+          <code>skills/</code>
+          <div>
+            <code>AGENTS.md</code>
+            <span className="aie-art-harness-core">
+              <Bot />
+              Агент
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
   ),
   human: (
-    <div className="aie-art-guard">
-      <span className="aie-art-guard-action">
-        <Bot />
-        Изменение готово
+    <div className="aie-art-review" data-art="">
+      <span className="aie-art-review-bots">
+        {["код", "тесты", "архитектура"].map((role) => (
+          <i key={role} title={role}>
+            <Bot />
+          </i>
+        ))}
+        <b>ревью агентами</b>
       </span>
-      <span className="aie-art-guard-gate">
-        <ShieldCheck />
-        Проверки пройдены
+      <span className="aie-art-review-you">
+        <UserRound />
+        Решаешь ты
       </span>
-      <span className="aie-art-guard-buttons">
-        <b>
-          <UserRound />
-          Решаешь ты
+      <span className="aie-art-review-actions">
+        <b>Вернуть</b>
+        <b data-primary="true">
+          <Check />
+          Принять
         </b>
-        <b>Принято</b>
       </span>
     </div>
   ),
@@ -576,21 +612,16 @@ const topicArt: Readonly<Record<CourseTopicArt, ReactNode>> = {
     </div>
   ),
   modules: (
-    <div className="aie-art-modules">
-      {(
-        [
-          ["support", "обращения"],
-          ["knowledge", "база знаний"],
-          ["billing", "тарифы и оплата"],
-        ] as const
-      ).map(([name, role]) => (
-        <div key={name}>
-          <b>
-            <Boxes /> {name}
-          </b>
-          <i>{role}</i>
-        </div>
-      ))}
+    <div className="aie-art-graph" data-art="">
+      <code className="aie-art-graph-top">support</code>
+      <span data-allowed="true">
+        <Check />
+      </span>
+      <span data-allowed="false">
+        <X />
+      </span>
+      <code>knowledge</code>
+      <code>billing</code>
     </div>
   ),
   pipeline: (
@@ -608,6 +639,64 @@ const topicArt: Readonly<Record<CourseTopicArt, ReactNode>> = {
           {label}
         </span>
       ))}
+    </div>
+  ),
+  production: (
+    <div className="aie-art-ops" data-art="">
+      <div className="aie-art-ops-chart">
+        <span>ошибки 5xx</span>
+        <div>
+          <svg preserveAspectRatio="none" viewBox="0 0 120 48">
+            <polyline points="0,40 14,38 28,41 42,37 56,39 70,36 82,12 94,30 106,38 120,39" />
+          </svg>
+          <i />
+        </div>
+      </div>
+      <ol>
+        <li>
+          <code>03:12</code>
+          <span>Алерт: ошибки оплаты</span>
+        </li>
+        <li data-agent="true">
+          <code>03:13</code>
+          <span>
+            <Bot />
+            Агент разбирает логи
+          </span>
+        </li>
+        <li>
+          <code>03:20</code>
+          <span>Задача с причиной</span>
+        </li>
+      </ol>
+    </div>
+  ),
+  proof: (
+    <div className="aie-art-proof" data-art="">
+      <span className="aie-art-proof-head">
+        <GitPullRequest />
+        Черновик ответа оператору
+      </span>
+      <span className="aie-art-proof-video">
+        <i>
+          <Play />
+        </i>
+        <code>0:42</code>
+      </span>
+      <ul>
+        <li>
+          <Check />
+          Ответ со ссылкой на статью
+        </li>
+        <li>
+          <Check />
+          Нет ответа: к оператору
+        </li>
+        <li>
+          <Check />
+          Тесты и ревью пройдены
+        </li>
+      </ul>
     </div>
   ),
   rag: (
@@ -643,15 +732,34 @@ const topicArt: Readonly<Record<CourseTopicArt, ReactNode>> = {
     </div>
   ),
   sdd: (
-    <div className="aie-art-sdd">
-      {["Спецификация", "Реализация", "Проверки", "Релиз"].map(
-        (label, index) => (
-          <span key={label}>
-            {index === 0 ? null : <ArrowRight className="aie-art-sdd-arrow" />}
-            <b>{label}</b>
-          </span>
-        ),
-      )}
+    <div className="aie-art-spec" data-art="">
+      <div className="aie-art-spec-doc">
+        <code>spec.md</code>
+        <b>Черновик ответа оператору</b>
+        <span>Критерии готовности</span>
+        <ul>
+          <li>
+            <Check />
+            Ссылка на статью базы
+          </li>
+          <li>
+            <Check />
+            Оператор правит перед отправкой
+          </li>
+          <li>
+            <Check />
+            Нет ответа: эскалация
+          </li>
+        </ul>
+      </div>
+      <ol className="aie-art-spec-tasks">
+        {["Поиск по базе", "Черновик", "Экран оператора"].map((task, index) => (
+          <li key={task}>
+            <code>#{index + 1}</code>
+            {task}
+          </li>
+        ))}
+      </ol>
     </div>
   ),
   security: (
@@ -676,13 +784,15 @@ const topicArt: Readonly<Record<CourseTopicArt, ReactNode>> = {
     </div>
   ),
   story: (
-    <div className="aie-art-story">
-      <span>
-        <UserRound /> Оператор хочет
+    <div className="aie-art-chat" data-art="">
+      <span data-from="agent">
+        <i>
+          <Bot />
+        </i>
+        <span>А если в базе знаний нет ответа?</span>
       </span>
-      <p>получать черновик ответа со ссылками на базу знаний</p>
-      <span>
-        <Check /> 3 критерия готовности
+      <span data-from="you">
+        <span>Передаём оператору. Это войдёт в первую версию.</span>
       </span>
     </div>
   ),

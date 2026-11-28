@@ -340,7 +340,7 @@ export const aiEngineeringProgrammeLandingPage: ProductPage = {
           detail: "",
         },
       ],
-      note: "Для практики достаточно уметь запустить проект, внести правку, прочитать ошибку и пользоваться Git. Коммерческий опыт необязателен.",
+      note: "",
     },
     {
       id: "contact-audience",
