@@ -395,6 +395,72 @@ test("the same public Product shell isolates guest, holder and later guest acros
   });
 });
 
+test("the AI-first pin keeps the home feed in place when the continuation appears (#652)", async ({
+  page,
+  context,
+  request,
+  baseURL,
+  isMobile,
+}) => {
+  if (baseURL === undefined) throw new Error("Web origin required");
+  const slug = `reader-state-paid${isMobile ? "-mobile" : ""}`;
+  await signIn(context, baseURL, slug);
+  const invalidatePin = async () => {
+    const response = await context.request.put(
+      `${baseURL}/api/authoring/home-pin`,
+      {
+        headers: { origin: baseURL },
+        data: { expectedVersion: 1, productId: null },
+      },
+    );
+    expect(response.ok()).toBe(true);
+  };
+  const progress = Promise.withResolvers<void>();
+  try {
+    await request.post(
+      `${backend}/__product-reader-state?pin=${slug}&presentation=ai-first-process`,
+    );
+    await invalidatePin();
+    await page.route(
+      "**/api/reading-progress/product-continuation",
+      async (route) => {
+        await progress.promise;
+        await route.continue();
+      },
+    );
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/");
+    const card = page.locator('[data-product-presentation="ai-first-process"]');
+    const feed = page.getByRole("region", { name: "Материалы", exact: true });
+    const link = card.getByRole("link", { name: "Продолжить обучение" });
+    await expect(card).toBeVisible();
+    await expect(feed).toBeVisible();
+    await expect(link).toHaveCount(0);
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+    });
+    const feedOffset = () =>
+      feed.evaluate((node) => {
+        const card = document.querySelector(
+          '[data-product-presentation="ai-first-process"]',
+        );
+        if (card === null) throw new Error("The AI-first pin is missing");
+        return (
+          node.getBoundingClientRect().top - card.getBoundingClientRect().top
+        );
+      });
+    const before = await feedOffset();
+    progress.resolve();
+    await expect(link).toBeVisible();
+    await expect(link).toHaveAttribute("href", `/products/${slug}/programme`);
+    expect(await feedOffset()).toBeCloseTo(before, 0);
+  } finally {
+    progress.resolve();
+    await request.post(`${backend}/__product-reader-state`);
+    await invalidatePin();
+  }
+});
+
 test("Home displays the same Product learning state while its shared pin stays public", async ({
   browser,
   request,

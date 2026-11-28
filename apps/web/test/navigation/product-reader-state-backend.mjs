@@ -29,7 +29,7 @@ const scenarios = [
 ];
 /** @type {{path: string, authorized: boolean, status: number}[]} */
 let reads = [];
-/** @type {ReturnType<typeof fixture>} */
+/** @type {(NonNullable<ReturnType<typeof fixture>> & { presentation: "ai-engineering-course" | "ai-first-process" }) | null} */
 let pinned = null;
 /** @type {Promise<void> | null} */
 let optionalHold = null;
@@ -254,8 +254,19 @@ export function productReaderStateRoute(request, url, owner) {
   }
   if (url.pathname === "/__product-reader-state") {
     if (request.method === "DELETE") reads = [];
-    if (request.method === "POST")
-      pinned = fixture(url.searchParams.get("pin") ?? "");
+    if (request.method === "POST") {
+      const product = fixture(url.searchParams.get("pin") ?? "");
+      pinned =
+        product === null
+          ? null
+          : {
+              ...product,
+              presentation:
+                url.searchParams.get("presentation") === "ai-first-process"
+                  ? "ai-first-process"
+                  : "ai-engineering-course",
+            };
+    }
     return { status: 200, value: { reads } };
   }
   const token = request.headers.authorization?.replace(
@@ -302,7 +313,7 @@ export function productReaderStateRoute(request, url, owner) {
         id: pinned.id,
         slug: pinned.slug,
         name: `Reader state ${pinned.scenario}`,
-        presentation: "ai-engineering-course",
+        presentation: pinned.presentation,
         hero: { badge: "Курс", lead: "Единый читатель", highlights: [] },
       },
     });
