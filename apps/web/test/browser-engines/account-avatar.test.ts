@@ -1,4 +1,5 @@
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { rmSync } from "node:fs";
+import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -97,39 +98,54 @@ async function captureState(page: Page, engine: string, state: string) {
   );
 }
 
-async function chooseAvatar(page: Page) {
-  await page
-    .getByLabel("Выбрать изображение для аватара")
-    .setInputFiles(avatarFile);
+type RunAvatarOperation = <T>(
+  name: string,
+  operation: () => Promise<T>,
+) => Promise<T>;
+
+const runDirectly: RunAvatarOperation = (_name, operation) => operation();
+
+async function chooseAvatar(page: Page, run = runDirectly) {
+  await run("select-file", () =>
+    page
+      .getByLabel("Выбрать изображение для аватара")
+      .setInputFiles(avatarFile),
+  );
   const dialog = page.getByRole("dialog", { name: "Кадрировать аватар" });
-  await ui(dialog).toBeVisible();
+  await run("wait-for-editor", () => ui(dialog).toBeVisible());
   const preview = dialog.locator("img");
-  await ui
-    .poll(() =>
-      preview.evaluate(
-        (image: HTMLImageElement) =>
-          image.complete && image.naturalWidth === 120,
-      ),
-    )
-    .toBe(true);
+  await run("wait-for-preview", () =>
+    ui
+      .poll(() =>
+        preview.evaluate(
+          (image: HTMLImageElement) =>
+            image.complete && image.naturalWidth === 120,
+        ),
+      )
+      .toBe(true),
+  );
   return { dialog, preview };
 }
 
 for (const engine of ["chromium", "webkit"]) {
-  async function openPage(existing = false) {
+  async function openPage(existing = false, run = runDirectly) {
     const browser = browsers.get(engine);
     if (browser === undefined) throw new Error("Missing avatar browser");
-    const page = await browser.newPage();
+    const page = await run("open-page", () => browser.newPage());
     try {
-      await page.goto(existing ? `${url}?existing=1` : url);
-      await ui(
-        page.getByRole("button", {
-          name: existing ? "Заменить фото" : "Добавить фото",
-        }),
-      ).toBeVisible();
+      await run("navigate", () =>
+        page.goto(existing ? `${url}?existing=1` : url),
+      );
+      await run("wait-for-avatar-button", () =>
+        ui(
+          page.getByRole("button", {
+            name: existing ? "Заменить фото" : "Добавить фото",
+          }),
+        ).toBeVisible(),
+      );
       return page;
     } catch (error) {
-      await page.close();
+      await run("close-after-setup-failure", () => page.close());
       throw error;
     }
   }
@@ -371,27 +387,47 @@ for (const engine of ["chromium", "webkit"]) {
       engine,
     );
     const failureReport = resolve(directory, "failure.json");
-    await rm(failureReport, { force: true });
+    try {
+      rmSync(failureReport, { force: true });
+    } catch (error) {
+      console.error(
+        "[account-avatar held pointer diagnostics cleanup unavailable]",
+        error instanceof Error ? error.name : "unknown",
+      );
+    }
     const started = performance.now();
-    let bodyPhase = "open-page";
-    let cleanupPhase = "pending";
+    const operations: {
+      name: string;
+      startedMilliseconds: number;
+      endedMilliseconds: number | null;
+    }[] = [];
+    const run: RunAvatarOperation = async (name, operation) => {
+      const entry: (typeof operations)[number] = {
+        name,
+        startedMilliseconds: performance.now() - started,
+        endedMilliseconds: null,
+      };
+      operations.push(entry);
+      try {
+        return await operation();
+      } finally {
+        entry.endedMilliseconds = performance.now() - started;
+      }
+    };
     t.onTestFailed(async () => {
+      const snapshot = JSON.stringify(
+        {
+          engine,
+          elapsedMilliseconds: performance.now() - started,
+          browserConnected: browsers.get(engine)?.isConnected() ?? null,
+          operations,
+        },
+        null,
+        2,
+      );
       try {
         await mkdir(directory, { recursive: true });
-        await writeFile(
-          failureReport,
-          JSON.stringify(
-            {
-              engine,
-              bodyPhase,
-              cleanupPhase,
-              elapsedMilliseconds: performance.now() - started,
-              browserConnected: browsers.get(engine)?.isConnected() ?? null,
-            },
-            null,
-            2,
-          ) + "\n",
-        );
+        await writeFile(failureReport, snapshot + "\n");
       } catch (error) {
         console.error(
           "[account-avatar held pointer diagnostics unavailable]",
@@ -399,82 +435,89 @@ for (const engine of ["chromium", "webkit"]) {
         );
       }
     });
-    const page = await openPage();
+    const page = await openPage(false, run);
     try {
-      bodyPhase = "choose-avatar";
-      const { dialog } = await chooseAvatar(page);
-      bodyPhase = "prepare-crop";
+      const { dialog } = await chooseAvatar(page, run);
       const zoom = dialog.getByRole("slider", { name: "Масштаб" });
-      await zoom.focus();
-      await zoom.press("End");
-      await ui(zoom).toHaveValue("4");
+      await run("focus-zoom", () => zoom.focus());
+      await run("set-zoom", () => zoom.press("End"));
+      await run("wait-for-zoom", () => ui(zoom).toHaveValue("4"));
       const crop = dialog.getByRole("group");
-      const bounds = await crop.boundingBox();
+      const bounds = await run("measure-crop", () => crop.boundingBox());
       if (bounds === null) throw new Error("Missing crop geometry");
       const x = bounds.x + bounds.width / 2;
       const y = bounds.y + bounds.height / 2;
-      const captured = await crop.evaluateHandle((element) => {
-        if (!(element instanceof HTMLDivElement))
-          throw new Error("Missing native crop element");
-        const receipt: { pointerId: number | null } = { pointerId: null };
-        element.addEventListener(
-          "pointerdown",
-          (event) => {
-            receipt.pointerId = event.pointerId;
-          },
-          { once: true },
-        );
-        return receipt;
-      });
-      const cropHandle = await crop.elementHandle();
-      bodyPhase = "initial-drag";
-      await page.mouse.move(x, y);
-      await page.mouse.down();
-      await page.mouse.move(x + 20, y);
-      const pointerId = await captured.evaluate((receipt) => receipt.pointerId);
+      const captured = await run("observe-pointerdown", () =>
+        crop.evaluateHandle((element) => {
+          if (!(element instanceof HTMLDivElement))
+            throw new Error("Missing native crop element");
+          const receipt: { pointerId: number | null } = { pointerId: null };
+          element.addEventListener(
+            "pointerdown",
+            (event) => {
+              receipt.pointerId = event.pointerId;
+            },
+            { once: true },
+          );
+          return receipt;
+        }),
+      );
+      const cropHandle = await run("get-crop-element", () =>
+        crop.elementHandle(),
+      );
+      await run("move-to-crop", () => page.mouse.move(x, y));
+      await run("initial-pointer-down", () => page.mouse.down());
+      await run("initial-pointer-move", () => page.mouse.move(x + 20, y));
+      const pointerId = await run("read-pointer-id", () =>
+        captured.evaluate((receipt) => receipt.pointerId),
+      );
       if (pointerId === null)
         throw new Error("Native pointer was not acquired");
       ui(
-        await cropHandle.evaluate(
-          (element, id) => element.hasPointerCapture(id),
-          pointerId,
+        await run("read-capture-before-hide", () =>
+          cropHandle.evaluate(
+            (element, id) => element.hasPointerCapture(id),
+            pointerId,
+          ),
         ),
       ).toBe(true);
-      await inspect(page);
+      await run("inspect-initial-drag", () => inspect(page));
       const horizontal = dialog.getByRole("slider", { name: "По горизонтали" });
-      const before = await horizontal.inputValue();
-      bodyPhase = "hide";
-      await page.locator("#hide").evaluate((button: HTMLButtonElement) => {
-        button.click();
-      });
+      const before = await run("read-initial-drag", () =>
+        horizontal.inputValue(),
+      );
+      await run("hide", () =>
+        page.locator("#hide").evaluate((button: HTMLButtonElement) => {
+          button.click();
+        }),
+      );
       ui(
-        await cropHandle.evaluate(
-          (element, id) => element.hasPointerCapture(id),
-          pointerId,
+        await run("read-capture-after-hide", () =>
+          cropHandle.evaluate(
+            (element, id) => element.hasPointerCapture(id),
+            pointerId,
+          ),
         ),
       ).toBe(false);
-      bodyPhase = "show";
-      await page.locator("#show").evaluate((button: HTMLButtonElement) => {
-        button.click();
-      });
-      await ui(dialog).toBeVisible();
-      bodyPhase = "held-drag";
-      await page.mouse.move(x + 40, y);
-      await inspect(page);
-      await ui(horizontal).toHaveValue(before);
-      bodyPhase = "new-drag";
-      await page.mouse.up();
-      await page.mouse.down();
-      await page.mouse.move(x + 60, y);
-      await inspect(page);
-      ui(await horizontal.inputValue()).not.toBe(before);
-      bodyPhase = "complete";
+      await run("show", () =>
+        page.locator("#show").evaluate((button: HTMLButtonElement) => {
+          button.click();
+        }),
+      );
+      await run("wait-for-returned-editor", () => ui(dialog).toBeVisible());
+      await run("held-pointer-move", () => page.mouse.move(x + 40, y));
+      await run("inspect-held-drag", () => inspect(page));
+      await run("check-held-drag", () => ui(horizontal).toHaveValue(before));
+      await run("release-held-pointer", () => page.mouse.up());
+      await run("new-pointer-down", () => page.mouse.down());
+      await run("new-pointer-move", () => page.mouse.move(x + 60, y));
+      await run("inspect-new-drag", () => inspect(page));
+      ui(await run("read-new-drag", () => horizontal.inputValue())).not.toBe(
+        before,
+      );
     } finally {
-      cleanupPhase = "release-pointer";
-      await page.mouse.up();
-      cleanupPhase = "close-page";
-      await page.close();
-      cleanupPhase = "complete";
+      await run("cleanup-release-pointer", () => page.mouse.up());
+      await run("cleanup-close-page", () => page.close());
     }
   }, 30_000);
 }
