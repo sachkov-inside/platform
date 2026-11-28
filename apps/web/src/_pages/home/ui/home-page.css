@@ -478,9 +478,6 @@
   .home-product-featured-ai .home-product-actions > .home-product-open {
     display: none;
   }
-  .home-product-featured-ai .home-product-continue {
-    min-height: 0;
-  }
 }
 
 .home-product-course {
