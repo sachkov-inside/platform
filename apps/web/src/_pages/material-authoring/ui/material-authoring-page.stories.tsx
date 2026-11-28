@@ -252,42 +252,6 @@ export const ShortWindowHeader: Story = {
       fullscreen.contains(clickTargetAtCentre(fullscreen)),
       "«На весь экран» закрыта другим элементом",
     ).toBe(true);
-
-    // Перед щелчком по полю браузер прокручивает его к центру видимой области.
-    const body = page.getByRole("textbox", { name: "Содержимое материала" });
-    const firstBlock = body.firstElementChild;
-    const toolbar = editorWindow.querySelector(
-      "[data-material-editor-toolbar]",
-    );
-    if (firstBlock === null || toolbar === null)
-      throw new Error("Не найдены первый блок или панель редактора");
-    scroller.scrollTo({ behavior: "instant", top: 0 });
-    body.scrollIntoView({ block: "center", behavior: "instant" });
-    await expect(firstBlock.getBoundingClientRect().top).toBeGreaterThanOrEqual(
-      toolbar.getBoundingClientRect().bottom,
-    );
-
-    // Нативное движение каретки должно вернуть строку, которую закрыла панель.
-    const selection = window.getSelection();
-    const firstText = firstBlock.firstChild;
-    if (selection === null || firstText?.nodeType !== Node.TEXT_NODE)
-      throw new Error("Не найден текст первой строки редактора");
-    body.focus({ preventScroll: true });
-    selection.collapse(firstText, 1);
-    scroller.scrollTop +=
-      firstBlock.getBoundingClientRect().top -
-      toolbar.getBoundingClientRect().bottom +
-      24;
-    await expect(firstBlock.getBoundingClientRect().top).toBeLessThan(
-      toolbar.getBoundingClientRect().bottom,
-    );
-    await userEvent.keyboard("{ArrowRight}");
-    await waitFor(async () => {
-      await expect(selection.anchorOffset).toBe(2);
-      await expect(
-        selection.getRangeAt(0).getBoundingClientRect().top,
-      ).toBeGreaterThanOrEqual(toolbar.getBoundingClientRect().bottom);
-    });
   },
 };
 

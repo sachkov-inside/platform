@@ -37,6 +37,85 @@ declare global {
 const currentMaterialEditorUrl =
   /\/authoring\/materials\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?:\?.*)?$/u;
 
+test("text and caret stay below the sticky editor toolbar in a short window (#2233)", async ({
+  context,
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, "The editor uses a different layout on phones");
+  await page.setViewportSize({ width: 1280, height: 577 });
+  await signInFullStack(context, "OWNER");
+  await page.goto("/authoring/materials/new");
+  await fillPublishableDraft(page, `Editor toolbar ${randomUUID()}`);
+  await expect(page).toHaveURL(currentMaterialEditorUrl);
+
+  const body = page.getByRole("textbox", { name: "Содержимое материала" });
+  await body.press("End");
+  for (let line = 1; line <= 16; line += 1) {
+    await body.press("Enter");
+    await page.keyboard.insertText(
+      `Строка проверочного черновика ${String(line)}`,
+    );
+  }
+
+  const firstLine = body.locator("p").first();
+  const toolbar = page.locator("[data-material-editor-toolbar]");
+  const toolbarBottom = () =>
+    toolbar.evaluate((node) => node.getBoundingClientRect().bottom);
+  const firstLineTop = () =>
+    firstLine.evaluate((node) => node.getBoundingClientRect().top);
+  await body.evaluate((node) => {
+    const scroller = node.closest("[data-material-authoring]");
+    if (scroller === null) throw new Error("Authoring scroller is missing");
+    scroller.scrollTo({ top: 0, behavior: "instant" });
+    node.scrollIntoView({ block: "center", behavior: "instant" });
+  });
+  expect(await firstLineTop()).toBeGreaterThanOrEqual(await toolbarBottom());
+
+  await firstLine.evaluate(
+    (node, bottom) => {
+      const body = node.closest<HTMLElement>("[contenteditable]");
+      const scroller = node.closest("[data-material-authoring]");
+      const selection = window.getSelection();
+      const text = node.firstChild;
+      if (
+        body === null ||
+        scroller === null ||
+        selection === null ||
+        text?.nodeType !== Node.TEXT_NODE
+      )
+        throw new Error("First line cannot receive the caret");
+      body.focus({ preventScroll: true });
+      selection.collapse(text, 1);
+      scroller.scrollTop += node.getBoundingClientRect().top - bottom + 24;
+    },
+    await toolbarBottom(),
+  );
+  expect(await firstLineTop()).toBeLessThan(await toolbarBottom());
+  await page.keyboard.press("ArrowRight");
+  await expect
+    .poll(() =>
+      firstLine.evaluate((node) => {
+        const selection = window.getSelection();
+        return selection?.anchorNode === node.firstChild
+          ? selection.anchorOffset
+          : null;
+      }),
+    )
+    .toBe(2);
+  await expect
+    .poll(async () => {
+      const caret = await page.evaluate(() => {
+        const selection = window.getSelection();
+        return selection && selection.rangeCount > 0
+          ? selection.getRangeAt(0).getBoundingClientRect().top
+          : null;
+      });
+      return (caret ?? -1) - (await toolbarBottom());
+    })
+    .toBeGreaterThanOrEqual(0);
+});
+
 for (const access of ["public", "closed"] as const) {
   test(`media convergence: ${access} Material composes image, file and primary Video across Subjects`, async ({
     browser,
