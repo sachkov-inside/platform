@@ -246,8 +246,10 @@ test("a long course title and its badge fit alongside the hero film (#2528)", as
   );
   await expect(hero.getByText("+ менторинг", { exact: true })).toBeVisible();
 
-  const layout = await hero.evaluate(async (node) => {
+  await page.evaluate(async () => {
     await document.fonts.ready;
+  });
+  const layout = await hero.evaluate((node) => {
     const title = node.querySelector(".aie-hero-name");
     const badge = node.querySelector(".aie-hero-badge");
     const film = node.querySelector(".aie-hero-film");

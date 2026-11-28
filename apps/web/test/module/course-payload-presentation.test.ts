@@ -6,6 +6,7 @@ import { ProductLandingView } from "@/_pages/library-discovery/ui/product-landin
 import { getPublishedProduct } from "@/features/library-discovery.server";
 import { homeMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 
+import { readingProduct } from "../../../../scenarios/reading.mjs";
 import { performanceProductPage } from "../navigation/course-payload.fixtures.mjs";
 
 describe("Course payload navigation fixture", () => {
@@ -21,10 +22,8 @@ describe("Course payload navigation fixture", () => {
           kind: "product",
           reference: {
             cover: null,
-            id: "11111111-1111-4111-8111-111111111115",
-            name: "Курс на 120 материалов",
+            ...readingProduct,
             productPage: performanceProductPage,
-            slug: "performance-course",
             summary: "Синтетический продукт для проверки мгновенных переходов.",
           },
           relatedProduct: [],
