@@ -48,16 +48,27 @@ beforeAll(async () => {
 }, 30_000);
 afterAll(() => fixture.close(), 30_000);
 
-async function receipts(page: Page) {
-  const text = await page.getByLabel("URL receipts").textContent();
+type RunAvatarOperation = <T>(
+  name: string,
+  operation: () => Promise<T>,
+) => Promise<T>;
+
+const runDirectly: RunAvatarOperation = (_name, operation) => operation();
+
+async function receipts(page: Page, run = runDirectly, phase = "receipts") {
+  const text = await run(phase, () =>
+    page.getByLabel("URL receipts").textContent(),
+  );
   return receiptsSchema.parse(JSON.parse(text ?? "null"));
 }
 
-async function inspect(page: Page) {
-  await page.locator("#inspect").evaluate((button: HTMLButtonElement) => {
-    button.click();
-  });
-  return receipts(page);
+async function inspect(page: Page, run = runDirectly, phase = "inspect") {
+  await run(`${phase}-click`, () =>
+    page.locator("#inspect").evaluate((button: HTMLButtonElement) => {
+      button.click();
+    }),
+  );
+  return receipts(page, run, `${phase}-receipts`);
 }
 
 async function captureState(page: Page, engine: string, state: string) {
@@ -97,13 +108,6 @@ async function captureState(page: Page, engine: string, state: string) {
     ) + "\n",
   );
 }
-
-type RunAvatarOperation = <T>(
-  name: string,
-  operation: () => Promise<T>,
-) => Promise<T>;
-
-const runDirectly: RunAvatarOperation = (_name, operation) => operation();
 
 async function chooseAvatar(page: Page, run = runDirectly) {
   await run("select-file", () =>
@@ -414,8 +418,8 @@ for (const engine of ["chromium", "webkit"]) {
         entry.endedMilliseconds = performance.now() - started;
       }
     };
-    t.onTestFailed(async () => {
-      const snapshot = JSON.stringify(
+    const snapshot = () =>
+      JSON.stringify(
         {
           engine,
           elapsedMilliseconds: performance.now() - started,
@@ -425,9 +429,18 @@ for (const engine of ["chromium", "webkit"]) {
         null,
         2,
       );
+    let timeoutSnapshot: string | undefined;
+    t.signal.addEventListener(
+      "abort",
+      () => {
+        timeoutSnapshot = snapshot();
+      },
+      { once: true },
+    );
+    t.onTestFailed(async () => {
       try {
         await mkdir(directory, { recursive: true });
-        await writeFile(failureReport, snapshot + "\n");
+        await writeFile(failureReport, (timeoutSnapshot ?? snapshot()) + "\n");
       } catch (error) {
         console.error(
           "[account-avatar held pointer diagnostics unavailable]",
@@ -481,7 +494,7 @@ for (const engine of ["chromium", "webkit"]) {
           ),
         ),
       ).toBe(true);
-      await run("inspect-initial-drag", () => inspect(page));
+      await inspect(page, run, "inspect-initial-drag");
       const horizontal = dialog.getByRole("slider", { name: "По горизонтали" });
       const before = await run("read-initial-drag", () =>
         horizontal.inputValue(),
@@ -506,18 +519,21 @@ for (const engine of ["chromium", "webkit"]) {
       );
       await run("wait-for-returned-editor", () => ui(dialog).toBeVisible());
       await run("held-pointer-move", () => page.mouse.move(x + 40, y));
-      await run("inspect-held-drag", () => inspect(page));
+      await inspect(page, run, "inspect-held-drag");
       await run("check-held-drag", () => ui(horizontal).toHaveValue(before));
       await run("release-held-pointer", () => page.mouse.up());
       await run("new-pointer-down", () => page.mouse.down());
       await run("new-pointer-move", () => page.mouse.move(x + 60, y));
-      await run("inspect-new-drag", () => inspect(page));
+      await inspect(page, run, "inspect-new-drag");
       ui(await run("read-new-drag", () => horizontal.inputValue())).not.toBe(
         before,
       );
     } finally {
-      await run("cleanup-release-pointer", () => page.mouse.up());
-      await run("cleanup-close-page", () => page.close());
+      try {
+        await run("cleanup-release-pointer", () => page.mouse.up());
+      } finally {
+        await run("cleanup-close-page", () => page.close());
+      }
     }
   }, 30_000);
 }
