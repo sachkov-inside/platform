@@ -33,7 +33,15 @@ test("chromium: text and caret stay below the editor toolbar in a short window (
     });
     const editor = page.getByRole("textbox", { name: "Содержимое материала" });
     await browserExpect(editor).toBeVisible();
-    await editor.press("End");
+    await browserExpect(editor).toHaveText("Before upload");
+    await editor.evaluate((node) => {
+      const text = node.firstElementChild?.firstChild;
+      const selection = window.getSelection();
+      if (!(text instanceof Text) || selection === null)
+        throw new Error("The draft must start with a text paragraph");
+      node.focus({ preventScroll: true });
+      selection.collapse(text, text.length);
+    });
     for (let index = 0; index < 12; index += 1) {
       await editor.press("Enter");
       await page.keyboard.insertText("Строка для прокрутки");
