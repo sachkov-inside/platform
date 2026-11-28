@@ -395,6 +395,85 @@ test("the same public Product shell isolates guest, holder and later guest acros
   });
 });
 
+async function invalidateHomePin(context: BrowserContext, baseURL: string) {
+  const response = await context.request.put(
+    `${baseURL}/api/authoring/home-pin`,
+    {
+      headers: { origin: baseURL },
+      data: { expectedVersion: 1, productId: null },
+    },
+  );
+  expect(response.ok()).toBe(true);
+  expect(await response.json()).toMatchObject({
+    kind: "ready",
+    pin: { productId: null },
+  });
+}
+
+test("the AI-first pin keeps the home feed in place when the continuation appears (#652)", async ({
+  page,
+  context,
+  request,
+  baseURL,
+  isMobile,
+}) => {
+  if (baseURL === undefined) throw new Error("Web origin required");
+  const slug = `reader-state-paid${isMobile ? "-mobile" : ""}`;
+  await signIn(context, baseURL, slug);
+  const requested = Promise.withResolvers<undefined>();
+  const progress = Promise.withResolvers<undefined>();
+  try {
+    const pin = await request.post(
+      `${backend}/__product-reader-state?pin=${slug}&presentation=ai-first-process`,
+    );
+    expect(pin.ok()).toBe(true);
+    await invalidateHomePin(context, baseURL);
+    await page.route(
+      "**/api/reading-progress/product-continuation",
+      async (route) => {
+        requested.resolve(undefined);
+        await progress.promise;
+        await route.continue();
+      },
+    );
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/");
+    const card = page.locator('[data-product-presentation="ai-first-process"]');
+    const feed = page.getByRole("region", { name: "Материалы", exact: true });
+    const link = card.getByRole("link", { name: "Продолжить обучение" });
+    await expect(card).toBeVisible();
+    await expect(feed).toBeVisible();
+    await requested.promise;
+    await expect(link).toHaveCount(0);
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+    });
+    const positions = () =>
+      feed.evaluate((node) => {
+        const card = document.querySelector(
+          '[data-product-presentation="ai-first-process"]',
+        );
+        if (card === null) throw new Error("The AI-first pin is missing");
+        return {
+          cardTop: card.getBoundingClientRect().top,
+          feedTop: node.getBoundingClientRect().top,
+        };
+      });
+    const before = await positions();
+    progress.resolve(undefined);
+    await expect(link).toBeVisible();
+    await expect(link).toHaveAttribute("href", `/products/${slug}/programme`);
+    const after = await positions();
+    expect(after.cardTop).toBeCloseTo(before.cardTop, 0);
+    expect(after.feedTop).toBeCloseTo(before.feedTop, 0);
+  } finally {
+    progress.resolve(undefined);
+    const reset = await request.post(`${backend}/__product-reader-state`);
+    await invalidateHomePin(context, baseURL);
+    expect(reset.ok()).toBe(true);
+  }
+});
+
 test("Home displays the same Product learning state while its shared pin stays public", async ({
   browser,
   request,
@@ -406,19 +485,9 @@ test("Home displays the same Product learning state while its shared pin stays p
     viewport: info.project.use.viewport ?? null,
   });
   await signIn(owner, baseURL, slug);
-  const invalidatePin = async () => {
-    const response = await owner.request.put(
-      `${baseURL}/api/authoring/home-pin`,
-      {
-        headers: { origin: baseURL },
-        data: { expectedVersion: 1, productId: null },
-      },
-    );
-    expect(response.status()).toBe(200);
-  };
   try {
     await request.post(`${backend}/__product-reader-state?pin=${slug}`);
-    await invalidatePin();
+    await invalidateHomePin(owner, baseURL);
     await request.delete(`${backend}/__product-reader-state`);
     const page = await owner.newPage();
     const response = await page.goto(baseURL, { waitUntil: "commit" });
@@ -475,7 +544,7 @@ test("Home displays the same Product learning state while its shared pin stays p
     }
   } finally {
     await request.post(`${backend}/__product-reader-state`);
-    await invalidatePin();
+    await invalidateHomePin(owner, baseURL);
     await owner.close();
   }
 });
