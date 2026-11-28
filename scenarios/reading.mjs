@@ -2,7 +2,7 @@
 // Synthetic domain facts only. Each consumer owns its transport or presentation adapter.
 export const readingProduct = Object.freeze({
   id: "11111111-1111-4111-8111-111111111115",
-  name: "Курс на 120 материалов",
+  name: "Учебный курс: от идеи к выпуску",
   slug: "performance-course",
 });
 export const readingTopic = Object.freeze({

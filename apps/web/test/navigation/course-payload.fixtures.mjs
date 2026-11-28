@@ -8,7 +8,7 @@ export const performanceProductPage = {
       {
         id: "hero",
         kind: "hero",
-        badge: "Курс",
+        badge: "+ менторинг",
         lead: "Проверочный состав",
         highlights: [],
       },
