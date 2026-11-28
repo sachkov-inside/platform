@@ -883,19 +883,10 @@ describe("supported toolchain contract", () => {
     );
   });
 
-  it("configures purchase email decryption in the production notification worker", () => {
-    /** @param {string} path */
-    const terminal = (path) =>
-      read(path).match(/^TBANK_CONFIG_JSON=(.+)$/mu)?.[1];
-    const apiTerminal = terminal("config/compose/production/api.env.example");
-    assert.ok(
-      apiTerminal,
-      "the API template must declare its payment terminal",
-    );
-    assert.equal(
-      terminal("config/compose/production/notifications-worker.env.example"),
-      apiTerminal,
-      "purchase notification email must use the same terminal binding key as the API",
+  it("shares the API settings for purchase emails and sale Telegram profiles with the production worker", () => {
+    const api = read("config/compose/production/api.env.example");
+    const worker = read(
+      "config/compose/production/notifications-worker.env.example",
     );
     const smokeFilter = read("scripts/production-compose-smoke.sh").match(
       /grep -E '([^']+)' "\$runtime_config_dir\/api.env"\n\s+\} >"\$runtime_config_dir\/notifications-worker.env"/u,
@@ -905,17 +896,30 @@ describe("supported toolchain contract", () => {
       "the production smoke must derive its worker configuration",
     );
     const generated = spawnSync("grep", ["-E", smokeFilter], {
-      input: read("config/compose/production/api.env.example"),
+      input: api,
       encoding: "utf8",
       timeout: 5_000,
       killSignal: "SIGKILL",
     });
     assert.equal(generated.status, 0);
-    assert.equal(
-      generated.stdout.match(/^TBANK_CONFIG_JSON=(.+)$/mu)?.[1],
-      apiTerminal,
-      "the generated production smoke worker must also decrypt purchase email",
-    );
+    for (const key of [
+      "TBANK_CONFIG_JSON",
+      "TELEGRAM_LINKING_ENDPOINT",
+      "TELEGRAM_LINKING_SECRET",
+    ]) {
+      const assignment = api
+        .split("\n")
+        .find((line) => line.startsWith(`${key}=`));
+      assert.ok(assignment, `the API template must declare ${key}`);
+      assert.ok(
+        worker.split("\n").includes(assignment),
+        `the worker template must match ${key}`,
+      );
+      assert.ok(
+        generated.stdout.split("\n").includes(assignment),
+        `the smoke worker must inherit ${key}`,
+      );
+    }
   });
 
   it("keeps the local sale on the stand contour", () => {
